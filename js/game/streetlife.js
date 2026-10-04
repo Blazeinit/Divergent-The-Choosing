@@ -54,6 +54,7 @@
       this.nodes = [];
       this.edges = [];
       this.keyed = new Map();
+      this.blocked = blocked;
       for (const pd of pads) this.addPad(pd);
       this.addCrossings(blocked);
       // edges by 32 m cell, for spawning near the player
@@ -84,6 +85,9 @@
       const A = this.nodes[a], B = this.nodes[b];
       const len = Math.hypot(B.x - A.x, B.z - A.z);
       if (len < 0.3) return;
+      // not where something's built over the pavement (the Hub stands across two streets)
+      const n = Math.ceil(len);
+      for (let k = 0; k <= n; k++) if (this.blocked(A.x + ((B.x - A.x) * k) / n, A.z + ((B.z - A.z) * k) / n, 0.45)) return;
       const i = this.edges.length;
       this.edges.push({ a, b, len, cross: !!cross });
       A.edges.push(i); B.edges.push(i);
@@ -218,11 +222,19 @@
     /* ---- people ---- */
     model(f) {
       let m = this.pool.find((q) => !q.busy && q.f === f);
-      if (!m && this.pool.length < MODEL_CAP) {
+      if (!m && this.pool.length >= MODEL_CAP) {
+        // all the people we've made are the wrong faction for here: let one go to make room
+        const spare = this.pool.findIndex((q) => !q.busy);
+        if (spare < 0) return null;
+        const old = this.pool.splice(spare, 1)[0];
+        if (old.model.root.parent) old.model.root.parent.remove(old.model.root);
+        old.model.dispose();
+      }
+      if (!m) {
         const sex = this.r() < 0.5 ? 'f' : 'm';
         const young = this.r() < 0.18;
         const age = young ? 16 + Math.floor(this.r() * 3) : 22 + Math.floor(this.r() * 40);
-        const app = DV.Character.fromFaction(f, sex, 'street:' + f + ':' + this.pool.length, { age });
+        const app = DV.Character.fromFaction(f, sex, 'street:' + f + ':' + (this.modelN = (this.modelN || 0) + 1), { age });
         const model = DV.Character.create(app);
         this.zone.group.add(model.root);
         m = { model, f, sex, age, app, busy: false, name: FACTION_NAME[f] + ' ' + (age < 20 ? (sex === 'f' ? 'girl' : 'boy') : sex === 'f' ? 'woman' : 'man') };

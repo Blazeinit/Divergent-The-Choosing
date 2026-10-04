@@ -64,6 +64,7 @@ button { font-family: inherit; }
 .btn:active { transform: translateY(1px); }
 .btn.disabled, .btn:disabled { opacity: 0.4; pointer-events: none; }
 .btn.small { padding: 3px 8px; font-size: 11px; }
+.btn.on { color: #1a1408; background: linear-gradient(180deg, var(--accent-2), var(--accent)); }
 .sep { height: 1px; background: linear-gradient(90deg, transparent, var(--line), transparent); margin: 8px 0; }
 .dim { color: var(--dim); }
 .faint { color: var(--faint); }

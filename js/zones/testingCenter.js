@@ -722,11 +722,9 @@
       });
       ctx.add(city.group);
       zone.city = city;
-      // everything standing out there is solid (the zone's own grounds have their own walls)
-      for (const q of city.walk.solids) {
-        if (q[2] > CM.campus[0] && q[0] < CM.campus[2] && q[3] > CM.campus[1] && q[1] < CM.campus[3]) continue;
-        zone.colliders.add(q[0], q[1], q[2], q[3], { y1: q[4], tag: 'city' });
-      }
+      // everything standing out there is solid, the Testing Center's outside included (so you slide
+      // along its walls instead of stopping dead at the edge of the grounds)
+      for (const q of city.walk.solids) zone.colliders.add(q[0], q[1], q[2], q[3], { y1: q[4], tag: 'city' });
       // the walk home: your own front door, out in your sector (for Amity: the truck at the Fence gate)
       for (const f in CM.homes) {
         const h = CM.homes[f];

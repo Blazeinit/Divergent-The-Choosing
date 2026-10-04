@@ -324,6 +324,7 @@
     },
 
     /* ------------------------------ MAP ------------------------------ */
+    // two maps: the place you're in (its rooms), and the whole city (DV.WorldMap)
     render_map(c) {
       const zone = DV.World.current;
       const wrap = el('div', 'col', null, c);
@@ -337,6 +338,30 @@
         info.textContent = 'NO MAP AVAILABLE';
         return;
       }
+      // out in the streets (or anywhere the city map knows), the city's the map you want
+      const here = zone.roomAt(DV.Player.x, DV.Player.z);
+      const inCity = zone.city && zone.city.walk && (!here || here.noMap);
+      if (!this.mapView) this.mapView = inCity ? 'city' : 'local';
+      if (inCity && this._mapZone !== 'city:' + zone.id) this.mapView = 'city';
+      this._mapZone = inCity ? 'city:' + zone.id : zone.id;
+      const bar = el('div', null, null, wrap);
+      bar.style.cssText = 'position:absolute;right:10px;top:6px;display:flex;gap:6px';
+      const btn = (label, on, fn) => { const b = el('span', 'btn small' + (on ? ' on' : ''), label, bar); b.onclick = () => { DV.Audio.play('click'); fn(); }; return b; };
+      btn('Local', this.mapView === 'local', () => { this.mapView = 'local'; this.render(); });
+      btn('City', this.mapView === 'city', () => { this.mapView = 'city'; this.render(); });
+      if (this.mapView === 'city') {
+        const W = DV.WorldMap, redraw = () => W.draw(cv);
+        btn('+', false, () => { W.zoomBy(1.4, cv.width / 2, cv.height / 2); redraw(); });
+        btn('−', false, () => { W.zoomBy(1 / 1.4, cv.width / 2, cv.height / 2); redraw(); });
+        btn('Fit', false, () => { W.reset(); redraw(); });
+        const me = W.you();
+        info.textContent = 'THE CITY' + (me ? ' — YOU ARE AT ' + me[3].toUpperCase() : '');
+        requestAnimationFrame(redraw);
+        W.attach(cv, redraw);
+        this._redrawCity = redraw;
+        return;
+      }
+      this._redrawCity = null;
       info.textContent = (zone.def.name + ' — ' + (zone.def.region || '')).toUpperCase();
       requestAnimationFrame(() => this.drawMap(cv, zone));
       cv.onmousemove = (e) => {
@@ -414,6 +439,14 @@
 
     update(input) {
       for (let k = 1; k <= TABS.length; k++) if (input.consume('Digit' + k)) this.show(TABS[k - 1][0]);
+      // the city map: + and − zoom, and the "you" ring pulses
+      if (this.tab === 'map' && this._redrawCity) {
+        const cv = document.getElementById('map-canvas');
+        if (input.consume('Equal') || input.consume('NumpadAdd')) DV.WorldMap.zoomBy(1.4, cv.width / 2, cv.height / 2);
+        if (input.consume('Minus') || input.consume('NumpadSubtract')) DV.WorldMap.zoomBy(1 / 1.4, cv.width / 2, cv.height / 2);
+        this._mapT = (this._mapT || 0) + 1;
+        if (this._mapT % 3 === 0) this._redrawCity();
+      }
     },
   };
   M.itemIcon = itemIcon;
