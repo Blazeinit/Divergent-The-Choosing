@@ -393,7 +393,7 @@
     const inRect = (x, z, q, pad) => x > q[0] - (pad || 0) && x < q[2] + (pad || 0) && z > q[1] - (pad || 0) && z < q[3] + (pad || 0);
 
     // ground: asphalt, block pads, marsh beyond the city
-    B.flat(-R - 400, -R - 400, marshX, R + 400, -0.08, [0.27, 0.27, 0.27]);
+    B.flat(-R - 400, -R - 400, marshX, R + 400, -0.08, o.ground || [0.27, 0.27, 0.27]);
     B.flat(marshX, -R - 400, marshX + 1400, R + 400, -0.08, [0.33, 0.32, 0.25]);
     for (let i = 0; i < 40; i++) {
       const x = marshX + 30 + r() * 900, z = -R + r() * R * 2, w = 20 + r() * 120, d = 10 + r() * 50;
@@ -416,7 +416,7 @@
       if (Math.hypot(bx - centre[0], bz - centre[1]) > R) continue;
       if (b[0] >= marshX - 10) continue;
       // sidewalk pad
-      B.flat(b[0], b[1], Math.min(b[2], marshX - 4), b[3], -0.05, [0.36, 0.36, 0.35]);
+      B.flat(b[0], b[1], Math.min(b[2], marshX - 4), b[3], -0.05, o.padColor || [0.36, 0.36, 0.35]);
       if (inRect(bx, bz, [cx0, cz0, cx1, cz1])) continue; // the zone itself
       if (keep.some((q) => inRect(bx, bz, q))) continue; // vacant lots dressed by the zone
       fillBlock(B, [b[0], b[1], Math.min(b[2], marshX - 6), b[3]], { centre, hub, keep, o });
@@ -429,7 +429,7 @@
       if (e.parapet !== false && e.style && e.style !== 'glass') B.box(e.x, e.z, e.w + 0.5, e.d + 0.5, e.h, e.h + 0.6, e.rot || 0, null, mul(tint, 0.5), 0, {});
       if (e.waterTower) waterTower(B, e.x + e.waterTower[0], e.z + e.waterTower[1], e.h + 0.6);
     }
-    if (hub) theHub(B, hub[0], hub[1]);
+    if (hub && !o.noHubTower) theHub(B, hub[0], hub[1]); // (not when you're standing inside it)
     if (o.ferris) ferrisWheel(B, o.ferris[0], o.ferris[1], centre);
     if (o.track) elevatedTrack(B, o.track);
     return B;
@@ -759,7 +759,7 @@
 
       // the train on the L
       let train = null;
-      if (o.track) {
+      if (o.track && o.train !== false) {
         const tm = trainMesh(o.trainCars || 4);
         const mesh = new THREE.Mesh(tm.geo, new THREE.MeshBasicMaterial({ map: trainTexture(), vertexColors: true, fog: true }));
         mesh.visible = false;
@@ -783,6 +783,16 @@
         cloudShadeAt(x, z) { return City.cloudShadeAt(this, x, z); },
       };
       inst.noiseData = readNoise(noise);
+      // everything this city owns, so the zone can free it when it's torn down
+      inst.owned = { textures: [noise, ...Object.values(maps)], materials: Object.values(mats) };
+      group.traverse((o) => {
+        if (!o.material) return;
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          if (inst.owned.materials.indexOf(m) < 0) inst.owned.materials.push(m);
+          if (m.map && inst.owned.textures.indexOf(m.map) < 0) inst.owned.textures.push(m.map);
+          if (m.uniforms && m.uniforms.map && m.uniforms.map.value && inst.owned.textures.indexOf(m.uniforms.map.value) < 0) inst.owned.textures.push(m.uniforms.map.value);
+        }
+      });
       City.active = inst;
       return inst;
     },
@@ -862,8 +872,13 @@
     },
 
     dispose(inst) {
-      if (!inst) return;
+      if (!inst || inst.disposed) return;
+      inst.disposed = true;
       inst.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+      if (inst.owned) {
+        for (const m of inst.owned.materials) m.dispose();
+        for (const t of inst.owned.textures) t.dispose();
+      }
       if (inst.train && inst.train.sound) inst.train.sound.stop();
       if (City.active === inst) City.active = null;
     },
@@ -877,5 +892,12 @@
     }
   }
   City.STYLES = STYLES;
+  // the L train on its own (boarding it, riding in it)
+  City.trainMesh = (cars) => {
+    const tm = trainMesh(cars || 4);
+    const mesh = new THREE.Mesh(tm.geo, new THREE.MeshBasicMaterial({ map: trainTexture(), vertexColors: true, fog: true }));
+    mesh.userData.length = tm.length;
+    return mesh;
+  };
   DV.City = City;
 })();

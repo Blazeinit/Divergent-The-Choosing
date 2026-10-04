@@ -13,7 +13,7 @@ You need Node 18+ and the `playwright` package with a Chromium build:
 
 ```bash
 npm i -g playwright && npx playwright install chromium   # once
-NODE_PATH="$(npm root -g)" node tools/qa/run.js           # all tests (~15 min)
+NODE_PATH="$(npm root -g)" node tools/qa/run.js           # all tests (~10 min)
 NODE_PATH="$(npm root -g)" node tools/qa/run.js checkpoint audio   # just some
 ```
 
@@ -32,8 +32,18 @@ To use a Chromium you already have, set `CHROMIUM_PATH=/path/to/chrome`. Screens
 | `divergent` | Awareness choices → INCONCLUSIVE → Claire's warning and manual record → the character sheet |
 | `side-quests` | All six side quests, lockpicking, the coffee theft (seen and unseen), Tab menu, pause, waiting, and save → reload → Continue |
 | `sims-idle` | Doing nothing in each simulation still progresses: the dog lunge, drowning, refusing to sit |
-| `input` | The mouse stays captured through dialogue (mouse, wheel and click to choose) and re-captures after menus |
+| `reception` | Arriving candidates queue at the desk, are served in order, get their badge and move on |
+| `movement` | Jump (stamina, exhaustion, height), crouch (camera, speed), sneaking past staff, no jumping the security arm |
+| `input` | Classic mouse mode (in-game cursor off): the mouse stays captured through dialogue and re-captures after menus |
+| `cursor` | The in-game cursor: menus keep the mouse captured; hover, clicks, wheel, sliders and dropdowns through it; free-mouse mode; the setting |
+| `city` | The city builds fast and stays out of playable rooms; indoor/outdoor fog; cloud shadows move and darken people; the L train runs and stops cleanly |
+| `wildlife` | Pigeons stay put, scatter when run at, perch and return; calm walkers don't spook them; crows circle; flags fly; litter stays in the plaza |
+| `build2-story` | The bus home, dinner choices, a save at bedtime resuming at bedtime, the night before, the ceremony (order, consequences, knife, bowl, faction), the exodus |
+| `build2-factions` | The Dauntless train (missing it, catching it), the roof jump (too early, right), first jumper, the net and the Pit; each other faction's arrival and a save after it |
 | `audio` | Per-room reverb, indoor vs. outdoor layers, open-door bleed, accents, the simulation beds, and the reverb setting |
-| `save-migration` | A v1 save with old NPC ids loads into v2 with everything intact |
+| `save-migration` | A v1 save with old NPC ids and names loads into the current version with everything intact |
 | `npc-day` | A full day of schedules from two vantage points: nobody stuck, teleported, path-less or double-seated |
-| `perf` | Draw-call budget in the heaviest views |
+| `perf` | Draw-call budget in the heaviest views, including the plaza looking out at the city |
+
+Tests render at the lowest resolution and step game time (`QA.step`, `L.until`) instead of
+waiting on the clock, so a slow software-GL frame rate can't make them flaky.

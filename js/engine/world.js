@@ -1118,6 +1118,7 @@
       const z = this.zones[id];
       if (!z) return;
       if (this.current === z) { this.scene.remove(z.group); this.current = null; }
+      if (z.city && DV.City) DV.City.dispose(z.city);
       z.group.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
       });

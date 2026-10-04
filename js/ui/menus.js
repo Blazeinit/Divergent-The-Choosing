@@ -13,7 +13,7 @@
       this.hideAll();
       const m = el('div', null, null, DV.UI.root);
       m.id = 'mainmenu';
-      m.innerHTML = '<div class="title">DIVERGENT</div><div class="subtitle">The Aptitude Test</div><div class="sigils"></div><div class="items"></div><div class="foot"></div>';
+      m.innerHTML = '<div class="title">DIVERGENT</div><div class="subtitle">The Choosing</div><div class="sigils"></div><div class="items"></div><div class="foot"></div>';
       const sig = m.querySelector('.sigils');
       for (const f of DV.Factions.testable) {
         const c = document.createElement('canvas');
@@ -86,7 +86,7 @@
           if (s.summary) {
             const sm = s.summary;
             info.innerHTML = '<div class="a">' + U.esc(sm.name) + ' — Level ' + sm.level + ' — ' + U.esc(sm.location || '') + '</div><div class="b">Day ' + sm.day + ' ' + sm.time +
-              ' · played ' + U.formatDuration(sm.playTime) + ' · saved ' + new Date(sm.saved).toLocaleString() + (sm.result ? ' · ' + U.esc(sm.result) : '') + '</div>';
+              ' · played ' + U.formatDuration(sm.playTime) + ' · saved ' + new Date(sm.saved).toLocaleString() + (sm.faction ? ' · ' + U.esc(sm.faction) : sm.result ? ' · ' + U.esc(sm.result) : '') + '</div>';
           } else info.innerHTML = '<div class="b">— empty —</div>';
           row.onclick = () => {
             DV.Audio.play('click');
@@ -169,7 +169,7 @@
       this.closeSide();
       const p = this.side('Credits');
       p.querySelector('.body').innerHTML = '<div class="credits">' +
-        '<p><b class="accent">DIVERGENT — Build 1: The Aptitude Test</b></p>' +
+        '<p><b class="accent">DIVERGENT — Build 2: The Choosing</b></p>' +
         '<p>A private, non-commercial fan-game prototype inspired by the <i>Divergent</i> series by Veronica Roth. Not affiliated with or endorsed by the author, publishers or film studios. All characters, locations and story in this prototype are original.</p>' +
         '<div class="sep"></div>' +
         '<p><span class="accent">Design, code, writing & procedural art</span><br>Built with HTML, CSS, JavaScript and Three.js (r149, MIT License).</p>' +

@@ -66,6 +66,7 @@
           playTime: Math.round(state.meta.playTime),
           saved: Date.now(),
           result: state.aptitude.status === 'complete' ? DV.Aptitude.displayResult() : null,
+          faction: state.player.faction ? DV.Factions.name(state.player.faction) : null, // Build 2: after the Choosing
         };
         localStorage.setItem(this.key(slot), JSON.stringify({ version: DV.State.SAVE_VERSION, summary, state }));
         localStorage.setItem(PFX + 'last', slot);

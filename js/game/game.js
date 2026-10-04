@@ -271,6 +271,7 @@
             DV.Story.pa('Welcome to the Sector 4 Aptitude Testing Center. Candidates, please check in at reception, then present your name badge at security.');
           } else {
             DV.Quests.tracked = st.questsTracked || DV.Quests.firstActive();
+            DV.Build2.beginGoingHome(); // a save made after the results (also from Build 1)
           }
           DV.UI.loading(false);
           DV.UI.showHUD(true);
@@ -399,6 +400,8 @@
         if (this.inChapter()) DV.Chapter.update(dt);
       }
       this.rig.update(dt, DV.Player, zone);
+      // in a tight spot the camera can end up inside your head: hide yourself rather than fill the screen
+      if (DV.Player.model) DV.Player.model.root.visible = !(this.rig.mode === 'follow' && this.rig.curDist < 0.7);
       DV.UI.updateHUD(this);
       DV.UI.updateBarks(this);
       // playtime
@@ -754,7 +757,8 @@
         DV.Input.requestLock();
         DV.Audio.setMusic('none');
         DV.Save.write('auto');
-        DV.UI.notify('Autosaved. The facility is yours to explore — people have a lot to say about today.', 'info');
+        DV.UI.notify('Autosaved. Explore as long as you like — when you are ready, the bus home waits outside the front gate.', 'info');
+        DV.Build2.beginGoingHome();
       });
     },
     autosaveSoon() {

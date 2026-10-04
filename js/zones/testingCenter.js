@@ -573,7 +573,10 @@
     build(ctx) {
       const zone = ctx.zone;
       // player-only blocker across the street gate (NPCs come and go through it)
-      zone.colliders.add(37.8, 75.85, 42.2, 76.15, { y0: 0, y1: 3, playerOnly: true, tag: 'gateblock' });
+      // (opens once you've had your results: then the bus home waits at the curb)
+      zone.gateBlock = zone.colliders.add(37.8, 75.85, 42.2, 76.15, { y0: 0, y1: 3, playerOnly: true, tag: 'gateblock' });
+      ctx.update(() => { zone.gateBlock.enabled = !DV.State.flag('results_discussed'); });
+      ctx.interact({ id: 'bus_home', kind: 'action', x: 47.5, y: 1.2, z: 78.7, radius: 2.2, label: 'Ride home', name: 'Northbound Bus', cond: () => DV.Build2.canGoHome(), onUse: () => DV.Build2.rideHome() });
       // security barrier arm inside the scanner arch — down until you show your name badge
       // (DV.Checkpoint drives it, and lifts it for NPCs who show theirs)
       zone.securityBlock = zone.colliders.add(39.3, 40.85, 40.7, 41.15, { y0: 0, y1: 2.4, playerOnly: true, tag: 'security' });

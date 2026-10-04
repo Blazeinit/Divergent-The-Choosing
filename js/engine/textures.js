@@ -102,6 +102,22 @@
     speckle(c, w, h, r, 140, ['#4a4945', '#6b6a65'], 1);
     cracks(c, w, h, r, 4, 'rgba(20,20,18,0.45)');
   });
+  // raw cut rock (the Dauntless Pit)
+  def('rock', 128, 128, 3.2, (c, w, h, r) => {
+    c.fillStyle = '#4a4744'; c.fillRect(0, 0, w, h);
+    noise(c, w, h, r, 40);
+    blotches(c, w, h, r, 18, 'rgba(20,18,16,0.35)', 10, 40);
+    blotches(c, w, h, r, 10, 'rgba(120,112,100,0.18)', 8, 30);
+    for (let i = 0; i < 9; i++) { c.fillStyle = 'rgba(15,14,12,0.4)'; const y = Math.floor(r() * h); c.fillRect(0, y, w, 1 + Math.floor(r() * 2)); }
+    speckle(c, w, h, r, 220, ['#3a3734', '#5e5a55', '#2e2c2a'], 1);
+    cracks(c, w, h, r, 7, 'rgba(10,10,8,0.6)');
+  });
+  // rooftop gravel
+  def('gravel', 64, 64, 1.6, (c, w, h, r) => {
+    c.fillStyle = '#6c6965'; c.fillRect(0, 0, w, h);
+    speckle(c, w, h, r, 700, ['#4f4c48', '#86827c', '#5d5a56', '#9a958e', '#3e3c39'], 2);
+    blotches(c, w, h, r, 4, 'rgba(30,28,26,0.18)', 6, 16);
+  });
   def('concrete_panel', 128, 128, 3.0, (c, w, h, r) => {
     c.fillStyle = '#9d9a92'; c.fillRect(0, 0, w, h);
     noise(c, w, h, r, 18);

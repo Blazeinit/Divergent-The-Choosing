@@ -174,7 +174,8 @@
       }
       let entry = opts.node;
       if (!entry) {
-        if (typeof tree.entry === 'function') entry = tree.entry(session.c);
+        if (typeof tree.entry === 'string') entry = tree.entry;
+        else if (typeof tree.entry === 'function') entry = tree.entry(session.c);
         else if (Array.isArray(tree.entry)) {
           const e = tree.entry.find((x) => !x.if || x.if(session.c));
           entry = e && e.node;

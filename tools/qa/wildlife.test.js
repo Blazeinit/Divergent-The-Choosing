@@ -70,9 +70,10 @@ L.run('wildlife & small motion', async (p, T, errs) => {
   // flags fly; litter blows about inside the plaza
   const motion = await ev(() => {
     const f = DV.Wildlife.flags.find((x) => x.mesh.parent && x.mesh.parent.parent === DV.World.current.group || x.mesh.parent === DV.World.current.group);
-    const z1 = f.pos.getZ(f.pos.count - 1);
-    QA.step(0.5);
-    const z2 = f.pos.getZ(f.pos.count - 1);
+    // the tip's range of motion over a couple of seconds (one pair of samples can land on the same phase)
+    let lo = 1e9, hi = -1e9;
+    for (let i = 0; i < 12; i++) { QA.step(0.15); const z = f.pos.getZ(f.pos.count - 1); lo = Math.min(lo, z); hi = Math.max(hi, z); }
+    const z1 = lo, z2 = hi;
     const w = DV.World.current.wildlife, Lt = w.litter;
     const start = Lt.items.map((it) => [it.x, it.z]);
     DV.Wildlife.wind.t = 1.4 / 0.47; // into a gusty stretch
@@ -82,7 +83,7 @@ L.run('wildlife & small motion', async (p, T, errs) => {
     const inside = Lt.items.every((it) => it.x >= x0 - 0.01 && it.x <= x1 + 0.01 && it.z >= z0 - 0.01 && it.z <= z1r + 0.01 && it.y >= 0);
     return { flag: Math.abs(z2 - z1), moved, n: Lt.items.length, inside };
   });
-  T.ok(motion.flag > 0.005, 'flags fly in the wind (tip moved ' + motion.flag.toFixed(3) + ' m)');
+  T.ok(motion.flag > 0.05, 'flags fly in the wind (tip swings ' + motion.flag.toFixed(2) + ' m)');
   T.ok(motion.moved > 0 && motion.inside, motion.moved + ' of ' + motion.n + ' scraps of litter blew about, all still in the plaza');
   await L.shot(p, 'wildlife');
   T.noErrors(errs);

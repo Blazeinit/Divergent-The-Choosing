@@ -158,7 +158,7 @@
       this.justJumped = false;
       if (ctx.enabled && input.consume('KeyC') && this.onGround) this.crouched = !this.crouched;
       if (wantRun && this.crouched && !this.exhausted && this.stamina > 0) this.crouched = false;
-      if (ctx.enabled && input.consume('Space')) this.tryJump();
+      if (ctx.enabled && !this.pinned && input.consume('Space')) this.tryJump(); // (pinned: Space hurries a ceremony along instead)
       this.crouchK += ((this.crouched ? 1 : 0) - this.crouchK) * Math.min(1, dt * 9);
       const athletics = DV.Stats ? DV.Stats.skill('athletics') : 20;
       let canRun = !this.exhausted && this.stamina > 0;

@@ -46,6 +46,9 @@ exports.open = async (opts) => {
 exports.quickStart = async (page, attrs) => {
   await page.evaluate((attrs) => {
     DV.State.reset();
+    // the lowest render resolution: software GL is fill-rate bound, and tests don't need pixels
+    DV.Settings.data.renderScale = 'ultra';
+    DV.Game.resize();
     const pl = DV.State.data.player;
     pl.name = 'Tester'; pl.sex = 'm'; pl.upbringing = 'erudite';
     pl.appearance = DV.Character.fromFaction('neutral', 'm', 'tester');
@@ -114,6 +117,13 @@ exports.helpers = (page) => page.evaluate(() => {
     clearSecurity() { QA.talk('dean_walsh'); QA.seq(['show your name badge', 'arms out']); QA.end(); return !!DV.State.flag('security_cleared'); },
   };
 });
+
+// wait for a condition while stepping game time (survives slow software-GL frames, and
+// lets real-time fades and timers run between polls)
+exports.until = (page, cond, timeout, step) => page.waitForFunction(
+  ([src, st]) => { const ok = (0, eval)('(' + src + ')')(); if (!ok) QA.step(st); return ok; },
+  [cond.toString(), step || 0.25], { timeout: timeout || 30000, polling: 60 }
+).then(() => true, () => false);
 
 exports.shot = (page, name) => {
   fs.mkdirSync(OUT, { recursive: true });

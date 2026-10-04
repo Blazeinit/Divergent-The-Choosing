@@ -102,8 +102,8 @@
     startText: 'Candidates who have finished testing may go home. Buses leave from the street outside the front gate.',
     objectives: [
       { id: 'leave', text: 'Go home — the bus waits outside the front gate', target: { x: 47, z: 78.6 } },
-      { id: 'dinner', text: 'Have dinner with your family', hidden: true, target: { x: 4, z: 3 } },
-      { id: 'sleep', text: 'Get some sleep — your room is at the back', hidden: true, target: { x: 10.4, z: 9.4 } },
+      { id: 'dinner', text: 'Have dinner with your family', hidden: true, target: { x: 3.4, z: 3.6 } },
+      { id: 'sleep', text: 'Get some sleep — your room is at the back', hidden: true, target: { x: 15.4, z: 8.9 } },
       { id: 'ceremony', text: 'The Choosing Ceremony: wait for your name', hidden: true, target: { x: 22, z: 14 } },
       { id: 'choose', text: 'Cut your palm and choose a faction', hidden: true, target: { x: 22, z: 14 } },
       { id: 'follow', text: 'Follow your new faction', hidden: true },

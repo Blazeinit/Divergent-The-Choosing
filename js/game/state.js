@@ -93,7 +93,8 @@
   function blank() {
     return {
       version: SAVE_VERSION,
-      meta: { created: Date.now(), playTime: 0, chapter: 'Build 1 — Aptitude Day' },
+      meta: { created: Date.now(), playTime: 0, chapter: 'Aptitude Day' },
+      story: { chapter: null }, // Build 2: the current story chapter + checkpoint, your faction choice, leanings
       player: {
         name: 'Candidate',
         sex: 'm',

@@ -379,6 +379,52 @@
             this.burst('lowpass', 160, 0.5, 0.9, 0.2 * v);
             break;
           }
+          case 'applause': { // a section of the crowd clapping
+            const n = Math.round(60 * (opts.size || 1));
+            for (let i = 0; i < n; i++) this.burst('bandpass', 1400 + Math.random() * 1800, 1.1, 0.025, (0.015 + Math.random() * 0.02) * v, Math.random() * (opts.secs || 2.4) * (0.4 + 0.6 * Math.random()));
+            break;
+          }
+          case 'roar': { // the Dauntless on their feet: a roar, stamping, whoops
+            const c = this.ctx, t = c.currentTime, d = opts.secs || 3;
+            const s = this.noiseSrc(this.pink || this.brown, true);
+            const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = 0.7;
+            const g = c.createGain();
+            g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.32 * v, t + 0.35); g.gain.linearRampToValueAtTime(0.22 * v, t + d * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+            s.connect(f); f.connect(g); g.connect(this._dest); s.start(t); s.stop(t + d + 0.1);
+            for (let i = 0; i < 9; i++) { const o = this.tone(500 + Math.random() * 500, 0.35, 'sawtooth', 0.012 * v, Math.random() * d * 0.7); o.frequency.exponentialRampToValueAtTime(900 + Math.random() * 400, t + 0.3); }
+            for (let i = 0; i < 14; i++) this.burst('lowpass', 140, 0.8, 0.08, 0.05 * v, i * 0.2 + Math.random() * 0.05);
+            for (let i = 0; i < 40; i++) this.burst('bandpass', 1600 + Math.random() * 1500, 1.1, 0.025, 0.02 * v, Math.random() * d * 0.8);
+            break;
+          }
+          case 'murmur': { // a crowd reacting under its breath
+            const c = this.ctx, t = c.currentTime, d = opts.secs || 2.2;
+            const s = this.noiseSrc(this.white, true);
+            const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 1.4;
+            const g = c.createGain();
+            g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.12 * v, t + 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+            s.connect(f); f.connect(g); g.connect(this._dest); s.start(t); s.stop(t + d + 0.1);
+            break;
+          }
+          case 'crackle': { // a wood fire
+            for (let i = 0; i < 3 + Math.floor(Math.random() * 4); i++) this.burst('highpass', 1800 + Math.random() * 2500, 0.8, 0.012 + Math.random() * 0.02, (0.02 + Math.random() * 0.05) * v, Math.random() * 0.5);
+            this.burst('lowpass', 260, 0.6, 0.3, 0.02 * v);
+            break;
+          }
+          case 'knife': { // a blade drawn across a palm
+            const o = this.tone(3200, 0.18, 'triangle', 0.02 * v);
+            o.frequency.exponentialRampToValueAtTime(5200, this.ctx.currentTime + 0.16);
+            this.burst('highpass', 4000, 0.7, 0.12, 0.05 * v, 0.02);
+            break;
+          }
+          case 'drip': { // blood falling into a bowl: depends on what's in it
+            const k = opts.into || 'stone';
+            if (k === 'dauntless') { this.burst('highpass', 2500, 0.5, 0.5, 0.09 * v); this.burst('bandpass', 700, 1, 0.25, 0.04 * v, 0.05); }
+            else if (k === 'erudite') { const o = this.tone(1300, 0.16, 'sine', 0.05 * v); o.frequency.exponentialRampToValueAtTime(820, this.ctx.currentTime + 0.14); }
+            else if (k === 'candor') this.tone(3600, 0.06, 'triangle', 0.035 * v);
+            else if (k === 'amity') this.burst('lowpass', 300, 0.8, 0.09, 0.07 * v);
+            else this.burst('bandpass', 1500, 4, 0.04, 0.07 * v);
+            break;
+          }
           case 'flap': { // a flock taking off: a clatter of wingbeats that thins out
             const n = 10 + Math.floor(Math.random() * 8);
             for (let i = 0; i < n; i++) {
@@ -638,7 +684,7 @@
       g.connect(this.musicBus);
       const filt = c.createBiquadFilter();
       filt.type = 'lowpass';
-      filt.frequency.value = kind === 'sim' ? 500 : 900;
+      filt.frequency.value = kind === 'sim' ? 500 : kind === 'home' ? 650 : 900;
       filt.Q.value = 0.7;
       filt.connect(g);
       const voices = [];
@@ -655,6 +701,11 @@
         menu: [[146.8, 174.6, 220, 293.7], [116.5, 174.6, 233.1, 293.7], [130.8, 196, 261.6, 329.6], [110, 164.8, 220, 277.2]],
         sim: [[73.4, 77.8, 110, 155.6], [69.3, 73.4, 103.8, 146.8]],
         calm: [[130.8, 196, 246.9, 329.6], [110, 164.8, 220, 261.6], [116.5, 174.6, 233.1, 293.7], [98, 146.8, 196, 246.9]],
+        // Build 2
+        home: [[130.8, 164.8, 196, 246.9], [110, 130.8, 164.8, 220], [87.3, 130.8, 174.6, 220], [98, 123.5, 146.8, 196]],
+        ceremony: [[110, 164.8, 220, 261.6], [87.3, 130.8, 174.6, 220], [130.8, 196, 261.6, 329.6], [98, 146.8, 196, 246.9], [110, 164.8, 220, 261.6], [82.4, 123.5, 164.8, 207.7]],
+        dauntless: [[73.4, 110, 146.8, 174.6], [65.4, 98, 130.8, 155.6], [58.3, 87.3, 116.5, 146.8], [65.4, 98, 130.8, 164.8]],
+        orchard: [[146.8, 185, 220, 293.7], [123.5, 146.8, 185, 246.9], [98, 146.8, 196, 246.9], [110, 138.6, 164.8, 220]],
       };
       const prog = progs[kind] || progs.menu;
       let step = 0;
@@ -669,12 +720,25 @@
         step++;
       };
       apply();
-      g.gain.setTargetAtTime(1, c.currentTime, 2);
-      const timer = setInterval(apply, kind === 'sim' ? 6000 : 8000);
+      g.gain.setTargetAtTime(kind === 'home' || kind === 'ceremony' ? 0.7 : 1, c.currentTime, 2);
+      const timer = setInterval(apply, kind === 'sim' ? 6000 : kind === 'dauntless' ? 4000 : kind === 'ceremony' ? 10000 : 8000);
+      // the Dauntless get drums: kick on 1 and 3, a snare of noise on 2 and 4, ticks between
+      let drum = null;
+      if (kind === 'dauntless') {
+        const beat = 0.46;
+        let n = 0;
+        drum = setInterval(() => {
+          const k = n++ % 8;
+          if (k % 4 === 0) { const o = this.tone(70, 0.22, 'sine', 0.22, 0, g); o.frequency.exponentialRampToValueAtTime(42, c.currentTime + 0.2); }
+          if (k % 4 === 2) this.burst('bandpass', 1800, 0.8, 0.12, 0.09, 0, g);
+          this.burst('highpass', 7000, 0.7, 0.03, 0.025, beat / 2, g);
+        }, beat * 1000);
+      }
       this.musicState = {
         gain: g,
         timer,
         stop: () => {
+          if (drum) clearInterval(drum);
           for (const v of voices) { try { v.o1.stop(); v.o2.stop(); } catch (e) { /* noop */ } }
           try { g.disconnect(); } catch (e) { /* noop */ }
         },

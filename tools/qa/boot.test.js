@@ -22,7 +22,10 @@ L.run('boot & new game through the UI', async (p, T, errs) => {
   T.eq(st.obj, 'checkin', 'first objective is reception check-in');
   T.ok(st.npcs >= 15, 'NPCs present at 08:00 (' + st.npcs + ')');
   const z0 = await p.evaluate(() => DV.Player.z);
-  await p.keyboard.down('KeyW'); await p.waitForTimeout(1200); await p.keyboard.up('KeyW');
+  // hold the real W key until you've moved (slow software-GL frames run game time slower than real time)
+  await p.keyboard.down('KeyW');
+  await p.waitForFunction((z0) => z0 - DV.Player.z > 0.8, z0, { timeout: 8000 }).catch(() => {});
+  await p.keyboard.up('KeyW');
   const z1 = await p.evaluate(() => DV.Player.z);
   T.ok(z0 - z1 > 0.8, 'W walks forward (' + (z0 - z1).toFixed(2) + 'm)');
   await L.shot(p, 'boot_world');

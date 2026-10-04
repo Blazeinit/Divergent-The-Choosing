@@ -188,6 +188,7 @@
     playerCanPass(lock, door) {
       if (!lock) return true;
       if (lock.indexOf('sim') === 0) return !!(DV.Sim && DV.Sim.canPass(lock));
+      if (DV.Game.inChapter && DV.Game.inChapter()) return DV.Chapter.canPass(lock); // story chapters own their doors
       const zs = DV.State.zoneState(DV.World.current ? DV.World.current.id : 'testing_center');
       if (door && zs.doors[door.id] === 'unlocked') return true;
       switch (lock) {
