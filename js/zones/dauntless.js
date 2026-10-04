@@ -471,7 +471,38 @@
   });
 
   /* ============================== 4. the net, and the Pit ============================== */
+  // soft-edged gradients for the light shafts and the pools of daylight they make
+  // (shared and kept: built once, reused each time the Pit is built)
+  const glowTex = {};
+  const gradTex = (kind) => {
+    if (glowTex[kind]) return glowTex[kind];
+    const w = 64, h = kind === 'shaft' ? 128 : 64;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'), img = g.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let a;
+        if (kind === 'shaft') {
+          const u = x / (w - 1), v = y / (h - 1); // v = 0 at the roof
+          a = Math.pow(Math.sin(Math.PI * u), 1.6) * Math.min(1, v * 8) * Math.pow(1 - v, 0.7);
+        } else {
+          const dx = (x + 0.5) / w * 2 - 1, dy = (y + 0.5) / h * 2 - 1;
+          a = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy));
+          a = a * a * (3 - 2 * a);
+        }
+        const i = (y * w + x) * 4;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+        img.data[i + 3] = Math.round(a * 255);
+      }
+    }
+    g.putImageData(img, 0, 0);
+    return (glowTex[kind] = new THREE.CanvasTexture(c));
+  };
   (function definePit() {
+    // paths cut into the long walls: [height, z from, z to, wall x]; a lantern hangs by every doorway
+    const SHELVES = [[4.5, -13.2, 18, 13.6], [9, -13.2, 18, 13.6], [4.5, -13.2, 18, 60.4], [9, -13.2, 18, 60.4], [13.5, -13.2, 10, 60.4]];
+    const LANTERNS = [];
+    for (const [y, z0, z1, x] of SHELVES) for (let z = z0 + 3; z < z1 - 2; z += 6.5) LANTERNS.push({ x, y, z, warm: (z * 7) % 3 >= 1.5 });
     const props = [];
     const add = (type, x, z, o) => props.push(Object.assign({ type, x, z }, o || {}));
     for (let x = 15; x < 60; x += 6) add('railing', x + 3, 19.85, { len: 6, h: 1.15 });
@@ -488,19 +519,24 @@
       bounds: { x0: -2, z0: -16, x1: 64, z1: 30 },
       buildingHeight: 18,
       facade: 'rock',
-      fog: { color: 0x10141c, near: 40, far: 150 },
+      fog: { color: 0x1a212c, near: 45, far: 170 },
       sky: { visible: false, skyline: false, top: 0x000000, horizon: 0x000000, ground: 0x000000 },
-      charLight: { ambient: 0.45, hemi: 0.35, dir: 0.3, dirColor: 0x9ab8ff },
+      charLight: { ambient: 0.5, hemi: 0.45, dir: 0.5, dirColor: 0xdfe8ff },
       rooms: [
         { id: 'net_room', name: 'The Net', x0: 0, z0: 0, x1: 10, z1: 10, h: 7, floor: 'concrete_dark', wall: 'rock', ceiling: 'rock', light: { ambient: [0.1, 0.1, 0.12], color: [0.85, 0.9, 1], intensity: 0.6, spacing: 9, range: 6, fixture: 'bulb', extra: [{ x: 5, z: 5, y: 6.5, intensity: 1.0, range: 7, color: [0.9, 0.92, 1] }] } },
         { id: 'pit_tunnel', name: 'Tunnel', x0: 10, z0: 3.5, x1: 13, z1: 6.5, h: 3, floor: 'concrete_dark', wall: 'rock', ceiling: 'rock', light: { ambient: [0.12, 0.13, 0.17], color: [0.55, 0.7, 1], intensity: 0.8, spacing: 3, range: 4, fixture: 'bulb' } },
         {
-          id: 'the_pit', name: 'The Pit', x0: 13, z0: -14, x1: 61, z1: 20, h: 18, floor: 'rock', wall: 'rock', ceiling: 'glass_dark',
-          light: { ambient: [0.3, 0.32, 0.38], color: [1, 0.8, 0.55], intensity: 0.95, spacing: 8, range: 11, fixture: 'bulb', extra: [
+          // the glass roof is built in build(): daylight from above, lamps along the paths
+          id: 'the_pit', name: 'The Pit', x0: 13, z0: -14, x1: 61, z1: 20, h: 18, floor: 'rock', wall: 'rock', noCeiling: true,
+          light: { ambient: [0.42, 0.45, 0.52], color: [1, 0.8, 0.55], intensity: 0.95, spacing: 0, range: 11, fixture: 'none', extra: [
+            ...LANTERNS.map((l) => ({ x: l.x + (l.x < 30 ? 0.7 : -0.7), y: l.y + 2.4, z: l.z + 1.2, intensity: 0.75, range: 6.5, color: l.warm ? [1, 0.75, 0.45] : [0.55, 0.7, 1] })),
             { x: 37, z: 19, y: 2, intensity: 0.9, range: 12, color: [0.45, 0.65, 1] },
             { x: 20, z: 19, y: 2, intensity: 0.7, range: 10, color: [0.45, 0.65, 1] },
             { x: 54, z: 19, y: 2, intensity: 0.7, range: 10, color: [0.45, 0.65, 1] },
-            { x: 37, z: -3, y: 16, intensity: 0.8, range: 22, color: [0.75, 0.85, 1] },
+            // daylight through the roof
+            { x: 37, z: 2, y: 14, intensity: 0.75, range: 26, color: [0.8, 0.87, 1] },
+            { x: 22, z: -4, y: 12, intensity: 0.5, range: 18, color: [0.8, 0.87, 1] },
+            { x: 52, z: 8, y: 12, intensity: 0.5, range: 18, color: [0.8, 0.87, 1] },
           ] },
         },
       ],
@@ -527,9 +563,14 @@
         beam.position.set(5, 4, 5.5);
         ctx.add(beam);
         // the chasm: a long drop beyond the railing, the river roaring at the bottom
-        const far = new THREE.Mesh(new THREE.PlaneGeometry(48, 34), rockMat(12, 9, 0x6a6e78));
-        far.position.set(37, 0, 27.5); far.rotation.y = Math.PI;
+        const far = new THREE.Mesh(new THREE.PlaneGeometry(48, 36.4), rockMat(12, 9, 0x6a6e78));
+        far.position.set(37, 0.2, 27.5); far.rotation.y = Math.PI;
         ctx.add(far);
+        for (const [x, ry] of [[13, Math.PI / 2], [61, -Math.PI / 2]]) {
+          const side = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 18.4), rockMat(2, 5, 0x6a6e78));
+          side.position.set(x, 9.2, 23.75); side.rotation.y = ry;
+          ctx.add(side);
+        }
         const drop = new THREE.Mesh(new THREE.BoxGeometry(48, 16, 7.5), [rockMat(2, 4), rockMat(2, 4), rockMat(1, 1, 0x000000), rockMat(1, 1, 0x000000), rockMat(12, 4, 0x55585f), rockMat(12, 4, 0x55585f)]);
         drop.material.forEach((m) => { m.side = THREE.BackSide; });
         drop.position.set(37, -8, 23.75);
@@ -547,7 +588,7 @@
         const dark = new THREE.MeshBasicMaterial({ color: 0x07080a, fog: true });
         const glow = new THREE.MeshBasicMaterial({ color: 0x8ab0ff, fog: true });
         const warm = new THREE.MeshBasicMaterial({ color: 0xffc070, fog: true });
-        for (const [y, z0, z1, x] of [[4.5, -13.2, 18, 13.6], [9, -13.2, 18, 13.6], [4.5, -13.2, 18, 60.4], [9, -13.2, 18, 60.4], [13.5, -13.2, 10, 60.4]]) {
+        for (const [y, z0, z1, x] of SHELVES) {
           const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, z1 - z0), ledge);
           shelf.position.set(x + (x < 30 ? 0.6 : -0.6), y, (z0 + z1) / 2);
           ctx.add(shelf);
@@ -555,13 +596,13 @@
             const d = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), dark);
             d.position.set(x + (x < 30 ? 0.02 : -0.02), y + 1.3, z); d.rotation.y = x < 30 ? Math.PI / 2 : -Math.PI / 2;
             ctx.add(d);
-            const l = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.5), (z * 7) % 3 < 1.5 ? glow : warm);
+            const l = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.5), (z * 7) % 3 >= 1.5 ? warm : glow);
             l.position.set(x + (x < 30 ? 0.08 : -0.08), y + 2.8, z + 1.2);
             ctx.add(l);
           }
         }
         for (const [x, z, h] of [[16, -13.4, 18], [37, -13.6, 18], [58, -13.4, 18]]) {
-          const pipe = new THREE.Mesh(new THREE.BoxGeometry(0.4, h, 0.4), new THREE.MeshBasicMaterial({ color: 0x3a3a40, fog: true }));
+          const pipe = new THREE.Mesh(new THREE.BoxGeometry(0.4, h, 0.4), new THREE.MeshBasicMaterial({ color: 0x1c1d22, fog: true }));
           pipe.position.set(x, h / 2, z); ctx.add(pipe);
         }
         // blue lamps along the railing
@@ -569,6 +610,68 @@
           const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), glow);
           lamp.position.set(x, 1.25, 19.85); ctx.add(lamp);
         }
+        // the glass roof, out over the chasm too: pale daylight through grimy panes on an iron frame
+        const RX0 = 13, RX1 = 61, RZ0 = -14, RZ1 = 27.5, RY = 18;
+        const sky = new THREE.Mesh(new THREE.PlaneGeometry(RX1 - RX0, RZ1 - RZ0), new THREE.MeshBasicMaterial({ color: 0xa9bccb, fog: false }));
+        sky.rotation.x = Math.PI / 2;
+        sky.position.set((RX0 + RX1) / 2, RY + 0.3, (RZ0 + RZ1) / 2);
+        ctx.add(sky);
+        const iron = ctx.M('metal_painted'), B = ctx.B;
+        for (let x = RX0; x <= RX1 + 0.01; x += 4) B.box(iron, x, RY - 0.35, (RZ0 + RZ1) / 2, 0.22, 0.35, RZ1 - RZ0);
+        for (let z = RZ0; z <= RZ1 + 0.01; z += 4.5) B.box(iron, (RX0 + RX1) / 2, RY - 0.25, z, RX1 - RX0, 0.25, 0.18);
+        for (const x of [25, 37, 49]) B.box(iron, x, RY - 1.1, (RZ0 + RZ1) / 2, 0.35, 0.75, RZ1 - RZ0); // trusses
+        // shafts of daylight slanting down to the floor, and the pools where they land
+        const sun = new THREE.Vector3(-0.22, 1, -0.16).normalize();
+        const up = new THREE.Vector3(0, 1, 0);
+        const shaftMat = new THREE.MeshBasicMaterial({ map: gradTex('shaft'), color: 0xe4ecff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+        const poolMat = new THREE.MeshBasicMaterial({ map: gradTex('pool'), color: 0xd8e2f2, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, fog: true });
+        const shafts = [];
+        for (const [x, z, w] of [[22, -6, 3.2], [33, 3, 4.2], [46, -3, 3.6], [41, 13, 3], [27, 12, 2.6], [54, 9, 3]]) {
+          const len = RY / sun.y;
+          const g = new THREE.Group();
+          for (let k = 0; k < 2; k++) {
+            const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, len), shaftMat.clone());
+            pl.rotation.y = k * Math.PI / 2;
+            g.add(pl);
+          }
+          g.quaternion.setFromUnitVectors(up, sun);
+          g.position.set(x + sun.x * len / 2, RY / 2, z + sun.z * len / 2);
+          ctx.add(g);
+          const pool = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.5, w * 1.2), poolMat.clone());
+          pool.rotation.x = -Math.PI / 2;
+          pool.position.set(x, 0.03, z);
+          ctx.add(pool);
+          shafts.push({ g, pool, ph: x * 0.37 + z * 0.11 });
+        }
+        // dust turning over in the light
+        const N = 260, dust = new Float32Array(N * 3), seed = [];
+        for (let i = 0; i < N; i++) {
+          const s = shafts[i % shafts.length], h = 0.5 + ((i * 7919) % 1000) / 1000 * 15;
+          const bx = s.pool.position.x + sun.x * h / sun.y, bz = s.pool.position.z + sun.z * h / sun.y;
+          seed.push([bx + (((i * 31) % 100) / 100 - 0.5) * 2.4, h, bz + (((i * 57) % 100) / 100 - 0.5) * 2.4, i * 1.7]);
+        }
+        const dg = new THREE.BufferGeometry();
+        dg.setAttribute('position', new THREE.BufferAttribute(dust, 3));
+        const motes = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xeaf0ff, size: 0.05, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+        motes.frustumCulled = false;
+        ctx.add(motes);
+        let t = 0;
+        ctx.update((dt) => {
+          t += dt;
+          // clouds passing over the glass: the shafts dim and brighten together with their pools
+          for (const s of shafts) {
+            const k = 0.65 + 0.35 * Math.sin(t * 0.13 + s.ph) * Math.sin(t * 0.071 + s.ph * 1.7);
+            s.g.children[0].material.opacity = s.g.children[1].material.opacity = 0.2 * k;
+            s.pool.material.opacity = 0.22 * k;
+          }
+          for (let i = 0; i < N; i++) {
+            const d = seed[i], ph = d[3];
+            dust[i * 3] = d[0] + Math.sin(t * 0.21 + ph) * 0.5;
+            dust[i * 3 + 1] = d[1] + Math.sin(t * 0.13 + ph * 1.3) * 0.6;
+            dust[i * 3 + 2] = d[2] + Math.cos(t * 0.17 + ph * 0.7) * 0.5;
+          }
+          dg.attributes.position.needsUpdate = true;
+        });
       },
     });
   })();
