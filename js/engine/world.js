@@ -1,0 +1,1077 @@
+/* ==========================================================================
+   DIVERGENT — zone builder & world manager
+   A zone is pure data (rooms, doors, windows, props, spots, triggers).
+   This file turns that data into: baked-lit static geometry, walls with
+   door/window openings, colliders, a navigation grid, a light grid for
+   dynamic objects, and dynamic door objects.
+   ========================================================================== */
+(function () {
+  'use strict';
+  const DV = window.DV;
+  const U = DV.U;
+  const G = DV.Config.GRID;
+  const T = 0.2; // wall thickness
+  const NG = DV.NavGrid;
+
+  /* ------------------------------ registry ------------------------------ */
+  DV.Zones = {
+    defs: {},
+    define(id, def) {
+      def.id = id;
+      this.defs[id] = def;
+      return def;
+    },
+    get(id) {
+      return this.defs[id];
+    },
+  };
+
+  /* ------------------------------ lighting ------------------------------ */
+  class Lighting {
+    constructor(zone) {
+      this.zone = zone;
+      this.rooms = zone.rooms;
+      const ext = zone.def.exterior || {};
+      this.sunDir = new THREE.Vector3().fromArray(ext.sunDir || [0.4, 0.8, 0.35]).normalize();
+      this.sunColor = ext.sunColor || [0.55, 0.53, 0.5];
+      this.skyAmbient = ext.ambient || [0.55, 0.56, 0.6];
+    }
+    sample(px, py, pz, nx, ny, nz, roomIdx, omni) {
+      let r = roomIdx !== null && roomIdx !== undefined && roomIdx >= 0 ? this.rooms[roomIdx] : null;
+      if (!r) {
+        const ri = this.zone.roomIndexAt(px, pz);
+        r = ri >= 0 ? this.rooms[ri] : null;
+      }
+      let cr, cg, cb;
+      if (!r || r.exterior) {
+        const amb = (r && r.light && r.light.ambient) || this.skyAmbient;
+        const ndl = omni ? 0.7 : Math.max(0, nx * this.sunDir.x + ny * this.sunDir.y + nz * this.sunDir.z);
+        const sky = omni ? 0.15 : Math.max(0, ny) * 0.15;
+        cr = amb[0] + this.sunColor[0] * ndl + sky;
+        cg = amb[1] + this.sunColor[1] * ndl + sky;
+        cb = amb[2] + this.sunColor[2] * ndl + sky * 1.2;
+        // exterior lights (lamps) still count
+        if (r && r.lights) {
+          const add = this.accum(r, px, py, pz, nx, ny, nz, omni);
+          cr += add[0]; cg += add[1]; cb += add[2];
+        }
+      } else {
+        const amb = r.light.ambient;
+        cr = amb[0]; cg = amb[1]; cb = amb[2];
+        const add = this.accum(r, px, py, pz, nx, ny, nz, omni);
+        cr += add[0]; cg += add[1]; cb += add[2];
+      }
+      // cheap ambient occlusion where walls meet the floor
+      if (!omni && Math.abs(ny) < 0.5 && py < 0.45) {
+        const f = 0.62 + 0.38 * (py / 0.45);
+        cr *= f; cg *= f; cb *= f;
+      }
+      if (!omni && ny < -0.5) { cr *= 0.85; cg *= 0.85; cb *= 0.85; } // ceilings slightly darker
+      return [Math.min(cr, 1.6), Math.min(cg, 1.6), Math.min(cb, 1.6)];
+    }
+    accum(r, px, py, pz, nx, ny, nz, omni) {
+      let cr = 0, cg = 0, cb = 0;
+      for (const l of r.lights) {
+        const dx = l.x - px, dy = l.y - py, dz = l.z - pz;
+        const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (d > l.range) continue;
+        const a = 1 - d / l.range;
+        const att = a * a;
+        let ndl = 1;
+        if (!omni && d > 1e-4) {
+          ndl = (nx * dx + ny * dy + nz * dz) / d;
+          ndl = U.clamp((ndl + 0.3) / 1.3, 0, 1);
+        }
+        const k = att * ndl * l.intensity;
+        cr += l.color[0] * k; cg += l.color[1] * k; cb += l.color[2] * k;
+      }
+      return [cr, cg, cb];
+    }
+  }
+
+  /* -------------------------------- Zone -------------------------------- */
+  class Zone {
+    constructor(def) {
+      this.def = def;
+      this.id = def.id;
+      this.built = false;
+      this.group = new THREE.Group();
+      this.group.name = 'zone:' + def.id;
+      this.colliders = new DV.CollisionWorld();
+      this.doors = [];
+      this.doorMap = {};
+      this.spots = {};
+      this.interactables = [];
+      this.triggers = [];
+      this.updaters = [];
+      this.pickups = [];
+      this.rooms = [];
+      this.roomMap = {};
+    }
+
+    roomIndexAt(x, z) {
+      if (this.nav) return this.nav.roomAt(x, z);
+      for (let i = 0; i < this.rooms.length; i++) if (U.inRect(x, z, this.rooms[i])) return i;
+      return -1;
+    }
+    roomAt(x, z) {
+      const i = this.roomIndexAt(x, z);
+      return i >= 0 ? this.rooms[i] : null;
+    }
+    spot(id) {
+      return this.spots[id] || null;
+    }
+
+    /* ----------------------------- build ----------------------------- */
+    build() {
+      const t0 = performance.now();
+      const def = this.def;
+      const b = def.bounds;
+      this.bx0 = b.x0; this.bz0 = b.z0;
+      this.W = Math.round((b.x1 - b.x0) / G);
+      this.H = Math.round((b.z1 - b.z0) / G);
+
+      // rooms
+      def.rooms.forEach((r, idx) => {
+        const room = Object.assign({}, r);
+        room.index = idx;
+        room.h = r.h || 3.2;
+        room.wall = r.wall || 'paint_wall';
+        room.floor = r.floor || 'concrete';
+        room.ceiling = r.ceiling || 'ceiling_tile';
+        room.light = Object.assign({ ambient: [0.38, 0.38, 0.4], color: [1, 0.97, 0.9], intensity: 0.8, spacing: 4, range: 6.5, fixture: 'panel' }, r.light || {});
+        this.rooms.push(room);
+        this.roomMap[r.id] = room;
+      });
+
+      // nav grid + room raster
+      const nav = (this.nav = new DV.NavGrid(b.x0, b.z0, this.W, this.H, G));
+      this.rooms.forEach((r, idx) => {
+        const i0 = Math.round((r.x0 - b.x0) / G), i1 = Math.round((r.x1 - b.x0) / G);
+        const j0 = Math.round((r.z0 - b.z0) / G), j1 = Math.round((r.z1 - b.z0) / G);
+        for (let i = i0; i < i1; i++) for (let j = j0; j < j1; j++) {
+          if (!nav.inside(i, j)) continue;
+          const k = nav.idx(i, j);
+          nav.room[k] = idx;
+          nav.walk[k] = r.noWalk ? 0 : 1;
+        }
+      });
+
+      // lights
+      this.placeLights();
+      this.lighting = new Lighting(this);
+      const batch = (this.batch = new DV.StaticBatch(this.lighting));
+
+      // floors, ceilings, fixtures
+      batch.maxEdge = 1.25;
+      for (const r of this.rooms) {
+        batch.room = r.index;
+        if (!r.noFloor) batch.flat(DV.Mat.get(r.floor), r.x0, r.z0, r.x1, r.z1, r.floorY || 0);
+        if (!r.exterior && !r.noCeiling) {
+          const cm = DV.Mat.get(r.ceiling);
+          const w = (cm.map && cm.map.userData.world) || 1;
+          batch.quad(cm, [r.x0, r.h, r.z0], [r.x1, r.h, r.z0], [r.x1, r.h, r.z1], [r.x0, r.h, r.z1],
+            [r.x0 / w, r.z0 / w], [r.x1 / w, r.z0 / w], [r.x1 / w, r.z1 / w], [r.x0 / w, r.z1 / w]);
+        }
+      }
+      batch.maxEdge = 0;
+      this.buildFixtures();
+
+      // walls + openings
+      batch.maxEdge = 1.1;
+      this.buildWalls();
+      batch.maxEdge = 0;
+
+      // props
+      this.ctx = this.makeCtx();
+      for (const p of def.props || []) this.buildProp(p);
+      if (def.build) def.build(this.ctx);
+
+      // doors (dynamic)
+      for (const d of def.doors || []) this.buildDoor(d);
+      this.buildPickups();
+
+      // spots defined directly in the zone
+      for (const id in def.spots || {}) this.addSpot(id, def.spots[id]);
+
+      // rasterize prop colliders into nav
+      this.rasterizeColliders();
+      // wall proximity costs: keep NPCs away from walls
+      for (let k = 0; k < nav.walk.length; k++) if (nav.walk[k] && nav.edges[k]) nav.cost[k] += 0.6;
+      // compute approach points for spots
+      for (const id in this.spots) {
+        const s = this.spots[id];
+        const a = s.approach ? nav.nearestWalkable(s.approach[0], s.approach[1], 5) || nav.nearestWalkable(s.x, s.z, 6) : nav.nearestWalkable(s.x, s.z, 6);
+        s.ax = a ? a[0] : s.x;
+        s.az = a ? a[1] : s.z;
+      }
+
+      // triggers
+      for (const t of def.triggers || []) {
+        const tr = Object.assign({ inside: false, fired: false }, t);
+        if (t.room && this.roomMap[t.room]) {
+          const r = this.roomMap[t.room];
+          tr.rect = { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 };
+        }
+        this.triggers.push(tr);
+      }
+
+      // light grid for characters
+      this.buildLightGrid();
+
+      const mesh = batch.build();
+      this.group.add(mesh);
+      this.staticMesh = mesh;
+      this.batch = null; // free arrays
+      this.built = true;
+      DV.log('Zone', this.id, 'built in', Math.round(performance.now() - t0), 'ms', 'tris', batch.triCount);
+      this.stats = { ms: Math.round(performance.now() - t0), tris: batch.triCount };
+    }
+
+    placeLights() {
+      for (const r of this.rooms) {
+        r.lights = [];
+        const L = r.light;
+        const y = r.exterior ? 4.2 : r.h - 0.08;
+        if (L.list) {
+          for (const e of L.list) {
+            r.lights.push({ x: e[0], y: e[3] !== undefined ? e[3] : y, z: e[1], intensity: e[2] !== undefined && e[2] !== null ? e[2] : L.intensity, range: L.range, color: L.color, fixture: L.fixture });
+          }
+        } else if (!r.exterior && L.fixture !== 'none' && L.spacing > 0) {
+          const w = r.x1 - r.x0, d = r.z1 - r.z0;
+          const nx = Math.max(1, Math.round(w / L.spacing)), nz = Math.max(1, Math.round(d / L.spacing));
+          for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+            r.lights.push({ x: r.x0 + ((i + 0.5) * w) / nx, y, z: r.z0 + ((j + 0.5) * d) / nz, intensity: L.intensity, range: L.range, color: L.color, fixture: L.fixture });
+          }
+        }
+        if (L.extra) for (const e of L.extra) r.lights.push(Object.assign({ y, range: L.range, color: L.color, intensity: L.intensity, fixture: 'none' }, e));
+      }
+    }
+
+    buildFixtures() {
+      const B = this.batch;
+      const panel = DV.Mat.get('light_panel:emit');
+      const frame = DV.Mat.get('metal');
+      for (const r of this.rooms) {
+        if (r.exterior) continue;
+        B.room = r.index;
+        r.lights.forEach((l, li) => {
+          if (l.fixture === 'none') return;
+          const y = r.h;
+          const flicker = r.light.flicker && r.light.flicker.indexOf(li) >= 0;
+          if (l.fixture === 'tube') {
+            B.box(frame, l.x, y - 0.1, l.z, 0.22, 0.1, 1.5);
+            if (!flicker) B.quad(panel, [l.x - 0.07, y - 0.101, l.z - 0.7], [l.x + 0.07, y - 0.101, l.z - 0.7], [l.x + 0.07, y - 0.101, l.z + 0.7], [l.x - 0.07, y - 0.101, l.z + 0.7], [0, 0], [1, 0], [1, 1], [0, 1]);
+          } else if (l.fixture === 'bulb') {
+            B.box(frame, l.x, y - 0.35, l.z, 0.04, 0.35, 0.04);
+            if (!flicker) B.box(panel, l.x, y - 0.5, l.z, 0.16, 0.16, 0.16, { uv: 'unit' });
+          } else {
+            B.box(frame, l.x, y - 0.04, l.z, 1.3, 0.04, 0.7);
+            if (!flicker) B.quad(panel, [l.x - 0.6, y - 0.041, l.z - 0.3], [l.x + 0.6, y - 0.041, l.z - 0.3], [l.x + 0.6, y - 0.041, l.z + 0.3], [l.x - 0.6, y - 0.041, l.z + 0.3], [0, 0], [1, 0], [1, 1], [0, 1]);
+          }
+          if (flicker) {
+            // dynamic flickering tube
+            const geo = l.fixture === 'tube' ? new THREE.PlaneGeometry(0.14, 1.4) : new THREE.PlaneGeometry(1.2, 0.6);
+            const m = new THREE.MeshBasicMaterial({ map: DV.Tex.get('light_panel'), fog: true });
+            const mesh = new THREE.Mesh(geo, m);
+            mesh.rotation.x = Math.PI / 2;
+            mesh.position.set(l.x, y - 0.045, l.z);
+            this.group.add(mesh);
+            let t = Math.random() * 10;
+            this.updaters.push((dt) => {
+              t += dt;
+              const on = Math.sin(t * 17) + Math.sin(t * 5.3) * 0.8 + Math.sin(t * 0.7) * 1.6 > -0.6;
+              m.color.setScalar(on ? 1 : 0.25);
+            });
+          }
+        });
+      }
+    }
+
+    /* ----------------------------- walls ----------------------------- */
+    openingAt(orient, mx, mz) {
+      const list = this.def.doors || [];
+      const wins = this.def.windows || [];
+      const test = (o) => {
+        const w = o.w || 1.5;
+        if (orient === 'h') {
+          return o.dir === 'x' && Math.abs(o.z - mz) < 0.01 && mx > o.x - w / 2 && mx < o.x + w / 2;
+        }
+        return o.dir === 'z' && Math.abs(o.x - mx) < 0.01 && mz > o.z - w / 2 && mz < o.z + w / 2;
+      };
+      for (const d of list) if (test(d)) return d;
+      for (const w of wins) if (test(w)) { w.isWindow = true; return w; }
+      return null;
+    }
+
+    connected(A, B) {
+      if (A < 0 || B < 0) return false;
+      const ra = this.rooms[A], rb = this.rooms[B];
+      return (ra.connect && ra.connect.indexOf(rb.id) >= 0) || (rb.connect && rb.connect.indexOf(ra.id) >= 0);
+    }
+
+    buildWalls() {
+      const nav = this.nav, W = this.W, H = this.H;
+      const room = (i, j) => (nav.inside(i, j) ? nav.room[nav.idx(i, j)] : -1);
+      // classify edges
+      const hE = new Array((H + 1) * W).fill(null); // index j*W+i : boundary z=z0+j*G between (i,j-1) & (i,j)
+      const vE = new Array((W + 1) * H).fill(null); // index i*H+j : boundary x=x0+i*G between (i-1,j) & (i,j)
+      for (let j = 0; j <= H; j++) for (let i = 0; i < W; i++) {
+        const A = room(i, j - 1), B = room(i, j);
+        if (A === B || (A < 0 && B < 0) || this.connected(A, B)) continue;
+        const op = this.openingAt('h', this.bx0 + (i + 0.5) * G, this.bz0 + j * G);
+        hE[j * W + i] = { A, B, op };
+      }
+      for (let i = 0; i <= W; i++) for (let j = 0; j < H; j++) {
+        const A = room(i - 1, j), B = room(i, j);
+        if (A === B || (A < 0 && B < 0) || this.connected(A, B)) continue;
+        const op = this.openingAt('v', this.bx0 + i * G, this.bz0 + (j + 0.5) * G);
+        vE[i * H + j] = { A, B, op };
+      }
+      const wallish = (e) => e && (!e.op || e.op.isWindow || e.op.type === 'sealed');
+      // nav edge bits
+      for (let j = 0; j <= H; j++) for (let i = 0; i < W; i++) {
+        const e = hE[j * W + i];
+        if (!e) continue;
+        if (wallish(e)) {
+          if (nav.inside(i, j - 1)) nav.edges[nav.idx(i, j - 1)] |= NG.S;
+          if (nav.inside(i, j)) nav.edges[nav.idx(i, j)] |= NG.N;
+        } else if (e.op && e.op.lock) {
+          const lk = nav.lockId(e.op.lock);
+          if (nav.inside(i, j - 1)) nav.lock[nav.idx(i, j - 1)] = lk;
+          if (nav.inside(i, j)) nav.lock[nav.idx(i, j)] = lk;
+        }
+      }
+      for (let i = 0; i <= W; i++) for (let j = 0; j < H; j++) {
+        const e = vE[i * H + j];
+        if (!e) continue;
+        if (wallish(e)) {
+          if (nav.inside(i - 1, j)) nav.edges[nav.idx(i - 1, j)] |= NG.E;
+          if (nav.inside(i, j)) nav.edges[nav.idx(i, j)] |= NG.W;
+        } else if (e.op && e.op.lock) {
+          const lk = nav.lockId(e.op.lock);
+          if (nav.inside(i - 1, j)) nav.lock[nav.idx(i - 1, j)] = lk;
+          if (nav.inside(i, j)) nav.lock[nav.idx(i, j)] = lk;
+        }
+      }
+      // corner posts
+      const posts = new Set();
+      for (let j = 0; j <= H; j++) for (let i = 0; i <= W; i++) {
+        const hl = i > 0 ? hE[j * W + i - 1] : null, hr = i < W ? hE[j * W + i] : null;
+        const vu = j > 0 ? vE[i * H + j - 1] : null, vd = j < H ? vE[i * H + j] : null;
+        const hasH = wallish(hl) || wallish(hr), hasV = wallish(vu) || wallish(vd);
+        if (hasH && hasV) posts.add(i + ',' + j);
+      }
+      this._posts = posts;
+      const postH = {};
+      // horizontal runs
+      const keyOf = (e) => (e ? e.A + '|' + e.B + '|' + (e.op ? e.op.id || e.op.uid || (e.op.uid = 'op' + Math.random()) : '') : null);
+      for (let j = 0; j <= H; j++) {
+        let run = null;
+        const flush = () => {
+          if (!run) return;
+          const h = this.wallSegment('h', run.i0, run.i1 + 1, j, run.e, posts);
+          for (const pi of [run.i0, run.i1 + 1]) {
+            const k = pi + ',' + j;
+            if (posts.has(k)) postH[k] = Math.max(postH[k] || 0, h);
+          }
+          run = null;
+        };
+        for (let i = 0; i < W; i++) {
+          const e = hE[j * W + i];
+          const k = keyOf(e);
+          if (run && k === run.k && !posts.has(i + ',' + j)) { run.i1 = i; continue; }
+          flush();
+          if (e) run = { k, e, i0: i, i1: i };
+        }
+        flush();
+      }
+      for (let i = 0; i <= W; i++) {
+        let run = null;
+        const flush = () => {
+          if (!run) return;
+          const h = this.wallSegment('v', run.j0, run.j1 + 1, i, run.e, posts);
+          for (const pj of [run.j0, run.j1 + 1]) {
+            const k = i + ',' + pj;
+            if (posts.has(k)) postH[k] = Math.max(postH[k] || 0, h);
+          }
+          run = null;
+        };
+        for (let j = 0; j < H; j++) {
+          const e = vE[i * H + j];
+          const k = keyOf(e);
+          if (run && k === run.k && !posts.has(i + ',' + j)) { run.j1 = j; continue; }
+          flush();
+          if (e) run = { k, e, j0: j, j1: j };
+        }
+        flush();
+      }
+      // posts
+      const B = this.batch;
+      for (const k of posts) {
+        const [i, j] = k.split(',').map(Number);
+        const x = this.bx0 + i * G, z = this.bz0 + j * G;
+        const h = postH[k] || 3;
+        const faces = {};
+        for (const [f, ox, oz] of [['px', 1, 0], ['nx', -1, 0], ['pz', 0, 1], ['nz', 0, -1]]) {
+          const ri = this.roomIndexAt(x + ox * 0.3, z + oz * 0.3);
+          faces[f] = this.faceMat(ri, h);
+        }
+        B.room = this.roomIndexAt(x + 0.3, z + 0.3);
+        B.box(faces.px, x, 0, z, T, h, T, { faces, skip: { bottom: 1 } });
+        this.colliders.add(x - T / 2, z - T / 2, x + T / 2, z + T / 2, { y0: 0, y1: h, tag: 'wall' });
+      }
+    }
+
+    // material for a wall face that looks into room index ri
+    faceMat(ri, h) {
+      if (ri >= 0) {
+        const r = this.rooms[ri];
+        if (!r.exterior) return DV.Mat.get(r.wall);
+        return DV.Mat.get(r.facade || this.def.facade || 'facade');
+      }
+      return DV.Mat.get('concrete_dark');
+    }
+
+    heightFor(A, B) {
+      const R = (k) => (k >= 0 ? this.rooms[k] : null);
+      const ra = R(A), rb = R(B);
+      const intA = ra && !ra.exterior, intB = rb && !rb.exterior;
+      if (intA || intB) {
+        let h = Math.max(intA ? ra.h : 0, intB ? rb.h : 0);
+        if (!intA || !intB) h = Math.max(h, this.def.buildingHeight || 8);
+        return { h, style: 'wall' };
+      }
+      const ext = ra && rb ? (ra.edgeH || 3) >= (rb.edgeH || 3) ? ra : rb : ra || rb;
+      return { h: ext.edgeH || 3, style: ext.edge || 'wall', ext };
+    }
+
+    /**
+     * orient 'h': boundary z = z0 + line*G, from a*G to b*G along x.
+     * orient 'v': boundary x = x0 + line*G, from a*G to b*G along z.
+     */
+    wallSegment(orient, a, b, line, e, posts) {
+      const B = this.batch;
+      const { h: Hh, style, ext } = this.heightFor(e.A, e.B);
+      const op = e.op;
+      const startPost = orient === 'h' ? posts.has(a + ',' + line) : posts.has(line + ',' + a);
+      const endPost = orient === 'h' ? posts.has(b + ',' + line) : posts.has(line + ',' + b);
+      let s0 = (orient === 'h' ? this.bx0 : this.bz0) + a * G;
+      let s1 = (orient === 'h' ? this.bx0 : this.bz0) + b * G;
+      if (startPost) s0 += T / 2;
+      if (endPost) s1 -= T / 2;
+      const c = (orient === 'h' ? this.bz0 : this.bx0) + line * G;
+      const matA = style === 'fence' ? null : this.faceMat(e.A >= 0 ? e.A : e.B, Hh);
+      const matB = style === 'fence' ? null : this.faceMat(e.B >= 0 ? e.B : e.A, Hh);
+      // perimeter walls between exterior areas use their own material
+      let mA = matA, mB = matB;
+      if (ext && style === 'wall') { mA = mB = DV.Mat.get(ext.edgeMat || 'concrete'); }
+
+      // helper to emit a box piece of this wall between heights y0..y1 along s0..s1
+      const piece = (p0, p1, y0, y1, capStart, capEnd, collide, camera) => {
+        if (p1 - p0 < 0.001 || y1 - y0 < 0.001) return;
+        let faces, cx, cz, sx, sz;
+        if (orient === 'h') {
+          faces = { nz: mA, pz: mB, top: mA, px: mA, nx: mA, bottom: mA };
+          cx = (p0 + p1) / 2; cz = c; sx = p1 - p0; sz = T;
+        } else {
+          faces = { nx: mA, px: mB, top: mA, pz: mA, nz: mA, bottom: mA };
+          cx = c; cz = (p0 + p1) / 2; sx = T; sz = p1 - p0;
+        }
+        const skip = { bottom: y0 < 0.01 };
+        if (orient === 'h') { if (!capStart) skip.nx = 1; if (!capEnd) skip.px = 1; } else { if (!capStart) skip.nz = 1; if (!capEnd) skip.pz = 1; }
+        // per-face lighting room: emit two passes so each side bakes from its own room
+        const roomA = e.A >= 0 ? e.A : e.B, roomB = e.B >= 0 ? e.B : e.A;
+        const sideA = orient === 'h' ? 'nz' : 'nx', sideB = orient === 'h' ? 'pz' : 'px';
+        const skipA = Object.assign({}, skip, { [sideB]: 1 });
+        const skipB = { top: 1, bottom: 1, px: 1, nx: 1, pz: 1, nz: 1 };
+        delete skipB[sideB];
+        B.room = roomA;
+        B.box(faces[sideA], cx, y0, cz, sx, y1 - y0, sz, { faces, skip: skipA, sub: 1.1 });
+        B.room = roomB;
+        B.box(faces[sideB], cx, y0, cz, sx, y1 - y0, sz, { faces, skip: skipB, sub: 1.1 });
+        if (collide) {
+          if (orient === 'h') this.colliders.add(p0, c - T / 2, p1, c + T / 2, { y0, y1, tag: 'wall', camera: camera !== false });
+          else this.colliders.add(c - T / 2, p0, c + T / 2, p1, { y0, y1, tag: 'wall', camera: camera !== false });
+        }
+      };
+
+      if (style === 'none') return 0;
+      if (style === 'fence') {
+        this.buildFence(orient, s0, s1, c, Hh, ext);
+        return Hh;
+      }
+
+      if (!op) {
+        piece(s0, s1, 0, Hh, !startPost, !endPost, true);
+      } else if (op.isWindow) {
+        const sill = op.sill === undefined ? 0.9 : op.sill;
+        const top = op.top === undefined ? 2.3 : op.top;
+        piece(s0, s1, 0, sill, true, true, true);
+        piece(s0, s1, top, Hh, true, true, true);
+        this.buildWindowGlass(orient, s0, s1, c, sill, top, op, e);
+      } else {
+        const dh = op.h || (op.type === 'opening' ? Hh : 2.35);
+        if (dh < Hh) piece(s0, s1, dh, Hh, true, true, true);
+        this.buildDoorFrame(orient, s0, s1, c, dh, op, e);
+      }
+      return Hh;
+    }
+
+    buildFence(orient, s0, s1, c, h, ext) {
+      const B = this.batch;
+      const post = DV.Mat.get('metal_dark');
+      const mesh = DV.Mat.get('chainlink:alpha');
+      const len = s1 - s0;
+      const n = Math.max(1, Math.round(len / 2.5));
+      B.room = ext ? ext.index : null;
+      for (let k = 0; k <= n; k++) {
+        const s = s0 + (len * k) / n;
+        if (orient === 'h') B.box(post, s, 0, c, 0.08, h, 0.08);
+        else B.box(post, c, 0, s, 0.08, h, 0.08);
+      }
+      const w = 0.5;
+      if (orient === 'h') {
+        B.quad(mesh, [s0, 0, c], [s1, 0, c], [s1, h, c], [s0, h, c], [s0 / w, 0], [s1 / w, 0], [s1 / w, h / w], [s0 / w, h / w]);
+        B.box(post, (s0 + s1) / 2, h - 0.05, c, len, 0.05, 0.06);
+        this.colliders.add(s0, c - 0.08, s1, c + 0.08, { y0: 0, y1: h, tag: 'wall', camera: false });
+      } else {
+        B.quad(mesh, [c, 0, s1], [c, 0, s0], [c, h, s0], [c, h, s1], [s1 / w, 0], [s0 / w, 0], [s0 / w, h / w], [s1 / w, h / w]);
+        B.box(post, c, h - 0.05, (s0 + s1) / 2, 0.06, 0.05, len);
+        this.colliders.add(c - 0.08, s0, c + 0.08, s1, { y0: 0, y1: h, tag: 'wall', camera: false });
+      }
+      // barbed wire on top
+      if (ext && ext.barbed) {
+        if (orient === 'h') B.box(post, (s0 + s1) / 2, h + 0.15, c, len, 0.02, 0.02);
+        else B.box(post, c, h + 0.15, (s0 + s1) / 2, 0.02, 0.02, len);
+      }
+    }
+
+    buildWindowGlass(orient, s0, s1, c, sill, top, op, e) {
+      const B = this.batch;
+      const frame = DV.Mat.get(op.frame || 'metal_dark');
+      const glassKey = op.oneWay ? null : 'white:glass';
+      const roomA = e.A >= 0 ? e.A : e.B, roomB = e.B >= 0 ? e.B : e.A;
+      B.room = roomA;
+      // frame pieces
+      if (orient === 'h') {
+        B.box(frame, (s0 + s1) / 2, sill - 0.04, c, s1 - s0, 0.06, T + 0.1);
+        B.box(frame, (s0 + s1) / 2, top - 0.02, c, s1 - s0, 0.04, T + 0.04);
+        B.box(frame, s0 + 0.03, sill, c, 0.06, top - sill, T + 0.04);
+        B.box(frame, s1 - 0.03, sill, c, 0.06, top - sill, T + 0.04);
+        const n = Math.max(1, Math.round((s1 - s0) / 1.6));
+        for (let k = 1; k < n; k++) B.box(frame, s0 + ((s1 - s0) * k) / n, sill, c, 0.05, top - sill, 0.08);
+      } else {
+        B.box(frame, c, sill - 0.04, (s0 + s1) / 2, T + 0.1, 0.06, s1 - s0);
+        B.box(frame, c, top - 0.02, (s0 + s1) / 2, T + 0.04, 0.04, s1 - s0);
+        B.box(frame, c, sill, s0 + 0.03, T + 0.04, top - sill, 0.06);
+        B.box(frame, c, sill, s1 - 0.03, T + 0.04, top - sill, 0.06);
+        const n = Math.max(1, Math.round((s1 - s0) / 1.6));
+        for (let k = 1; k < n; k++) B.box(frame, c, sill, s0 + ((s1 - s0) * k) / n, 0.08, top - sill, 0.05);
+      }
+      // glass
+      if (op.oneWay) {
+        // one-way mirror: transparent from the observer side (A), mirror from the other (B)
+        const see = DV.Mat.fromTexture('oneway_see', DV.Tex.get('glass_dark'), { emit: true, transparent: true });
+        see.opacity = 0.35; see.depthWrite = false;
+        const mir = DV.Mat.get('mirror');
+        if (orient === 'h') {
+          B.room = roomA;
+          // faces -z (toward A at z < c)
+          B.quad(see, [s1, sill, c - 0.01], [s0, sill, c - 0.01], [s0, top, c - 0.01], [s1, top, c - 0.01], [0, 0], [1, 0], [1, 1], [0, 1]);
+          B.room = roomB;
+          B.quad(mir, [s0, sill, c + 0.01], [s1, sill, c + 0.01], [s1, top, c + 0.01], [s0, top, c + 0.01], [0, 0], [1, 0], [1, 1], [0, 1]);
+        } else {
+          B.room = roomA;
+          B.quad(see, [c - 0.01, sill, s0], [c - 0.01, sill, s1], [c - 0.01, top, s1], [c - 0.01, top, s0], [0, 0], [1, 0], [1, 1], [0, 1]);
+          B.room = roomB;
+          B.quad(mir, [c + 0.01, sill, s1], [c + 0.01, sill, s0], [c + 0.01, top, s0], [c + 0.01, top, s1], [0, 0], [1, 0], [1, 1], [0, 1]);
+        }
+      } else {
+        const gm = DV.Mat.get(glassKey);
+        if (orient === 'h') B.quad(gm, [s0, sill, c], [s1, sill, c], [s1, top, c], [s0, top, c], [0, 0], [1, 0], [1, 1], [0, 1]);
+        else B.quad(gm, [c, sill, s1], [c, sill, s0], [c, top, s0], [c, top, s1], [0, 0], [1, 0], [1, 1], [0, 1]);
+      }
+      // collider across the glass
+      if (orient === 'h') this.colliders.add(s0, c - T / 2, s1, c + T / 2, { y0: sill, y1: top, tag: 'wall', camera: true });
+      else this.colliders.add(c - T / 2, s0, c + T / 2, s1, { y0: sill, y1: top, tag: 'wall', camera: true });
+    }
+
+    buildDoorFrame(orient, s0, s1, c, dh, op, e) {
+      if (op.type === 'opening' && !op.frame) return;
+      const B = this.batch;
+      const fm = DV.Mat.get(op.frameMat || 'metal_dark');
+      const d = T + 0.08;
+      B.room = e.A >= 0 ? e.A : e.B;
+      if (orient === 'h') {
+        B.box(fm, s0 + 0.04, 0, c, 0.08, dh, d);
+        B.box(fm, s1 - 0.04, 0, c, 0.08, dh, d);
+        B.box(fm, (s0 + s1) / 2, dh - 0.08, c, s1 - s0, 0.08, d);
+      } else {
+        B.box(fm, c, 0, s0 + 0.04, d, dh, 0.08);
+        B.box(fm, c, 0, s1 - 0.04, d, dh, 0.08);
+        B.box(fm, c, dh - 0.08, (s0 + s1) / 2, d, 0.08, s1 - s0);
+      }
+      // jamb colliders (thin) so characters don't clip frames
+      if (orient === 'h') {
+        this.colliders.add(s0, c - d / 2, s0 + 0.08, c + d / 2, { y0: 0, y1: dh, tag: 'wall', camera: false });
+        this.colliders.add(s1 - 0.08, c - d / 2, s1, c + d / 2, { y0: 0, y1: dh, tag: 'wall', camera: false });
+      } else {
+        this.colliders.add(c - d / 2, s0, c + d / 2, s0 + 0.08, { y0: 0, y1: dh, tag: 'wall', camera: false });
+        this.colliders.add(c - d / 2, s1 - 0.08, c + d / 2, s1, { y0: 0, y1: dh, tag: 'wall', camera: false });
+      }
+      // plaque labels on both sides
+      if (op.label) {
+        const tex = DV.Tex.sign(op.label, { w: 256, h: 48, bg: op.signBg || '#26343a', color: '#eae6d6', size: 20 });
+        const sm = DV.Mat.fromTexture('sign|' + op.label + '|' + (op.signBg || ''), tex, {});
+        const y = dh + 0.25;
+        const sw = Math.min(1.6, Math.max(1.0, op.label.length * 0.075));
+        if (orient === 'h') {
+          B.room = e.B >= 0 ? e.B : e.A;
+          B.push((s0 + s1) / 2, 0, c + T / 2 + 0.012, 0); B.panel(sm, 0, y, 0, sw, 0.3); B.pop();
+          B.room = e.A >= 0 ? e.A : e.B;
+          B.push((s0 + s1) / 2, 0, c - T / 2 - 0.012, Math.PI); B.panel(sm, 0, y, 0, sw, 0.3); B.pop();
+        } else {
+          B.room = e.B >= 0 ? e.B : e.A;
+          B.push(c + T / 2 + 0.012, 0, (s0 + s1) / 2, Math.PI / 2); B.panel(sm, 0, y, 0, sw, 0.3); B.pop();
+          B.room = e.A >= 0 ? e.A : e.B;
+          B.push(c - T / 2 - 0.012, 0, (s0 + s1) / 2, -Math.PI / 2); B.panel(sm, 0, y, 0, sw, 0.3); B.pop();
+        }
+      }
+    }
+
+    /* ----------------------------- doors ----------------------------- */
+    buildDoor(d) {
+      if (d.type === 'opening' || !d.type) return;
+      const w = d.w || 1.5, h = d.h || 2.35;
+      const horizontal = d.dir === 'x';
+      const tint = this.lighting.sample(d.x, 1.2, d.z, 0, 1, 0, null, true);
+      const tcol = new THREE.Color(U.clamp(tint[0], 0.25, 1.25), U.clamp(tint[1], 0.25, 1.25), U.clamp(tint[2], 0.25, 1.25));
+      const root = new THREE.Group();
+      root.position.set(d.x, 0, d.z);
+      if (!horizontal) root.rotation.y = Math.PI / 2;
+      const panels = [];
+      const mkPanel = (pw, matKey, glass) => {
+        let mat;
+        if (glass) {
+          mat = new THREE.MeshBasicMaterial({ color: 0xa8c4cc, transparent: true, opacity: 0.3, depthWrite: false, fog: true });
+        } else {
+          mat = new THREE.MeshBasicMaterial({ map: DV.Tex.get(matKey), color: tcol, fog: true });
+        }
+        const g = new THREE.Group();
+        const geo = new THREE.BoxGeometry(pw, h - 0.1, glass ? 0.03 : 0.06);
+        const m = new THREE.Mesh(geo, mat);
+        m.position.y = (h - 0.1) / 2;
+        g.add(m);
+        if (glass) {
+          const fm = new THREE.MeshBasicMaterial({ map: DV.Tex.get('metal'), color: tcol, fog: true });
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(pw, 0.08, 0.06), fm);
+          bar.position.y = 1.0; g.add(bar);
+          const top = new THREE.Mesh(new THREE.BoxGeometry(pw, 0.06, 0.06), fm);
+          top.position.y = h - 0.13; g.add(top);
+          const side = new THREE.Mesh(new THREE.BoxGeometry(0.05, h - 0.1, 0.06), fm);
+          side.position.set(-pw / 2 + 0.025, (h - 0.1) / 2, 0); g.add(side);
+          const side2 = side.clone(); side2.position.x = pw / 2 - 0.025; g.add(side2);
+        } else {
+          // handle + small window strip
+          const hm = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.75, 0.75, 0.72).multiply(tcol), fog: true });
+          const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.22, 0.14), hm);
+          handle.position.set(pw / 2 - 0.15, 1.05, 0);
+          g.add(handle);
+          if (d.window !== false && d.type !== 'gate') {
+            const win = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.55, 0.07), new THREE.MeshBasicMaterial({ color: 0x1e2a2e, fog: true }));
+            win.position.set(0, 1.55, 0);
+            g.add(win);
+          }
+        }
+        root.add(g);
+        panels.push({ g, w: pw });
+        return g;
+      };
+      if (d.type === 'double' || d.type === 'glass') {
+        mkPanel(w / 2, d.mat || 'metal_painted', d.type === 'glass');
+        mkPanel(w / 2, d.mat || 'metal_painted', d.type === 'glass');
+      } else if (d.type === 'gate') {
+        const mat = DV.Mat.get('chainlink:alpha').clone();
+        mat.vertexColors = false;
+        mat.color = tcol;
+        const g = new THREE.Group();
+        const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+        pl.position.y = h / 2;
+        g.add(pl);
+        const fm = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.3, 0.3), fog: true });
+        for (const yy of [0.05, h - 0.05]) { const bar = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, 0.06), fm); bar.position.y = yy; g.add(bar); }
+        root.add(g);
+        panels.push({ g, w });
+      } else {
+        mkPanel(w - 0.04, d.mat || (d.type === 'sealed' ? 'metal_dark' : 'metal_painted'), false);
+      }
+      // status light
+      let lamp = null;
+      if (d.lock || d.type === 'sealed') {
+        lamp = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, T + 0.12), new THREE.MeshBasicMaterial({ color: 0xd03020 }));
+        lamp.position.set(w / 2 + 0.2, 1.55, 0);
+        root.add(lamp);
+      }
+      this.group.add(root);
+      const door = {
+        def: d,
+        id: d.id,
+        root,
+        panels,
+        lamp,
+        open: 0,
+        target: 0,
+        w,
+        horizontal,
+        lock: d.lock || null,
+        sealed: d.type === 'sealed',
+        collider: null,
+        holdOpen: 0,
+      };
+      // collider covering the doorway while closed
+      const hw = w / 2;
+      if (horizontal) door.collider = this.colliders.add(d.x - hw, d.z - 0.12, d.x + hw, d.z + 0.12, { y0: 0, y1: h, tag: 'door', camera: true });
+      else door.collider = this.colliders.add(d.x - 0.12, d.z - hw, d.x + 0.12, d.z + hw, { y0: 0, y1: h, tag: 'door', camera: true });
+      this.positionDoor(door);
+      this.doors.push(door);
+      if (d.id) this.doorMap[d.id] = door;
+      // interactable for locked / sealed doors
+      if (d.lock || d.type === 'sealed') {
+        this.interactables.push({
+          id: 'door:' + d.id,
+          kind: 'door',
+          door,
+          x: d.x, y: 1.2, z: d.z,
+          radius: Math.max(1.6, w * 0.8),
+          get label() {
+            return door.open > 0.5 ? null : 'Try door';
+          },
+          name: d.label || 'Door',
+        });
+      }
+    }
+
+    buildPickups() {
+      for (const p of this.def.pickups || []) {
+        const item = DV.Items.get(p.item);
+        if (!item) { console.warn('[Zone] pickup with unknown item', p); continue; }
+        const shape = (item.icon && item.icon.shape) || 'box';
+        let geo;
+        if (shape === 'cup' || shape === 'bottle') geo = new THREE.CylinderGeometry(0.035, 0.03, 0.1, 6);
+        else if (shape === 'paper' || shape === 'card') geo = new THREE.BoxGeometry(0.2, 0.012, 0.15);
+        else if (shape === 'key') geo = new THREE.BoxGeometry(0.08, 0.015, 0.03);
+        else geo = new THREE.BoxGeometry(0.1, 0.06, 0.08);
+        geo.translate(0, (geo.parameters.height || 0.05) / 2, 0);
+        const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: (item.icon && item.icon.color) || '#cccccc' }));
+        mesh.position.set(p.x, p.y || 0, p.z);
+        mesh.rotation.y = p.rot || 0.4;
+        this.group.add(mesh);
+        const it = {
+          id: 'pickup:' + p.id, kind: 'pickup', pickup: p, mesh,
+          x: p.x, y: (p.y || 0) + 0.1, z: p.z, radius: 1.4, label: 'Take', name: item.name, hidden: p.hidden || 0,
+        };
+        this.interactables.push(it);
+        this.pickups.push(it);
+      }
+    }
+    refreshPickups(zs) {
+      for (const pk of this.pickups) {
+        const taken = !!(zs && zs.taken[pk.pickup.id]);
+        pk.mesh.visible = !taken;
+        pk.disabled = taken;
+      }
+    }
+
+    positionDoor(door) {
+      const o = door.open;
+      if (door.panels.length === 2) {
+        const pw = door.w / 2;
+        door.panels[0].g.position.x = -pw / 2 - o * pw * 0.95;
+        door.panels[1].g.position.x = pw / 2 + o * pw * 0.95;
+      } else if (door.panels.length === 1) {
+        door.panels[0].g.position.x = -o * door.w * 0.95;
+      }
+      if (door.collider) door.collider.enabled = o < 0.7;
+    }
+
+    /* ----------------------------- props ----------------------------- */
+    makeCtx() {
+      const zone = this;
+      const ctx = {
+        zone,
+        get B() { return zone.batch; },
+        M: (k) => DV.Mat.get(k),
+        prop: null,
+        // world transform of a local point for the current prop
+        toWorld(lx, lz) {
+          const p = ctx.prop;
+          const c = Math.cos(p.rot || 0), s = Math.sin(p.rot || 0);
+          return [p.x + lx * c + lz * s, p.z - lx * s + lz * c];
+        },
+        // collider from a local rect (prop space)
+        collide(lx0, lz0, lx1, lz1, opts) {
+          const pts = [ctx.toWorld(lx0, lz0), ctx.toWorld(lx1, lz0), ctx.toWorld(lx1, lz1), ctx.toWorld(lx0, lz1)];
+          const xs = pts.map((p) => p[0]), zs = pts.map((p) => p[1]);
+          return zone.colliders.add(Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), Object.assign({ tag: 'prop' }, opts || {}));
+        },
+        spot(id, lx, lz, lrot, act, extra) {
+          const [x, z] = ctx.toWorld(lx, lz);
+          extra = Object.assign({}, extra || {});
+          lrot = lrot || 0;
+          // approach point: in front of seats, behind work stations, or explicit
+          let al = extra.approachLocal;
+          if (!al && (act === 'sit' || act === 'recline')) al = [lx + Math.sin(lrot) * 0.7, lz + Math.cos(lrot) * 0.7];
+          if (!al && (act === 'work' || act === 'type' || act === 'behind')) al = [lx - Math.sin(lrot) * 0.65, lz - Math.cos(lrot) * 0.65];
+          if (al) extra.approach = ctx.toWorld(al[0], al[1]);
+          delete extra.approachLocal;
+          const s = Object.assign({ x, z, rot: (ctx.prop.rot || 0) + lrot, act: act || 'stand' }, extra);
+          zone.addSpot(id, s);
+          return s;
+        },
+        interact(obj) {
+          zone.interactables.push(obj);
+          return obj;
+        },
+        add(obj3d) {
+          zone.group.add(obj3d);
+          return obj3d;
+        },
+        update(fn) {
+          zone.updaters.push(fn);
+        },
+        light(x, z) {
+          return zone.lighting.sample(x, 1.2, z, 0, 1, 0, null, true);
+        },
+      };
+      return ctx;
+    }
+
+    buildProp(p) {
+      const fn = DV.Props.get(p.type);
+      if (!fn) {
+        console.warn('[Zone] unknown prop type', p.type);
+        return;
+      }
+      const ctx = this.ctx;
+      ctx.prop = Object.assign({ rot: 0, y: 0 }, p);
+      if (p.rotDeg !== undefined) ctx.prop.rot = (p.rotDeg * Math.PI) / 180;
+      const B = this.batch;
+      B.room = this.roomIndexAt(p.x, p.z);
+      B.push(p.x, p.elev || 0, p.z, ctx.prop.rot); // p.elev raises the whole prop; p.y is prop-specific
+      try {
+        fn(ctx, ctx.prop, B);
+      } catch (e) {
+        console.error('[Zone] prop build failed', p, e);
+      }
+      B.pop();
+    }
+
+    addSpot(id, s) {
+      const spot = Object.assign({ id, rot: 0, act: 'stand' }, s);
+      if (spot.rotDeg !== undefined) spot.rot = (spot.rotDeg * Math.PI) / 180;
+      spot.room = this.roomAt(spot.x, spot.z);
+      this.spots[id] = spot;
+      return spot;
+    }
+
+    rasterizeColliders() {
+      const nav = this.nav;
+      for (const b of this.colliders.boxes) {
+        if (b.tag !== 'prop' || b.playerOnly) continue;
+        if (b.y0 > 1.0 || b.y1 < 0.2) continue;
+        const pad = 0.12;
+        const i0 = nav.ci(b.x0 - pad), i1 = nav.ci(b.x1 + pad), j0 = nav.cj(b.z0 - pad), j1 = nav.cj(b.z1 + pad);
+        for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+          if (!nav.inside(i, j)) continue;
+          const cx = nav.cx(i), cz = nav.cz(j);
+          if (cx > b.x0 - pad && cx < b.x1 + pad && cz > b.z0 - pad && cz < b.z1 + pad) nav.walk[nav.idx(i, j)] = 0;
+        }
+      }
+    }
+
+    buildLightGrid() {
+      const S = 1.0;
+      const w = Math.ceil((this.def.bounds.x1 - this.bx0) / S), h = Math.ceil((this.def.bounds.z1 - this.bz0) / S);
+      this.lg = { w, h, S, data: new Float32Array(w * h * 3) };
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+        const x = this.bx0 + (i + 0.5) * S, z = this.bz0 + (j + 0.5) * S;
+        const L = this.lighting.sample(x, 1.3, z, 0, 1, 0, null, true);
+        const k = (j * w + i) * 3;
+        this.lg.data[k] = L[0]; this.lg.data[k + 1] = L[1]; this.lg.data[k + 2] = L[2];
+      }
+    }
+    lightAt(x, z, out) {
+      const g = this.lg;
+      out = out || [1, 1, 1];
+      if (!g) { out[0] = out[1] = out[2] = 1; return out; }
+      const i = U.clamp(Math.floor((x - this.bx0) / g.S), 0, g.w - 1), j = U.clamp(Math.floor((z - this.bz0) / g.S), 0, g.h - 1);
+      const k = (j * g.w + i) * 3;
+      out[0] = g.data[k]; out[1] = g.data[k + 1]; out[2] = g.data[k + 2];
+      return out;
+    }
+
+    /* ----------------------------- runtime ----------------------------- */
+    // agents: [{x,z,access(lock)->bool, isPlayer}]
+    updateDoors(dt, agents) {
+      for (const door of this.doors) {
+        if (door.sealed) { door.target = 0; }
+        else {
+          let want = false;
+          const d = door.def;
+          for (const a of agents) {
+            const dx = a.x - d.x, dz = a.z - d.z;
+            if (dx * dx + dz * dz > 4.2) continue;
+            if (!door.lock || a.access(door.lock, door)) { want = true; break; }
+          }
+          if (want) door.holdOpen = 0.6;
+          else door.holdOpen -= dt;
+          door.target = door.holdOpen > 0 ? 1 : 0;
+        }
+        const prev = door.open;
+        door.open = U.clamp(door.open + Math.sign(door.target - door.open) * dt * 2.6, 0, 1);
+        if (door.open !== prev) {
+          if (prev === 0 || (prev === 1 && door.open < 1)) DV.Events.emit('door:move', { door, opening: door.target > 0.5 });
+          this.positionDoor(door);
+        }
+        if (door.lamp) {
+          const unlocked = door.lock && DV.Game && DV.Game.doorUnlocked && DV.Game.doorUnlocked(this.id, door);
+          door.lamp.material.color.setHex(door.sealed ? 0xd03020 : unlocked ? 0x30c050 : 0xd03020);
+        }
+      }
+    }
+
+    update(dt) {
+      for (const fn of this.updaters) fn(dt);
+    }
+  }
+
+  DV.Zone = Zone;
+
+  /* ----------------------------- sky / backdrop ----------------------------- */
+  function buildSky() {
+    const g = new THREE.Group();
+    g.name = 'sky';
+    const geo = new THREE.SphereGeometry(180, 16, 10);
+    const cols = [];
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) cols.push(1, 1, 1);
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false });
+    const dome = new THREE.Mesh(geo, mat);
+    dome.renderOrder = -10;
+    g.add(dome);
+    const skyTex = DV.Tex.get('skyline');
+    skyTex.repeat.set(3, 1);
+    const cyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(150, 150, 70, 32, 1, true),
+      new THREE.MeshBasicMaterial({ map: skyTex, transparent: true, side: THREE.BackSide, fog: false, depthWrite: false, color: 0x8a9098 })
+    );
+    cyl.position.y = 22;
+    cyl.renderOrder = -9;
+    g.add(cyl);
+    // far haze layer (second skyline, lighter)
+    const cyl2 = new THREE.Mesh(
+      new THREE.CylinderGeometry(165, 165, 60, 32, 1, true),
+      new THREE.MeshBasicMaterial({ map: skyTex, transparent: true, side: THREE.BackSide, fog: false, depthWrite: false, color: 0xb4bac2, opacity: 0.5 })
+    );
+    cyl2.position.y = 18;
+    cyl2.rotation.y = 1.3;
+    cyl2.renderOrder = -10;
+    g.add(cyl2);
+    g.userData = { dome, cyl, cyl2 };
+    return g;
+  }
+  function setSkyColors(sky, top, horizon, ground) {
+    const dome = sky.userData.dome;
+    const pos = dome.geometry.attributes.position;
+    const col = dome.geometry.attributes.color;
+    const t = new THREE.Color(top), hz = new THREE.Color(horizon), gr = new THREE.Color(ground || horizon);
+    const c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i) / 180;
+      if (y >= 0) c.copy(hz).lerp(t, Math.pow(y, 0.6));
+      else c.copy(hz).lerp(gr, Math.min(1, -y * 3));
+      col.setXYZ(i, c.r, c.g, c.b);
+    }
+    col.needsUpdate = true;
+  }
+
+  /* ------------------------------ World ------------------------------ */
+  DV.World = {
+    scene: null,
+    zones: {},
+    current: null,
+    init(scene) {
+      this.scene = scene;
+      this.sky = buildSky();
+      scene.add(this.sky);
+      this.ambient = new THREE.AmbientLight(0xffffff, 0.55);
+      this.hemi = new THREE.HemisphereLight(0xdfe6ff, 0x3a3530, 0.45);
+      this.dir = new THREE.DirectionalLight(0xfff4e0, 0.55);
+      this.dir.position.set(3, 10, 6);
+      scene.add(this.ambient, this.hemi, this.dir);
+    },
+    getZone(id) {
+      if (!this.zones[id]) {
+        const def = DV.Zones.get(id);
+        if (!def) throw new Error('Unknown zone ' + id);
+        const z = new Zone(def);
+        z.build();
+        this.zones[id] = z;
+      }
+      return this.zones[id];
+    },
+    activate(id) {
+      const zone = this.getZone(id);
+      if (this.current === zone) return zone;
+      if (this.current) {
+        this.scene.remove(this.current.group);
+        if (this.current.def.onExit) this.current.def.onExit(this.current);
+      }
+      this.current = zone;
+      this.scene.add(zone.group);
+      this.applyAtmosphere(zone);
+      if (zone.def.onEnter) zone.def.onEnter(zone);
+      DV.Events.emit('zone:activated', zone);
+      return zone;
+    },
+    applyAtmosphere(zone) {
+      const d = zone.def;
+      const fog = d.fog || { color: 0x6f7378, near: 20, far: 70 };
+      const dd = DV.Settings.get('drawDistance');
+      const mul = dd === 'near' ? 0.7 : dd === 'far' ? 1.5 : 1;
+      if (!this.scene.fog) this.scene.fog = new THREE.Fog(fog.color, fog.near * mul, fog.far * mul);
+      this.scene.fog.color.setHex(fog.color);
+      this.scene.fog.near = fog.near * mul;
+      this.scene.fog.far = fog.far * mul;
+      this.scene.background = new THREE.Color(fog.color);
+      const sky = d.sky || {};
+      setSkyColors(this.sky, sky.top || 0x4a5868, sky.horizon || 0x9aa2a8, sky.ground || 0x3a3a3a);
+      this.sky.userData.cyl.visible = sky.skyline !== false;
+      this.sky.userData.cyl2.visible = sky.skyline !== false;
+      this.sky.userData.cyl.material.color.setHex(sky.skylineTint || 0x8a9098);
+      this.sky.visible = sky.visible !== false;
+      const cl = d.charLight || {};
+      this.ambient.intensity = cl.ambient === undefined ? 0.5 : cl.ambient;
+      this.hemi.intensity = cl.hemi === undefined ? 0.45 : cl.hemi;
+      this.dir.intensity = cl.dir === undefined ? 0.5 : cl.dir;
+      if (cl.dirColor) this.dir.color.setHex(cl.dirColor);
+      else this.dir.color.setHex(0xfff4e0);
+    },
+    // remove a zone from the cache so it rebuilds next time (used by simulations)
+    dispose(id) {
+      const z = this.zones[id];
+      if (!z) return;
+      if (this.current === z) { this.scene.remove(z.group); this.current = null; }
+      z.group.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+      });
+      delete this.zones[id];
+    },
+    update(dt, camera) {
+      if (this.sky && camera) this.sky.position.set(camera.position.x, 0, camera.position.z);
+      if (this.current) this.current.update(dt);
+    },
+  };
+})();

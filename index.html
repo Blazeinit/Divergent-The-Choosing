@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DIVERGENT — The Aptitude Test (Build 1)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game-canvas"></canvas>
+    <div id="ui-root"></div>
+  </div>
+
+  <!-- Three.js r149 (MIT). A local copy ships with the game so it runs offline; the CDN is only a fallback. -->
+  <script src="js/lib/three.min.js"></script>
+  <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"><\/script>');</script>
+
+  <!-- core -->
+  <script src="js/core/utils.js"></script>
+  <script src="js/core/config.js"></script>
+
+  <!-- data -->
+  <script src="js/data/factions.js"></script>
+  <script src="js/data/rpg.js"></script>
+  <script src="js/data/items.js"></script>
+
+  <!-- engine -->
+  <script src="js/engine/textures.js"></script>
+  <script src="js/engine/materials.js"></script>
+  <script src="js/engine/geometry.js"></script>
+  <script src="js/engine/collision.js"></script>
+  <script src="js/engine/navigation.js"></script>
+  <script src="js/engine/props.js"></script>
+  <script src="js/engine/world.js"></script>
+  <script src="js/engine/character.js"></script>
+  <script src="js/engine/input.js"></script>
+  <script src="js/engine/audio.js"></script>
+
+  <!-- game systems -->
+  <script src="js/game/state.js"></script>
+  <script src="js/game/clock.js"></script>
+  <script src="js/game/stats.js"></script>
+  <script src="js/game/inventory.js"></script>
+  <script src="js/game/reputation.js"></script>
+  <script src="js/game/quests.js"></script>
+  <script src="js/game/dialogue.js"></script>
+  <script src="js/game/npc.js"></script>
+  <script src="js/game/npcAI.js"></script>
+  <script src="js/game/player.js"></script>
+  <script src="js/game/camera.js"></script>
+  <script src="js/game/aptitude.js"></script>
+  <script src="js/game/interaction.js"></script>
+  <script src="js/game/save.js"></script>
+
+  <!-- content: NPCs, quests, dialogue, barks -->
+  <script src="js/data/npcs.js"></script>
+  <script src="js/data/quests.js"></script>
+  <script src="js/data/barks.js"></script>
+  <script src="js/data/dialogue/ambient.js"></script>
+  <script src="js/data/dialogue/staff.js"></script>
+  <script src="js/data/dialogue/candidates.js"></script>
+  <script src="js/data/dialogue/juno.js"></script>
+  <script src="js/data/dialogue/sims.js"></script>
+
+  <!-- zones -->
+  <script src="js/zones/menuScene.js"></script>
+  <script src="js/zones/testingCenter.js"></script>
+  <script src="js/zones/simulations.js"></script>
+
+  <!-- story rules -->
+  <script src="js/game/story.js"></script>
+
+  <!-- interface -->
+  <script src="js/ui/ui.js"></script>
+  <script src="js/ui/dialogueUI.js"></script>
+  <script src="js/ui/rpgMenu.js"></script>
+  <script src="js/ui/menus.js"></script>
+  <script src="js/ui/creator.js"></script>
+
+  <!-- boot -->
+  <script src="js/game/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
