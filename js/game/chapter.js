@@ -227,7 +227,7 @@
       this.runSeqs(dt);
       const zone = DV.World.current;
       const cam = DV.Game.camera;
-      for (const a of this.actors) a.update(dt, zone, cam);
+      for (const a of this.actors) if (!a.activity) a.update(dt, zone, cam);
       if (this.script && this.script.update) this.script.update(this, dt, zone);
       for (const o of this.objects) if (o.update) o.update(dt);
       if (this.playerWalk) this.stepPlayerWalk(dt);

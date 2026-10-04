@@ -26,6 +26,12 @@
       const st = DV.State.npc(npc.id);
       if (st.override) return { key: 'ovr', list: [Object.assign({ t: '00:00' }, st.override)] };
       if (d.onlyDay && DV.Clock.day() !== d.onlyDay) return { key: 'none', list: [] };
+      if (d.when && !d.when()) return { key: 'none', list: [] }; // (only around if the story put them here)
+      // a schedule written fresh each day (training days differ)
+      if (d.scheduleFn) {
+        const list = d.scheduleFn(npc) || [];
+        return { key: 'fn' + DV.Clock.day() + ':' + (d.scheduleKey ? d.scheduleKey(npc) : ''), list };
+      }
       if (d.schedules) {
         const c = DV.Dialogue.makeCtx({ npcId: npc.id });
         for (let i = 0; i < d.schedules.length; i++) {
@@ -54,6 +60,7 @@
 
     /* ------------------------------ tasks ------------------------------ */
     refresh(npc, snap) {
+      if (npc.scripted) return;
       const { entry, key } = this.entryNow(npc);
       if (key === npc.taskKey && !snap) return;
       npc.taskKey = key;
@@ -240,6 +247,7 @@
       let crowd = 0;
       for (const npc of npcs) {
         if ((npc.def.zone || 'testing_center') !== zone.id || !npc.model) continue;
+        if (npc.activity) continue; // in a fight (or another activity): the activity drives them
         if (!npc.present) { if (npc.model.root.visible) npc.model.root.visible = false; continue; }
         const dx = npc.x - player.x, dz = npc.z - player.z;
         npc.dist = Math.sqrt(dx * dx + dz * dz);
@@ -247,6 +255,7 @@
         const visible = npc.dist < NC.cullDist;
         npc.model.root.visible = visible;
         npc.model.shadowFar = npc.dist > 16; // blob shadows are an extra draw call each
+        if (npc.scripted) { this.puppetStep(npc, dt, zone, visible); continue; }
         // LOD
         let step = dt, animate = true;
         if (npc.dist > NC.midUpdateDist) {
@@ -435,6 +444,25 @@
       if (npc.stuckT > (npc.pathBudget || 40)) { npc.x = p[p.length - 1][0]; npc.z = p[p.length - 1][1]; this.onPathDone(npc); }
     },
 
+    // someone a scene has borrowed: they hold their pose, or walk straight to a point, and nothing else
+    puppetStep(npc, dt, zone, visible) {
+      npc.speed = 0;
+      if (npc.walkTarget) {
+        const [tx, tz] = npc.walkTarget;
+        const dx = tx - npc.x, dz = tz - npc.z, d = Math.hypot(dx, dz);
+        if (d < 0.08) npc.walkTarget = null;
+        else {
+          const sp = Math.min(d, (npc.walkSpd || 1.4) * dt);
+          npc.x += dx / d * sp; npc.z += dz / d * sp;
+          npc.speed = sp / Math.max(dt, 1e-4);
+          npc.rot = U.dampAngle(npc.rot, Math.atan2(dx, dz), 9, dt);
+        }
+      }
+      this.syncModel(npc);
+      if (visible) npc.model.animate(Math.min(dt, 0.1), { speed: npc.speed, action: npc.walkTarget ? 'idle' : npc.action, seatY: npc.seatY, lookYaw: 0, talking: !!(npc.bark && npc.bark.until > performance.now()) });
+      const L = zone.lightAt(npc.x, npc.z);
+      npc.model.setTint(U.clamp(L[0] * 0.85, 0.25, 1.25), U.clamp(L[1] * 0.85, 0.25, 1.25), U.clamp(L[2] * 0.85, 0.25, 1.25));
+    },
     syncModel(npc) {
       if (!npc.model) return;
       npc.model.root.position.set(npc.x, 0, npc.z);
@@ -448,7 +476,8 @@
       const now = performance.now();
       if (npc.bark && npc.bark.until > now) return;
       const room = zone.roomAt(player.x, player.z);
-      const isStaff = npc.def.role === 'staff';
+      // (the Dauntless don't tell anyone to walk)
+      const isStaff = npc.def.role === 'staff' && !zone.def.relaxed;
       // reactive: horseplay indoors near staff
       if (isStaff && this.reactCooldown <= 0 && (player.justJumped || !player.onGround) && npc.dist < 6 && room && !room.exterior) {
         npc.say(npc.def.faction === 'dauntless' ? U.pick(['Nice hops. Now quit it.', 'Save it for the Pit, candidate.']) : U.pick(['Feet on the floor, please.', 'No jumping in the facility!', 'This is a testing center, not a gymnasium.']));

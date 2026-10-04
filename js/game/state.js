@@ -163,6 +163,9 @@
     },
     // NPC persistent state
     npc(id) {
+      // the same person in a later place (Nate at the Testing Center, Nate in the Pit) shares one memory
+      const alias = DV.NPCData && DV.NPCData.get(id);
+      if (alias && alias.memOf) id = alias.memOf;
       const n = this.data.npcs;
       if (!n[id]) {
         const def = DV.NPCData && DV.NPCData.get(id);

@@ -67,11 +67,16 @@
         this.dragging = true;
         // with the pointer captured, clicks are game input (e.g. confirm a dialogue choice)
         if (e.button === 0 && this.locked) this.pressed.MouseLeft = true;
+        // both buttons as held keys too (fighting, aiming)
+        if (e.button === 0) this.keys.MouseLeft = true;
+        if (e.button === 2) { this.keys.MouseRight = true; if (this.locked) this.pressed.MouseRight = true; }
         DV.Events.emit('input:canvasClick', e);
       });
       window.addEventListener('mouseup', (e) => {
         if (e.vcursor) return;
         this.dragging = false;
+        if (e.button === 0) this.keys.MouseLeft = false;
+        if (e.button === 2) this.keys.MouseRight = false;
         if (DV.Cursor) DV.Cursor.onUp(e);
       });
       canvas.addEventListener('contextmenu', (e) => e.preventDefault());

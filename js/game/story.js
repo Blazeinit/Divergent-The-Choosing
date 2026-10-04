@@ -189,6 +189,9 @@
       if (!lock) return true;
       if (lock.indexOf('sim') === 0) return !!(DV.Sim && DV.Sim.canPass(lock));
       if (DV.Game.inChapter && DV.Game.inChapter()) return DV.Chapter.canPass(lock); // story chapters own their doors
+      // a district's own rules (your faction's compound)
+      const ds = DV.District && DV.District.scriptFor(DV.World.current);
+      if (ds && ds.playerCanPass) { const r = ds.playerCanPass(lock, door); if (r !== undefined) return r; }
       const zs = DV.State.zoneState(DV.World.current ? DV.World.current.id : 'testing_center');
       if (door && zs.doors[door.id] === 'unlocked') return true;
       switch (lock) {

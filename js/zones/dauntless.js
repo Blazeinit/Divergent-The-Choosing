@@ -19,6 +19,7 @@
   const member = (i, sex) => adult(DV.Character.fromFaction('dauntless', sex || (i % 2 ? 'f' : 'm'), 'member:' + i, { age: 20 + ((i * 7) % 20) }));
   const LEADER = () => adult(DV.Character.fromFaction('dauntless', 'f', 'dana-cole', { age: 34 }), 1.07);
   const INSTRUCTOR = () => adult(DV.Character.fromFaction('dauntless', 'm', 'mark-rivera', { age: 19 }), 1.08);
+  DV.DauntlessCast = { LEADER, INSTRUCTOR, member }; // (the same faces again in the Build 3 compound)
 
   /* ============================== 1. the run ============================== */
   const RUN = { len: 460, trainZ: 4.7, cars: 6, speed: 6.2 };
@@ -503,26 +504,20 @@
     const SHELVES = [[4.5, -13.2, 18, 13.6], [9, -13.2, 18, 13.6], [4.5, -13.2, 18, 60.4], [9, -13.2, 18, 60.4], [13.5, -13.2, 10, 60.4]];
     const LANTERNS = [];
     for (const [y, z0, z1, x] of SHELVES) for (let z = z0 + 3; z < z1 - 2; z += 6.5) LANTERNS.push({ x, y, z, warm: (z * 7) % 3 >= 1.5 });
-    const props = [];
-    const add = (type, x, z, o) => props.push(Object.assign({ type, x, z }, o || {}));
-    for (let x = 15; x < 60; x += 6) add('railing', x + 3, 19.85, { len: 6, h: 1.15 });
-    add('crate', 16, -12, { size: 1, stack: true });
-    add('barrel', 59, -12.5, {});
-    add('barrel', 58.2, -11.8, { mat: 'rust' });
-    add('pipes', 37, -13.8, { len: 44, y: 5, n: 3 });
-    add('poster', 13.1, -4, { rotDeg: 90, kind: 'dauntless' });
-    DV.Zones.define('d_pit', {
-      name: 'The Pit',
-      region: 'Dauntless compound',
-      chapter: true,
-      noDiscover: true,
-      bounds: { x0: -2, z0: -16, x1: 64, z1: 30 },
-      buildingHeight: 18,
-      facade: 'rock',
-      fog: { color: 0x1a212c, near: 45, far: 170 },
-      sky: { visible: false, skyline: false, top: 0x000000, horizon: 0x000000, ground: 0x000000 },
-      charLight: { ambient: 0.5, hemi: 0.45, dir: 0.5, dirColor: 0xdfe8ff },
-      rooms: [
+    // the Pit, as parts: the Build 2 arrival uses them as they are, and the Build 3 compound builds around them
+    function pitProps() {
+      const props = [];
+      const add = (type, x, z, o) => props.push(Object.assign({ type, x, z }, o || {}));
+      for (let x = 15; x < 60; x += 6) add('railing', x + 3, 19.85, { len: 6, h: 1.15 });
+      add('crate', 16, -12, { size: 1, stack: true });
+      add('barrel', 59, -12.5, {});
+      add('barrel', 58.2, -11.8, { mat: 'rust' });
+      add('pipes', 37, -13.8, { len: 44, y: 5, n: 3 });
+      add('poster', 13.1, -4, { rotDeg: 90, kind: 'dauntless' });
+      return props;
+    }
+    function pitRooms() {
+      return [
         { id: 'net_room', name: 'The Net', x0: 0, z0: 0, x1: 10, z1: 10, h: 7, floor: 'concrete_dark', wall: 'rock', ceiling: 'rock', light: { ambient: [0.1, 0.1, 0.12], color: [0.85, 0.9, 1], intensity: 0.6, spacing: 9, range: 6, fixture: 'bulb', extra: [{ x: 5, z: 5, y: 6.5, intensity: 1.0, range: 7, color: [0.9, 0.92, 1] }] } },
         { id: 'pit_tunnel', name: 'Tunnel', x0: 10, z0: 3.5, x1: 13, z1: 6.5, h: 3, floor: 'concrete_dark', wall: 'rock', ceiling: 'rock', light: { ambient: [0.12, 0.13, 0.17], color: [0.55, 0.7, 1], intensity: 0.8, spacing: 3, range: 4, fixture: 'bulb' } },
         {
@@ -539,140 +534,161 @@
             { x: 52, z: 8, y: 12, intensity: 0.5, range: 18, color: [0.8, 0.87, 1] },
           ] },
         },
-      ],
-      doors: [
+      ];
+    }
+    function pitDoors() {
+      return [
         { id: 'net_tunnel', x: 10, z: 5, dir: 'z', w: 2.4, type: 'opening' },
         { id: 'tunnel_pit', x: 13, z: 5, dir: 'z', w: 2.4, type: 'opening' },
         { id: 'chasm', x: 37, z: 20, dir: 'x', w: 46, type: 'opening' },
-      ],
-      props,
-      spawn: { x: 5, z: 2.4, rot: 0 },
-      build(ctx) {
-        const zone = ctx.zone;
-        const rock = DV.Tex.get('rock').clone(); rock.needsUpdate = true; rock.wrapS = rock.wrapT = THREE.RepeatWrapping;
-        const rockMat = (rx, ry, col) => { const t = rock.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshBasicMaterial({ map: t, color: col || 0x8a8a92, fog: true }); };
-        // the net
-        const nt = DV.Tex.get('chainlink').clone(); nt.needsUpdate = true; nt.wrapS = nt.wrapT = THREE.RepeatWrapping; nt.repeat.set(10, 10);
-        const net = new THREE.Mesh(new THREE.PlaneGeometry(6, 6, 6, 6), new THREE.MeshBasicMaterial({ map: nt, color: 0x2a2a2a, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, fog: true }));
-        net.rotation.x = -Math.PI / 2;
-        net.position.set(5, 1.3, 5.5);
-        ctx.add(net);
-        zone.net = net;
-        // a shaft of light down from the hole
-        const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.6, 6, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xbfd0ff, transparent: true, opacity: 0.08, depthWrite: false, side: THREE.DoubleSide }));
-        beam.position.set(5, 4, 5.5);
-        ctx.add(beam);
-        // the chasm: a long drop beyond the railing, the river roaring at the bottom
-        const far = new THREE.Mesh(new THREE.PlaneGeometry(48, 36.4), rockMat(12, 9, 0x6a6e78));
-        far.position.set(37, 0.2, 27.5); far.rotation.y = Math.PI;
-        ctx.add(far);
-        for (const [x, ry] of [[13, Math.PI / 2], [61, -Math.PI / 2]]) {
-          const side = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 18.4), rockMat(2, 5, 0x6a6e78));
-          side.position.set(x, 9.2, 23.75); side.rotation.y = ry;
-          ctx.add(side);
+      ];
+    }
+    function buildPit(ctx) {
+      const zone = ctx.zone;
+      const rock = DV.Tex.get('rock').clone(); rock.needsUpdate = true; rock.wrapS = rock.wrapT = THREE.RepeatWrapping;
+      const rockMat = (rx, ry, col) => { const t = rock.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshBasicMaterial({ map: t, color: col || 0x8a8a92, fog: true }); };
+      // the net
+      const nt = DV.Tex.get('chainlink').clone(); nt.needsUpdate = true; nt.wrapS = nt.wrapT = THREE.RepeatWrapping; nt.repeat.set(10, 10);
+      const net = new THREE.Mesh(new THREE.PlaneGeometry(6, 6, 6, 6), new THREE.MeshBasicMaterial({ map: nt, color: 0x2a2a2a, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, fog: true }));
+      net.rotation.x = -Math.PI / 2;
+      net.position.set(5, 1.3, 5.5);
+      ctx.add(net);
+      zone.net = net;
+      // a shaft of light down from the hole
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.6, 6, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xbfd0ff, transparent: true, opacity: 0.08, depthWrite: false, side: THREE.DoubleSide }));
+      beam.position.set(5, 4, 5.5);
+      ctx.add(beam);
+      // the chasm: a long drop beyond the railing, the river roaring at the bottom
+      const far = new THREE.Mesh(new THREE.PlaneGeometry(48, 36.4), rockMat(12, 9, 0x6a6e78));
+      far.position.set(37, 0.2, 27.5); far.rotation.y = Math.PI;
+      ctx.add(far);
+      for (const [x, ry] of [[13, Math.PI / 2], [61, -Math.PI / 2]]) {
+        const side = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 18.4), rockMat(2, 5, 0x6a6e78));
+        side.position.set(x, 9.2, 23.75); side.rotation.y = ry;
+        ctx.add(side);
+      }
+      const drop = new THREE.Mesh(new THREE.BoxGeometry(48, 16, 7.5), [rockMat(2, 4), rockMat(2, 4), rockMat(1, 1, 0x000000), rockMat(1, 1, 0x000000), rockMat(12, 4, 0x55585f), rockMat(12, 4, 0x55585f)]);
+      drop.material.forEach((m) => { m.side = THREE.BackSide; });
+      drop.position.set(37, -8, 23.75);
+      ctx.add(drop);
+      const water = new THREE.Mesh(new THREE.PlaneGeometry(48, 7.5, 1, 1), new THREE.MeshBasicMaterial({ map: (() => { const t = DV.Tex.get('water').clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, 2); return t; })(), color: 0x6f8aa8, fog: true }));
+      water.rotation.x = -Math.PI / 2;
+      water.position.set(37, -12, 23.75);
+      ctx.add(water);
+      ctx.update((dt) => { water.material.map.offset.x -= dt * 0.35; water.material.map.offset.y += dt * 0.05; });
+      // spray
+      const mist = new THREE.Mesh(new THREE.PlaneGeometry(48, 6), new THREE.MeshBasicMaterial({ color: 0xc8d4e2, transparent: true, opacity: 0.12, depthWrite: false }));
+      mist.position.set(37, -8, 22); ctx.add(mist);
+      // paths cut into the walls, with doorways to shops and quarters
+      const ledge = rockMat(6, 1, 0x7c7c84);
+      const dark = new THREE.MeshBasicMaterial({ color: 0x07080a, fog: true });
+      const glow = new THREE.MeshBasicMaterial({ color: 0x8ab0ff, fog: true });
+      const warm = new THREE.MeshBasicMaterial({ color: 0xffc070, fog: true });
+      for (const [y, z0, z1, x] of SHELVES) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, z1 - z0), ledge);
+        shelf.position.set(x + (x < 30 ? 0.6 : -0.6), y, (z0 + z1) / 2);
+        ctx.add(shelf);
+        for (let z = z0 + 3; z < z1 - 2; z += 6.5) {
+          const d = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), dark);
+          d.position.set(x + (x < 30 ? 0.02 : -0.02), y + 1.3, z); d.rotation.y = x < 30 ? Math.PI / 2 : -Math.PI / 2;
+          ctx.add(d);
+          const l = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.5), (z * 7) % 3 >= 1.5 ? warm : glow);
+          l.position.set(x + (x < 30 ? 0.08 : -0.08), y + 2.8, z + 1.2);
+          ctx.add(l);
         }
-        const drop = new THREE.Mesh(new THREE.BoxGeometry(48, 16, 7.5), [rockMat(2, 4), rockMat(2, 4), rockMat(1, 1, 0x000000), rockMat(1, 1, 0x000000), rockMat(12, 4, 0x55585f), rockMat(12, 4, 0x55585f)]);
-        drop.material.forEach((m) => { m.side = THREE.BackSide; });
-        drop.position.set(37, -8, 23.75);
-        ctx.add(drop);
-        const water = new THREE.Mesh(new THREE.PlaneGeometry(48, 7.5, 1, 1), new THREE.MeshBasicMaterial({ map: (() => { const t = DV.Tex.get('water').clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, 2); return t; })(), color: 0x6f8aa8, fog: true }));
-        water.rotation.x = -Math.PI / 2;
-        water.position.set(37, -12, 23.75);
-        ctx.add(water);
-        ctx.update((dt) => { water.material.map.offset.x -= dt * 0.35; water.material.map.offset.y += dt * 0.05; });
-        // spray
-        const mist = new THREE.Mesh(new THREE.PlaneGeometry(48, 6), new THREE.MeshBasicMaterial({ color: 0xc8d4e2, transparent: true, opacity: 0.12, depthWrite: false }));
-        mist.position.set(37, -8, 22); ctx.add(mist);
-        // paths cut into the walls, with doorways to shops and quarters
-        const ledge = rockMat(6, 1, 0x7c7c84);
-        const dark = new THREE.MeshBasicMaterial({ color: 0x07080a, fog: true });
-        const glow = new THREE.MeshBasicMaterial({ color: 0x8ab0ff, fog: true });
-        const warm = new THREE.MeshBasicMaterial({ color: 0xffc070, fog: true });
-        for (const [y, z0, z1, x] of SHELVES) {
-          const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, z1 - z0), ledge);
-          shelf.position.set(x + (x < 30 ? 0.6 : -0.6), y, (z0 + z1) / 2);
-          ctx.add(shelf);
-          for (let z = z0 + 3; z < z1 - 2; z += 6.5) {
-            const d = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), dark);
-            d.position.set(x + (x < 30 ? 0.02 : -0.02), y + 1.3, z); d.rotation.y = x < 30 ? Math.PI / 2 : -Math.PI / 2;
-            ctx.add(d);
-            const l = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.5), (z * 7) % 3 >= 1.5 ? warm : glow);
-            l.position.set(x + (x < 30 ? 0.08 : -0.08), y + 2.8, z + 1.2);
-            ctx.add(l);
-          }
+      }
+      for (const [x, z, h] of [[16, -13.4, 18], [37, -13.6, 18], [58, -13.4, 18]]) {
+        const pipe = new THREE.Mesh(new THREE.BoxGeometry(0.4, h, 0.4), new THREE.MeshBasicMaterial({ color: 0x1c1d22, fog: true }));
+        pipe.position.set(x, h / 2, z); ctx.add(pipe);
+      }
+      // blue lamps along the railing
+      for (let x = 16; x < 60; x += 5) {
+        const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), glow);
+        lamp.position.set(x, 1.25, 19.85); ctx.add(lamp);
+      }
+      // the glass roof, out over the chasm too: pale daylight through grimy panes on an iron frame
+      const RX0 = 13, RX1 = 61, RZ0 = -14, RZ1 = 27.5, RY = 18;
+      const sky = new THREE.Mesh(new THREE.PlaneGeometry(RX1 - RX0, RZ1 - RZ0), new THREE.MeshBasicMaterial({ color: 0xa9bccb, fog: false }));
+      sky.rotation.x = Math.PI / 2;
+      sky.position.set((RX0 + RX1) / 2, RY + 0.3, (RZ0 + RZ1) / 2);
+      ctx.add(sky);
+      const iron = ctx.M('metal_painted'), B = ctx.B;
+      for (let x = RX0; x <= RX1 + 0.01; x += 4) B.box(iron, x, RY - 0.35, (RZ0 + RZ1) / 2, 0.22, 0.35, RZ1 - RZ0);
+      for (let z = RZ0; z <= RZ1 + 0.01; z += 4.5) B.box(iron, (RX0 + RX1) / 2, RY - 0.25, z, RX1 - RX0, 0.25, 0.18);
+      for (const x of [25, 37, 49]) B.box(iron, x, RY - 1.1, (RZ0 + RZ1) / 2, 0.35, 0.75, RZ1 - RZ0); // trusses
+      // shafts of daylight slanting down to the floor, and the pools where they land
+      const sun = new THREE.Vector3(-0.22, 1, -0.16).normalize();
+      const up = new THREE.Vector3(0, 1, 0);
+      const shaftMat = new THREE.MeshBasicMaterial({ map: gradTex('shaft'), color: 0xe4ecff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+      const poolMat = new THREE.MeshBasicMaterial({ map: gradTex('pool'), color: 0xd8e2f2, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, fog: true });
+      const shafts = [];
+      for (const [x, z, w] of [[22, -6, 3.2], [33, 3, 4.2], [46, -3, 3.6], [41, 13, 3], [27, 12, 2.6], [54, 9, 3]]) {
+        const len = RY / sun.y;
+        const g = new THREE.Group();
+        for (let k = 0; k < 2; k++) {
+          const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, len), shaftMat.clone());
+          pl.rotation.y = k * Math.PI / 2;
+          g.add(pl);
         }
-        for (const [x, z, h] of [[16, -13.4, 18], [37, -13.6, 18], [58, -13.4, 18]]) {
-          const pipe = new THREE.Mesh(new THREE.BoxGeometry(0.4, h, 0.4), new THREE.MeshBasicMaterial({ color: 0x1c1d22, fog: true }));
-          pipe.position.set(x, h / 2, z); ctx.add(pipe);
+        g.quaternion.setFromUnitVectors(up, sun);
+        g.position.set(x + sun.x * len / 2, RY / 2, z + sun.z * len / 2);
+        ctx.add(g);
+        const pool = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.5, w * 1.2), poolMat.clone());
+        pool.rotation.x = -Math.PI / 2;
+        pool.position.set(x, 0.03, z);
+        ctx.add(pool);
+        shafts.push({ g, pool, ph: x * 0.37 + z * 0.11 });
+      }
+      // dust turning over in the light
+      const N = 260, dust = new Float32Array(N * 3), seed = [];
+      for (let i = 0; i < N; i++) {
+        const s = shafts[i % shafts.length], h = 0.5 + ((i * 7919) % 1000) / 1000 * 15;
+        const bx = s.pool.position.x + sun.x * h / sun.y, bz = s.pool.position.z + sun.z * h / sun.y;
+        seed.push([bx + (((i * 31) % 100) / 100 - 0.5) * 2.4, h, bz + (((i * 57) % 100) / 100 - 0.5) * 2.4, i * 1.7]);
+      }
+      const dg = new THREE.BufferGeometry();
+      dg.setAttribute('position', new THREE.BufferAttribute(dust, 3));
+      const motes = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xeaf0ff, size: 0.05, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+      motes.frustumCulled = false;
+      ctx.add(motes);
+      let t = 0;
+      ctx.update((dt) => {
+        t += dt;
+        // clouds passing over the glass: the shafts dim and brighten together with their pools
+        for (const s of shafts) {
+          const k = 0.65 + 0.35 * Math.sin(t * 0.13 + s.ph) * Math.sin(t * 0.071 + s.ph * 1.7);
+          s.g.children[0].material.opacity = s.g.children[1].material.opacity = 0.2 * k;
+          s.pool.material.opacity = 0.22 * k;
         }
-        // blue lamps along the railing
-        for (let x = 16; x < 60; x += 5) {
-          const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), glow);
-          lamp.position.set(x, 1.25, 19.85); ctx.add(lamp);
-        }
-        // the glass roof, out over the chasm too: pale daylight through grimy panes on an iron frame
-        const RX0 = 13, RX1 = 61, RZ0 = -14, RZ1 = 27.5, RY = 18;
-        const sky = new THREE.Mesh(new THREE.PlaneGeometry(RX1 - RX0, RZ1 - RZ0), new THREE.MeshBasicMaterial({ color: 0xa9bccb, fog: false }));
-        sky.rotation.x = Math.PI / 2;
-        sky.position.set((RX0 + RX1) / 2, RY + 0.3, (RZ0 + RZ1) / 2);
-        ctx.add(sky);
-        const iron = ctx.M('metal_painted'), B = ctx.B;
-        for (let x = RX0; x <= RX1 + 0.01; x += 4) B.box(iron, x, RY - 0.35, (RZ0 + RZ1) / 2, 0.22, 0.35, RZ1 - RZ0);
-        for (let z = RZ0; z <= RZ1 + 0.01; z += 4.5) B.box(iron, (RX0 + RX1) / 2, RY - 0.25, z, RX1 - RX0, 0.25, 0.18);
-        for (const x of [25, 37, 49]) B.box(iron, x, RY - 1.1, (RZ0 + RZ1) / 2, 0.35, 0.75, RZ1 - RZ0); // trusses
-        // shafts of daylight slanting down to the floor, and the pools where they land
-        const sun = new THREE.Vector3(-0.22, 1, -0.16).normalize();
-        const up = new THREE.Vector3(0, 1, 0);
-        const shaftMat = new THREE.MeshBasicMaterial({ map: gradTex('shaft'), color: 0xe4ecff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
-        const poolMat = new THREE.MeshBasicMaterial({ map: gradTex('pool'), color: 0xd8e2f2, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, fog: true });
-        const shafts = [];
-        for (const [x, z, w] of [[22, -6, 3.2], [33, 3, 4.2], [46, -3, 3.6], [41, 13, 3], [27, 12, 2.6], [54, 9, 3]]) {
-          const len = RY / sun.y;
-          const g = new THREE.Group();
-          for (let k = 0; k < 2; k++) {
-            const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, len), shaftMat.clone());
-            pl.rotation.y = k * Math.PI / 2;
-            g.add(pl);
-          }
-          g.quaternion.setFromUnitVectors(up, sun);
-          g.position.set(x + sun.x * len / 2, RY / 2, z + sun.z * len / 2);
-          ctx.add(g);
-          const pool = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.5, w * 1.2), poolMat.clone());
-          pool.rotation.x = -Math.PI / 2;
-          pool.position.set(x, 0.03, z);
-          ctx.add(pool);
-          shafts.push({ g, pool, ph: x * 0.37 + z * 0.11 });
-        }
-        // dust turning over in the light
-        const N = 260, dust = new Float32Array(N * 3), seed = [];
         for (let i = 0; i < N; i++) {
-          const s = shafts[i % shafts.length], h = 0.5 + ((i * 7919) % 1000) / 1000 * 15;
-          const bx = s.pool.position.x + sun.x * h / sun.y, bz = s.pool.position.z + sun.z * h / sun.y;
-          seed.push([bx + (((i * 31) % 100) / 100 - 0.5) * 2.4, h, bz + (((i * 57) % 100) / 100 - 0.5) * 2.4, i * 1.7]);
+          const d = seed[i], ph = d[3];
+          dust[i * 3] = d[0] + Math.sin(t * 0.21 + ph) * 0.5;
+          dust[i * 3 + 1] = d[1] + Math.sin(t * 0.13 + ph * 1.3) * 0.6;
+          dust[i * 3 + 2] = d[2] + Math.cos(t * 0.17 + ph * 0.7) * 0.5;
         }
-        const dg = new THREE.BufferGeometry();
-        dg.setAttribute('position', new THREE.BufferAttribute(dust, 3));
-        const motes = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xeaf0ff, size: 0.05, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
-        motes.frustumCulled = false;
-        ctx.add(motes);
-        let t = 0;
-        ctx.update((dt) => {
-          t += dt;
-          // clouds passing over the glass: the shafts dim and brighten together with their pools
-          for (const s of shafts) {
-            const k = 0.65 + 0.35 * Math.sin(t * 0.13 + s.ph) * Math.sin(t * 0.071 + s.ph * 1.7);
-            s.g.children[0].material.opacity = s.g.children[1].material.opacity = 0.2 * k;
-            s.pool.material.opacity = 0.22 * k;
-          }
-          for (let i = 0; i < N; i++) {
-            const d = seed[i], ph = d[3];
-            dust[i * 3] = d[0] + Math.sin(t * 0.21 + ph) * 0.5;
-            dust[i * 3 + 1] = d[1] + Math.sin(t * 0.13 + ph * 1.3) * 0.6;
-            dust[i * 3 + 2] = d[2] + Math.cos(t * 0.17 + ph * 0.7) * 0.5;
-          }
-          dg.attributes.position.needsUpdate = true;
-        });
-      },
+        dg.attributes.position.needsUpdate = true;
+      });
+    }
+    DV.DauntlessPit = { SHELVES, LANTERNS, rooms: pitRooms, doors: pitDoors, props: pitProps, build: buildPit };
+    DV.Zones.define('d_pit', {
+      name: 'The Pit',
+      region: 'Dauntless compound',
+      chapter: true,
+      underground: true,
+      relaxed: true,
+      chasm: { z: 20 },
+      noDiscover: true,
+      bounds: { x0: -2, z0: -16, x1: 64, z1: 30 },
+      buildingHeight: 18,
+      facade: 'rock',
+      fog: { color: 0x1a212c, near: 45, far: 170 },
+      sky: { visible: false, skyline: false, top: 0x000000, horizon: 0x000000, ground: 0x000000 },
+      charLight: { ambient: 0.5, hemi: 0.45, dir: 0.5, dirColor: 0xdfe8ff },
+      rooms: pitRooms(),
+      doors: pitDoors(),
+      props: pitProps(),
+      spawn: { x: 5, z: 2.4, rot: 0 },
+      build: buildPit,
     });
   })();
 
@@ -697,10 +713,11 @@
       Ch.inits = ppl.slice(0, 6).map((p, i) => Ch.actor({ id: p.id, name: p.name, app: p.app, x: 2 + (i % 3) * 1.3, z: 8 + Math.floor(i / 3) * 1.0, rot: Math.PI, action: 'idle' }));
       if (DV.State.flag('first_jumper')) Ch.inits.forEach((a) => { a.model.root.visible = false; a.ghost = true; });
       if (opts.step === 'pit' || opts.step === 'pit_walk') return this.inPit(Ch, zone, true);
-      if (opts.step === 'done') { // (a save from after the welcome: just be here)
+      if (opts.step === 'done') { // (a save from after the welcome: Build 3 goes on in the compound)
         Ch.mark.place(37, 17.2); Ch.mark.face(37, 5);
         Ch.inits.forEach((a, i) => a.place(31 + (i % 3) * 2.2, 12.5 + Math.floor(i / 3) * 1.4, Math.PI));
         DV.Player.place(34, 9, 0.2);
+        setTimeout(() => DV.District.enter('dauntless', { spawn: [34, 9, 0.2], instant: true }), 0);
         return;
       }
       Ch.checkpoint('net');
@@ -761,9 +778,10 @@
           DV.Quests.setObj('new_faction', 'arrive', 'done', 'You made it into the Dauntless compound.');
           DV.Quests.complete('new_faction', 'dauntless');
           Ch.checkpoint('done');
-          Ch.banner('WELCOME TO DAUNTLESS', 'INITIATION BEGINS AT DAWN.', 'Click or press any key to keep exploring the Pit · Build 2 complete', () => {
-            DV.Save.write('auto');
-            DV.UI.notify('Autosaved. Build 2 is complete — the Pit is yours to explore.', 'info');
+          Ch.banner('WELCOME TO DAUNTLESS', 'INITIATION BEGINS AT DAWN.', 'Click or press any key to continue · Build 3: Stage One', () => {
+            // the Pit becomes the whole compound, with everyone in it (Build 3)
+            const P = DV.Player;
+            DV.District.enter('dauntless', { spawn: [P.x, P.z, P.rot], fadeOut: 700, fadeIn: 1000 });
           });
         },
       ], 'speech');

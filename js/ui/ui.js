@@ -95,16 +95,17 @@
       const qb = this.q('#hud-quest');
       if (cur && !sim) {
         qb.classList.remove('hidden');
-        const key = cur.quest.id + cur.obj.id;
+        const otext = DV.Quests.objText(cur.obj);
+        const key = cur.quest.id + cur.obj.id + otext;
         if (this._qk !== key) {
           this._qk = key;
           qb.querySelector('.qt').textContent = cur.quest.title;
-          qb.querySelector('.qo').textContent = '◇ ' + cur.obj.text;
+          qb.querySelector('.qo').textContent = '◇ ' + otext;
         }
-        const dist = this.targetDistance(cur.obj.target, game);
+        const dist = this.targetDistance(DV.Quests.objTarget(cur.obj), game);
         qb.querySelector('.qd').textContent = dist !== null ? Math.round(dist) + ' m' : '';
       } else qb.classList.add('hidden');
-      this.updateCompass(game, cur && !sim ? cur.obj.target : null);
+      this.updateCompass(game, cur && !sim ? DV.Quests.objTarget(cur.obj) : null);
       // prompt
       const pr = DV.Interaction.prompt();
       const pe = this.q('#hud-prompt');

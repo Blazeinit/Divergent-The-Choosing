@@ -272,7 +272,7 @@
         for (const o of def.objectives) {
           const s = q.objectives[o.id];
           if (s === 'hidden') continue;
-          el('div', 'obj ' + (s === 'done' ? 'done' : s === 'failed' ? 'failed' : ''), U.esc(o.text), d);
+          el('div', 'obj ' + (s === 'done' ? 'done' : s === 'failed' ? 'failed' : ''), U.esc(DV.Quests.objText(o)), d);
         }
         if (DV.Quests.isActive(this.selQuest)) {
           const tb = el('span', 'btn small', DV.Quests.tracked === this.selQuest ? 'Tracked' : 'Track', d);
@@ -395,7 +395,7 @@
       // quest target
       const cur = DV.Quests.current();
       if (cur) {
-        const p = DV.UI.targetPos(cur.obj.target);
+        const p = DV.UI.targetPos(DV.Quests.objTarget(cur.obj));
         if (p) { g.fillStyle = '#ffd36a'; g.font = '14px serif'; g.textAlign = 'center'; g.fillText('★', X(p[0]), Y(p[1]) + 5); }
       }
       // player

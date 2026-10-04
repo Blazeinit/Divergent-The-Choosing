@@ -487,6 +487,42 @@
           case 'drip': { const o = this.tone(1900 + Math.random() * 500, 0.09, 'sine', 0.05 * v); o.frequency.exponentialRampToValueAtTime(1100, this.ctx.currentTime + 0.08); break; }
           case 'tick': this.tone(3200, 0.012, 'square', 0.012 * v); break;
           case 'buzzer': this.tone(160, 0.35, 'sawtooth', 0.05 * v); this.tone(163, 0.35, 'square', 0.03 * v); break;
+          /* ---- Build 3: fighting, the range, the knife wall ---- */
+          case 'punch': // knuckles on a body: a dull thump with a slap on top
+            this.burst('lowpass', 420, 1, 0.09, 0.55 * v); this.tone(88, 0.1, 'sine', 0.38 * v); this.burst('bandpass', 2300, 1.4, 0.03, 0.14 * v);
+            break;
+          case 'punch_heavy':
+            this.burst('lowpass', 300, 0.9, 0.16, 0.8 * v); { const o = this.tone(95, 0.18, 'sine', 0.55 * v); o.frequency.exponentialRampToValueAtTime(48, this.ctx.currentTime + 0.16); }
+            this.burst('bandpass', 1900, 1.2, 0.04, 0.2 * v); this.burst('highpass', 3500, 0.7, 0.05, 0.05 * v, 0.01);
+            break;
+          case 'block': // forearms taking it
+            this.burst('bandpass', 760, 1.3, 0.07, 0.36 * v); this.tone(170, 0.06, 'triangle', 0.12 * v); this.burst('bandpass', 2600, 2, 0.02, 0.08 * v);
+            break;
+          case 'whiff': { // air
+            const f = this.burst('bandpass', 700, 1.6, 0.16, 0.12 * v);
+            f.frequency.exponentialRampToValueAtTime(2400, this.ctx.currentTime + 0.12);
+            break;
+          }
+          case 'swing': { const f = this.burst('bandpass', 500, 1.2, 0.11, 0.07 * v); f.frequency.exponentialRampToValueAtTime(1600, this.ctx.currentTime + 0.1); break; }
+          case 'scuff': this.burst('bandpass', 1300 + Math.random() * 500, 1.1, 0.07, 0.07 * v); this.burst('lowpass', 300, 1, 0.05, 0.05 * v, 0.03); break;
+          case 'gunshot': { // a pistol indoors: a crack, a thump, and the room ringing after it
+            this.burst('highpass', 1800, 0.6, 0.06, 0.9 * v);
+            this.burst('lowpass', 900, 0.8, 0.22, 0.9 * v);
+            const o = this.tone(140, 0.2, 'sine', 0.6 * v); o.frequency.exponentialRampToValueAtTime(45, this.ctx.currentTime + 0.18);
+            this.burst('bandpass', 3200, 2, 0.02, 0.3 * v, 0.004);
+            break;
+          }
+          case 'paper': this.burst('bandpass', 2800, 1.5, 0.03, 0.12 * v); this.burst('lowpass', 500, 1, 0.04, 0.08 * v, 0.01); break;
+          case 'ricochet': { const o = this.tone(2400, 0.25, 'sine', 0.05 * v); o.frequency.exponentialRampToValueAtTime(900, this.ctx.currentTime + 0.22); this.burst('highpass', 3000, 1, 0.04, 0.08 * v); break; }
+          case 'dryfire': this.tone(1600, 0.02, 'square', 0.05 * v); this.burst('bandpass', 2600, 3, 0.02, 0.06 * v); break;
+          case 'reload': for (let i = 0; i < 3; i++) this.burst('bandpass', 1500 + i * 600, 3, 0.03, 0.1 * v, i * 0.09); this.tone(900, 0.04, 'square', 0.04 * v, 0.3); break;
+          case 'knife_throw': { const f = this.burst('bandpass', 1100, 2, 0.18, 0.1 * v); f.frequency.exponentialRampToValueAtTime(3000, this.ctx.currentTime + 0.16); break; }
+          case 'knife_stick': this.burst('lowpass', 700, 1.2, 0.06, 0.5 * v); this.tone(180, 0.08, 'triangle', 0.2 * v); this.tone(2200, 0.18, 'sine', 0.025 * v, 0.02); break;
+          case 'knife_bounce': this.tone(2600, 0.25, 'triangle', 0.05 * v); this.tone(3900, 0.18, 'triangle', 0.03 * v, 0.02); this.burst('highpass', 3000, 1, 0.05, 0.08 * v); for (let i = 1; i < 4; i++) this.tone(2400 + Math.random() * 800, 0.08, 'triangle', 0.025 * v / i, 0.25 + i * 0.12); break;
+          case 'bag_hit': this.burst('lowpass', 260, 0.9, 0.14, 0.7 * v); this.tone(70, 0.12, 'sine', 0.35 * v); this.burst('bandpass', 900, 1.2, 0.04, 0.1 * v); break;
+          case 'bell': // the ring bell, struck twice
+            for (const w of [0, 0.32]) { [1180, 1810, 2790, 3870].forEach((f, i) => this.tone(f, 1.4 - i * 0.25, 'sine', (0.05 - i * 0.01) * v, w)); this.burst('highpass', 4000, 1, 0.02, 0.06 * v, w); }
+            break;
           case 'hop': this.burst('bandpass', 700, 0.8, 0.12, 0.12 * v); this.tone(160, 0.08, 'sine', 0.1 * v); break;
           case 'land': this.burst('lowpass', 260, 0.8, 0.18, 0.35 * v); this.tone(70, 0.12, 'sine', 0.22 * v); this.burst('bandpass', 1800, 1.2, 0.05, 0.06 * v, 0.02); break;
           case 'keys': for (let i = 0; i < 5; i++) this.tone(2100 + Math.random() * 600, 0.012, 'square', 0.025 * v, i * 0.1 + Math.random() * 0.04); break;

@@ -84,6 +84,8 @@
     convos,
     pa,
     greeting(npc) {
+      // later places bring their own small talk
+      if (npc.def.greetFn) { const g = npc.def.greetFn(npc); if (g) return DV.Dialogue.fill(g, { def: npc.def }); }
       const f = npc.def.faction || 'abnegation';
       const st = DV.State.npc(npc.id);
       if (npc.def.barks && Math.random() < 0.45) return DV.Dialogue.fill(U.pick(npc.def.barks), { def: npc.def });
@@ -101,6 +103,10 @@
     },
     conversation(a, b) {
       let pool;
+      if (a.def.convos || b.def.convos) {
+        const own = (a.def.convos || []).concat(b.def.convos || []);
+        if (own.length) return U.pick(own).slice();
+      }
       if (a.def.role === 'staff' && b.def.role === 'staff') pool = convos.staff;
       else if (a.def.faction === b.def.faction && convos[a.def.faction + '|' + b.def.faction]) pool = convos[a.def.faction + '|' + b.def.faction].concat(convos.mixed.slice(0, 1));
       else pool = convos.mixed;

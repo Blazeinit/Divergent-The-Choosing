@@ -49,6 +49,14 @@
         this.look.copy(look);
       }
     }
+    // a moving camera driven every frame by an activity (a fight, the shooting range):
+    // it chases the wanted position at `lambda` and won't end up inside a wall
+    // `anchor`: a point known to be in the open (the player's head) that the wall check runs from
+    setTrack(pos, look, lambda, instant, anchor) {
+      if (this.mode !== 'track' || instant) { this.pos.copy(pos); this.look.copy(look); }
+      this.mode = 'track';
+      this.track = { pos: pos.clone(), look: look.clone(), lambda: lambda || 8, anchor: anchor ? anchor.clone() : null };
+    }
     follow(instant) {
       if (this.mode !== 'follow' && !instant) this.blendT = 0.7;
       if (instant) { this.initialized = false; this.blendT = 0; }
@@ -127,6 +135,23 @@
         const k = 1 - Math.exp(-5 * dt);
         this.pos.lerp(desiredPos, k);
         this.look.lerp(desiredLook, k);
+      } else if (this.mode === 'track' && this.track) {
+        const T = this.track;
+        let want = T.pos;
+        if (zone) {
+          // pull in toward the anchor (or the look point) if the wanted spot is behind a wall
+          const A = T.anchor || T.look;
+          const v = want.clone().sub(A);
+          const vl = v.length();
+          if (vl > 0.01) {
+            v.divideScalar(vl);
+            const hit = zone.colliders.raycast(A.x, A.y, A.z, v.x, v.y, v.z, vl + 0.2);
+            if (hit < vl + 0.2) want = A.clone().addScaledVector(v, Math.max(0.3, hit - 0.25));
+          }
+        }
+        const k = 1 - Math.exp(-T.lambda * dt);
+        this.pos.lerp(want, k);
+        this.look.lerp(T.look, Math.min(1, k * 1.6));
       } else if (this.mode === 'shot' && this.shot) {
         const k = 1 - Math.exp(-3 * dt);
         this.pos.lerp(this.shot.pos, k);

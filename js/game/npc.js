@@ -61,7 +61,8 @@
     }
     appearance() {
       const d = this.def;
-      const app = DV.Character.fromFaction(d.faction, d.sex, d.id, Object.assign({ age: d.age }, d.appearance || {}));
+      if (d.appearanceFn) return d.appearanceFn(); // the same face as in an earlier chapter
+      const app = DV.Character.fromFaction(d.faction, d.sex, d.seed || d.id, Object.assign({ age: d.age }, d.appearance ? JSON.parse(JSON.stringify(d.appearance)) : {}));
       // ID on everyone: candidates get the clip-on badge from reception, staff wear a
       // lanyard (Dauntless security a metal badge)
       if (d.role === 'candidate') app.nameTag = true;

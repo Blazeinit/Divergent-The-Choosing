@@ -9,7 +9,7 @@
   const DV = window.DV;
   const U = DV.U;
 
-  const HOME = 'testing_center';
+  const HOME = 'testing_center'; // Build 1's district; DV.District knows where you live now
 
   const Game = {
     state: 'boot',
@@ -47,7 +47,7 @@
       this.resize();
       window.addEventListener('resize', () => this.resize());
       DV.Events.on('settings:changed', () => { this.resize(); if (DV.World.current) DV.World.applyAtmosphere(DV.World.current); });
-      DV.Events.on('input:lockLost', (e) => { if (!e.requested && this.state === 'playing') this.pause(); });
+      DV.Events.on('input:lockLost', (e) => { if (!e.requested && (this.state === 'playing' || this.state === 'activity')) this.pause(); });
       DV.Events.on('input:canvasClick', () => this.onCanvasClick());
       DV.Events.on('dialogue:end', (e) => this.onDialogueEnd(e));
       DV.Events.on('inventory:changed', (e) => { if (e && e.id === 'name_badge') this.refreshPlayerTag(); });
@@ -58,8 +58,12 @@
         // outside air pushes in when an exterior door opens
         if (e.opening && (d.id === 'main_doors' || d.id === 'court_door')) DV.Audio.play('gust', { x: d.x, z: d.z, range: 14 });
       });
-      DV.Events.on('clock:minute', () => { if (DV.World.current && DV.World.current.id === HOME && this.state !== 'mainmenu') DV.NPCAI.onMinute(); });
-      document.addEventListener('visibilitychange', () => { if (document.hidden && this.state === 'playing') this.pause(); });
+      DV.Events.on('clock:minute', (m) => {
+        if (!DV.World.current || DV.World.current.id !== this.homeZoneId() || this.state === 'mainmenu') return;
+        DV.NPCAI.onMinute();
+        DV.District.onMinute(m);
+      });
+      document.addEventListener('visibilitychange', () => { if (document.hidden && (this.state === 'playing' || this.state === 'activity')) this.pause(); });
       this.last = performance.now();
       requestAnimationFrame((t) => this.frame(t));
       this.showMainMenu();
@@ -78,8 +82,9 @@
     zone() {
       return DV.World.current;
     },
+    // the zone you live in: the Testing Center in Build 1, your faction's compound later
     homeZoneId() {
-      return HOME;
+      return DV.District.zoneId();
     },
     inSimulation() {
       return !!(DV.World.current && DV.World.current.def.simulation);
@@ -247,14 +252,15 @@
             DV.Chapter.start(st0.story.chapter.id, { step: st0.story.chapter.step, instant: true, fromLoad: true });
             return;
           }
-          const zone = DV.World.activate(HOME);
-          DV.NPCs.attach(HOME);
+          const HZ = this.homeZoneId();
+          const zone = DV.World.activate(HZ);
+          DV.NPCs.attach(HZ);
           const st = DV.State.data;
           const p = DV.Player;
           if (!st.player.appearance) st.player.appearance = DV.Character.fromFaction('neutral', st.player.sex, 'player');
           this.refreshPlayerAppearance(true);
           this.scene.add(p.model.root);
-          zone.refreshPickups(DV.State.zoneState(HOME));
+          zone.refreshPickups(DV.State.zoneState(HZ));
           if (fromLoad && st.player.pos && (st.player.pos.x || st.player.pos.z)) p.place(st.player.pos.x, st.player.pos.z, st.player.pos.rot || 0);
           else { const s = zone.def.spawn; p.place(s.x, s.z, s.rot); }
           p.stamina = st.player.stamina || 100;
@@ -266,13 +272,15 @@
           this.triggerState = {};
           this.lastRoom = null;
           DV.Clock.lastMinute = Math.floor(DV.Clock.minutes());
-          if (!fromLoad) {
+          const district = DV.District.current();
+          if (!fromLoad && HZ === HOME) {
             DV.Quests.start('aptitude_day');
             DV.Story.pa('Welcome to the Sector 4 Aptitude Testing Center. Candidates, please check in at reception, then present your name badge at security.');
           } else {
             DV.Quests.tracked = st.questsTracked || DV.Quests.firstActive();
-            DV.Build2.beginGoingHome(); // a save made after the results (also from Build 1)
+            if (HZ === HOME) DV.Build2.beginGoingHome(); // a save made after the results (also from Build 1)
           }
+          if (district && district.script && district.script.start) district.script.start(!!fromLoad, {});
           DV.UI.loading(false);
           DV.UI.showHUD(true);
           DV.UI.simMode(false);
@@ -282,7 +290,7 @@
           this.updateAmbience(true);
           DV.UI.fade(1, 1);
           DV.UI.fade(0, 1200);
-          if (!fromLoad) setTimeout(() => DV.UI.narrate('APTITUDE TEST DAY\n' + DV.Clock.str(), 3.5), 900);
+          if (!fromLoad && HZ === HOME) setTimeout(() => DV.UI.narrate('APTITUDE TEST DAY\n' + DV.Clock.str(), 3.5), 900);
         } catch (e) {
           DV.UI.loading(false);
           DV.UI.showError((e && e.stack) || String(e));
@@ -315,6 +323,8 @@
       const app = U.deepClone(st.player.appearance);
       app.outfit = U.deepClone(DV.Character.OUTFITS[st.player.outfit] || DV.Character.OUTFITS.neutral);
       if (st.player.outfit === 'candor') app.outfit.tieColor = '#101010';
+      // your tattoos go wherever you go, whatever you wear
+      if (st.player.tattoos && st.player.tattoos.length) app.outfit.tattoos = (app.outfit.tattoos || []).concat(st.player.tattoos);
       app.nameTag = true;
       const p = DV.Player;
       const parent = p.model && p.model.root.parent;
@@ -384,8 +394,17 @@
         input.takeMouse(); input.takeWheel();
         this.updateWorldSystems(dt, zone, false);
         if (this.inChapter()) DV.Chapter.update(dt);
+        else DV.District.update(dt);
         const P = DV.Player;
         P.model.animate(dt, { speed: P.cineSpeed || 0, action: P.cineAction || P.action, seatY: P.seat ? P.seat.seatY : 0.45 });
+      } else if (this.state === 'activity') {
+        // a fight, the range, the knife wall: the activity has the controls and the camera
+        if (input.consume('Escape')) { this.pause(); return; }
+        if (!this.ctrl()) DV.Clock.update(dt);
+        DV.Activity.update(dt, input);
+        this.updateWorldSystems(dt, zone, false);
+        if (this.inChapter()) DV.Chapter.update(dt);
+        else DV.District.update(dt);
       } else if (this.state === 'menu') {
         if (input.consume('Tab') || input.consume('Escape')) this.closeOverlay();
         else if (input.consume('KeyM') && DV.RPGMenu.tab !== 'map') DV.RPGMenu.show('map');
@@ -436,6 +455,7 @@
       this.checkRoomAndTriggers(zone);
       if (this.inSimulation() && DV.Sim) DV.Sim.update(dt, false);
       if (this.inChapter() && this.state !== 'cutscene') DV.Chapter.update(dt);
+      else DV.District.update(dt);
       // autosave
       if (this.autosaveTimer > 0) {
         this.autosaveTimer -= dt;
@@ -511,7 +531,9 @@
         if (inside !== !!this.triggerState[t.id]) {
           this.triggerState[t.id] = inside;
           const ctl = this.ctrl();
+          const ds = DV.District.scriptFor(zone);
           if (ctl) ctl.onTrigger(t.id, inside);
+          else if (ds) { if (ds.onTrigger) ds.onTrigger(t.id, inside); }
           else DV.Story.onTrigger(t.id, inside);
         }
       }
@@ -563,6 +585,7 @@
       }
       if (DV.Sim && this.inSimulation()) DV.Sim.onDialogueEnd(e);
       else if (this.inChapter()) DV.Chapter.onDialogueEnd(e);
+      else { const ds = DV.District.scriptFor(this.zone()); if (ds && ds.onDialogueEnd) ds.onDialogueEnd(e); }
     },
     sitOn(spot, forced) {
       if (!spot) return;
@@ -661,7 +684,7 @@
     pause() {
       if (this.state === 'paused') return;
       if (DV.RPGMenu.isOpen()) DV.RPGMenu.close();
-      this.prevState = this.state === 'dialogue' ? 'dialogue' : 'playing';
+      this.prevState = this.state === 'dialogue' || this.state === 'activity' ? this.state : 'playing';
       this.state = 'paused';
       DV.Input.exitLock();
       DV.Input.clearMovement();
@@ -670,9 +693,9 @@
     resume() {
       DV.Menus.hidePause();
       DV.Menus.closeSide();
-      this.state = this.prevState === 'dialogue' && DV.Dialogue.isActive() ? 'dialogue' : 'playing';
+      this.state = this.prevState === 'dialogue' && DV.Dialogue.isActive() ? 'dialogue' : this.prevState === 'activity' && DV.Activity.active() ? 'activity' : 'playing';
       DV.Input.clearMovement();
-      if (this.state === 'playing') DV.Input.requestLock();
+      if (this.state === 'playing' || this.state === 'activity') DV.Input.requestLock();
       this.hintTimer = 4;
     },
     onCanvasClick() {
@@ -720,7 +743,7 @@
       DV.Aptitude.compute();
       DV.UI.fade(1, 1500, true).then(() => {
         DV.Sim.cleanup();
-        const zone = DV.World.activate(HOME);
+        const zone = DV.World.activate(HOME); // (the aptitude test only happens at the Testing Center)
         DV.NPCs.attach(HOME);
         this.scene.add(DV.Player.model.root);
         DV.UI.simMode(false);
@@ -770,6 +793,7 @@
       const st = DV.Save.read(slot);
       if (!st) { DV.UI.notify('Could not load that save.', 'quest_fail'); return; }
       if (DV.Dialogue.isActive()) DV.Dialogue.end(true);
+      if (DV.Activity.active()) DV.Activity.abort();
       if (DV.Sim && DV.Sim.active) DV.Sim.cleanup();
       this.leaveChapter();
       DV.RPGMenu.close && DV.RPGMenu.isOpen() && DV.RPGMenu.close();
@@ -785,6 +809,7 @@
     },
     quitToMenu() {
       if (DV.Dialogue.isActive()) DV.Dialogue.end(true);
+      if (DV.Activity.active()) DV.Activity.abort();
       if (DV.Sim && DV.Sim.active) DV.Sim.cleanup();
       this.leaveChapter();
       DV.DialogueUI.hide();

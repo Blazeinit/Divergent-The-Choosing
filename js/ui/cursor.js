@@ -81,6 +81,8 @@
       if (!this.enabled() || !game) return false;
       const s = game.state;
       if (s === 'loading' || s === 'transition') return false;
+      // a fight or the range has the mouse for aiming; a puzzle-type activity asks for the cursor
+      if (s === 'activity') return !!DV.UI.modalOpen || !!(DV.Activity.current && DV.Activity.current.cursor);
       if (s === 'playing') {
         if (DV.UI.modalOpen) return true;
         // free mouse while walking about: show it so you can see where you'll click (not while drag-looking)

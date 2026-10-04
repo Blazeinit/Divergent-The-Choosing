@@ -702,5 +702,22 @@
       return { id: c.id, name: def ? def.name : c.name, from: c.from, app };
     });
   }
-  DV.Hub = { C, SECTIONS, BOWLS, CANDIDATES, sectionSeats, candidateSeats, initiateSpot, storyFlags, initiatesOf };
+  // which faction a candidate chose at the ceremony (depends on Aptitude Day)
+  function choiceOf(id) {
+    const c = CANDIDATES.find((x) => x.id === id);
+    if (!c) return null;
+    return typeof c.to === 'function' ? c.to(storyFlags()) : c.to;
+  }
+  // how a candidate looks in faction f's clothes (the same face as at the ceremony)
+  function initiateApp(id, f) {
+    const c = CANDIDATES.find((x) => x.id === id);
+    const def = DV.NPCData.get(id);
+    if (def) {
+      const keep = { age: def.age };
+      for (const k of ['build', 'face', 'skin', 'hair', 'hairColor', 'hairDye', 'eyes', 'height', 'freckles']) if (def.appearance && def.appearance[k] !== undefined) keep[k] = def.appearance[k];
+      return DV.Character.fromFaction(f, def.sex, def.id + ':' + f, keep);
+    }
+    return DV.Character.fromFaction(f, (c && c.sex) || 'm', 'init:' + id + f);
+  }
+  DV.Hub = { C, SECTIONS, BOWLS, CANDIDATES, sectionSeats, candidateSeats, initiateSpot, storyFlags, initiatesOf, choiceOf, initiateApp };
 })();

@@ -537,6 +537,30 @@
     for (let i = -h; i < w; i += 12) { c.beginPath(); c.moveTo(i, h); c.lineTo(i + 6, h); c.lineTo(i + 6 + h, 0); c.lineTo(i + h, 0); c.fill(); }
   });
   def('glass_dark', 8, 8, 1.0, (c, w, h) => { c.fillStyle = '#1d2326'; c.fillRect(0, 0, w, h); });
+  /* ------------------------------ Build 3: the training room ------------------------------ */
+  // interlocking foam mats, scuffed where people land
+  def('mat_foam', 64, 64, 1.0, (c, w, h, r) => {
+    c.fillStyle = '#1f2a38'; c.fillRect(0, 0, w, h);
+    noise(c, w, h, r, 14);
+    blotches(c, w, h, r, 5, 'rgba(120,130,150,0.12)', 6, 18);
+    c.fillStyle = 'rgba(8,10,14,0.85)';
+    for (let x = 0; x < w; x += 8) { c.fillRect(x, 0, 1, 3); c.fillRect(x + 4, h - 3, 1, 3); }
+    c.fillRect(0, 0, w, 1); c.fillRect(0, 0, 1, h);
+    speckle(c, w, h, r, 60, ['#2c394c', '#141c26'], 1);
+  });
+  // a chalkboard, wiped a hundred times
+  def('chalkboard', 64, 64, 1.2, (c, w, h, r) => {
+    c.fillStyle = '#1e2420'; c.fillRect(0, 0, w, h);
+    blotches(c, w, h, r, 10, 'rgba(200,205,200,0.06)', 6, 22);
+    noise(c, w, h, r, 8);
+  });
+  // rubber floor of the ring
+  def('mat_red', 64, 64, 1.0, (c, w, h, r) => {
+    c.fillStyle = '#5a1c1a'; c.fillRect(0, 0, w, h);
+    noise(c, w, h, r, 16);
+    blotches(c, w, h, r, 6, 'rgba(20,6,6,0.25)', 6, 20);
+    c.fillStyle = 'rgba(10,4,4,0.7)'; c.fillRect(0, 0, w, 1); c.fillRect(0, 0, 1, h);
+  });
 
   /* ------------------------------ sky -------------------------------- */
   def('skyline', 1024, 256, 1, (c, w, h, r) => {

@@ -728,6 +728,18 @@
       }
       if (!keepRoot && this.root.parent) this.root.parent.remove(this.root);
     }
+    // hold something (a pistol, a knife) in a hand: the object follows the bone
+    attach(boneName, obj) {
+      const b = this.bones[BI[boneName]];
+      if (b) b.add(obj);
+      return obj;
+    }
+    detach(obj) { if (obj && obj.parent) obj.parent.remove(obj); }
+    boneWorld(boneName, out) {
+      out = out || new THREE.Vector3();
+      this.bones[BI[boneName]].getWorldPosition(out);
+      return out;
+    }
     headWorldPos(out) {
       out = out || new THREE.Vector3();
       this.bones[BI.head].getWorldPosition(out);
@@ -748,7 +760,16 @@
       const set = (bone, x, y, z) => { const i = BI[bone] * 3; P[i] = x; P[i + 1] = y || 0; P[i + 2] = z || 0; };
       const add = (bone, x, y, z) => { const i = BI[bone] * 3; P[i] += x; P[i + 1] += y || 0; P[i + 2] += z || 0; };
       const it = this.idleT;
-      if (speed > 0.05 && (act === 'idle' || act === 'walk' || act === 'run' || act === 'talk' || act === 'sneak')) {
+      // someone working a heavy bag: jab, cross, breathe, round and round
+      if (act === 'bagwork' && !s.fight) {
+        const cyc = (it * 1.6 + this.seedPhase()) % 3, fr = cyc % 1;
+        s = Object.assign({}, s, { fight: { move: cyc < 1 ? 'jab' : cyc < 2 ? 'cross' : 'stance', ext: cyc < 2 ? Math.sin(Math.PI * fr) : 0 } });
+      }
+      if (s.fight && act !== 'lie') {
+        // hand to hand: a guard, footwork, and whatever move the fight system is driving
+        const r = this.fightPose(dt, s, set, add);
+        hipY = r.hipY;
+      } else if (speed > 0.05 && (act === 'idle' || act === 'walk' || act === 'run' || act === 'talk' || act === 'sneak')) {
         const run = U.clamp((speed - 2.6) / 2.0, 0, 1);
         const rate = U.lerp(4.6, 3.0, run);
         this.phase += speed * rate * dt;
@@ -919,6 +940,23 @@
           set('spine', 0.35 + Math.sin(it * 2) * 0.1, 0, 0);
           set('uArmL', -0.8 + Math.sin(it * 2) * 0.3, 0, 0.1); set('uArmR', -0.9 + Math.sin(it * 2) * 0.3, 0, -0.1);
           set('lArmL', -0.5, 0, 0); set('lArmR', -0.5, 0, 0);
+        } else if (act === 'aim') {
+          // a pistol held out in both hands; s.aimPitch tilts the arms up or down
+          const ap = U.clamp(s.aimPitch || 0, -0.6, 0.6);
+          set('uArmR', -1.52 - ap, 0, 0.04); set('lArmR', -0.06, 0, 0);
+          set('uArmL', -1.38 - ap, 0, -0.42); set('lArmL', -0.32, 0, 0);
+          set('spine', 0.04, -0.12, 0); set('head', 0.08 - ap * 0.8, -0.05, 0);
+          set('uLegL', -0.12, 0, 0.05); set('uLegR', 0.1, 0, -0.05);
+          if (s.recoil) { add('uArmR', s.recoil * 0.5, 0, 0); add('uArmL', s.recoil * 0.45, 0, 0); add('head', -s.recoil * 0.1, 0, 0); }
+        } else if (act === 'throw' || act === 'throwing') {
+          // overarm knife throw; s.throwT 0..1 (or a slow loop for someone practising)
+          const tt = act === 'throwing' ? (it * 0.45 + this.seedPhase()) % 1 : U.clamp(s.throwT || 0, 0, 1);
+          const back = tt < 0.55 ? tt / 0.55 : 1 - (tt - 0.55) / 0.15;
+          const fwd = tt < 0.55 ? 0 : U.clamp((tt - 0.55) / 0.2, 0, 1);
+          set('uArmR', U.lerp(-0.6, -2.7, U.clamp(back, 0, 1)) + fwd * 1.6, 0, -0.15); set('lArmR', -1.4 + fwd * 1.3, 0, 0);
+          set('uArmL', -1.1 + fwd * 0.5, 0, -0.2 + fwd * 0.4); set('lArmL', -0.4, 0, 0);
+          set('spine', -0.12 * back + 0.25 * fwd, 0.35 * back - 0.4 * fwd, 0);
+          set('uLegL', -0.3, 0, 0.06); set('uLegR', 0.25, 0, -0.06); set('lLegL', 0.2, 0, 0);
         } else if (act === 'pace') {
           // nervous fidget
           set('uArmL', -0.5, 0, 0.2); set('uArmR', -0.5, 0, -0.2);
@@ -942,8 +980,8 @@
       add('head', this.look.pitch, this.look.yaw * 0.7, 0);
       add('neck', 0, this.look.yaw * 0.3, 0);
 
-      // apply with damping
-      const k = 1 - Math.exp(-14 * dt);
+      // apply with damping (fighting snaps between poses much faster)
+      const k = 1 - Math.exp(-(s.fight ? 30 : 14) * dt);
       for (let i = 1; i < BONES.length; i++) {
         const b = this.bones[i];
         b.rotation.x += (P[i * 3] - b.rotation.x) * k;
@@ -960,6 +998,110 @@
       this.mesh.position.y += ((lying ? (s.seatY || 0.6) + 0.12 : 0) - this.mesh.position.y) * k;
       this.mesh.position.z += ((lying ? 0.85 * this.scale : 0) - this.mesh.position.z) * k;
       this.shadow.visible = !lying && !this.shadowFar;
+    }
+    /**
+     * The fighting family. s.fight = { move, ext, side, sway } where move is
+     * stance | jab | cross | hook | kick | block | dodge | hit | stagger | getup | win,
+     * ext runs from about -0.4 (chambered: the tell) through 1 (fully extended) back to 0,
+     * side is the dodge / flinch direction, and s.speed / s.strafe drive the footwork.
+     * Left foot and left hand lead.
+     */
+    fightPose(dt, s, set, add) {
+      const f = s.fight, it = this.idleT, mv = f.move || 'stance';
+      const e = f.ext || 0, ex = Math.max(0, e), ch = Math.max(0, -e); // extension / chamber
+      const sy = this.scaleY();
+      let hipY = (-0.075 + Math.sin(it * 6.2 + this.seedPhase()) * 0.012) * sy; // bouncing on the balls of the feet
+      // stance: lead shoulder turned toward the opponent, knees soft, fists up by the chin
+      set('hips', 0, -0.32, 0);
+      set('spine', 0.12, -0.06, 0);
+      set('chest', 0, 0, 0);
+      set('uLegL', -0.32, 0.3, 0.06); set('lLegL', 0.42, 0, 0); set('footL', -0.1, 0, 0);
+      set('uLegR', 0.24, 0.3, -0.14); set('lLegR', 0.5, 0, 0); set('footR', -0.3, 0, 0);
+      set('uArmL', -0.62, 0, -0.2); set('lArmL', -2.15, 0, 0);
+      set('uArmR', -0.5, 0, 0.32); set('lArmR', -2.3, 0, 0);
+      set('head', 0.14, 0.2, 0);
+      // footwork: a short shuffle when moving, legs opening and closing when stepping sideways
+      const spd = s.speed || 0;
+      if (spd > 0.08) {
+        this.phase += spd * 6.5 * dt;
+        const ph = this.phase, a = U.clamp(spd / 1.6, 0.3, 1);
+        add('uLegL', Math.sin(ph) * 0.28 * a, 0, Math.abs(s.strafe || 0) * Math.sin(ph) * 0.18);
+        add('uLegR', -Math.sin(ph) * 0.28 * a, 0, -Math.abs(s.strafe || 0) * Math.sin(ph) * 0.18);
+        add('lLegL', Math.max(0, Math.sin(ph + 1)) * 0.45 * a, 0, 0);
+        add('lLegR', Math.max(0, -Math.sin(ph + 1)) * 0.45 * a, 0, 0);
+        hipY -= Math.abs(Math.cos(ph)) * 0.025 * sy;
+      }
+      switch (mv) {
+        case 'jab': // lead hand straight out; the shoulder rolls in behind it
+          set('uArmL', U.lerp(-0.62, -1.52, ex) + ch * 0.25, 0, U.lerp(-0.2, -0.05, ex));
+          set('lArmL', U.lerp(-2.15, -0.12, ex) - ch * 0.25, 0, 0);
+          add('hips', 0, -0.16 * ex, 0); add('spine', 0.06 * ex, -0.1 * ex, 0);
+          add('head', 0, -0.1 * ex, 0);
+          break;
+        case 'cross': // rear hand: pulled back and turned away first (the tell), then thrown through
+          set('uArmR', U.lerp(-0.5, -1.5, ex) + ch * 0.55, 0, U.lerp(0.32, 0.12, ex));
+          set('lArmR', U.lerp(-2.3, -0.1, ex) - ch * 0.15, 0, 0);
+          add('hips', 0, 0.75 * ex - 0.3 * ch, 0); add('spine', 0.14 * ex, 0.3 * ex - 0.2 * ch, 0);
+          add('uLegR', -0.15 * ex, 0, 0); add('footR', 0.25 * ex, 0, 0);
+          break;
+        case 'hook': // lead hand swings round at shoulder height, elbow up
+          set('uArmL', U.lerp(-0.62, -1.25, ex), U.lerp(0, -0.4, ex), U.lerp(-0.2, 0.95, ex) + ch * 0.5);
+          set('lArmL', U.lerp(-2.15, -1.5, ex), 0, 0);
+          add('hips', 0, 0.55 * ex - 0.35 * ch, 0); add('spine', 0.08, 0.35 * ex - 0.25 * ch, 0);
+          break;
+        case 'kick': { // rear knee up (the tell), then the foot driven straight out
+          const kn = Math.max(ch * 2.2, ex);
+          set('uLegR', U.lerp(0.24, -1.55, Math.min(1, kn)), 0, -0.05);
+          set('lLegR', ex > 0 ? U.lerp(1.9, 0.12, ex) : U.lerp(0.5, 1.9, Math.min(1, ch * 2.2)), 0, 0);
+          set('footR', U.lerp(-0.3, 0.45, ex), 0, 0);
+          add('spine', -0.32 * Math.min(1, kn), 0.15, 0);
+          add('hips', 0, 0.25 * Math.min(1, kn), 0);
+          add('uArmL', 0.2 * ex, 0, 0.2 * ex); add('uArmR', 0.35 * ex, 0, -0.25 * ex);
+          hipY += 0.04 * sy * Math.min(1, kn);
+          break;
+        }
+        case 'block': // forearms up in front of the face, chin tucked
+          set('uArmL', -0.98, 0, -0.42); set('lArmL', -2.55, 0, 0);
+          set('uArmR', -0.98, 0, 0.42); set('lArmR', -2.55, 0, 0);
+          add('spine', 0.22, 0.2, 0); add('head', 0.22, -0.15, 0);
+          hipY -= 0.05 * sy;
+          break;
+        case 'dodge': { // slip to one side (or lean back from it)
+          const sd = f.side || 0;
+          if (sd) { add('spine', 0.2, 0, -0.45 * sd * ex); add('hips', 0, 0, -0.18 * sd * ex); add('uLegL', 0, 0, 0.25 * ex); add('uLegR', 0, 0, -0.25 * ex); add('head', 0, 0, -0.25 * sd * ex); }
+          else { add('spine', -0.35 * ex, 0, 0); add('head', -0.2 * ex, 0, 0); add('uLegR', 0.35 * ex, 0, 0); }
+          hipY -= 0.08 * sy * ex;
+          break;
+        }
+        case 'hit': { // head snapped back, guard knocked open
+          const sd = f.side || 1;
+          add('head', -0.55 * ex, 0.35 * sd * ex, 0.2 * sd * ex); add('spine', -0.3 * ex, 0.2 * sd * ex, 0.12 * sd * ex);
+          set('uArmL', -0.3, 0, 0.25 * ex); set('lArmL', U.lerp(-2.15, -1.2, ex), 0, 0);
+          set('uArmR', -0.25, 0, -0.25 * ex); set('lArmR', U.lerp(-2.3, -1.1, ex), 0, 0);
+          break;
+        }
+        case 'stagger': { // guard down, swaying, knees going
+          const w = Math.sin(it * 5.3) * 0.22;
+          set('uArmL', -0.15, 0, 0.12); set('lArmL', -0.7, 0, 0);
+          set('uArmR', -0.1, 0, -0.12); set('lArmR', -0.6, 0, 0);
+          add('spine', 0.18, 0, w); add('head', 0.35, 0, w * 1.3);
+          add('uLegL', -0.2, 0, 0); add('lLegL', 0.4, 0, 0); add('lLegR', 0.5, 0, 0);
+          hipY -= 0.12 * sy;
+          break;
+        }
+        case 'getup': // on one knee, pushing back up
+          hipY = U.lerp(-0.45, -0.08, ex) * sy;
+          set('uLegL', U.lerp(-1.3, -0.32, ex), 0, 0.1); set('lLegL', U.lerp(1.6, 0.42, ex), 0, 0);
+          set('uLegR', U.lerp(-0.4, 0.24, ex), 0, -0.1); set('lLegR', U.lerp(1.9, 0.5, ex), 0, 0); set('footR', U.lerp(0.9, -0.3, ex), 0, 0);
+          set('spine', U.lerp(0.5, 0.12, ex), 0, 0); set('uArmR', -0.9 * (1 - ex), 0, -0.1);
+          break;
+        case 'win': // arms up
+          set('uArmL', -2.7, 0, 0.3); set('lArmL', -0.3, 0, 0); set('uArmR', -2.7, 0, -0.3); set('lArmR', -0.3, 0, 0);
+          set('hips', 0, 0, 0); set('spine', -0.1, 0, 0); set('head', -0.25, 0, 0);
+          hipY = Math.max(0, Math.sin(it * 7)) * 0.04;
+          break;
+      }
+      return { hipY };
     }
     // a fixed per-character phase so a crowd doesn't clap or cheer in unison
     seedPhase() {

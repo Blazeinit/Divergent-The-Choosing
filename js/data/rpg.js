@@ -49,6 +49,8 @@
       { id: 'logic', name: 'Logic', attrs: ['intelligence'], desc: 'Insight into puzzles and systems. Improves by reasoning through problems.' },
       { id: 'empathy', name: 'Empathy', attrs: ['charisma', 'perception'], desc: 'Reading how others feel. At higher levels you sense an NPC\'s disposition. Improves by helping.' },
       { id: 'composure', name: 'Composure', attrs: ['resolve'], desc: 'Reduces fear and panic effects inside simulations. Improves under pressure.' },
+      { id: 'firearms', name: 'Firearms', attrs: ['perception', 'resolve'], desc: 'A steady hand and a steady eye: less sway, quicker recovery from recoil. Improves at the range.' },
+      { id: 'throwing', name: 'Throwing', attrs: ['agility', 'perception'], desc: 'Judging the spin so the point arrives first. Improves at the knife wall.' },
     ],
     // total XP required to reach level n (index = level)
     levelXP: [0, 0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500],

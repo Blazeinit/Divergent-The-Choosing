@@ -104,7 +104,7 @@
       const o = def.objectives.find((x) => x.id === objId);
       if (o && st !== 'hidden') {
         DV.Audio.play(st === 'failed' ? 'fail' : 'open');
-        DV.Events.emit('notify', { text: (st === 'done' ? '✓ ' : st === 'failed' ? '✗ ' : '') + o.text, kind: 'objective' });
+        DV.Events.emit('notify', { text: (st === 'done' ? '✓ ' : st === 'failed' ? '✗ ' : '') + this.objText(o), kind: 'objective' });
       }
       DV.Events.emit('quest:changed', { id, type: 'objective', objId, state: st });
     },
@@ -169,6 +169,9 @@
       const o = def.objectives.find((x) => q.objectives[x.id] === 'active');
       return o ? { quest: def, obj: o } : null;
     },
+    // an objective's text and compass target may be written fresh as the day goes on
+    objText(o) { return typeof o.text === 'function' ? o.text() : o.text; },
+    objTarget(o) { return typeof o.target === 'function' ? o.target() : o.target; },
     displayState(id) {
       const s = this.state(id);
       return { not_started: 'NOT STARTED', active: 'ACTIVE', updated: 'UPDATED', complete: 'COMPLETE', failed: 'FAILED' }[s];

@@ -82,6 +82,7 @@
       after: (t) => DV.Clock.minutes() >= U.parseTime(t),
       before: (t) => DV.Clock.minutes() < U.parseTime(t),
       clock: () => DV.Clock.str(),
+      day: () => DV.Clock.day(),
       // aptitude
       apt: (w, label) => DV.Aptitude && DV.Aptitude.record(w, label),
       aptDone: () => DV.State.data.aptitude.status === 'complete',
@@ -145,6 +146,7 @@
       if (!def) return null;
       let tid = def.dialogue || 'ambient:' + npcId;
       let tree = DV.DialogueDB.get(tid);
+      if (!tree && def.buildDialogue) tree = DV.DialogueDB.add(tid, def.buildDialogue(def));
       if (!tree && DV.AmbientDialogue) tree = DV.DialogueDB.add(tid, DV.AmbientDialogue.build(def));
       return tree;
     },

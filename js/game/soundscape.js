@@ -17,6 +17,9 @@
     lobby: 'atrium', hall: 'hall', courtyard: 'yard', plaza: 'exterior', street: 'exterior',
     tc_corr: 'corridor', acorr: 'corridor', scorr: 'corridor', wpass: 'corridor', epass: 'corridor',
     restroom: 'tiled', checkpoint: 'concrete', storage: 'concrete', maint: 'concrete', closet: 'concrete',
+    // the Dauntless compound
+    the_pit: 'atrium', training: 'hall', dining: 'hall', dorm: 'concrete', dorm_wash: 'tiled', net_room: 'concrete',
+    pit_tunnel: 'corridor', dorm_corr: 'corridor', tr_corr: 'corridor', quarters: 'corridor', tattoo: 'office', infirmary: 'office', sim_room: 'office',
   };
   const HUM_ROOMS = { tc_corr: 0.45, gallery: 0.6, proctor: 0.5, tr1: 0.7, tr2: 0.7, tr3: 0.8, tr4: 0.7, tr5: 0.7, tr6: 0.8, closet: 0.6 };
 
@@ -134,6 +137,16 @@
         // the simulation core door hums through the corridor
         L.hum = Math.max(L.hum, U.clamp(1 - Math.hypot(70 - p.x, 18 - p.z) / 10, 0, 1) * (room.id === 'tc_corr' || room.id === 'closet' ? 1 : 0.35));
       }
+      // underground: no sky, but a river at the bottom of the chasm you can hear from anywhere in the Pit
+      if (zone.def.underground) {
+        L.outdoor = 0;
+        const ch = zone.def.chasm;
+        if (ch) {
+          const d = Math.max(0, ch.z - p.z);
+          const inPit = room && (room.id === 'the_pit' || room.id === 'net_room');
+          L.boiler = U.clamp(1 - d / 34, 0, 1) * (inPit ? 1 : 0.25) * 0.9;
+        }
+      }
       const hum = this.nearest(this._hummers, p.x, p.z);
       if (hum && hum.d < 3.5) L.vend = (1 - hum.d / 3.5) * (outside ? 0.3 : 1);
       if (!detail) { L.buzz *= 0.5; L.vend = 0; }
@@ -159,6 +172,7 @@
         const q = U.pick(this._flags);
         A.play('clink', { x: q[0], z: q[1], volume: 0.9, range: 18 });
       }
+      if (zone.def.underground) return;
       // the city beyond the fence (muffled indoors by the outdoor layer's filter)
       if (this.timers.bird <= 0) {
         this.timers.bird = U.rand(7, 18);
