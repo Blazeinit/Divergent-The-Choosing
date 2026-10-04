@@ -364,6 +364,7 @@
       DV.UI.banner(l1, l2, l3, () => {
         DV.UI.modalOpen = null;
         G.state = 'playing';
+        if (G.rig.mode === 'dialogue') G.rig.follow();
         DV.Input.requestLock();
         if (then) then();
       });

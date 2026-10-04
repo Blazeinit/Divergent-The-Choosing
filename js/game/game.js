@@ -582,7 +582,13 @@
         DV.Input.takeMouse();
         // if the cursor was free (clicked a choice), take the mouse straight back
         DV.Input.requestLock();
+      } else if (this.rig.mode === 'dialogue') {
+        // the conversation ended while something else had the screen (a banner, a fade):
+        // the camera still goes back behind you
+        this.rig.follow();
       }
+      // a banner the conversation asked for waits until the conversation is over
+      if (this.completionPending) { this.completionPending = false; setTimeout(() => this.showCompletion(), 450); }
       if (DV.Sim && this.inSimulation()) DV.Sim.onDialogueEnd(e);
       else if (this.inChapter()) DV.Chapter.onDialogueEnd(e);
       else { const ds = DV.District.scriptFor(this.zone()); if (ds && ds.onDialogueEnd) ds.onDialogueEnd(e); }
@@ -770,13 +776,22 @@
         });
       });
     },
+    // the results talk is done: show the banner once the conversation closes (never over it)
+    showCompletionAfterTalk() {
+      if (DV.Dialogue.isActive()) this.completionPending = true;
+      else setTimeout(() => this.showCompletion(), 450);
+    },
     showCompletion() {
+      if (this.state === 'banner' || document.getElementById('banner')) return;
+      if (DV.Dialogue.isActive()) { this.completionPending = true; return; }
       this.state = 'banner';
       if (!DV.Cursor.enabled()) DV.Input.exitLock();
       DV.Audio.setMusic('calm');
       DV.UI.banner('APTITUDE TEST COMPLETE', 'YOUR CHOOSING CEREMONY AWAITS.', 'Click or press any key to keep exploring · Build 1 complete', () => {
         DV.UI.modalOpen = null;
         this.state = 'playing';
+        this.rig.follow();
+        DV.Input.clearMovement();
         DV.Input.requestLock();
         DV.Audio.setMusic('none');
         DV.Save.write('auto');
@@ -792,6 +807,7 @@
     loadSlot(slot) {
       const st = DV.Save.read(slot);
       if (!st) { DV.UI.notify('Could not load that save.', 'quest_fail'); return; }
+      this.completionPending = false;
       if (DV.Dialogue.isActive()) DV.Dialogue.end(true);
       if (DV.Activity.active()) DV.Activity.abort();
       if (DV.Sim && DV.Sim.active) DV.Sim.cleanup();

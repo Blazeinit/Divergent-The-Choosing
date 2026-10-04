@@ -51,7 +51,12 @@ L.run('main quest: Aptitude Day', async (p, T, errs) => {
   const res = await ev(() => ({ r: DV.State.data.aptitude.result, node: QA.node() }));
   T.ok(res.r && res.r !== 'inconclusive', 'a single-faction result (' + res.r + ')');
   T.eq(res.node, 'results', 'Claire opens with your results');
-  await ev(() => { for (let k = 0; k < 8 && DV.Dialogue.active; k++) { const v = DV.Dialogue.active.view; const en = v.choices.filter((c) => c.enabled); DV.Dialogue.choose((en.find((c) => !/record it as/i.test(c.label)) || en[0]).index); } });
+  // read Claire's results at a human pace (a second and more on each line), not all in one frame
+  for (let k = 0; k < 8; k++) {
+    const more = await ev(() => { if (!DV.Dialogue.active) return false; const v = DV.Dialogue.active.view; const en = v.choices.filter((c) => c.enabled); DV.Dialogue.choose((en.find((c) => !/record it as/i.test(c.label)) || en[0]).index); return true; });
+    if (!more) break;
+    await p.waitForTimeout(1300);
+  }
   await p.waitForTimeout(1500);
   const fin = await ev(() => ({ q: QA.q('aptitude_day'), banner: !!document.getElementById('banner'), state: DV.Game.state, slip: DV.Inventory.has('result_slip') }));
   T.eq(fin.q, 'complete', 'Aptitude Day complete');
@@ -61,6 +66,9 @@ L.run('main quest: Aptitude Day', async (p, T, errs) => {
   await p.keyboard.press('Space');
   await p.waitForTimeout(800);
   T.eq(await ev(() => DV.Game.state), 'playing', 'free roam continues after the banner');
+  // the camera is yours again: behind you, and the mouse turns it (it used to stay stuck in the conversation framing)
+  const cam = await ev(() => { const r = DV.Game.rig; const y0 = r.yaw; DV.Input.mouseDX += 240; QA.step(0.1); return { mode: r.mode, turned: Math.abs(r.yaw - y0) > 0.05 }; });
+  T.ok(cam.mode === 'follow' && cam.turned, 'after the results, the camera follows you and turns with the mouse', cam);
   T.ok(await ev(() => DV.Save.write('1').ok), 'saves after the test');
   T.noErrors(errs);
 });

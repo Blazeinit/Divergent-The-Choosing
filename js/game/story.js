@@ -201,7 +201,7 @@
         case 'records': return DV.Inventory.has('records_key');
         case 'custodian': return !!flag('closet_open') && door && door.id === 'closet_door';
         // the front gate: staff and the guards come and go; candidates leave once their results are in
-        case 'npc': return !!door && door.id === 'gate' && !!flag('results_discussed');
+        case 'npc': return !!flag('results_discussed') && (!door || door.id === 'gate');
         default: return false;
       }
     },

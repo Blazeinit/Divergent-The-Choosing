@@ -54,7 +54,7 @@
   }
   // where each faction's new initiates stand, in front of their section
   function initiateSpot(f, k) {
-    const deg = SECTIONS[f] + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 5;
+    const deg = SECTIONS[f] + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 6;
     const [x, z] = P(INIT_R, deg);
     return { x, z, rot: faceC(x, z), deg };
   }
@@ -553,7 +553,15 @@
           const obj = DV.QuestDB.get('the_choosing').objectives.find((o) => o.id === 'follow');
           obj.target = { x: spot.x, z: spot.z };
           DV.Quests.activate('the_choosing', 'follow', 'Go and stand with the ' + DV.Factions.name(f) + ' initiates.');
-          return () => Math.hypot(DV.Player.x - spot.x, DV.Player.z - spot.z) < 1.1;
+          // the others are already standing shoulder to shoulder: get close and you're with them
+          // (the last step is walked for you, through the crowd); or press E; or, if you dawdle, you're shown
+          Ch.joinT = 0;
+          Ch.interact({ id: 'cer_join', kind: 'action', x: spot.x, y: 1.2, z: spot.z, radius: 3.2, label: 'Take your place', name: DV.Factions.name(f) + ' initiates', cond: () => !Ch.flag('joining'), onUse: () => this.joinInitiates(Ch) });
+          return () => {
+            if (Ch.flag('joined')) return true;
+            if (!Ch.flag('joining') && Math.hypot(DV.Player.x - spot.x, DV.Player.z - spot.z) < 2.6) this.joinInitiates(Ch);
+            return false;
+          };
         },
         () => {
           DV.Player.rot = spot2rot(Ch.mySpot);
@@ -566,6 +574,22 @@
           Ch.checkpoint('after_player');
         },
       ], 'mine');
+    },
+    // the last step into your place among the initiates (a short walk the ceremony does for you)
+    joinInitiates(Ch) {
+      if (Ch.flag('joining') || !Ch.mySpot) return;
+      Ch.setFlag('joining');
+      Ch.removeInteract('cer_join');
+      const s = Ch.mySpot, G = DV.Game;
+      DV.Player.pinned = true;
+      // the scene has you for a moment (no bars): a few steps through the crowd, which won't push back
+      if (G.state === 'playing') G.state = 'cutscene';
+      DV.Input.clearMovement();
+      Ch.walkPlayer([[s.x, s.z]], 1.6, () => {
+        DV.Player.place(s.x, s.z, s.rot);
+        if (G.state === 'cutscene' && !Ch.cutscene) G.state = 'playing';
+        Ch.setFlag('joined');
+      });
     },
     // your parents, in your old section
     parents(Ch, from, f) {
@@ -591,6 +615,12 @@
     },
 
     update(Ch, dt, zone) {
+      // still wandering after you chose? a reminder, then you're shown to your place
+      if (Ch.mySpot && Ch.flag('chose') && !Ch.flag('joining') && !Ch.flag('placed') && DV.Game.state === 'playing') {
+        Ch.joinT = (Ch.joinT || 0) + dt;
+        if (Ch.joinT > 25 && !Ch.flag('join_nudged')) { Ch.setFlag('join_nudged'); DV.UI.notify('Your new faction is waiting for you — go and stand with them (follow the compass).', 'info'); }
+        if (Ch.joinT > 60) { DV.UI.notify('A ' + DV.Factions.name(DV.Build2.chosen()) + ' initiate waves you over.', 'info'); this.joinInitiates(Ch); }
+      }
       // hurry the names along (not during your own turn)
       const canHurry = !Ch.myTurn && !DV.Dialogue.isActive() && !Ch.flag('finale') && !Ch.cutscene;
       Ch.speed = canHurry && DV.Input.down('Space') ? 3.5 : 1;

@@ -28,7 +28,7 @@
       ? 'Claire told you your result was inconclusive — "Divergent" — and recorded it manually as ' + DV.Factions.name(c.recorded()) + '. You must tell no one.'
       : 'Claire told you your result: ' + DV.Factions.name(c.result()) + '.');
     c.completeQuest('aptitude_day', c.divergent() ? 'divergent' : c.result());
-    if (DV.Game && DV.Game.showCompletion) setTimeout(() => DV.Game.showCompletion(), 900);
+    if (DV.Game && DV.Game.showCompletionAfterTalk) DV.Game.showCompletionAfterTalk();
   };
 
   T('claire', {
