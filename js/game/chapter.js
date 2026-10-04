@@ -9,7 +9,7 @@
 
    A chapter script:
      DV.Chapter.define(id, {
-       zone: 'zone_id' | (opts) => 'zone_id',   title, time: 'HH:MM', day,
+       zone: 'zone_id' | (opts) => 'zone_id',   title, time: 'HH:MM', day   (title, time, day may be (opts) => …)
        start(C, opts)       — set the stage; opts.step resumes a checkpoint
        update(C, dt)        — per frame while active
        onTrigger(C, id, inside), onDialogueEnd(C, e), canPass(C, lock)
@@ -52,7 +52,7 @@
       this.queue = points.map((p) => p.slice());
       this.spd = spd || 1.3;
       this.onArrive = then || null;
-      if (this.action === 'sit' || this.action === 'sit_clap' || this.action === 'sit_cheer') this.action = 'idle';
+      if (/^sit/.test(this.action)) this.action = 'idle';
       return this;
     }
     run(points, then) { return this.walk(points, 4.2, then); }
@@ -61,11 +61,12 @@
     face(x, z) { this.rot = U.yawTo(this.x, this.z, x, z); return this; }
     lookAt(p) { this.lookAtP = p; return this; }
     place(x, z, rot) { this.x = x; this.z = z; if (rot !== undefined) this.rot = rot; this.queue = []; this.sync(); return this; }
-    say(text, secs) {
-      this.bark = { text, until: performance.now() + (secs || 3.2) * 1000 };
+    // an overhead line (quiet: the mouth moves, but the line is only in the subtitles)
+    say(text, secs, quiet) {
+      this.bark = { text, until: performance.now() + (secs || 3.2) * 1000, quiet: !!quiet };
       return this;
     }
-    headY() { return this.y + 1.62 * (this.app && this.app.height ? this.app.height : 1) * (this.action === 'sit' || this.action === 'sit_clap' || this.action === 'sit_cheer' ? 0.72 : 1); }
+    headY() { return this.y + 1.62 * (this.app && this.app.height ? this.app.height : 1) * (/^sit/.test(this.action) ? 0.72 : 1); }
     sync() {
       this.model.root.position.set(this.x, this.y, this.z);
       this.model.root.rotation.y = this.rot;
@@ -176,10 +177,12 @@
       G.rig.follow(true);
       G.triggerState = {};
       G.lastRoom = null;
-      // story clock
+      // story clock (a chapter that spans several days says which day each step is on)
       const w = DV.State.data.world;
-      if (s.day) w.day = s.day;
-      if (s.time) w.time = U.parseTime(s.time);
+      const day = typeof s.day === 'function' ? s.day(opts) : s.day;
+      const time = typeof s.time === 'function' ? s.time(opts) : s.time;
+      if (day) w.day = day;
+      if (time) w.time = U.parseTime(time);
       DV.Clock.lastMinute = Math.floor(w.time);
       this.active = true;
       this.id = id;
@@ -202,7 +205,8 @@
       DV.Input.clearMovement();
       DV.Input.requestLock();
       if (!opts.noFadeIn) DV.UI.fade(0, opts.fadeIn || 1500);
-      if (s.title && !opts.noTitle && !opts.step) setTimeout(() => DV.UI.narrate(s.title, 3.6), 700);
+      const title = opts.title || (typeof s.title === 'function' ? s.title(opts) : s.title);
+      if (title && !opts.noTitle && (!opts.step || opts.title)) setTimeout(() => DV.UI.narrate(title, 3.6), 700);
       DV.Events.emit('chapter:start', { id, step: this.step });
     },
     // move on to another chapter

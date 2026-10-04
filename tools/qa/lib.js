@@ -118,6 +118,58 @@ exports.helpers = (page) => page.evaluate(() => {
   };
 });
 
+// Build 3 bots (window.B): play a fight, finish a training activity, use an interactable,
+// jump the clock — enough to drive the Dauntless district and the faction weeks headless
+exports.b3 = (page) => page.evaluate(() => {
+  window.B = {
+    // a fighter who guards the heavy shots, slips the kicks and punishes recoveries
+    fightBot(maxN) {
+      const A = DV.Activity.current; if (!A || A.id !== 'fight') return 'no fight';
+      const I = DV.Input; let n = 0;
+      while (DV.Activity.current === A && n++ < (maxN || 4000)) {
+        if (A.state === 'fight') {
+          const d = Math.hypot(A.me.x - A.them.x, A.me.z - A.them.z), t = A.them;
+          I.keys.KeyW = d > 1.05; I.keys.ShiftLeft = false; I.keys.KeyD = false;
+          if (t.state === 'attack' && t.phase === 'windup' && t.move.kind !== 'light') { if (t.move.kind === 'kick' || n % 2) { I.pressed.Space = true; I.keys.KeyD = true; } else I.keys.ShiftLeft = true; }
+          else if ((t.state === 'attack' && t.phase === 'recover') || t.state === 'stagger' || t.state === 'hit') { if (n % 3 === 0) I.pressed[n % 2 ? 'MouseLeft' : 'MouseRight'] = true; }
+          else if (t.state === 'block') { if (n % 12 === 0) I.pressed.KeyF = true; }
+          else if (n % 9 === 0) I.pressed.MouseLeft = true;
+        }
+        QA.step(0.05);
+      }
+      for (const k of ['KeyW', 'ShiftLeft', 'KeyD']) I.keys[k] = false;
+      return 'fight over';
+    },
+    finishActivity(maxN) {
+      const A = DV.Activity.current; if (!A) return null; let n = 0;
+      if (A.id === 'fight') return B.fightBot(maxN);
+      while (DV.Activity.current === A && n++ < (maxN || 3000)) {
+        if (A.id === 'range' && A.eye) { const tp = A.face.getWorldPosition(new THREE.Vector3()); const w = tp.sub(A.eye).normalize(); A.ay = DV.U.wrapAngle(Math.atan2(w.x, w.z) - A.rot); A.ap = Math.asin(w.y) - (A.recoil || 0); if (A.cool <= 0 && A.facing !== false) DV.Input.pressed.MouseLeft = true; }
+        if (A.id === 'knives' && A.eye) { const b = A.board; const w = new THREE.Vector3(b.x, b.y, b.z).sub(A.eye).normalize(); A.ay = DV.U.wrapAngle(Math.atan2(w.x, w.z) - A.rot); A.ap = Math.asin(w.y); if (A.charge < 0 && A.left > 0 && A.throwT <= 0 && !A.flying.length) DV.Input.keys.MouseLeft = true; if (A.charge >= 0 && Math.abs(A.charge - A.ideal) < 0.03) DV.Input.keys.MouseLeft = false; }
+        if (A.id === 'bags') { const c = A.cues[A.idx]; if (c && Math.abs(A.t - c.t) < 0.05) { if (c.id === 'jab') DV.Input.pressed.MouseLeft = true; else if (c.id === 'cross') DV.Input.pressed.MouseRight = true; else if (c.id === 'kick') DV.Input.pressed.KeyF = true; } DV.Input.keys.ShiftLeft = !!(c && c.id === 'block' && A.t - c.t > -0.02); }
+        QA.step(0.05);
+      }
+      DV.Input.keys.MouseLeft = false; DV.Input.keys.ShiftLeft = false;
+      return 'done ' + A.id;
+    },
+    // use an interactable (zone or chapter) as if standing at it
+    use(id) {
+      const z = DV.World.current;
+      const it = z.interactables.find((i) => i.id === id) || DV.Interaction.extra.find((i) => i.id === id);
+      if (!it) return 'no ' + id;
+      if (it.cond && !it.cond()) return 'not now: ' + id;
+      if (DV.Interaction.extra.indexOf(it) >= 0) { it.onUse(DV.Game, it); return 'used ' + id; }
+      DV.Player.place(typeof it.x === 'function' ? it.x() : it.x, typeof it.z === 'function' ? it.z() : it.z, 0);
+      DV.Interaction.current = it; DV.Interaction.use(DV.Game);
+      return 'used ' + id;
+    },
+    at(t) { QA.end(); DV.Clock.skipTo(DV.U.parseTime(t)); DV.NPCAI.syncAll(); QA.step(0.3); return DV.Clock.str(); },
+    // step until a condition holds (a dialogue opens, an activity starts)
+    wait(fn, secs) { let n = 0; const max = Math.round((secs || 30) / 0.05); while (!fn() && n++ < max) QA.step(0.05); return !!fn(); },
+    readBody() { const b = document.querySelector('#reading .body'); const t = b && b.textContent; DV.UI.closeReading(); return t; },
+  };
+});
+
 // wait for a condition while stepping game time (survives slow software-GL frames, and
 // lets real-time fades and timers run between polls)
 exports.until = (page, cond, timeout, step) => page.waitForFunction(

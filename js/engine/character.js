@@ -815,7 +815,7 @@
         set('spine', 0, 0, -Math.sin(it * 0.35) * 0.025);
         set('uLegL', 0, 0, 0.02);
         set('uLegR', 0, 0, -0.02);
-        if (act === 'sit' || act === 'work' || act === 'recline' || act === 'sit_clap' || act === 'sit_cheer') {
+        if (act === 'sit' || act === 'work' || act === 'recline' || act === 'sit_clap' || act === 'sit_cheer' || act === 'sit_touch' || act === 'sit_fold' || act === 'sit_slump') {
           const sy = s.seatY || 0.45;
           hipY = sy + 0.08 - 0.95 * this.scaleY();
           hipZ = -0.06;
@@ -841,6 +841,22 @@
             const k = Math.sin(it * 13 + this.seedPhase()) * 0.18;
             set('uArmL', -0.75, 0, 0.12 + k); set('uArmR', -0.75, 0, -0.12 - k);
             set('lArmL', -1.0, -0.5, 0); set('lArmR', -1.0, 0.5, 0);
+          } else if (act === 'sit_touch') {
+            // a tell: one hand goes up to the back of the neck, the eyes go down
+            set('uArmR', -2.3, 0, -0.55); set('lArmR', -1.9, 0.3, 0);
+            set('uArmL', -0.4, 0, 0.1); set('lArmL', -0.8, 0, 0);
+            set('spine', 0.1, 0, 0); set('head', 0.22, 0, 0);
+          } else if (act === 'sit_fold') {
+            // arms folded, leaning back from the table
+            set('uArmL', -0.35, 0.0, 0.25); set('uArmR', -0.35, 0, -0.25);
+            set('lArmL', -1.75, -0.6, 0); set('lArmR', -1.75, 0.6, 0);
+            set('spine', -0.12, 0, 0);
+          } else if (act === 'sit_slump') {
+            // the serum: heavy-limbed, head lolling, swaying a little
+            set('uArmL', -0.1, 0, 0.16); set('uArmR', -0.1, 0, -0.16);
+            set('lArmL', -0.3, 0, 0); set('lArmR', -0.3, 0, 0);
+            set('spine', 0.22 + Math.sin(it * 0.9) * 0.05, 0, Math.sin(it * 0.6) * 0.06);
+            set('head', 0.35 + Math.sin(it * 0.7) * 0.08, 0, Math.sin(it * 0.5) * 0.1);
           } else if (act === 'sit_cheer') {
             const k = Math.max(0, Math.sin(it * 7 + this.seedPhase())) * 0.4;
             set('uArmL', -2.7 + k, 0, 0.35); set('uArmR', -2.7 + k, 0, -0.35);
@@ -963,7 +979,7 @@
           set('lArmL', -1.5 + Math.sin(it * 6) * 0.15, -0.5, 0); set('lArmR', -1.5, 0.5, 0);
           set('head', 0.25 + Math.sin(it * 0.8) * 0.1, 0, 0);
         }
-        if (s.talking && act !== 'sit' && act !== 'work' && act !== 'lie') {
+        if (s.talking && !/^sit/.test(act) && act !== 'work' && act !== 'lie' && act !== 'recline') {
           add('uArmR', -0.35 - Math.max(0, Math.sin(it * 3.1)) * 0.5, 0, -0.1);
           add('lArmR', -0.6 - Math.sin(it * 4.3) * 0.3, 0, 0);
           if (Math.sin(it * 1.3) > 0.3) { add('uArmL', -0.4, 0, 0.1); add('lArmL', -0.7, 0, 0); }

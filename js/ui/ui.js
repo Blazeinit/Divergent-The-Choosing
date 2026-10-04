@@ -205,7 +205,7 @@
       if (DV.Chapter && DV.Chapter.active) {
         for (const a of DV.Chapter.barkSources()) {
           const d = Math.hypot(a.x - cam.position.x, a.z - cam.position.z);
-          if (d > 22 || !a.name) continue;
+          if (d > 22 || !a.name || a.bark.quiet) continue;
           v.set(a.x, a.headY() + 0.35, a.z).project(cam);
           if (v.z > 1 || v.z < -1) continue;
           const key = 'ch:' + a.id;

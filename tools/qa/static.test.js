@@ -72,11 +72,12 @@ L.run('static data validation', async (p, T, errs) => {
       if (t.door && !homes.some((z) => z.doorMap[t.door])) out.quests.push(qid + ' door ' + t.door);
       if (t.room && !homes.some((z) => z.roomMap[t.room])) out.quests.push(qid + ' room ' + t.room);
     }
+    for (const id of ['cand_upper', 'eru_lab']) homes.push(DV.World.getZone(id));
     for (const z of homes) for (const it of z.interactables) {
       const w = z.nav.nearestWalkable(it.x, it.z, 4);
       if (!w || DV.U.dist(w[0], w[1], it.x, it.z) > (it.radius || 2) + 0.3) out.interact.push(z.id + ':' + it.id);
     }
-    for (const id of ['sim_platform', 'sim_flood', 'sim_tribunal', 'd_compound', 'hancock_roof', 'fear_tank', 'fear_beam']) {
+    for (const id of ['sim_platform', 'sim_flood', 'sim_tribunal', 'd_compound', 'hancock_roof', 'fear_tank', 'fear_beam', 'cand_upper', 'eru_lab', 'abn_night', 'abn_home', 'amity_day']) {
       try { const z = DV.World.getZone(id); out.zones.push(id + ' ' + z.stats.tris + ' tris'); } catch (e) { out.zones.push('FAIL ' + id + ' ' + e.message); }
     }
     out.hub = zone.stats.tris + ' tris, ' + Object.keys(zone.spots).length + ' spots, built in ' + zone.stats.ms + 'ms; compound: ' + Z('d_compound').stats.tris + ' tris, ' + Object.keys(Z('d_compound').spots).length + ' spots';

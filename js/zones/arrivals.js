@@ -26,10 +26,13 @@
     DV.Quests.setObj('new_faction', 'arrive', 'done', 'Your first hour as ' + DV.Factions.name(f) + '.');
     DV.Quests.complete('new_faction', f);
     Ch.checkpoint('done');
-    Ch.banner('WELCOME TO ' + DV.Factions.name(f).toUpperCase(), l2, 'Click or press any key to keep exploring · Build 2 complete', () => {
-      DV.Save.write('auto');
-      DV.UI.notify('Autosaved. Build 2 is complete — have a look around your new home.', 'info');
+    Ch.banner('WELCOME TO ' + DV.Factions.name(f).toUpperCase(), l2, 'Click or press any key to continue · Build 3: The First Week', () => {
+      DV.FirstWeek.begin(f);
     });
+  };
+  // a save made after the welcome: look around, and start the week when you're ready
+  const weekWaits = (Ch, f, a) => {
+    Ch.interact({ id: 'begin_week', kind: 'action', x: () => a.x, y: 1.4, z: () => a.z, radius: 1.9, label: 'Begin your first week', name: a.name, onUse: () => DV.FirstWeek.begin(f) });
   };
   // the other initiates, scattered near a point
   function initiatesNear(Ch, f, x, z, faceX, faceZ) {
@@ -101,7 +104,7 @@
       // the factionless, waiting at the corner as they do every day
       Ch.poor = [0, 1, 2].map((i) => Ch.actor({ id: 'fl' + i, name: 'Factionless', app: adult('factionless', i === 1 ? 'f' : 'm', 'fl-abn' + i, 30 + i * 12), x: 53 + i * 1.6, z: 3 + (i % 2) * 1.2, rot: -Math.PI / 2, action: i === 1 ? 'crouch' : 'idle' }));
       if (PL().upbringing === 'abnegation') { Ch.mom = Ch.actor({ id: 'mom', name: 'Mom', app: DV.Build2.parentApp('mom'), x: 14, z: 13, rot: Math.PI, action: 'idle' }); }
-      if (opts.step === 'done') return; // (a save from after the welcome: just be here)
+      if (opts.step === 'done') { weekWaits(Ch, 'abnegation', Ch.elder); return; } // (a save from after the welcome: just be here)
       Ch.given = 0;
       Ch.seq([
         () => 1.0,
@@ -177,7 +180,7 @@
       Ch.inits = initiatesNear(Ch, 'erudite', 10, 12, 16, 10);
       Ch.crowdE = Ch.crowd([{ x: 8, z: 8.2, rot: 0, action: 'work' }, { x: 10, z: 9.8, rot: Math.PI, action: 'sit' }, { x: 22, z: 15.8, rot: Math.PI, action: 'sit' }, { x: 24, z: 14.2, rot: 0, action: 'read' }, { x: 28, z: 5, rot: -1.2, action: 'read' }], { faction: 'erudite', seed: 'eru', adults: true });
       Ch.crowdE.forEach((a) => { a.name = 'Erudite'; });
-      if (opts.step === 'done') return;
+      if (opts.step === 'done') { weekWaits(Ch, 'erudite', Ch.park); return; }
       Ch.interact({ id: 'park_talk', kind: 'action', x: () => Ch.park.x, y: 1.4, z: () => Ch.park.z, radius: 1.8, label: 'Talk to', name: 'Dr. Helen Park', cond: () => !Ch.flag('quizzed'), onUse: () => { Ch.park.face(DV.Player.x, DV.Player.z); Ch.scene('erudite_entrance'); } });
       Ch.after(1.2, () => Ch.say(Ch.park, 'Initiates — over here, please. Don\'t touch the books yet. Yes, I know.', 3.6));
     },
@@ -253,7 +256,7 @@
       for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2; ring.push({ x: 14 + Math.cos(a) * 6.2, z: 11 + Math.sin(a) * 4.8, rot: Math.atan2(-Math.cos(a), -Math.sin(a)), action: 'arms_crossed' }); }
       Ch.ring = Ch.crowd(ring.filter((r, i) => i !== 7), { faction: 'candor', seed: 'cand', adults: true });
       Ch.ring.forEach((a) => { a.name = 'Candor'; a.lookAt([14, 11]); });
-      if (opts.step === 'done') return;
+      if (opts.step === 'done') { weekWaits(Ch, 'candor', Ch.rosa); return; }
       Ch.interact({ id: 'circle', kind: 'action', x: 14, y: 1, z: 11, radius: 1.6, label: 'Step into the circle', name: 'The Circle', cond: () => !Ch.flag('asked'), onUse: () => { Ch.setFlag('asked'); DV.Player.place(14, 11, Math.PI); Ch.rosa.face(14, 11); Ch.scene('candor_truth'); } });
       Ch.after(1.2, () => Ch.say(Ch.rosa, 'New initiates! Into the middle, one at a time. Nothing to be afraid of. Unless you lie.', 3.8));
     },
@@ -367,7 +370,7 @@
       Ch.circle = Ch.crowd(circle, { faction: 'amity', seed: 'amity', adults: true });
       Ch.circle.forEach((a) => { a.name = 'Amity'; });
       Ch.fireT = 0;
-      if (opts.step === 'done') return;
+      if (opts.step === 'done') { weekWaits(Ch, 'amity', Ch.mary); return; }
       Ch.interact({ id: 'apple_tree', kind: 'action', x: 16, y: 1.4, z: 30.5, radius: 2.2, label: 'Pick an apple', name: 'Apple Tree', cond: () => !Ch.apple && !Ch.shared, onUse: () => { Ch.apple = true; DV.Audio.play('pickup'); DV.UI.notify('You pick a red apple. It\'s warm from the sun.', 'info'); } });
       Ch.inits.concat([Ch.mary]).forEach((a) => Ch.interact({
         id: 'share_' + a.id, kind: 'action', x: () => a.x, y: 1.3, z: () => a.z, radius: 1.5, label: 'Share your apple', name: a.name,

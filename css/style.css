@@ -428,3 +428,40 @@ body.cutscene #hud-prompt, body.cutscene #hud-quest, body.cutscene #hud-compass,
 .struggle .keys { font-size: 12px; color: var(--dim); margin-top: 6px; }
 .struggle .keys b { color: var(--accent-2); font-family: var(--mono); font-weight: normal; }
 #ui-root.fearing #hud-quest, #ui-root.fearing #hud-compass, #ui-root.fearing #hud-loc { display: none; }
+
+/* the first week (Build 3): Candor's interview room and the serum */
+.iv-press { margin-top: 6px; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+.iv-press .fh-bar { height: 8px; }
+.iv-press .fh-bar i { background: linear-gradient(180deg, #f0e0b0, #a08040); transition: width 0.4s; }
+.iv-cue { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); white-space: nowrap; font-family: var(--serif); font-style: italic; font-size: 17px; color: #e8dcc0; text-shadow: 0 1px 0 #000, 0 0 10px #000; opacity: 0; transition: opacity 0.5s; }
+.iv-cue.on { opacity: 0.95; }
+.iv-pick { position: absolute; right: 16px; top: 22%; width: 330px; padding: 10px 14px; background: rgba(10, 10, 12, 0.86); border: 1px solid #000; box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; color: var(--text); }
+.iv-pick > div { margin: 4px 0; }
+.iv-pick b { display: inline-block; min-width: 18px; color: var(--accent-2); font-family: var(--mono); font-weight: normal; }
+.iv-pick .iv-ph { font-family: var(--serif); font-size: 13px; color: var(--accent-2); margin-bottom: 8px; line-height: 1.35; }
+.iv-pick .dim { color: var(--faint); }
+.serum-haze { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(200, 215, 255, 0) 28%, rgba(190, 205, 240, 0.22) 62%, rgba(150, 165, 210, 0.55) 100%); }
+.serum-q { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); max-width: 70%; text-align: center; font-family: var(--serif); font-size: 20px; color: #f0ece0; text-shadow: 0 2px 0 #000, 0 0 12px #000; }
+.serum-a { position: absolute; left: 50%; top: 64%; transform: translateX(-50%); max-width: 72%; text-align: center; font-family: var(--serif); font-size: 24px; color: #fff6e0; text-shadow: 0 2px 0 #000, 0 0 16px rgba(0, 0, 0, 0.9); transition: color 0.2s, letter-spacing 0.2s; }
+.serum-a.held { color: #ff9a7a; letter-spacing: 0.04em; }
+.serum-a.lie { color: #c8d8ff; }
+.serum-will { position: absolute; left: 50%; top: 23%; transform: translateX(-50%); width: 240px; text-align: center; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+.serum-will .fh-bar i { background: linear-gradient(180deg, #ffb08a, #b0402a); }
+/* Erudite's benches */
+.vx-labels { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); display: flex; gap: 40px; }
+.vx-l { min-width: 92px; text-align: center; padding: 6px 10px; background: rgba(10, 12, 16, 0.72); border: 1px solid #000; box-shadow: inset 0 0 0 1px var(--line); font-size: 12px; color: var(--text); }
+.vx-l b { display: block; font-family: var(--mono); font-size: 18px; font-weight: normal; color: var(--accent-2); }
+.vx-l i { display: block; font-style: normal; color: #9fe08a; font-family: var(--mono); min-height: 14px; }
+.vx-l.sel { box-shadow: inset 0 0 0 2px #f0c060; background: rgba(40, 32, 12, 0.8); }
+.rl-board { position: absolute; right: 9%; top: 50%; transform: translateY(-50%); display: grid; grid-template-columns: repeat(4, 54px); gap: 8px; padding: 14px; background: rgba(8, 12, 14, 0.82); border: 1px solid #000; box-shadow: inset 0 0 0 1px #2a4048, 0 4px 18px rgba(0, 0, 0, 0.7); }
+.rl-board i { width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #33403e, #141a1a 70%); box-shadow: inset 0 0 0 2px #0a0c0c; transition: background 0.15s, box-shadow 0.15s; }
+.rl-board i.on { background: radial-gradient(circle at 40% 35%, #fff4c0, #f0b840 55%, #9a6010 100%); box-shadow: 0 0 14px rgba(255, 200, 80, 0.6), inset 0 0 0 2px #5a3a08; }
+.rl-board i.cur { outline: 3px solid #9ad4e8; outline-offset: 3px; }
+.rl-board i.hint { animation: rlhint 0.6s ease-in-out infinite alternate; }
+@keyframes rlhint { from { outline: 3px solid rgba(160, 255, 140, 0.2); } to { outline: 3px solid rgba(160, 255, 140, 1); } }
+/* Amity: the culvert */
+.dig-bar { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); width: 420px; height: 22px; background: #0b0b0b; border: 1px solid #000; box-shadow: inset 0 0 0 1px #2a2620, 0 2px 8px rgba(0, 0, 0, 0.7); }
+.dig-bar .band { position: absolute; top: 0; bottom: 0; background: rgba(120, 210, 110, 0.45); border-left: 1px solid #9fe08a; border-right: 1px solid #9fe08a; }
+.dig-bar .mark { position: absolute; top: -6px; bottom: -6px; width: 4px; margin-left: -2px; background: #f4dc94; box-shadow: 0 0 6px #000; }
+.dig-prog { position: absolute; left: 50%; top: 68%; transform: translateX(-50%); width: 240px; text-align: center; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+.dig-prog .fh-bar i { background: linear-gradient(180deg, #8ac0e0, #3a6a90); }

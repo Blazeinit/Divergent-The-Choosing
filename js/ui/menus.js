@@ -13,7 +13,7 @@
       this.hideAll();
       const m = el('div', null, null, DV.UI.root);
       m.id = 'mainmenu';
-      m.innerHTML = '<div class="title">DIVERGENT</div><div class="subtitle">The Choosing</div><div class="sigils"></div><div class="items"></div><div class="foot"></div>';
+      m.innerHTML = '<div class="title">DIVERGENT</div><div class="subtitle">Initiation</div><div class="sigils"></div><div class="items"></div><div class="foot"></div>';
       const sig = m.querySelector('.sigils');
       for (const f of DV.Factions.testable) {
         const c = document.createElement('canvas');
@@ -161,6 +161,9 @@
         ['W A S D / Arrows', 'Move'], ['Mouse', 'Look / orbit camera (click to capture; or hold a button and drag)'], ['Mouse wheel', 'Zoom camera'],
         ['Shift', 'Run (uses stamina)'], ['Space', 'Jump (uses stamina)'], ['C', 'Crouch / sneak (quieter; Shift or C to stand)'], ['E', 'Interact · talk · take · sit'], ['Tab', 'RPG menu (Character, Skills, Inventory, Quests, Reputation, Map)'],
         ['M', 'Map'], ['J', 'Quests'], ['I', 'Inventory'], ['T', 'Wait (while seated)'], ['Dialogue', 'Move the mouse or scroll to choose, click / E / Enter to confirm (or 1-9)'], ['Esc', 'Pause / close windows'],
+        ['Fights', 'LMB / J jab · RMB / K cross · F / L kick · hold Shift block · Space + direction dodge · hold Q yield'],
+        ['Range', 'Mouse aim · LMB fire · hold RMB sights · hold Shift hold your breath'], ['Knives', 'Hold LMB to wind up, release to throw'],
+        ['Activities', 'Each one shows its keys along the bottom of the screen'],
       ].map(([k, v]) => '<div class="kv"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>').join('');
     },
 
@@ -169,7 +172,7 @@
       this.closeSide();
       const p = this.side('Credits');
       p.querySelector('.body').innerHTML = '<div class="credits">' +
-        '<p><b class="accent">DIVERGENT — Build 2: The Choosing</b></p>' +
+        '<p><b class="accent">DIVERGENT — Build 3: Initiation</b></p>' +
         '<p>A private, non-commercial fan-game prototype inspired by the <i>Divergent</i> series by Veronica Roth. Not affiliated with or endorsed by the author, publishers or film studios. All characters, locations and story in this prototype are original.</p>' +
         '<div class="sep"></div>' +
         '<p><span class="accent">Design, code, writing & procedural art</span><br>Built with HTML, CSS, JavaScript and Three.js (r149, MIT License).</p>' +

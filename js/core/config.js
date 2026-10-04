@@ -6,7 +6,7 @@
   const DV = window.DV;
 
   DV.Config = {
-    VERSION: 'Build 2 — v0.2.0',
+    VERSION: 'Build 3 — v0.3.0',
     DEBUG: /[?&]debug=1/.test(location.search),
 
     // 1 real second = TIME_SCALE game seconds.

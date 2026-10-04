@@ -81,8 +81,11 @@ L.run('Build 2: getting into your faction', async (p, T, errs) => {
     // a save after the welcome loads as free roam
     await ev(() => { const b = DV.UI.root.querySelector('#banner'); if (b) b.remove(); DV.UI.modalOpen = null; DV.Game.state = 'playing'; DV.Save.write('4'); DV.Game.loadSlot('4'); });
     await L.until(p, () => DV.Chapter.active && DV.Game.state === 'playing');
-    const re = await ev(() => ({ id: DV.Chapter.id, step: DV.Chapter.step, tasks: DV.Interaction.extra.length, seqs: DV.Chapter.seqs.length, banner: !!document.getElementById('banner') }));
-    T.ok(re.id === 'arrival_' + f && re.step === 'done' && re.tasks === 0 && re.seqs === 0 && !re.banner, DV_name(f) + ': loading that save puts you back there, free to look around', re);
+    const re = await ev(() => ({ id: DV.Chapter.id, step: DV.Chapter.step, tasks: DV.Interaction.extra.map((x) => x.id).join(','), seqs: DV.Chapter.seqs.length, banner: !!document.getElementById('banner') }));
+    T.ok(re.id === 'arrival_' + f && re.step === 'done' && re.tasks === 'begin_week' && re.seqs === 0 && !re.banner, DV_name(f) + ': loading that save puts you back there, free to look around (and to start the week when ready)', re);
+    // Build 3 carries on from here
+    await ev(() => { const it = DV.Interaction.extra.find((x) => x.id === 'begin_week'); it.onUse(DV.Game, it); });
+    T.ok(await L.until(p, () => DV.Chapter.id === 'week_' + DV.State.data.player.faction && DV.Game.state === 'playing', 30000), DV_name(f) + ': …and the first week begins (Build 3)');
   }
   T.noErrors(errs);
 });

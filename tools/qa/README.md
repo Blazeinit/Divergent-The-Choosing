@@ -13,7 +13,7 @@ You need Node 18+ and the `playwright` package with a Chromium build:
 
 ```bash
 npm i -g playwright && npx playwright install chromium   # once
-NODE_PATH="$(npm root -g)" node tools/qa/run.js           # all tests (~10 min)
+NODE_PATH="$(npm root -g)" node tools/qa/run.js           # all tests (~18 min)
 NODE_PATH="$(npm root -g)" node tools/qa/run.js checkpoint audio   # just some
 ```
 
@@ -24,7 +24,7 @@ To use a Chromium you already have, set `CHROMIUM_PATH=/path/to/chrome`. Screens
 
 | Test | Covers |
 |---|---|
-| `static` | Every schedule spot exists and is reachable on the nav grid; no double-booked spots; no dangling dialogue links; quest targets exist; interactables can be reached; simulation zones build |
+| `static` | Every schedule spot exists and is reachable on the nav grid (in every zone, for every day of the Dauntless week); no double-booked spots; no dangling dialogue links; quest targets exist; interactables can be reached; all simulation and story zones build |
 | `boot` | Main menu → creator → intro → world through the real UI, then movement |
 | `dialogue` | Random walk through every NPC's dialogue tree, looking for exceptions and dead ends |
 | `checkpoint` | Reception → name badge → Dean → the arm. Covers blocking, NPCs showing badges at the arm, ducking under (caught, unseen, low Agility) and showing the badge from the inventory |
@@ -39,7 +39,11 @@ To use a Chromium you already have, set `CHROMIUM_PATH=/path/to/chrome`. Screens
 | `city` | The city builds fast and stays out of playable rooms; indoor/outdoor fog; cloud shadows move and darken people; the L train runs and stops cleanly |
 | `wildlife` | Pigeons stay put, scatter when run at, perch and return; calm walkers don't spook them; crows circle; flags fly; litter stays in the plaza |
 | `build2-story` | The bus home, dinner choices, a save at bedtime resuming at bedtime, the night before, the ceremony (order, consequences, knife, bowl, faction), the exodus |
-| `build2-factions` | The Dauntless train (missing it, catching it), the roof jump (too early, right), first jumper, the net and the Pit; each other faction's arrival and a save after it |
+| `build2-factions` | The Dauntless train (missing it, catching it), the roof jump (too early, right), first jumper, the net and the Pit; each other faction's arrival, a save after it, and "Begin your first week" |
+| `build3-combat` | A fight as an activity; guarding and punishing beats a novice; turtling loses; holding Q yields; the range, bags and knives each score and hand the controls back |
+| `build3-dauntless` | The compound on Day 2; sleeping; Day 3's range, bags and spar; a mid-afternoon save loading back to the same day, time, place and points; Daniel; Day 4's knives, range and fight; the board; the zip line |
+| `build3-stageone` | The knife lesson and the scar; the fight against Josh; the ambush (struggle, fight, infirmary, expulsion); the cut; the fear simulation; STAGE ONE COMPLETE |
+| `build3-weeks` | Candor, Erudite, Abnegation and Amity: each first week played start to finish by a bot, to its banner, and a save after it |
 | `audio` | Per-room reverb, indoor vs. outdoor layers, open-door bleed, accents, the simulation beds, and the reverb setting |
 | `save-migration` | A v1 save with old NPC ids and names loads into the current version with everything intact |
 | `npc-day` | A full day of schedules from two vantage points: nobody stuck, teleported, path-less or double-seated |
@@ -47,3 +51,10 @@ To use a Chromium you already have, set `CHROMIUM_PATH=/path/to/chrome`. Screens
 
 Tests render at the lowest resolution and step game time (`QA.step`, `L.until`) instead of
 waiting on the clock, so a slow software-GL frame rate can't make them flaky.
+
+The Build 3 suites use the bots in `L.b3()` (`window.B`): `B.fightBot()` plays a fight (guards
+the heavy shots, slips kicks, punishes recoveries), `B.finishActivity()` aims, throws and keeps
+time at the range, the knife wall and the bags, `B.use(id)` uses an interactable, `B.at('HH:MM')`
+jumps the clock (careful: an hour earlier than now rolls into tomorrow) and `B.wait(fn)` steps
+until something happens. `QA.step(secs)` steps in 0.05 s frames, so anything shorter than that
+does nothing.
