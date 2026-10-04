@@ -288,7 +288,6 @@
   /* ---------------- plaza & street ---------------- */
   add('monolith', 30, 68.5, { text: 'APTITUDE TESTING CENTER\nSECTOR 4 — TESTING DISTRICT' });
   [['abnegation', 25], ['dauntless', 27.5], ['erudite', 30], ['candor', 50], ['amity', 52.5]].forEach(([f, x]) => add('flagpole', x, 62.6, { faction: f }));
-  add('bus_shelter', 51, 73.3, { id: 'shelter' });
   add('lamp_post', 23.4, 64, {});
   add('lamp_post', 23.4, 72, {});
   add('lamp_post', 56.6, 64, { rotDeg: 180 });
@@ -305,12 +304,39 @@
   add('stripe', 40, 60.6, { w: 4, d: 0.4, mat: 'tactile' });
   add('rubble', 23.6, 75, { n: 7 });
   add('rubble', 56.5, 75.2, { n: 5 });
-  add('bus', 49.5, 80.2, { rotDeg: 90 });
-  add('car', 24, 80.5, { rotDeg: 92 });
-  add('car', 61.5, 81, { rotDeg: 80, mat: 'metal_painted' });
-  add('rubble', 16, 82, { n: 8 });
-  add('rubble', 65, 78, { n: 6 });
-  add('lamp_post', 30, 77.5, {});
+
+  /* ---------------- Lake Street, outside the gate ----------------
+     A pavement along the fence (z 75–78.8), the kerb, two lanes (westbound on this side,
+     where the Route 5 bus stops; eastbound beyond the centre line), and the far pavement
+     under the L, between its columns (z 86.4–92). Traffic keeps right. */
+  add('kerb', 7, 78.8, { len: 30, depth: 3.8 });
+  add('kerb', 40, 78.8, { len: 36, depth: 2.8 }); // (the plaza fence is at z 76 here)
+  add('kerb', 73, 78.8, { len: 30, depth: 3.8 });
+  add('kerb', 40, 86.4, { len: 96, depth: 5.6, rotDeg: 180 });
+  add('road_paint', 18.5, 82.6, { kind: 'dashes', len: 37 });
+  add('road_paint', 65.5, 82.6, { kind: 'dashes', len: 45 });
+  add('road_paint', 40, 82.6, { kind: 'zebra', w: 4, d: 7.4 }); // the crossing at the gate
+  add('road_paint', 51, 81.75, { kind: 'busbay', len: 15 });
+  add('manhole', 29.5, 82.1);
+  add('manhole', 61, 84.4);
+  // the stop: shelter against the fence, the pole at the kerb where the bus's front door opens
+  add('bus_shelter', 51, 76.95, { id: 'shelter', ad: 'factions' });
+  add('bus_stop_sign', 44.6, 78.35, { rotDeg: 90 });
+  add('street_sign', 36.9, 78.35, { a: 'W LAKE ST', b: 'TESTING CTR' });
+  add('news_box', 33.9, 76.55, { n: 2 });
+  add('hydrant', 57.6, 78.35);
+  add('trash_bin', 47.8, 78.3);
+  add('lamp_post', 30, 78.45, { rotDeg: -90 });
+  add('lamp_post', 62, 78.45, { rotDeg: -90 });
+  add('lamp_post', 4, 78.45, { rotDeg: -90 });
+  // parked along the kerbs (the bus itself only waits here once testing is over: see build)
+  add('car', 20.2, 79.85, { rotDeg: -90, kind: 'sedan', seed: 3 });
+  add('car', 26.4, 79.85, { rotDeg: -90, kind: 'hatch', seed: 8 });
+  add('vehicle', 63.4, 79.95, { rotDeg: -90, kind: 'van', color: 0xd6d8d8, stripe: 0x2a4a8a }); // an Erudite lab van
+  add('car', 9.5, 85.35, { rotDeg: 90, kind: 'sedan', seed: 5 });
+  add('vehicle', 72.5, 85.3, { rotDeg: 90, kind: 'pickup' }); // Amity, with apples
+  add('rubble', 15.5, 87.6, { n: 6 });
+  add('rubble', 66, 77.2, { n: 5 });
   // beyond the street: under the L tracks, a vacant lot behind a sagging fence (the city
   // itself — blocks, towers, the Hub, the L — is built by DV.City in build() below)
   add('chainlink_fence', 8, 93.4, { len: 26, lean: true });
@@ -321,13 +347,13 @@
   add('rubble', 47, 104, { n: 18 });
   add('rubble', 63, 97.5, { n: 9 });
   add('rubble', 30, 112, { n: 16 });
-  add('car', 12, 101, { rotDeg: 30 });
-  add('car', 70, 108, { rotDeg: -70 });
+  add('car', 12, 101, { rotDeg: 30, wreck: true, kind: 'sedan', seed: 2 });
+  add('car', 70, 108, { rotDeg: -70, wreck: true, kind: 'hatch', seed: 6 });
   add('jersey_barrier', 56, 95.5, { len: 3, rotDeg: 12 });
   add('jersey_barrier', 4, 96, { len: 3, rotDeg: -20 });
   add('billboard', 42, 99, { rotDeg: 180, w: 9, h: 3.4, y: 4.6, text: 'FACTION BEFORE BLOOD', bg: '#3b3430', color: '#d9cbb0' });
-  add('lamp_post', 70, 85.4, { rotDeg: 180 });
-  add('lamp_post', 8, 85.4, { rotDeg: 180 });
+  add('lamp_post', 70, 86.95, { rotDeg: 90 });
+  add('lamp_post', 8, 86.95, { rotDeg: 90 });
 
   /* ---------------- administration ---------------- */
   add('copier', 17.5, 20.45, {});
@@ -576,7 +602,16 @@
       // (opens once you've had your results: then the bus home waits at the curb)
       zone.gateBlock = zone.colliders.add(37.8, 75.85, 42.2, 76.15, { y0: 0, y1: 3, playerOnly: true, tag: 'gateblock' });
       ctx.update(() => { zone.gateBlock.enabled = !DV.State.flag('results_discussed'); });
-      ctx.interact({ id: 'bus_home', kind: 'action', x: 47.5, y: 1.2, z: 78.7, radius: 2.2, label: 'Ride home', name: 'Northbound Bus', cond: () => DV.Build2.canGoHome(), onUse: () => DV.Build2.rideHome() });
+      // the Route 5 bus waits at the stop once testing is over, front door open at the pole
+      // (heading west, so its doors are on the kerb side)
+      const bus = DV.Vehicles.park(zone, 'bus', 50.6, 80.35, -Math.PI / 2, { stripe: 0xb08a2a });
+      zone.stopBus = bus;
+      ctx.update(() => {
+        const here = !!DV.State.flag('results_discussed');
+        bus.root.visible = here;
+        if (bus.collider) bus.collider.enabled = here;
+      });
+      ctx.interact({ id: 'bus_home', kind: 'action', x: 46.2, y: 1.2, z: 78.6, radius: 2.4, label: 'Ride home', name: 'Route 5 Bus', cond: () => DV.Build2.canGoHome(), onUse: () => DV.Build2.rideHome() });
       // security barrier arm inside the scanner arch — down until you show your name badge
       // (DV.Checkpoint drives it, and lifts it for NPCs who show theirs)
       zone.securityBlock = zone.colliders.add(39.3, 40.85, 40.7, 41.15, { y0: 0, y1: 2.4, playerOnly: true, tag: 'security' });
@@ -639,12 +674,13 @@
         flocks: [
           { x0: 23, z0: 63, x1: 37, z1: 74.5, n: 8 },
           { x0: 43, z0: 63, x1: 57, z1: 74.5, n: 6 },
-          { x0: 15, z0: 77, x1: 65, z1: 83.5, n: 6 },
+          { x0: 15, z0: 76.5, x1: 37, z1: 78.5, n: 4 },
+          { x0: 54, z0: 76.5, x1: 65, z1: 78.5, n: 3 },
           { x0: 59, z0: 49, x1: 79, z1: 61, n: 5 },
         ],
         perches: [
-          [23.4, 4.52, 64], [23.4, 4.52, 72], [56.6, 4.52, 64], [56.6, 4.52, 70], [30, 4.52, 77.5],
-          [50.2, 2.6, 73.3], [51.8, 2.6, 73.3], [29.4, 2.22, 68.5], [30.6, 2.22, 68.5],
+          [23.4, 4.52, 64], [23.4, 4.52, 72], [56.6, 4.52, 64], [56.6, 4.52, 70], [30, 4.52, 78.45], [62, 4.52, 78.45],
+          [50.2, 2.66, 77.0], [51.8, 2.66, 77.0], [29.4, 2.22, 68.5], [30.6, 2.22, 68.5],
           [26, 3.22, 76], [54, 3.22, 76], [25, 7.04, 62.6], [52.5, 7.04, 62.6],
           [28, 8.32, 86.75], [41, 8.32, 86.75], [57, 8.32, 86.75],
           [33, 9.02, 59.9], [47, 9.02, 59.9],
