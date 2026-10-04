@@ -63,6 +63,8 @@
     musicVolume: 0.5,
     sfxVolume: 0.8,
     paVoice: false, // speech synthesis for PA announcements
+    reverb: true, // room reverb on world sounds
+    ambienceDetail: 'high', // 'high' | 'low' (fewer ambient one-shots and accents)
     questMarkers: true,
     textSpeed: 'normal', // 'slow' | 'normal' | 'fast' | 'instant'
     showFps: false,

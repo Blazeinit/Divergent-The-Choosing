@@ -350,7 +350,7 @@
       no: { text: 'That\'s all right! Thank you for listening. Most people don\'t.', end: true },
       harsh: { text: '...Right. You\'re right. Sorry. [She looks at the floor.]', onEnter: (c) => { c.addRel(-6); c.insulted(); }, end: true },
       bird: {
-        text: 'A wren. My grandmother carved it the winter before she passed. She said it would keep me brave. I had it on the bus, and in the lobby, and then at security, and then... I didn\'t.',
+        text: 'A wren. My grandmother carved it the winter before she passed. She said it would keep me brave. I had it on the bus, and in the lobby, and at the reception desk, and then at security, and then... I didn\'t.',
         choices: [
           { text: 'I\'ll help you look.', to: 'start' },
           { text: 'Have you asked the staff?', to: 'staff' },
@@ -372,7 +372,7 @@
           bye,
         ],
       },
-      last: { text: 'In the lobby, by the kiosk. Then I went through security — the guard made me empty my pockets into a tray — and then I was so flustered checking in that... I don\'t know.', onEnter: (c) => c.setMem('heardLast', true), next: 'hub', nextText: 'Hm.' },
+      last: { text: 'In the lobby, by the kiosk. Then I checked in, and at security the guard made me empty my pockets into a tray — and I was so flustered getting my badge clipped back on that... I don\'t know.', onEnter: (c) => c.setMem('heardLast', true), next: 'hub', nextText: 'Hm.' },
       insight: { text: 'Swept — the custodian! Gus! He sweeps up everything. Oh — I\'d never dare ask him. He looks like a bear that\'s tired of bees.', onEnter: (c) => { c.activate('lost_bird', 'storage', 'Pip emptied her pockets at security. The custodian, Gus, sweeps up everything — and keeps it in the storage room.'); c.xp(10); }, next: 'hub', nextText: 'I\'ll ask him.' },
       nervous: { text: 'Terrified! But Amity say fear is just excitement that forgot to breathe. So I\'m breathing. Very loudly. Sorry.', next: 'hub', nextText: 'Keep breathing.' },
       amity: { text: 'Orchards and long tables and everyone talking at once. We settle arguments with songs. Well — we try. Sometimes the songs become arguments.', next: 'hub', nextText: 'Sounds nice.' },

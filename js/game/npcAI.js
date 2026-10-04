@@ -74,6 +74,8 @@
     startTask(npc, e, snap) {
       const zone = this.zone();
       if (!zone || zone.id !== (npc.def.zone || 'testing_center')) return;
+      // candidates get their name badge at reception: any later task means they have it
+      if (npc.def.role === 'candidate' && ((npc.spot && /^reception_q/.test(npc.spot.id)) || (e && e.do !== 'arrive'))) npc.badgeOn = true;
       this.releaseSpot(npc);
       npc.action = 'idle';
       npc.path = null;
@@ -225,6 +227,7 @@
         if (npc.dist < 14) crowd++;
         const visible = npc.dist < NC.cullDist;
         npc.model.root.visible = visible;
+        npc.model.shadowFar = npc.dist > 16; // blob shadows are an extra draw call each
         // LOD
         let step = dt, animate = true;
         if (npc.dist > NC.midUpdateDist) {
@@ -239,12 +242,24 @@
         } else npc.lod = 'full';
         this.think(npc, step, player, zone);
         this.syncModel(npc);
+        // footsteps for nearby walkers (positioned, through the room's reverb)
+        if (npc.lod === 'full' && npc.mode === 'walking' && npc.speed > 0.3 && npc.dist < 11) {
+          npc.stepAcc = (npc.stepAcc || 0) + npc.speed * step;
+          if (npc.stepAcc > 0.74) {
+            npc.stepAcc = 0;
+            DV.Audio.play('step', { surface: DV.Player.surfaceFor(zone.roomAt(npc.x, npc.z)), x: npc.x, z: npc.z, volume: 0.5, range: 12 });
+          }
+        }
+        if (npc.def.role === 'candidate') {
+          if (zone.id === 'testing_center' && npc.z < 41) npc.badgeOn = true; // past the security arch
+          if (npc.model.tagOn !== !!npc.badgeOn) npc.model.setTag(!!npc.badgeOn);
+        }
         if (animate && visible) {
           const adt = npc.lod === 'mid' ? npc.animAcc : step;
           npc.animAcc = 0;
           npc.model.animate(Math.min(adt, 0.1), {
             speed: npc.speed,
-            action: npc.mode === 'walking' ? 'idle' : npc.action,
+            action: npc.gateShow ? 'badge' : npc.mode === 'walking' ? 'idle' : npc.action,
             seatY: npc.seatY,
             lookYaw: npc.lookYaw,
             talking: npc.mode === 'talking' ? DV.Game && DV.Game.npcSpeaking === npc.id : !!(npc.bark && npc.bark.until > performance.now()),
@@ -329,6 +344,8 @@
     followPath(npc, dt, player) {
       const p = npc.path;
       if (!p) { npc.mode = 'acting'; return; }
+      // security arch: stop, show a badge, wait for the arm
+      if (DV.Checkpoint && DV.Checkpoint.active() && DV.Checkpoint.npcStep(npc, dt)) return;
       const tgt = p[npc.pathIdx];
       if (!tgt) { this.onPathDone(npc); return; }
       // yield to the player standing right in front
@@ -351,11 +368,46 @@
         if (npc.pathIdx >= p.length) this.onPathDone(npc);
         return;
       }
+      // local avoidance: don't walk through other people
+      const fx0 = dx / d, fz0 = dz / d;
+      let mx = fx0, mz = fz0;
+      const nearEnd = npc.pathIdx >= p.length - 1 && d < 1.2;
+      if (!nearEnd && npc.gateStopIdx !== npc.pathIdx) {
+        let blocker = null, bd = 9;
+        for (const o of DV.NPCs.all) {
+          if (o === npc || !o.present || o.mode === 'absent') continue;
+          const ox = o.x - npc.x, oz = o.z - npc.z;
+          const od = Math.hypot(ox, oz);
+          if (od > 0.8 || od < 1e-3) continue;
+          if ((ox * fx0 + oz * fz0) / od > 0.65 && od < bd) { blocker = o; bd = od; }
+        }
+        if (blocker) {
+          npc.avoidT = (npc.avoidT || 0) + dt;
+          const bw = blocker.mode === 'walking' && blocker.speed > 0.2;
+          const same = bw && Math.sin(blocker.rot) * fx0 + Math.cos(blocker.rot) * fz0 > 0.4;
+          // following someone: hang back; someone standing still: pause, then go round
+          if ((same && npc.avoidT < 3) || (!bw && npc.avoidT < 0.5)) { npc.speed = 0; return; }
+          // step round on the right (both walkers do the same, so head-on pairs pass)
+          const zone = this.zone();
+          const access = (lock) => npc.canAccess(lock);
+          let ok = false;
+          for (const side of [1, -1]) {
+            const sx = fx0 * 0.45 - fz0 * side, sz = fz0 * 0.45 + fx0 * side;
+            const sl = Math.hypot(sx, sz);
+            const nx = npc.x + (sx / sl) * 0.45, nz = npc.z + (sz / sl) * 0.45;
+            if (zone.nav.isWalkable(nx, nz) && zone.nav.los(npc.x, npc.z, nx, nz, access) && zone.nav.los(nx, nz, tgt[0], tgt[1], access)) {
+              mx = sx / sl; mz = sz / sl; ok = true;
+              break;
+            }
+          }
+          if (!ok && npc.avoidT < 4) { npc.speed = 0; return; }
+        } else npc.avoidT = 0;
+      }
       const stepLen = Math.min(d, sp * dt);
-      npc.x += (dx / d) * stepLen;
-      npc.z += (dz / d) * stepLen;
+      npc.x += mx * stepLen;
+      npc.z += mz * stepLen;
       npc.speed = stepLen / Math.max(dt, 1e-4);
-      npc.rot = U.dampAngle(npc.rot, Math.atan2(dx, dz), 8, dt);
+      npc.rot = U.dampAngle(npc.rot, Math.atan2(mx, mz), 8, dt);
       // stuck safety
       npc.stuckT = (npc.stuckT || 0) + dt;
       if (npc.stuckT > (npc.pathBudget || 40)) { npc.x = p[p.length - 1][0]; npc.z = p[p.length - 1][1]; this.onPathDone(npc); }

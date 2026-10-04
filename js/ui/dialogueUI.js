@@ -2,6 +2,8 @@
    DIVERGENT — dialogue window
    NAME / FACTION header, typewriter text, numbered responses, attribute
    check labels (greyed when unavailable), keyboard + mouse selection.
+   The mouse stays captured while talking: moving it up/down or scrolling
+   moves the highlight and a click confirms — no re-click needed afterwards.
    ========================================================================== */
 (function () {
   'use strict';
@@ -18,7 +20,7 @@
     init() {
       const p = U.el('div', 'panel hidden', null, DV.UI.root);
       p.id = 'dialogue';
-      p.innerHTML = '<div class="dh"><span class="speaker"></span><span class="faction"></span><span class="disp"></span></div><div class="text"></div><div class="choices"></div>';
+      p.innerHTML = '<div class="dh"><span class="speaker"></span><span class="faction"></span><span class="disp"></span></div><div class="text"></div><div class="choices"></div><div class="dhint"></div>';
       this.el = p;
       DV.Events.on('dialogue:node', (v) => this.show(v));
       DV.Events.on('dialogue:end', () => this.hide());
@@ -50,7 +52,23 @@
       this.renderText();
       this.renderChoices();
       this.sel = 0;
+      const first = v.choices.findIndex((c) => c.enabled);
+      if (first > 0) this.sel = first;
       this.highlight();
+      DV.Input.takeMouse();
+      DV.Input.takeWheel();
+      DV.Input.consume('MouseLeft');
+      this.mouseAcc = 0;
+      this.hintLocked = null;
+      this.updateHint();
+    },
+    updateHint() {
+      const locked = DV.Input.locked;
+      if (locked === this.hintLocked) return;
+      this.hintLocked = locked;
+      this.el.querySelector('.dhint').textContent = locked
+        ? 'Move the mouse or scroll to choose · Click, E or Enter to confirm · 1–9'
+        : 'Click a response · 1–9 · ↑/↓ + Enter';
     },
     renderText() {
       const t = this.typing ? this.full.slice(0, Math.floor(this.shown)) : this.full;
@@ -102,11 +120,25 @@
         if (this.shown >= this.full.length) this.finishTyping();
         else this.renderText();
       }
+      this.updateHint();
       // keyboard
       for (let k = 1; k <= 9; k++) {
         if (input.consume('Digit' + k) || input.consume('Numpad' + k)) { this.pick(k - 1); return; }
       }
       const n = this.view.choices.length;
+      // mouse (captured): wheel or vertical movement moves the highlight, click confirms
+      const wheel = input.takeWheel();
+      if (wheel) this.step(wheel > 0 ? 1 : -1, n);
+      const my = input.takeMouse()[1];
+      if (input.locked && !this.typing) {
+        this.mouseAcc += my;
+        if (Math.abs(this.mouseAcc) > 55) { this.step(this.mouseAcc > 0 ? 1 : -1, n); this.mouseAcc = 0; }
+      }
+      if (input.consume('MouseLeft')) {
+        if (this.typing) this.finishTyping();
+        else this.pick(this.sel);
+        return;
+      }
       if (input.consume('ArrowDown') || input.consume('KeyS')) { this.step(1, n); }
       if (input.consume('ArrowUp') || input.consume('KeyW')) { this.step(-1, n); }
       if (input.consume('Enter') || input.consume('Space') || input.consume('KeyE')) {

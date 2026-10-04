@@ -334,3 +334,5 @@ button { font-family: inherit; }
 #dialogue, #reading, .modal, #rpgmenu, .side, #waitmenu, #pause { z-index: 20; }
 /* menus opened over the title screen need a solid backing so the logo doesn't bleed through */
 .side.panel, #pause .panel, .modal.panel { background: linear-gradient(180deg, rgba(30, 29, 27, 0.985), rgba(12, 13, 15, 0.985)); }
+
+#dialogue .dhint { padding: 3px 12px 6px; font-size: 10.5px; letter-spacing: 0.08em; color: var(--faint); text-align: right; border-top: 1px solid rgba(255,255,255,0.04); }

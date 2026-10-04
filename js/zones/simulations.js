@@ -30,7 +30,7 @@
     add('electrical_panel', 21.2, 7.85, { rotDeg: 180 });
     add('sign', 51.88, 4, { rotDeg: -90, text: 'STREET LEVEL', arrow: 'up', y: 2.4, w: 2.0, h: 0.4, bg: '#0c4a2a', emit: true });
     DV.Zones.define('sim_platform', {
-      name: 'Platform', simulation: true, ambience: 'platform',
+      name: 'Platform', simulation: true, ambience: 'platform', reverb: 'platform',
       bounds: { x0: -16, z0: -10, x1: 54, z1: 12 },
       buildingHeight: 5,
       fog: { color: 0x140a0a, near: 5, far: 40 },
@@ -90,7 +90,7 @@
     add('sign', 7, 0.13, { text: 'SUPPLY LINES', y: 3.05, w: 2.0, h: 0.3, bg: '#3a3020' });
     add('electrical_panel', 11.5, 0.15, {});
     DV.Zones.define('sim_flood', {
-      name: 'Basement', simulation: true, ambience: 'flood',
+      name: 'Basement', simulation: true, ambience: 'flood', reverb: 'basement',
       bounds: { x0: -2, z0: -2, x1: 20, z1: 12 },
       buildingHeight: 4,
       fog: { color: 0x0b1214, near: 6, far: 26 },
@@ -149,7 +149,7 @@
     add('mirror', 0.12, 10, { rotDeg: 90, y: 2.1, w: 2.6, h: 3.6 });
     for (const x of [2.2, 17.8]) for (const z of [5, 10, 15]) add('column', x, z, { size: 0.8, h: 9, mat: 'concrete_panel' });
     DV.Zones.define('sim_tribunal', {
-      name: 'Tribunal', simulation: true, ambience: 'tribunal',
+      name: 'Tribunal', simulation: true, ambience: 'tribunal', reverb: 'tribunal',
       bounds: { x0: -2, z0: -2, x1: 22, z1: 22 },
       buildingHeight: 9,
       fog: { color: 0x000000, near: 7, far: 30 },
@@ -1039,7 +1039,7 @@
       return 'waiting hall';
     },
     accuseName(S) {
-      for (const id of ['mara_voss', 'elias_thorne', 'pip_hollis', 'rook_delaney', 'theo_vance', 'juniper_nash']) {
+      for (const id of ['mara_voss', 'elias_thorne', 'pip_hollis', 'rook_delaney', 'edmund_kell', 'juniper_nash']) {
         if (DV.State.npc(id).mem.met) return DV.NPCData.get(id).name;
       }
       return 'Mara Voss';

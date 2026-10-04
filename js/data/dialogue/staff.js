@@ -1,6 +1,6 @@
 /* ==========================================================================
    DIVERGENT — Tier 2 staff dialogue trees
-   kade, rhea, brann, marion, wren, ines, willow, gus, ruth
+   kade, rae, brann, marion, wren, ines, willow, gus, ruth
    ========================================================================== */
 (function () {
   'use strict';
@@ -9,33 +9,60 @@
   const bye = { text: 'Goodbye.', end: true };
   const clearSecurity = (c) => {
     if (c.flag('security_cleared')) return;
+    c.setFlag('badge_shown');
     c.setFlag('security_cleared');
-    c.setObj('aptitude_day', 'security', 'done', 'Cleared security at the checkpoint.');
+    c.setFlag('cleared_time', c.time());
+    c.setObj('aptitude_day', 'security', 'done', 'Showed your name badge at the security arch and passed the scanner.');
     c.xp(15, 'Security cleared');
+    if (DV.Checkpoint) DV.Checkpoint.open(2.5);
+    if (DV.Game.autosaveSoon) DV.Game.autosaveSoon();
   };
+  const badgeLook = (c) => '[He takes the badge, reads it, and runs a thumb down the list on his clipboard.] {NAME}. Room Four — Ashgrove. [He looks from the badge to your face and back.] ';
 
   /* ------------------------------ KADE ------------------------------ */
   T('kade', {
     entry: [
+      { if: (c) => !c.flag('security_cleared') && c.flag('caught_ducking') && !c.mem('duckScolded'), node: 'cp_caught' },
+      { if: (c) => !c.flag('security_cleared') && !c.has('name_badge'), node: 'no_badge' },
       { if: (c) => !c.flag('security_cleared'), node: 'checkpoint' },
       { if: (c) => c.aptDone() && !c.mem('postTest'), node: 'post' },
       { node: 'hub' },
     ],
     nodes: {
-      checkpoint: {
-        text: (c) => (c.firstTime ? 'Candidate. Stop there. Name and faction.' : 'Back again. Name and faction — still need it.'),
+      no_badge: {
+        text: (c) => (c.firstTime
+          ? 'Candidate. Stop there. Badge. [He looks at your empty chest.] ...No badge means you haven\'t checked in. Reception\'s behind you — the desk on the east side of the lobby. Marion. Come back wearing a badge.'
+          : 'Still no badge. Reception. East side of the lobby. I\'ll be right here.'),
+        onEnter: (c) => { if (!c.mem('toldNoBadge')) { c.setMem('toldNoBadge', true); c.qlog('aptitude_day', 'The guard at the security arch won\'t let anyone through without a name badge from reception.'); } },
         choices: [
-          { text: '{name}. I was raised {upbringing}.', to: 'cp_name' },
-          { text: 'I\'m here for the aptitude test.', to: 'cp_obvious' },
-          { text: 'Why do you need to know?', to: 'cp_why' },
+          { text: 'Can\'t you just let me through?', to: 'no_badge_ask' },
+          { text: 'Fine. Reception.', end: true },
         ],
       },
-      cp_obvious: { text: 'Everyone\'s here for the test. That\'s why there\'s a line of terrified sixteen-year-olds and one bored Dauntless. Name.', next: 'cp_name', nextText: '{name}. Raised {upbringing}.' },
-      cp_why: { text: 'Because I\'m the one with the scanner and you\'re the one who wants to go through it. Name.', onEnter: (c) => c.addRel(-1, true), next: 'cp_name', nextText: '...{name}. Raised {upbringing}.' },
-      cp_name: {
-        text: (c) => (c.outfit() === 'neutral'
+      no_badge_ask: { text: 'No badge, no entry. That\'s not me being difficult — that\'s the whole job. [He nods past you.] Grey robe, kind eyes, terrifying memory. Go.', end: true },
+      checkpoint: {
+        text: (c) => (c.firstTime ? 'Candidate. Stop there. Badge.' : 'Back again. Badge — still need to see it.'),
+        choices: [
+          { text: '[Show your name badge]', to: 'cp_badge', if: (c) => c.has('name_badge') },
+          { text: 'I\'m here for the aptitude test.', to: 'cp_obvious' },
+          { text: 'Why do you need to see it?', to: 'cp_why' },
+        ],
+      },
+      cp_obvious: { text: 'Everyone\'s here for the test. That\'s why there\'s a line of terrified sixteen-year-olds and one bored Dauntless. Badge.', next: 'cp_badge', nextText: '[Show your name badge]' },
+      cp_why: { text: 'Because I\'m the one with the scanner and you\'re the one who wants to go through it. Badge.', onEnter: (c) => c.addRel(-1, true), next: 'cp_badge', nextText: '...[Show your name badge]' },
+      cp_caught: {
+        text: (c) => badgeLook(c).replace('He takes the badge', 'He keeps one hand on your collar and takes the badge with the other') + 'Under my arm. Really. [He lets go.] You\'re clear — this time. Walk through it like a person.',
+        onEnter: (c) => { c.setMem('duckScolded', true); clearSecurity(c); },
+        choices: [
+          { text: '...Sorry.', to: 'cp_scan' },
+          { text: 'Worth a try.', to: 'cp_scan', effect: (c) => c.rep('dauntless', 1) },
+        ],
+      },
+      cp_badge: {
+        text: (c) => badgeLook(c) + (c.outfit() === 'neutral'
           ? '{upbringing}-raised, in candidate greys. Brave or stupid. We\'ll find out which. Step through the arch — slowly — arms out.'
-          : '{name}. Raised {upbringing}. Step through the arch — slowly — arms out.'),
+          : 'Raised {upbringing}. Step through the arch — slowly — arms out.'),
+        onEnter: (c) => c.setFlag('badge_shown'),
         choices: [
           { text: 'Arms out. Got it.', to: 'cp_scan' },
           { text: 'Your scanner isn\'t even switched on.', check: { attr: 'perception', dc: 5 }, to: 'cp_scan_per' },
@@ -55,7 +82,7 @@
         next: 'cp_scan', nextText: 'Hang in there.',
       },
       cp_scan: {
-        text: '*The barrier arm lifts.* Clear. Reception is through there, on the right — Marion. Grey, kind eyes, terrifying memory. Don\'t make her repeat herself.',
+        text: '*The scanner chimes. The barrier arm lifts.* Clear. Waiting hall\'s straight ahead. Keep that badge on — they\'ll look for it again at the testing wing.',
         onEnter: clearSecurity,
         choices: [
           { text: 'Thanks.', end: true },
@@ -99,17 +126,83 @@
     },
   });
 
-  /* ------------------------------ RHEA ------------------------------ */
+  /* ---------------- the barrier arm (duck under it — or try to) ---------------- */
+  T('cp_duck', {
+    entry: () => 'start',
+    nodes: {
+      start: {
+        speaker: 'Barrier Arm',
+        text: () => (DV.Checkpoint.distracted()
+          ? '[The striped arm sits at waist height. Beside the arch, the guard is squinting at somebody else\'s badge.]'
+          : '[The striped arm sits at waist height. The guard is standing right beside it — and watching you.]'),
+        choices: [
+          { text: 'Duck under it while nobody\'s looking.', check: { attr: 'agility', dc: 7 }, to: 'duck', tag: 'Sneak' },
+          { text: '(Try it anyway.)', to: 'caught', if: () => DV.Stats.attr('agility') < 7 },
+          { text: '(Leave it.)', end: true },
+        ],
+      },
+      duck: {
+        speaker: '',
+        onEnter: (c) => {
+          if (!DV.Checkpoint.distracted()) { c.goto('caught'); return; }
+          DV.Player.place(40, 40.1, Math.PI);
+          c.setFlag('ducked_barrier');
+          c.setFlag('security_cleared');
+          c.setFlag('cleared_time', c.time());
+          c.setObj('aptitude_day', 'security', 'done', 'You ducked under the security arm while the guard was busy. Nobody saw. Probably.');
+          c.practice('stealth', 3);
+          c.xp(20, 'Unseen');
+          if (DV.Game.autosaveSoon) DV.Game.autosaveSoon();
+        },
+        text: '[You fold yourself under the arm in one smooth motion and straighten up on the far side. Nobody shouts. The waiting hall opens up in front of you.]',
+        choices: [{ text: '...', end: true }],
+      },
+      caught: {
+        speaker: () => (DV.Checkpoint.catcher ? DV.Checkpoint.catcher.def.name : ''),
+        onEnter: (c) => {
+          const g = DV.Checkpoint.guard();
+          DV.Checkpoint.catcher = g;
+          DV.Audio.play('error');
+          DV.Checkpoint.flash('red', 1.5);
+          DV.Player.place(40, 42.6, Math.PI);
+          if (!g) return;
+          c.setFlag('caught_ducking');
+          DV.Reputation.addRel(g.id, -8);
+          c.rep('dauntless', -2);
+        },
+        text: (c) => {
+          if (!DV.Checkpoint.catcher) return '[You get one shoulder under the arm and catch it with the other. CLANG. The scanner lamp flashes red and you stumble back onto the lobby side. Graceful.]';
+          return '[You get one shoulder under the arm before a hand closes on your collar and hauls you back.] HEY. Under my arm? Really?' + (c.has('name_badge') ? ' [A hand held out, palm up.] Badge.' : ' ...And no badge, either. Reception. Now.');
+        },
+        choices: [
+          { text: '[Show your name badge]', if: (c) => !!DV.Checkpoint.catcher && c.has('name_badge'), end: true, effect: () => { const g = DV.Checkpoint.catcher; if (g) setTimeout(() => DV.Game.talkTo(g, true), 50); } },
+          { text: '...Sorry.', end: true, if: (c) => !!DV.Checkpoint.catcher && !c.has('name_badge') },
+          { text: '(Rub your shoulder.)', end: true, if: () => !DV.Checkpoint.catcher },
+        ],
+      },
+    },
+  });
+
+  /* ------------------------------ RAE ------------------------------ */
   (function () {
-    const t = DV.AmbientDialogue.build(DV.NPCData.get('rhea_stone'));
+    const t = DV.AmbientDialogue.build(DV.NPCData.get('rae_dunmore'));
     const baseEntry = t.entry;
-    t.entry = (c) => (!c.flag('security_cleared') ? 'clear' : baseEntry(c));
+    const atArch = () => DV.U.dist(DV.Player.x, DV.Player.z, 40, 42) < 4;
+    t.entry = (c) => (!c.flag('security_cleared') ? (!c.has('name_badge') ? 'nobadge' : atArch() ? 'clear' : 'toarch') : baseEntry(c));
+    t.nodes.nobadge = {
+      text: 'No badge? Then you\'re not getting past the arch. Reception first — the desk on the east side of the lobby.',
+      next: 'hub', nextText: 'Right.',
+    };
+    t.nodes.toarch = {
+      text: 'Badge goes to whoever\'s on the arch. That\'s the rule. Go show it.',
+      next: 'hub', nextText: 'Okay.',
+    };
     t.nodes.clear = {
-      text: 'Not cleared yet? Kade\'s supposed to — ugh. Fine. Arms out. [She pats the air around you without touching anything.] Done. You\'re clear. Go bother Marion.',
+      text: 'Kade\'s off the arch, so you get me. Badge? [She squints at it, then at you.] Fine. Arms out. [She pats the air around you without touching anything.] Done. You\'re clear.',
       onEnter: clearSecurity,
       next: 'hub', nextText: 'Thanks.',
     };
-    DV.DialogueDB.add('rhea', t);
+    DV.DialogueDB.add('rae', t);
   })();
 
   /* ------------------------------ BRANN ------------------------------ */
@@ -180,14 +273,12 @@
   /* ------------------------------ MARION ------------------------------ */
   T('marion', {
     entry: [
-      { if: (c) => !c.flag('security_cleared') && !c.flag('checked_in'), node: 'not_cleared' },
       { if: (c) => !c.flag('checked_in'), node: 'checkin' },
       { if: (c) => c.qActive('paper_trail') && c.has('signed_form'), node: 'pt_return' },
       { if: (c) => c.aptDone() && !c.mem('postTest'), node: 'post' },
       { node: 'hub' },
     ],
     nodes: {
-      not_cleared: { text: 'Security first, dear. The checkpoint is behind you — the Dauntless at the arch will see to you. Then come back and I\'ll check you in.', end: true },
       checkin: {
         text: (c) => (c.firstTime ? 'Good morning. Name, please.' : 'Ready to check in now? Name, please.'),
         choices: [
@@ -201,14 +292,15 @@
         next: 'ci_name', nextText: 'I\'m {name}.',
       },
       ci_name: {
-        text: '{name}... yes. Here you are. Room Four — technician Ashgrove. Here is your card; keep it on you. You\'ll be called over the speakers when Room Four is ready. Nadia has a lovely clear voice — you can\'t miss it.',
+        text: '{name}... yes. Here you are. Room Four — technician Ashgrove. [She feeds a card into a little press. It comes out warm, with your name on it.] Your name badge. Clip it on and keep it where people can see it. Show it to the Dauntless at the security arch, then wait in the hall — you\'ll be called over the speakers when Room Four is ready. Delia has a lovely clear voice; you can\'t miss it.',
         onEnter: (c) => {
           if (c.flag('checked_in')) return;
           c.setFlag('checked_in');
           c.setFlag('checkin_time', c.time());
-          c.give('candidate_card');
-          c.setObj('aptitude_day', 'checkin', 'done', 'Checked in with Marion. Assigned to Testing Room 4, technician J. Ashgrove.');
+          c.give('name_badge');
+          c.setObj('aptitude_day', 'checkin', 'done', 'Checked in with Marion and got your name badge: Candidate 4-17, Testing Room 4, technician J. Ashgrove.');
           c.xp(10);
+          if (DV.Game.autosaveSoon) DV.Game.autosaveSoon();
         },
         choices: [
           { text: 'How long will I have to wait?', to: 'wait' },
@@ -231,17 +323,17 @@
           bye,
         ],
       },
-      where: { text: 'North through the double doors, into the testing wing — fourth door on the left. It stays locked until you\'re called.', next: 'hub', nextText: 'Thanks.' },
+      where: { text: (c) => (c.flag('security_cleared') ? 'Across' : 'Through security first — show the guard your badge. Then across') + ' the waiting hall and north through the double doors, into the testing wing — fourth door on the left. It stays locked until you\'re called.', next: 'hub', nextText: 'Thanks.' },
       cango: { text: 'Not until you\'re called, dear. Room Four is being prepared. If the wait is too much, sit on a bench and rest your eyes.', next: 'hub', nextText: 'All right.' },
       pt_offer: {
-        text: 'Help? [She hesitates, then lowers her voice.] Actually — I can\'t leave the desk, and this needs to reach Director Wren. Administration wing — west through the hall, end of the corridor. It\'s sealed. It should stay sealed.',
+        text: 'Help? [She hesitates, then lowers her voice.] Actually — I can\'t leave the desk, and this needs to reach Director Wren. Administration wing — through security, west across the hall, end of the corridor. It\'s sealed. It should stay sealed.',
         choices: [
           { text: 'I\'ll take it.', to: 'pt_take' },
-          { text: 'Why can\'t Nadia take it?', to: 'pt_nadia' },
+          { text: 'Why can\'t Delia take it?', to: 'pt_nadia' },
           { text: 'Not right now.', to: 'hub' },
         ],
       },
-      pt_nadia: { text: 'Nadia reads things. She can\'t help it — she\'s Candor; to her, a sealed envelope is a lie waiting to be exposed. [A tired smile.] I trust you more than Nadia\'s curiosity.', next: 'pt_offer', nextText: 'I see.' },
+      pt_nadia: { text: 'Delia reads things. She can\'t help it — she\'s Candor; to her, a sealed envelope is a lie waiting to be exposed. [A tired smile.] I trust you more than Delia\'s curiosity.', next: 'pt_offer', nextText: 'I see.' },
       pt_take: {
         text: 'Thank you, {name}. Straight to the Director, please. Into his hand.',
         onEnter: (c) => { c.startQuest('paper_trail'); c.give('sealed_envelope'); },

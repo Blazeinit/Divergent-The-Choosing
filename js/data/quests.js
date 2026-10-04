@@ -12,10 +12,10 @@
   Q({
     id: 'aptitude_day', title: 'Aptitude Day', type: 'main', giver: null,
     summary: 'Today you take the aptitude test. Tomorrow, at the Choosing Ceremony, you choose the faction you will belong to for the rest of your life.',
-    startText: 'You arrived at the Sector 4 Aptitude Testing Center just before eight. Candidates must pass through security, check in, and wait to be called.',
+    startText: 'You arrived at the Sector 4 Aptitude Testing Center just before eight. Candidates check in at reception, show their name badge at security, and wait to be called.',
     objectives: [
-      { id: 'security', text: 'Pass through the security checkpoint', target: { npc: 'kade_mercer' } },
-      { id: 'checkin', text: 'Check in at Reception', target: { npc: 'marion_hale' } },
+      { id: 'checkin', text: 'Check in at Reception (lobby, east desk)', target: { npc: 'marion_hale' } },
+      { id: 'security', text: 'Show your name badge at the security checkpoint', target: { npc: 'kade_mercer' } },
       { id: 'wait', text: 'Wait to be called (explore, talk, or rest on a bench)', target: { room: 'hall' } },
       { id: 'report', text: 'Report to Testing Room 4', target: { door: 'tr4_door' } },
       { id: 'technician', text: 'Speak with your technician, Juno Ashgrove', target: { npc: 'juno_ashgrove' } },

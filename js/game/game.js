@@ -48,8 +48,14 @@
       DV.Events.on('input:lockLost', (e) => { if (!e.requested && this.state === 'playing') this.pause(); });
       DV.Events.on('input:canvasClick', () => this.onCanvasClick());
       DV.Events.on('dialogue:end', (e) => this.onDialogueEnd(e));
+      DV.Events.on('inventory:changed', (e) => { if (e && e.id === 'name_badge') this.refreshPlayerTag(); });
       DV.Events.on('quest:changed', (e) => { if (e.type === 'complete' && !this.inSimulation()) this.autosaveSoon(); });
-      DV.Events.on('door:move', (e) => { if (DV.Player && U.dist(e.door.def.x, e.door.def.z, DV.Player.x, DV.Player.z) < 14) DV.Audio.play('door', { volume: 0.7 }); });
+      DV.Events.on('door:move', (e) => {
+        const d = e.door.def;
+        DV.Audio.play('door', { volume: 0.8, x: d.x, z: d.z, range: 16 });
+        // outside air pushes in when an exterior door opens
+        if (e.opening && (d.id === 'main_doors' || d.id === 'court_door')) DV.Audio.play('gust', { x: d.x, z: d.z, range: 14 });
+      });
       DV.Events.on('clock:minute', () => { if (DV.World.current && DV.World.current.id === HOME && this.state !== 'mainmenu') DV.NPCAI.onMinute(); });
       document.addEventListener('visibilitychange', () => { if (document.hidden && this.state === 'playing') this.pause(); });
       this.last = performance.now();
@@ -86,6 +92,8 @@
     /* ------------------------------ main menu ------------------------------ */
     showMainMenu() {
       this.state = 'mainmenu';
+      DV.Audio.stopBeds();
+      DV.Audio.setReverb('office');
       DV.UI.showHUD(false);
       DV.UI.clearBarks();
       DV.Input.exitLock();
@@ -233,7 +241,7 @@
           DV.Clock.lastMinute = Math.floor(DV.Clock.minutes());
           if (!fromLoad) {
             DV.Quests.start('aptitude_day');
-            DV.Story.pa('Welcome to the Sector 4 Aptitude Testing Center. All candidates must pass through security before check-in.');
+            DV.Story.pa('Welcome to the Sector 4 Aptitude Testing Center. Candidates, please check in at reception, then present your name badge at security.');
           } else {
             DV.Quests.tracked = st.questsTracked || DV.Quests.firstActive();
           }
@@ -272,12 +280,19 @@
       const app = U.deepClone(st.player.appearance);
       app.outfit = U.deepClone(DV.Character.OUTFITS[st.player.outfit] || DV.Character.OUTFITS.neutral);
       if (st.player.outfit === 'candor') app.outfit.tieColor = '#101010';
+      app.nameTag = true;
       const p = DV.Player;
       const parent = p.model && p.model.root.parent;
       if (p.model) p.model.dispose();
       p.create(app);
       if (parent && !noRebuildScene) parent.add(p.model.root);
+      this.refreshPlayerTag();
       p.syncModel();
+    },
+    // the clip-on name badge appears once reception hands it over
+    refreshPlayerTag() {
+      const m = DV.Player.model;
+      if (m) m.setTag(DV.Inventory.has('name_badge'));
     },
 
     /* ------------------------------ main loop ------------------------------ */
@@ -297,6 +312,7 @@
         console.error(e);
       }
       DV.World.update(dt, this.camera);
+      DV.Soundscape.update(dt);
       this.renderer.render(this.scene, this.camera);
       DV.Input.endFrame();
     },
@@ -448,27 +464,24 @@
         }
       }
     },
+    // the soundscape runs every frame; this just forces an immediate refresh (room change, zone swap)
     updateAmbience() {
-      const zone = this.zone();
-      if (!zone) return;
-      if (zone.def.ambience) { DV.Audio.setAmbience(zone.def.ambience); return; }
-      const room = zone.roomAt(DV.Player.x, DV.Player.z);
-      if (room && room.exterior) DV.Audio.setAmbience('outdoor');
-      else if (room && (room.id === 'maint' || room.id === 'closet')) DV.Audio.setAmbience('server');
-      else DV.Audio.setAmbience('hvac');
+      if (!this.zone()) return;
+      DV.Soundscape.acc = 1;
+      DV.Soundscape.update(0);
     },
 
     /* ------------------------------ interactions ------------------------------ */
-    talkTo(npc, force) {
+    talkTo(npc, force, opts) {
       if (!npc || !npc.present) return;
       if (!force && DV.Player.state === 'sitting' && U.dist(DV.Player.x, DV.Player.z, npc.x, npc.z) > 2.6) return;
-      const ok = DV.Dialogue.start(npc.id);
+      const ok = DV.Dialogue.start(npc.id, opts);
       if (!ok) return;
       this.state = 'dialogue';
       this.npcSpeaking = npc.id;
       DV.NPCAI.beginTalk(npc);
       npc.bark = null;
-      DV.Input.exitLock();
+      // the mouse stays captured: choices are picked with keys, wheel, mouse movement and click
       DV.Input.clearMovement();
       if (DV.Player.state !== 'sitting') DV.Player.rot = U.yawTo(DV.Player.x, DV.Player.z, npc.x, npc.z);
       DV.Player.syncModel();
@@ -480,7 +493,6 @@
     // non-NPC choice scenes (serum, envelope, simulations)
     onSceneStart() {
       this.state = 'dialogue';
-      DV.Input.exitLock();
       DV.Input.clearMovement();
     },
     onDialogueEnd(e) {
@@ -492,6 +504,9 @@
         this.rig.snapBehind(DV.Player.state === 'sitting' ? this.rig.yaw : DV.Player.rot);
         this.rig.follow();
         DV.Input.clearMovement();
+        DV.Input.takeMouse();
+        // if the cursor was free (clicked a choice), take the mouse straight back
+        DV.Input.requestLock();
       }
       if (DV.Sim && this.inSimulation()) DV.Sim.onDialogueEnd(e);
     },
@@ -584,6 +599,8 @@
       DV.Menus.closeSide();
       if (this.state === 'menu' || this.state === 'wait') this.state = 'playing';
       DV.Input.clearMovement();
+      DV.Input.takeMouse();
+      if (this.state === 'playing') DV.Input.requestLock();
       this.hintTimer = 4;
     },
     pause() {
@@ -626,6 +643,7 @@
         // the player's seat may have been "taken" by a snapping NPC — keep the player's claim
         if (DV.Player.seat) DV.Player.seat.occupant = 'player';
         this.state = 'playing';
+        DV.Input.requestLock();
         DV.UI.notify('You wait. It is now ' + DV.Clock.str() + '.');
         DV.UI.fade(0, 700);
       });
@@ -660,7 +678,7 @@
         this.sitOn(chair, true);
         this.rig.yaw = chair.rot + Math.PI;
         this.rig.follow(true);
-        for (const o of ['security', 'checkin', 'wait', 'report', 'technician']) if (DV.Quests.obj('aptitude_day', o) !== 'done') DV.Quests.q('aptitude_day').objectives[o] = 'done';
+        for (const o of ['checkin', 'security', 'wait', 'report', 'technician']) if (DV.Quests.obj('aptitude_day', o) !== 'done') DV.Quests.q('aptitude_day').objectives[o] = 'done';
         DV.Quests.setObj('aptitude_day', 'simulation', 'done', 'You completed the simulation.');
         DV.Quests.activate('aptitude_day', 'results');
         DV.Audio.setMusic('none');
@@ -681,6 +699,7 @@
       DV.UI.banner('APTITUDE TEST COMPLETE', 'YOUR CHOOSING CEREMONY AWAITS.', 'Click or press any key to keep exploring · Build 1 complete', () => {
         DV.UI.modalOpen = null;
         this.state = 'playing';
+        DV.Input.requestLock();
         DV.Audio.setMusic('none');
         DV.Save.write('auto');
         DV.UI.notify('Autosaved. The facility is yours to explore — people have a lot to say about today.', 'info');

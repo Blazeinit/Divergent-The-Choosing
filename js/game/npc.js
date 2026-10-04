@@ -61,7 +61,16 @@
     }
     appearance() {
       const d = this.def;
-      return DV.Character.fromFaction(d.faction, d.sex, d.id, Object.assign({ age: d.age }, d.appearance || {}));
+      const app = DV.Character.fromFaction(d.faction, d.sex, d.id, Object.assign({ age: d.age }, d.appearance || {}));
+      // ID on everyone: candidates get the clip-on badge from reception, staff wear a
+      // lanyard (Dauntless security a metal badge)
+      if (d.role === 'candidate') app.nameTag = true;
+      else if (d.role === 'staff' && app.outfit) {
+        const acc = app.outfit.acc || (app.outfit.acc = []);
+        const want = d.faction === 'dauntless' ? 'badge' : 'lanyard';
+        if (acc.indexOf(want) < 0) acc.push(want);
+      }
+      return app;
     }
     ensureModel(scene) {
       if (!this.model) {

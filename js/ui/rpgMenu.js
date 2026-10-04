@@ -120,6 +120,7 @@
       kv('EXPERIENCE', p.xp + ' / ' + nx);
       kv('SEX', p.sex === 'f' ? 'Female' : 'Male');
       kv('RAISED', DV.Factions.name(p.upbringing));
+      kv('CANDIDATE NO.', DV.State.flag('checked_in') ? '4-17 · Group 4 · Room 4' : 'Not checked in', DV.State.flag('checked_in') ? null : 'dim');
       kv('CURRENT FACTION', p.faction ? DV.Factions.name(p.faction).toUpperCase() : 'UNDECIDED', p.faction ? 'accent' : 'dim');
       kv('APTITUDE RESULT', DV.Aptitude.displayResult(), DV.State.data.aptitude.status === 'complete' ? 'accent' : 'dim');
       kv('WEARING', U.esc(this.outfitName(p.outfit)));

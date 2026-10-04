@@ -10,7 +10,9 @@
   const U = DV.U;
 
   /* ----------------------------- data tables ----------------------------- */
-  const BONES = ['root', 'hips', 'spine', 'chest', 'neck', 'head', 'uArmL', 'lArmL', 'handL', 'uArmR', 'lArmR', 'handR', 'uLegL', 'lLegL', 'footL', 'uLegR', 'lLegR', 'footR'];
+  // 'tag' is the clip-on name badge: its own bone so it can be shown/hidden (scaled to
+  // nothing) without a separate mesh or draw call
+  const BONES = ['root', 'hips', 'spine', 'chest', 'neck', 'head', 'uArmL', 'lArmL', 'handL', 'uArmR', 'lArmR', 'handR', 'uLegL', 'lLegL', 'footL', 'uLegR', 'lLegR', 'footR', 'tag'];
   const BI = {};
   BONES.forEach((b, i) => (BI[b] = i));
 
@@ -132,6 +134,8 @@
       }
       if (app.scar) { c.fillStyle = shade(skin, 0.65); c.fillRect(exR + 2, ey - 4, 1, 9); }
     }
+    c.fillStyle = '#ffffff';
+    c.fillRect(0, 0, 8, 8);
     const tex = new THREE.CanvasTexture(cv);
     tex.magFilter = THREE.NearestFilter;
     tex.minFilter = THREE.LinearMipmapLinearFilter;
@@ -140,6 +144,10 @@
   }
 
   /* ----------------------------- mesh builder ----------------------------- */
+  // Body and face share one material (one draw call per character): the face
+  // texture reserves an 8x8 white block in its top-left corner, and every
+  // vertex-coloured body triangle samples it.
+  const WHITE_UV = [4 / 64, 1 - 4 / 64];
   class Builder {
     constructor() {
       this.g = [
@@ -158,7 +166,7 @@
         G.pos.push(p[0], p[1], p[2]);
         G.nor.push(nx, ny, nz);
         G.col.push(cc[0], cc[1], cc[2]);
-        G.uv.push(u ? u[0] : 0.03, u ? u[1] : 0.03);
+        G.uv.push(u ? u[0] : WHITE_UV[0], u ? u[1] : WHITE_UV[1]);
         G.si.push(bone);
       }
     }
@@ -226,7 +234,7 @@
       for (let i = 0; i < all.si.length; i++) { si[i * 4] = all.si[i]; sw[i * 4] = 1; }
       geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
       geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
-      for (const [s, n, gi] of groups) if (n) geo.addGroup(s, n, gi);
+      void groups; // single material: no draw groups
       geo.computeBoundingSphere();
       geo.boundingSphere.radius *= 1.35;
       return geo;
@@ -295,6 +303,7 @@
       uArmR: [-SW, yShoulder - 0.02, 0], lArmR: [-SW - 0.01, yElbow, 0], handR: [-SW - 0.015, yWrist, 0.0],
       uLegL: [HW * 0.95, yHip, 0], lLegL: [HW * 0.95, yKnee, 0.01], footL: [HW * 0.95, yAnkle, 0],
       uLegR: [-HW * 0.95, yHip, 0], lLegR: [-HW * 0.95, yKnee, 0.01], footR: [-HW * 0.95, yAnkle, 0],
+      tag: [-0.075 * TW, yChest + 0.08, 0.125 * TD + 0.012],
     };
 
     const sleeveLong = ['shirt', 'jacket', 'blazer', 'robe', 'cardigan', 'hoodie', 'labcoat', 'tunic', 'sweater', 'vest'].indexOf(topStyle) >= 0;
@@ -426,6 +435,24 @@
       }
     }
     if (acc.includes('badge')) B.box(BI.chest, '#c8b060', 0.08, yChest + 0.12, 0.12 * TD + 0.004, 0.03, 0.04, 0.008);
+    // staff ID on a lanyard
+    if (acc.includes('lanyard')) {
+      const lz = 0.12 * TD + 0.006, lc = o.lanyardColor || '#2f5f9e';
+      B.prism(BI.chest, lc, [0.055, yNeck - 0.02, 0.05], [0.006, yChest - 0.02, lz], 0.006, 0.004, 0.006, 0.004, 4);
+      B.prism(BI.chest, lc, [-0.055, yNeck - 0.02, 0.05], [-0.006, yChest - 0.02, lz], 0.006, 0.004, 0.006, 0.004, 4);
+      B.box(BI.chest, '#e9e7df', 0, yChest - 0.075, lz + 0.004, 0.055, 0.075, 0.006);
+      B.box(BI.chest, lc, 0, yChest - 0.05, lz + 0.006, 0.055, 0.016, 0.006);
+    }
+    // candidate name badge (hidden until checked in; see CharacterModel.setTag)
+    if (app.nameTag) {
+      const t = bp.tag;
+      // dark plastic sleeve, white card, blue header band, photo square, black clip (boxes are centred)
+      B.box(BI.tag, '#1c1c20', t[0], t[1] - 0.03, t[2] - 0.002, 0.098, 0.074, 0.006);
+      B.box(BI.tag, '#f4f2ea', t[0], t[1] - 0.029, t[2] + 0.001, 0.086, 0.062, 0.006);
+      B.box(BI.tag, '#2a56a8', t[0], t[1] - 0.006, t[2] + 0.002, 0.086, 0.014, 0.007);
+      B.box(BI.tag, '#7a7f86', t[0] - 0.024, t[1] - 0.037, t[2] + 0.003, 0.026, 0.026, 0.006);
+      B.box(BI.tag, '#101010', t[0], t[1] + 0.009, t[2] - 0.001, 0.022, 0.014, 0.012);
+    }
     if (acc.includes('armband')) B.prism(BI.uArmL, o.armbandColor || '#c4432c', [SW, yShoulder - 0.13, 0], [SW, yShoulder - 0.09, 0], 0.052, 0.052, 0.052, 0.052, 6);
     if (o.tattoos && o.tattoos.indexOf('neck') >= 0) B.box(BI.neck, '#1d2a33', 0.032, yNeck + 0.04, 0.02, 0.012, 0.05, 0.03);
 
@@ -645,13 +672,11 @@
     build() {
       const app = this.app;
       const { geo, bp } = buildGeometry(app);
-      this.bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true });
-      this.faceMat = new THREE.MeshLambertMaterial({ map: faceTexture(app), side: THREE.DoubleSide });
+      this.bodyMat = new THREE.MeshLambertMaterial({ map: faceTexture(app), vertexColors: true, side: THREE.DoubleSide, flatShading: true });
       DV.Mat.applyWobble(this.bodyMat);
-      DV.Mat.applyWobble(this.faceMat);
       // bones
       const bones = [];
-      const parents = { root: null, hips: 'root', spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', uArmL: 'chest', lArmL: 'uArmL', handL: 'lArmL', uArmR: 'chest', lArmR: 'uArmR', handR: 'lArmR', uLegL: 'hips', lLegL: 'uLegL', footL: 'lLegL', uLegR: 'hips', lLegR: 'uLegR', footR: 'lLegR' };
+      const parents = { root: null, hips: 'root', spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', uArmL: 'chest', lArmL: 'uArmL', handL: 'lArmL', uArmR: 'chest', lArmR: 'uArmR', handR: 'lArmR', uLegL: 'hips', lLegL: 'uLegL', footL: 'lLegL', uLegR: 'hips', lLegR: 'uLegR', footR: 'lLegR', tag: 'chest' };
       for (const name of BONES) {
         const b = new THREE.Bone();
         b.name = name;
@@ -662,7 +687,7 @@
       }
       this.bones = bones;
       this.bindPos = bones.map((b) => b.position.clone());
-      const mesh = new THREE.SkinnedMesh(geo, [this.bodyMat, this.faceMat]);
+      const mesh = new THREE.SkinnedMesh(geo, this.bodyMat);
       mesh.add(bones[0]);
       mesh.updateMatrixWorld(true);
       mesh.bind(new THREE.Skeleton(bones));
@@ -674,6 +699,13 @@
       const hs = app.child ? 0.62 : (app.sex === 'f' ? 0.955 : 1) * (app.height || 1);
       this.mesh.scale.setScalar(hs);
       this.scale = hs;
+      this.setTag(!!this.tagOn);
+    }
+    // show/hide the clip-on name badge (only exists on models built with app.nameTag)
+    setTag(on) {
+      this.tagOn = !!on;
+      const b = this.bones && this.bones[BI.tag];
+      if (b) b.scale.setScalar(on ? 1 : 0.0001);
     }
     rebuild(app) {
       this.dispose(true);
@@ -685,7 +717,6 @@
     setTint(r, g, b) {
       this.tint.setRGB(r, g, b);
       this.bodyMat.color.copy(this.tint);
-      this.faceMat.color.copy(this.tint);
     }
     setVisible(v) {
       this.root.visible = v;
@@ -694,7 +725,6 @@
       if (this.mesh) {
         this.mesh.geometry.dispose();
         this.bodyMat.dispose();
-        this.faceMat.dispose();
       }
       if (!keepRoot && this.root.parent) this.root.parent.remove(this.root);
     }
@@ -807,6 +837,10 @@
           set('uArmL', -0.5, 0, 0.12); set('lArmL', -1.2, -0.4, 0);
           set('uArmR', -0.3, 0, -0.1); set('lArmR', -1.0, 0.3, 0);
           set('head', 0.3, 0, 0);
+        } else if (act === 'badge') {
+          // holding a badge out for the guard / tapping a keycard
+          set('uArmR', -1.1, 0, -0.12); set('lArmR', -0.45, 0, 0);
+          set('head', 0.18, 0, 0);
         } else if (act === 'wave') {
           set('uArmR', -2.6, 0, -0.3); set('lArmR', -0.4 + Math.sin(it * 8) * 0.4, 0, 0);
         } else if (act === 'point') {
@@ -855,7 +889,7 @@
       const lying = act === 'lie';
       this.mesh.position.y += ((lying ? (s.seatY || 0.6) + 0.12 : 0) - this.mesh.position.y) * k;
       this.mesh.position.z += ((lying ? 0.85 * this.scale : 0) - this.mesh.position.z) * k;
-      this.shadow.visible = !lying;
+      this.shadow.visible = !lying && !this.shadowFar;
     }
     scaleY() {
       return this.mesh ? this.mesh.scale.y : 1;

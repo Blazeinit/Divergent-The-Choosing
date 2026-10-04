@@ -39,10 +39,13 @@
       if (DV.State.data.world.paLog.length > 30) DV.State.data.world.paLog.shift();
     },
 
+    // Room 4 calls the player about half an hour after they're through security
+    // (older saves only recorded the check-in time)
     callTime() {
-      const ci = flag('checkin_time');
-      if (ci === undefined) return Infinity;
-      return Math.max(ci + 30, T('08:50'));
+      if (!flag('checked_in') || !flag('security_cleared')) return Infinity;
+      const t = flag('cleared_time') !== undefined ? flag('cleared_time') : flag('checkin_time');
+      if (t === undefined) return Infinity;
+      return Math.max(t + 30, T('08:50'));
     },
 
     onMinute(m) {
@@ -113,11 +116,13 @@
           }
           break;
         case 't_checkpoint_lobbyside': {
-          const k = DV.NPCs.get('kade_mercer');
-          if (!flag('security_cleared') && k && k.present && k.dist < 9 && !this.kadeCalled) {
-            this.kadeCalled = true;
-            k.say('Candidate! Over here. Checkpoint.', 4);
-          }
+          const g = DV.Checkpoint.guard();
+          if (flag('security_cleared') || !g) break;
+          const now = performance.now();
+          if (this.kadeCalledAt && now - this.kadeCalledAt < 20000) break;
+          this.kadeCalledAt = now;
+          if (!flag('checked_in')) g.say('Reception first, candidate. No badge, no arch. Desk\'s behind you — east side.', 4.5);
+          else g.say('Badge ready? Over here.', 3.5);
           break;
         }
         case 't_restroom':

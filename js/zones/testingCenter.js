@@ -7,13 +7,14 @@
         [Proctor][   Observation Gallery (one-way glass)   ]
         [Proctor][TR1][TR2][TR3][TR4][TR5][TR6][Closet]
    [----------------- Testing Wing Corridor ------------------]
-   [Copy ][         Waiting Hall + Reception      ][Infirm][S ][Break Room]
+   [Copy ][             Waiting Hall              ][Infirm][S ][Break Room]
    [Wpass==============================================Epass][t ]
    [Admin Offices]  .                              [Storage][a ][Lockers  ]
    [Dir/Conf/Recs]  [Wash][Checkpoint][SecOffice]           [f ][Maint    ]
-   [Admin Corridor] [        Entrance Lobby        ]        [Courtyard     ]
+   [Admin Corridor] [ Entrance Lobby + Reception ]          [Courtyard     ]
                     [         Front Plaza          ]
                     [====== street (gate) =========]
+   Candidate flow: lobby → reception (name badge) → security arch → hall.
    ========================================================================== */
 (function () {
   'use strict';
@@ -201,8 +202,8 @@
   });
   add('column', 37.0, 34.5, { size: 0.7, h: 5, mat: 'concrete_panel' });
   add('column', 43.0, 34.5, { size: 0.7, h: 5, mat: 'concrete_panel' });
-  add('counter', 49, 33.4, { len: 6, sign: 'RECEPTION', computers: 2 });
-  add('sign', 49, 33.4, { text: 'RECEPTION — CHECK IN HERE', y: 3.3, w: 3.0, h: 0.42, hanging: 1.2, bg: '#2a3236', stripe: '#b08a3a' });
+  add('bench', 50.2, 31.7, { id: 'hb_e3b', len: 3.2, rotDeg: 180 });
+  add('plant', 47.3, 33.6, { size: 0.9 });
   add('status_board', 40, 20.15, { y: 3.7, w: 4.4, h: 1.5 });
   add('sign', 40, 20.12, { text: 'TESTING WING', arrow: 'up', y: 2.62, w: 2.0, h: 0.3, bg: '#22303a' });
   add('clock', 33, 20.12, { y: 3.6 });
@@ -221,7 +222,7 @@
   add('banner', 53.85, 35.5, { faction: 'candor', rotDeg: -90, y: 4.7, h: 2.6 });
   add('banner', 30.0, 20.15, { faction: 'amity', rotDeg: 0, y: 4.7, h: 2.6 });
   add('banner', 50.0, 20.15, { faction: 'factionless', rotDeg: 0, y: 4.7, h: 2.6 });
-  add('noticeboard', 26.12, 27.0, { rotDeg: 90, id: 'hall_notice', title: 'Candidate Notices', text: 'APTITUDE TESTING — CANDIDATE RULES\n\n1. Check in at Reception after passing security.\n2. Remain in the Waiting Hall until your name or group is called.\n3. Do not enter testing rooms unaccompanied.\n4. Do NOT discuss results with other candidates.\n5. Candidates who have completed testing may use the Courtyard (East Wing).\n\nLOST SOMETHING? Ask the custodial staff. Items are kept in Storage.\n\nA handwritten addition, half torn off: "...if anyone finds a little wooden bird please tell Pip H."' });
+  add('noticeboard', 26.12, 27.0, { rotDeg: 90, id: 'hall_notice', title: 'Candidate Notices', text: 'APTITUDE TESTING — CANDIDATE RULES\n\n1. Check in at Reception (lobby, east desk) BEFORE security. Wear your name badge at all times.\n2. Remain in the Waiting Hall until your name or group is called.\n3. Do not enter testing rooms unaccompanied.\n4. Do NOT discuss results with other candidates.\n5. Candidates who have completed testing may use the Courtyard (East Wing).\n\nLOST SOMETHING? Ask the custodial staff. Items are kept in Storage.\n\nA handwritten addition, half torn off: "...if anyone finds a little wooden bird please tell Pip H."' });
   add('poster', 33, 37.88, { rotDeg: 180, kind: 'factions' });
   add('poster', 44.6, 37.88, { rotDeg: 180, kind: 'test' });
   add('trash_bin', 37.3, 21.0);
@@ -241,7 +242,7 @@
   add('railing', 36.7, 41, { len: 5.0 });
   add('railing', 43.3, 41, { len: 5.0 });
   add('desk', 44.4, 42.8, { id: 'cp_desk', rotDeg: -90, screen: 'crt_cctv', chair: false });
-  add('sign', 40, 42.5, { text: 'SECURITY — ALL CANDIDATES', y: 3.05, w: 2.6, h: 0.36, hanging: 0.3, bg: '#3a1a14' });
+  add('sign', 40, 42.5, { text: 'SECURITY — HAVE YOUR NAME BADGE READY', y: 3.05, w: 3.4, h: 0.36, tw: 384, hanging: 0.3, bg: '#3a1a14' });
   add('stripe', 40, 41.6, { w: 1.1, d: 0.35, mat: 'tactile' });
   add('stripe', 40, 40.4, { w: 1.1, d: 0.35, mat: 'tactile' });
   add('vent', 34.12, 39.2, { rotDeg: 90, y: 2.9 });
@@ -260,18 +261,26 @@
   add('emblem', 40, 44.14, { faction: 'seal', y: 5.9, size: 1.7, color: '#d8c8a0' });
   add('kiosk', 35, 50.6, { id: 'lobby_kiosk' });
   add('bench', 27.0, 52, { id: 'lb_w', len: 3, rotDeg: 90 });
-  add('bench', 53.0, 52, { id: 'lb_e', len: 3, rotDeg: -90 });
+  add('bench', 53.0, 57.0, { id: 'lb_e', len: 3, rotDeg: -90 });
+  // reception: candidates check in here and get their name badge BEFORE security
+  add('counter', 50.8, 52.0, { len: 5, sign: 'RECEPTION', computers: 2, rotDeg: -90 });
+  add('sign', 50.8, 52.0, { text: 'RECEPTION — CHECK IN FIRST', rotDeg: -90, y: 3.6, w: 3.2, h: 0.42, hanging: 3.0, bg: '#2a3236', stripe: '#b08a3a' });
+  add('stanchions', 47.8, 50.2, { len: 3.2 });
+  add('stanchions', 47.8, 51.8, { len: 3.2 });
+  add('filing_cabinet', 53.6, 49.6, { rotDeg: -90 });
+  add('poster', 53.88, 53.6, { rotDeg: -90, kind: 'test' });
   add('stanchions', 38.2, 46.3, { len: 3.2, rotDeg: 90 });
   add('stanchions', 41.8, 46.3, { len: 3.2, rotDeg: 90 });
   add('plant', 27.6, 58.8, { size: 1.3 });
-  add('plant', 52.4, 58.8, { size: 1.3 });
+  add('plant', 52.9, 59.2, { size: 1.0 });
   add('plant', 36.3, 59.0, { size: 1.0 });
   add('plant', 43.7, 59.0, { size: 1.0 });
   add('clock', 30, 44.12, { y: 3.4 });
   add('poster', 34.5, 44.12, { kind: 'choose' });
   add('poster', 45.5, 44.12, { kind: 'factions' });
   add('exit_sign', 40, 59.88, { rotDeg: 180, y: 3.1 });
-  add('sign', 40, 49.2, { text: 'SECURITY & CHECK-IN', arrow: 'up', y: 3.4, w: 2.6, h: 0.42, hanging: 3.2, bg: '#22303a' });
+  add('sign', 40, 49.2, { text: 'SECURITY — BADGES ONLY', arrow: 'up', y: 3.4, w: 2.6, h: 0.42, hanging: 3.2, bg: '#22303a' });
+  add('sign', 44.6, 55.6, { text: 'CHECK-IN FIRST', arrow: 'right', y: 3.0, w: 2.2, h: 0.42, hanging: 3.6, bg: '#2a3236', stripe: '#b08a3a' });
   add('trash_bin', 36.3, 50.0);
   add('trash_bin', 43.7, 50.0);
   add('rug', 40, 58.6, { w: 4.4, d: 1.6, mat: 'carpet_dark' });
@@ -440,7 +449,7 @@
     plaza_door: { x: 40, z: 62.2, rot: 0 },
     lobby_center: { x: 40, z: 53.5, rot: Math.PI },
     lobby_w: { x: 29.5, z: 51.5, rot: Math.PI / 2 },
-    lobby_e: { x: 50.5, z: 51.5, rot: -Math.PI / 2 },
+    lobby_e: { x: 50.8, z: 46.4, rot: -Math.PI / 2 },
     lobby_kiosk: { x: 35, z: 51.5, rot: Math.PI },
     lobby_door: { x: 40, z: 58, rot: 0 },
     lobby_q1: { x: 40, z: 45.2, rot: Math.PI },
@@ -450,11 +459,13 @@
     lobby_talk_b: { x: 44.0, z: 53.4, rot: Math.PI / 2 },
     guard_post: { x: 41.4, z: 42.4, rot: 0, act: 'guard' },
     cp_hallside: { x: 40, z: 39.4, rot: Math.PI },
-    reception_1: { x: 48.0, z: 32.55, rot: 0, act: 'idle' },
-    reception_2: { x: 50.6, z: 32.55, rot: 0, act: 'clipboard' },
-    reception_q1: { x: 48.0, z: 34.6, rot: Math.PI },
-    reception_q2: { x: 48.0, z: 35.8, rot: Math.PI },
-    reception_q3: { x: 48.0, z: 37.0, rot: Math.PI },
+    // reception desk (lobby, east side) — staff stand behind it facing west
+    reception_1: { x: 51.95, z: 51.0, rot: -Math.PI / 2, act: 'idle' },
+    reception_2: { x: 51.95, z: 53.3, rot: -Math.PI / 2, act: 'clipboard' },
+    reception_q1: { x: 49.65, z: 51.0, rot: Math.PI / 2 },
+    reception_q2: { x: 48.55, z: 51.0, rot: Math.PI / 2 },
+    reception_q3: { x: 47.45, z: 51.0, rot: Math.PI / 2 },
+    lobby_usher: { x: 43.2, z: 57.4, rot: 0, act: 'clipboard' },
     hall_c1: { x: 40, z: 30, rot: Math.PI },
     hall_c2: { x: 39.5, z: 24.5, rot: Math.PI },
     hall_board: { x: 40.5, z: 22.2, rot: Math.PI, act: 'arms_crossed' },
@@ -552,7 +563,8 @@
       const zone = ctx.zone;
       // player-only blocker across the street gate (NPCs come and go through it)
       zone.colliders.add(37.8, 75.85, 42.2, 76.15, { y0: 0, y1: 3, playerOnly: true, tag: 'gateblock' });
-      // security barrier arm inside the scanner arch (opens once cleared)
+      // security barrier arm inside the scanner arch — down until you show your name badge
+      // (DV.Checkpoint drives it, and lifts it for NPCs who show theirs)
       zone.securityBlock = zone.colliders.add(39.3, 40.85, 40.7, 41.15, { y0: 0, y1: 2.4, playerOnly: true, tag: 'security' });
       const armMat = new THREE.MeshBasicMaterial({ map: DV.Tex.get('hazard'), fog: true });
       const arm = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.08, 0.06), armMat);
@@ -562,18 +574,23 @@
       pivot.add(arm);
       zone.group.add(pivot);
       zone.securityArm = pivot;
+      // scanner lamps on top of the arch (amber idle / green pass / red deny)
+      const lamps = [];
+      for (const z of [41.27, 40.73]) {
+        const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.09, 0.03), new THREE.MeshBasicMaterial({ color: 0x8a6418, fog: true }));
+        lamp.position.set(40, 2.5, z);
+        zone.group.add(lamp);
+        lamps.push(lamp);
+      }
+      DV.Checkpoint.attach(zone, { pivot, block: zone.securityBlock, lamps });
+      ctx.interact({ id: 'cp_duck', kind: 'action', action: 'duckBarrier', x: 40, y: 1.0, z: 41.75, radius: 0.95, bias: 1.0, label: 'Duck under', name: 'Barrier Arm', cond: () => !DV.State.flag('security_cleared') });
       // story interactables that are not props
       ctx.interact({ id: 'dir_drawer', kind: 'action', action: 'wrenDrawer', x: 4.3, y: 0.7, z: 24.5, radius: 1.3, label: 'Search', name: 'Desk Drawer' });
       ctx.interact({ id: 'protocol_box', kind: 'action', action: 'protocolBox', x: 1.0, y: 0.8, z: 44.35, radius: 1.4, label: 'Search', name: 'Archive Box "D"' });
       ctx.interact({ id: 'tr4_chair', kind: 'action', action: 'testChair', x: 48.5, y: 0.8, z: 11.6, radius: 1.6, label: 'Sit', name: 'Testing Chair' });
       ctx.interact({ id: 'cp_monitor', kind: 'examine', x: 43.7, y: 1.1, z: 42.8, radius: 1.2, label: 'Examine', name: 'CCTV Monitors', title: 'CCTV Monitors', text: 'Grainy grey feeds: the lobby, the plaza gate, the waiting hall, the courtyard. One screen simply reads FEED 7 — GALLERY — RESTRICTED.\n\nIn the hall feed, a small figure in grey is slipping into the washroom.' });
       ctx.interact({ id: 'tr3_look', kind: 'examine', x: 41.5, y: 1.2, z: 16.4, radius: 1.0, label: 'Peer through', name: 'Room 3 Door', title: 'Testing Room 3', text: 'Through the narrow window you can see the chair under a dust sheet, and a crate stenciled SIM-A LOT 33 — RECALLED.' });
-      ctx.update((dt) => {
-        const open = DV.State.flag('security_cleared');
-        zone.securityBlock.enabled = !open;
-        const target = open ? 1.35 : 0;
-        pivot.rotation.z += (target - pivot.rotation.z) * Math.min(1, dt * 3);
-      });
+      ctx.update((dt) => DV.Checkpoint.update(dt));
     },
   });
 })();

@@ -89,8 +89,13 @@
       if (prev === st) return;
       q.objectives[objId] = st;
       if (st === 'done') {
+        // activate the next objective that isn't finished yet (skipping ones already done,
+        // e.g. when a player does things out of order)
         const idx = def.objectives.findIndex((o) => o.id === objId);
-        const next = def.objectives[idx + 1];
+        let next = null;
+        for (let i = idx + 1; i < def.objectives.length; i++) {
+          if (q.objectives[def.objectives[i].id] !== 'done') { next = def.objectives[i]; break; }
+        }
         if (next && !next.hidden && q.objectives[next.id] === 'hidden') q.objectives[next.id] = 'active';
       }
       if (logText) this.log(id, logText);

@@ -68,10 +68,11 @@
     },
 
     /* ---------------- quest items ---------------- */
-    candidate_card: {
-      name: 'Candidate Card 4-17', cat: 'quest', quest: true, usable: true,
-      desc: 'A laminated card stamped at reception. TESTING GROUP 4 — ROOM 4 — TECHNICIAN: J. ASHGROVE.',
-      use: { type: 'read', title: 'Candidate Card 4-17', text: 'APTITUDE TESTING CENTER — SECTOR 4\n\nCANDIDATE: {name}\nGROUP: 4\nROOM: 4\nTECHNICIAN: J. ASHGROVE\n\nKeep this card on your person. Do not discuss your results with other candidates.' },
+    name_badge: {
+      name: 'Name Badge 4-17', cat: 'quest', quest: true, usable: true,
+      desc: 'A laminated clip-on badge, still warm from the reception press. Your name, your group, your room. Show it at the security arch; keep it on all day.',
+      use: { type: 'action', action: 'showBadge' },
+      badgeText: 'APTITUDE TESTING CENTER — SECTOR 4\n\nCANDIDATE 4-17: {name}\nGROUP: 4\nROOM: 4\nTECHNICIAN: J. ASHGROVE\n\nWear this badge where it can be seen at all times. Present it at security. Do not discuss your results with other candidates.',
       icon: { shape: 'card', color: '#e8e0c8' },
     },
     wooden_bird: {

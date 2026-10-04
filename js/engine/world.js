@@ -651,6 +651,7 @@
       root.position.set(d.x, 0, d.z);
       if (!horizontal) root.rotation.y = Math.PI / 2;
       const panels = [];
+      const details = []; // small parts hidden at distance (saves draw calls)
       const mkPanel = (pw, matKey, glass) => {
         let mat;
         if (glass) {
@@ -672,16 +673,19 @@
           const side = new THREE.Mesh(new THREE.BoxGeometry(0.05, h - 0.1, 0.06), fm);
           side.position.set(-pw / 2 + 0.025, (h - 0.1) / 2, 0); g.add(side);
           const side2 = side.clone(); side2.position.x = pw / 2 - 0.025; g.add(side2);
+          details.push(bar, side, side2);
         } else {
           // handle + small window strip
           const hm = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.75, 0.75, 0.72).multiply(tcol), fog: true });
           const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.22, 0.14), hm);
           handle.position.set(pw / 2 - 0.15, 1.05, 0);
           g.add(handle);
+          details.push(handle);
           if (d.window !== false && d.type !== 'gate') {
             const win = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.55, 0.07), new THREE.MeshBasicMaterial({ color: 0x1e2a2e, fog: true }));
             win.position.set(0, 1.55, 0);
             g.add(win);
+            details.push(win);
           }
         }
         root.add(g);
@@ -712,6 +716,7 @@
         lamp = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, T + 0.12), new THREE.MeshBasicMaterial({ color: 0xd03020 }));
         lamp.position.set(w / 2 + 0.2, 1.55, 0);
         root.add(lamp);
+        details.push(lamp);
       }
       this.group.add(root);
       const door = {
@@ -728,6 +733,8 @@
         sealed: d.type === 'sealed',
         collider: null,
         holdOpen: 0,
+        details,
+        detailOn: true,
       };
       // collider covering the doorway while closed
       const hw = w / 2;
@@ -749,6 +756,19 @@
           },
           name: d.label || 'Door',
         });
+      }
+    }
+
+    // door handles, windows, frames and status lamps are separate little meshes:
+    // only draw them near the camera (they're a few pixels wide past ~16m)
+    cullDetails(cam) {
+      this.detailT = (this.detailT || 0) + 1;
+      if (this.detailT % 6) return;
+      for (const door of this.doors) {
+        const on = Math.hypot(door.def.x - cam.x, door.def.z - cam.z) < 16;
+        if (on === door.detailOn) continue;
+        door.detailOn = on;
+        for (const m of door.details) m.visible = on;
       }
     }
 
@@ -877,9 +897,32 @@
 
     rasterizeColliders() {
       const nav = this.nav;
+      const G = nav.cell;
       for (const b of this.colliders.boxes) {
         if (b.tag !== 'prop' || b.playerOnly) continue;
         if (b.y0 > 1.0 || b.y1 < 0.2) continue;
+        // thin barriers (railings, stanchion tape, partitions) are narrower than a cell and
+        // would slip between cell centres: block the cell edges they lie on instead
+        const bw = b.x1 - b.x0, bd = b.z1 - b.z0;
+        if (Math.min(bw, bd) < 0.3 && Math.max(bw, bd) >= 0.3) {
+          if (bd < bw) {
+            const jb = Math.round((((b.z0 + b.z1) / 2) - nav.z0) / G); // boundary between rows jb-1 | jb
+            for (let i = nav.ci(b.x0); i <= nav.ci(b.x1); i++) {
+              const cx0 = nav.x0 + i * G, ov = Math.min(cx0 + G, b.x1) - Math.max(cx0, b.x0);
+              if (ov < 0.1) continue;
+              if (nav.inside(i, jb - 1)) nav.edges[nav.idx(i, jb - 1)] |= 4; // S
+              if (nav.inside(i, jb)) nav.edges[nav.idx(i, jb)] |= 1; // N
+            }
+          } else {
+            const ib = Math.round((((b.x0 + b.x1) / 2) - nav.x0) / G); // boundary between cols ib-1 | ib
+            for (let j = nav.cj(b.z0); j <= nav.cj(b.z1); j++) {
+              const cz0 = nav.z0 + j * G, ov = Math.min(cz0 + G, b.z1) - Math.max(cz0, b.z0);
+              if (ov < 0.1) continue;
+              if (nav.inside(ib - 1, j)) nav.edges[nav.idx(ib - 1, j)] |= 2; // E
+              if (nav.inside(ib, j)) nav.edges[nav.idx(ib, j)] |= 8; // W
+            }
+          }
+        }
         const pad = 0.12;
         const i0 = nav.ci(b.x0 - pad), i1 = nav.ci(b.x1 + pad), j0 = nav.cj(b.z0 - pad), j1 = nav.cj(b.z1 + pad);
         for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
@@ -1071,7 +1114,10 @@
     },
     update(dt, camera) {
       if (this.sky && camera) this.sky.position.set(camera.position.x, 0, camera.position.z);
-      if (this.current) this.current.update(dt);
+      if (this.current) {
+        this.current.update(dt);
+        if (camera) this.current.cullDetails(camera.position);
+      }
     },
   };
 })();

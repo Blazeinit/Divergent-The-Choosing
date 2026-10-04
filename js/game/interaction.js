@@ -26,7 +26,8 @@
         const nd = d > 0.01 ? 1 / d : 0;
         const facing = Math.max((dx * fx + dz * fz) * nd, (dx * cx + dz * cz) * nd);
         if (d > 0.7 && facing < 0.15) return;
-        out.push({ it, score: d - facing * 1.2 });
+        // bias > 0 makes an interactable lose ties (e.g. ducking under the arm vs. talking to the guard)
+        out.push({ it, score: d - facing * 1.2 + (it.bias || 0) });
       };
       // NPCs
       for (const n of DV.NPCs.all) {

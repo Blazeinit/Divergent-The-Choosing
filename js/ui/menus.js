@@ -144,6 +144,8 @@
       range('Music volume', 'musicVolume', 0, 1, 0.05);
       range('Effects & ambience', 'sfxVolume', 0, 1, 0.05);
       toggle('Spoken PA announcements (speech synthesis)', 'paVoice');
+      toggle('Room reverb', 'reverb');
+      select('Ambience detail', 'ambienceDetail', [['high', 'High'], ['low', 'Low']]);
       el('div', 'h', 'Gameplay', body);
       toggle('Quest markers on compass', 'questMarkers');
       select('Dialogue text speed', 'textSpeed', [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']]);
@@ -157,7 +159,7 @@
       p.querySelector('.body').innerHTML = [
         ['W A S D / Arrows', 'Move'], ['Mouse', 'Look / orbit camera (click to capture; or hold a button and drag)'], ['Mouse wheel', 'Zoom camera'],
         ['Shift', 'Run (uses stamina)'], ['E', 'Interact · talk · take · sit'], ['Tab', 'RPG menu (Character, Skills, Inventory, Quests, Reputation, Map)'],
-        ['M', 'Map'], ['J', 'Quests'], ['I', 'Inventory'], ['T', 'Wait (while seated)'], ['1-9', 'Choose dialogue responses'], ['Esc', 'Pause / close windows'],
+        ['M', 'Map'], ['J', 'Quests'], ['I', 'Inventory'], ['T', 'Wait (while seated)'], ['Dialogue', 'Move the mouse or scroll to choose, click / E / Enter to confirm (or 1-9)'], ['Esc', 'Pause / close windows'],
       ].map(([k, v]) => '<div class="kv"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>').join('');
     },
 
@@ -182,7 +184,7 @@
       p.id = 'waitmenu';
       const body = p.querySelector('.body');
       let hrs = 1;
-      const canUntilCalled = DV.State.flag('checked_in') && !DV.State.flag('tr4_open');
+      const canUntilCalled = isFinite(DV.Story.callTime()) && !DV.State.flag('tr4_open');
       body.innerHTML = '<div class="dim">It is ' + DV.Clock.str() + '. How long will you wait?</div><div class="hrs"></div><div></div>';
       const hrsEl = body.querySelector('.hrs');
       const upd = () => { hrsEl.textContent = hrs + (hrs === 1 ? ' hour' : ' hours'); };

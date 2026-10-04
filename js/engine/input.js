@@ -18,6 +18,7 @@
     canvas: null,
     wantLock: false,
     lastLockExit: 0,
+    lastUserExit: 0, // last time the PLAYER released the lock (Esc) — browsers refuse a quick re-lock after that
     clicks: 0,
 
     init(canvas) {
@@ -56,6 +57,8 @@
       canvas.addEventListener('mousedown', (e) => {
         this.dragging = true;
         this.clicks++;
+        // with the pointer captured, clicks are game input (e.g. confirm a dialogue choice)
+        if (e.button === 0 && this.locked) this.pressed.MouseLeft = true;
         DV.Events.emit('input:canvasClick', e);
       });
       window.addEventListener('mouseup', () => {
@@ -71,6 +74,7 @@
         this.locked = document.pointerLockElement === this.canvas;
         if (was && !this.locked) {
           this.lastLockExit = performance.now();
+          if (this.wantLock) this.lastUserExit = this.lastLockExit; // we didn't ask: the player pressed Esc
           DV.Events.emit('input:lockLost', { requested: !this.wantLock });
         }
         if (this.locked) DV.Events.emit('input:locked');
@@ -103,8 +107,9 @@
     },
     requestLock() {
       if (this.locked || !this.canvas || !this.canvas.requestPointerLock) return;
-      // Chrome refuses a re-lock that comes too soon after an exit.
-      if (performance.now() - this.lastLockExit < 1100) return;
+      // Chrome refuses a re-lock that comes too soon after the player exits with Esc
+      // (re-locking after the game's own exitLock() is allowed straight away)
+      if (performance.now() - this.lastUserExit < 1100) return;
       this.wantLock = true;
       try {
         const r = this.canvas.requestPointerLock();

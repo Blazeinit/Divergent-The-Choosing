@@ -8,7 +8,28 @@
   const DV = window.DV;
   const U = DV.U;
 
-  const SAVE_VERSION = 1;
+  const SAVE_VERSION = 2;
+
+  // v2 renamed several NPCs (and their ids) to fit the setting, and turned the
+  // candidate card into a name badge. Old saves are rewritten through this map.
+  const RENAMES_V2 = [
+    ['rhea_stone', 'rae_dunmore', 'Rhea Stone', 'Rae Dunmore'],
+    ['felix_arden', 'cyrus_albright', 'Felix Arden', 'Cyrus Albright'],
+    ['dorian_pike', 'gideon_royce', 'Dorian Pike', 'Gideon Royce'],
+    ['oren_vale', 'matthias_lowell', 'Oren Vale', 'Matthias Lowell'],
+    ['abel_marsh', 'josiah_pell', 'Abel Marsh', 'Josiah Pell'],
+    ['nadia_cole', 'delia_strand', 'Nadia Cole', 'Delia Strand'],
+    ['priya_lanell', 'lydia_ashworth', 'Priya Lanell', 'Lydia Ashworth'],
+    ['theo_vance', 'edmund_kell', 'Theo Vance', 'Edmund Kell'],
+    ['ada_quill', 'cordelia_wynn', 'Ada Quill', 'Cordelia Wynn'],
+    ['lena_ortiz', 'mags_tierney', 'Lena Ortiz', 'Mags Tierney'],
+    ['dax_romero', 'ty_brennan', 'Dax Romero', 'Ty \\"Torch\\" Brennan'],
+    ['bram_kessler', 'rafe_dorsey', 'Bram Kessler', 'Rafe Dorsey'],
+    ['iris_kwan', 'nora_halloran', 'Iris Kwan', 'Nora Halloran'],
+    ['owen_pryce', 'samuel_penrose', 'Owen Pryce', 'Samuel Penrose'],
+    ['nell_avery', 'hannah_merrick', 'Nell Avery', 'Hannah Merrick'],
+    ['candidate_card', 'name_badge'],
+  ];
 
   function blank() {
     return {
@@ -95,9 +116,23 @@
     // migrate older saves forward. Each version bump adds a step here.
     migrate(d) {
       if (!d.version) d.version = 1;
-      // if (d.version < 2) { ...; d.version = 2; }
+      if (d.version < 2) {
+        // ids and names appear as keys and values all over the state (npcs, runtime,
+        // schedules partners, flags, journal) — rewrite the serialized form once
+        let json = JSON.stringify(d);
+        for (const [from, to, fromName, toName] of RENAMES_V2) {
+          // match the id even inside other identifiers (talked_to_theo_vance) but not inside longer ids
+          json = json.replace(new RegExp('(^|[^a-z0-9])' + from + '(?![a-z0-9])', 'g'), '$1' + to);
+          if (fromName) json = json.split(fromName).join(toName);
+        }
+        d = JSON.parse(json);
+        // the badge check at security is new in v2: anyone already past security showed theirs
+        if (d.world && d.world.flags && d.world.flags.security_cleared) d.world.flags.badge_shown = true;
+        d.version = 2;
+      }
       U.fillDefaults(d, blank());
       return d;
     },
+    RENAMES_V2,
   };
 })();
