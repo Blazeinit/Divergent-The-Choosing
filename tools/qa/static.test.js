@@ -74,6 +74,16 @@ L.run('static data validation', async (p, T, errs) => {
     }
     for (const id of ['cand_upper', 'eru_lab']) homes.push(DV.World.getZone(id));
     for (const z of homes) for (const it of z.interactables) {
+      // out in a walkable city (no nav grid there): somewhere within reach you can stand
+      if (z.city && z.city.walk && z.roomIndexAt(it.x, it.z) < 0) {
+        let ok = false;
+        for (let a = 0; a < 16 && !ok; a++) for (const rr of [0, 0.6, 1.2]) {
+          const x = it.x + Math.cos(a * 0.4) * rr, zz = it.z + Math.sin(a * 0.4) * rr;
+          if (rr < (it.radius || 2) - 0.2 && z.walkable(x, zz) && !z.colliders.blocked(x, zz, 0.32, 'player')) { ok = true; break; }
+        }
+        if (!ok) out.interact.push(z.id + ':' + it.id + ' (city)');
+        continue;
+      }
       const w = z.nav.nearestWalkable(it.x, it.z, 4);
       if (!w || DV.U.dist(w[0], w[1], it.x, it.z) > (it.radius || 2) + 0.3) out.interact.push(z.id + ':' + it.id);
     }
