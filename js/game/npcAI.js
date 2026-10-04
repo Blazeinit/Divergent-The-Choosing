@@ -146,6 +146,10 @@
       npc.pathIdx = 1;
       npc.mode = 'walking';
       npc.stuckT = 0;
+      // safety budget: generous multiple of the expected walking time
+      let len = 0;
+      for (let i = 1; i < path.length; i++) len += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]);
+      npc.pathBudget = len / (npc.def.walkSpeed || NC.walkSpeed) * 2 + 20;
     },
     onPathDone(npc) {
       npc.path = null;
@@ -169,6 +173,7 @@
         npc.rotTarget = spot.rot;
         if (!snap) npc.rot = spot.rot;
         npc.mode = 'blockedSpot';
+        npc.walkSpot = spot;
         npc.timer = 3;
         npc.action = 'idle';
         this.syncModel(npc);
@@ -277,8 +282,11 @@
           npc.timer -= dt;
           if (npc.timer <= 0) {
             const s = npc.walkSpot;
-            if (s && (!s.occupant || s.occupant === npc.id)) this.arrive(npc, s, false);
-            else npc.timer = 3;
+            if (s && (!s.occupant || s.occupant === npc.id)) {
+              // the spot freed up: step forward into it rather than snapping
+              if (U.dist(npc.x, npc.z, s.ax, s.az) > 0.3) this.walkTo(npc, s, 'spot');
+              else this.arrive(npc, s, false);
+            } else npc.timer = 3;
           }
           break;
         case 'acting':
@@ -350,7 +358,7 @@
       npc.rot = U.dampAngle(npc.rot, Math.atan2(dx, dz), 8, dt);
       // stuck safety
       npc.stuckT = (npc.stuckT || 0) + dt;
-      if (npc.stuckT > 40) { npc.x = p[p.length - 1][0]; npc.z = p[p.length - 1][1]; this.onPathDone(npc); }
+      if (npc.stuckT > (npc.pathBudget || 40)) { npc.x = p[p.length - 1][0]; npc.z = p[p.length - 1][1]; this.onPathDone(npc); }
     },
 
     syncModel(npc) {

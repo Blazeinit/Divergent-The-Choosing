@@ -329,3 +329,8 @@ button { font-family: inherit; }
   #hud-quest { width: 220px; }
   #hud-compass { width: 240px; }
 }
+
+/* overlays always sit above narration / sim effects / barks */
+#dialogue, #reading, .modal, #rpgmenu, .side, #waitmenu, #pause { z-index: 20; }
+/* menus opened over the title screen need a solid backing so the logo doesn't bleed through */
+.side.panel, #pause .panel, .modal.panel { background: linear-gradient(180deg, rgba(30, 29, 27, 0.985), rgba(12, 13, 15, 0.985)); }

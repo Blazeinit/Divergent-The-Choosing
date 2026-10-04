@@ -252,7 +252,7 @@
         choices: [
           { text: 'Claw for the ceiling. Fight.', end: true, apt: { bravery: 1, resistance: 0.5 }, aptLabel: 'fought the water to the last', effect: S('end', 'drown_fight') },
           { text: 'Breathe. It isn\'t real.', check: { attr: 'resolve', dc: 6 }, end: true, apt: { div: 3 }, aptLabel: 'breathed underwater, knowing it wasn\'t real', effect: S('end', 'drown_aware') },
-          { text: '(Panic.)', end: true, effect: S('end', 'drown_panic') },
+          { text: '(Panic.)', end: true, apt: { compliance: 0.3 }, aptLabel: 'panicked as the water closed over you', effect: S('end', 'drown_panic') },
         ],
       },
     },

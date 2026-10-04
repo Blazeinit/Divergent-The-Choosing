@@ -28,6 +28,7 @@
       this.advance((dt * DV.Config.TIME_SCALE) / 60);
     },
     advance(mins) {
+      if (!isFinite(mins) || mins <= 0) return;
       const w = DV.State.data.world;
       w.time += mins;
       while (w.time >= 1440) {
@@ -44,6 +45,7 @@
     // fast-forward (waiting); returns minutes skipped
     skipTo(targetMinutes) {
       const now = this.minutes();
+      if (!isFinite(targetMinutes)) return 0;
       let delta = targetMinutes - now;
       if (delta < 0) delta += 1440;
       this.advance(delta);

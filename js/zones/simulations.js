@@ -361,6 +361,7 @@
     actors: [],
     t: 0,
     ended: false,
+    timers: [],
 
     start() {
       this.active = true;
@@ -373,6 +374,10 @@
       DV.Aptitude.simIndex = i;
       const id = DV.Aptitude.sims[i];
       this.clearScene();
+      // wipe per-scenario scratch state left by the previous script (dog, child, judges, finishing...)
+      const CORE = ['active', 'index', 'script', 'flags', 'held', 'heldMesh', 'objects', 'actors', 't', 'ended', 'timers', 'beatT'];
+      for (const k of Object.keys(this)) if (typeof this[k] !== 'function' && CORE.indexOf(k) < 0) delete this[k];
+      this.timers = [];
       DV.World.dispose(id);
       const zone = DV.World.activate(id);
       DV.NPCs.attach(id);
@@ -405,6 +410,13 @@
     update(dt, transitioning) {
       if (!this.active || !this.script) return;
       this.t += dt;
+      // game-time timers (frozen while paused, unlike setTimeout)
+      if (this.timers.length) {
+        const due = [];
+        this.timers = this.timers.filter((tm) => ((tm.t -= dt) > 0 ? true : (due.push(tm), false)));
+        for (const tm of due) tm.fn();
+        if (!this.script) return;
+      }
       const zone = DV.World.current;
       for (const a of this.actors) a.update(dt, zone);
       if (!transitioning && !this.ended) this.script.update(this, dt, zone);
@@ -425,6 +437,7 @@
       this.ended = true;
       DV.log('sim end', this.index, reason);
       const next = () => {
+        if (DV.Dialogue.isActive()) DV.Dialogue.end();
         DV.Game.state = 'transition';
         DV.Audio.play('whoosh');
         DV.UI.glitch();
@@ -433,7 +446,7 @@
           else DV.Game.returnFromTest();
         });
       };
-      setTimeout(next, 2200);
+      this.after(2.2, next);
     },
     cleanup() {
       this.clearScene();
@@ -459,6 +472,7 @@
       if (!s || !s[name]) { console.warn('[Sim] no handler', name); return undefined; }
       return s[name](this, arg);
     },
+    after(secs, fn) { this.timers.push({ t: secs, fn }); },
     flag(n) { return !!this.flags[n]; },
     setFlag(n, v) { this.flags[n] = v === undefined ? true : v; },
     record(w, label) { DV.Aptitude.record(w, label); },
@@ -583,7 +597,7 @@
       S.addObject(sh);
       S.shutterMesh = sh;
       S.shutterCol = zone.colliders.add(19.9, 0, 20.1, 8, { y1: 4, enabled: false, tag: 'shutter' });
-      setTimeout(() => S.voice('CHOOSE.', 4), 1200);
+      S.after(1.2, () => S.voice('CHOOSE.', 4));
     },
     take(S, kind) {
       if (S.phase !== 'table') return;
@@ -755,7 +769,7 @@
           dog.mode = 'freed'; dog.target = null;
           dog.wire.visible = false;
           S.voice('[The wire comes free. The dog licks your wrist once — and limps away into the rain, unafraid.]', 5);
-          setTimeout(() => { if (dog.mode === 'freed') { dog.mode = 'flee'; } }, 2500);
+          S.after(2.5, () => { if (dog.mode === 'freed') { dog.mode = 'flee'; } });
           break;
         case 'shout':
           DV.Audio.play('bark');
@@ -766,7 +780,7 @@
           dog.mode = 'frozen'; dog.target = null;
           DV.UI.glitch();
           S.voice('[The dog stops mid-step. Its outline fizzes, like static on a screen — and then it simply isn\'t there.]', 5);
-          setTimeout(() => { dog.root.visible = false; }, 900);
+          S.after(0.9, () => { dog.root.visible = false; });
           break;
       }
       this.finish(S, how);
@@ -808,11 +822,11 @@
     finish(S, how) {
       if (S.finishing) return;
       S.finishing = true;
-      setTimeout(() => {
+      S.after(3.5, () => {
         const c = S.child;
         if (c && (c.state === 'follow' || c.state === 'behind')) S.record({ selflessness: 0.5 }, 'kept the child safe');
         S.end(how);
-      }, 3500);
+      });
     },
     onTrigger(S, id, inside) {
       if (id !== 'exit' || !inside || S.ended) return;
@@ -866,7 +880,7 @@
       S.interact({ id: 'f_crowbar', kind: 'action', x: 8.6, z: 8.0, radius: 1.4, label: 'Take', name: 'Crowbar', cond: () => !S.flag('crowbar'), onUse: () => { S.setFlag('crowbar'); S.setHeld('crowbar'); DV.UI.notify('You take the crowbar.'); } });
       S.interact({ id: 'f_valve', kind: 'action', x: 0.7, z: 8.2, radius: 1.3, label: 'Examine', name: 'Burst Pipe', cond: () => !S.flag('valve'), onUse: () => S.scene('sim2_valve') });
       S.interact({ id: 'f_aware', kind: 'action', x: () => DV.Player.x, z: () => DV.Player.z, radius: 3, label: 'Steady yourself', name: '', cond: () => S.level > 1.05 && !S.flag('awareOffered') && !S.ended, onUse: () => { S.setFlag('awareOffered'); S.scene('sim2_aware'); } });
-      setTimeout(() => S.voice('[Black water is seeping across the floor.]', 4), 1500);
+      S.after(1.5, () => S.voice('[Black water is seeping across the floor.]', 4));
     },
     level(S) { return S.level; },
     takeMask(S) {
@@ -917,7 +931,7 @@
       DV.UI.glitch();
       S.voice('[You close your eyes. When you open them, the water is draining away into nothing, and the walls are very slightly... thin.]', 5);
       S.drainT = 0;
-      setTimeout(() => this.end(S, 'aware'), 4500);
+      S.after(4.5, () => this.end(S, 'aware'));
     },
     update(S, dt, zone) {
       const p = DV.Player;
@@ -974,6 +988,7 @@
       if (S.ended) return;
       if (how !== 'exit') {
         if (S.flag('hesterFree') || S.flag('hesterMask')) S.record({ selflessness: 0.5 }, 'saved the trapped woman');
+        else if (S.flag('hesterLost')) S.record({ selflessness: -0.5 }, 'did not reach the trapped woman in time');
       }
       S.end(how);
     },
@@ -1034,7 +1049,7 @@
       DV.Player.place(10, 11, Math.PI);
       DV.Player.sit({ x: 10, z: 11, rot: Math.PI, seatY: 0.46, act: 'sit', ax: 10, az: 11.8 });
       DV.Game.rig.yaw = Math.PI;
-      setTimeout(() => this.startTrial(S), 900);
+      S.after(0.9, () => this.startTrial(S));
     },
     startTrial(S) {
       if (S.flag('trialStarted') || S.ended) return;
@@ -1068,7 +1083,7 @@
           S.setFlag('warn2');
           S.record({ resistance: 1.5 }, 'refused to sit when ordered');
           S.voice('"Very well. Stand, then."', 3);
-          setTimeout(() => { if (!DV.Dialogue.isActive() && !S.flag('doorOpen')) this.startTrial(S); }, 1600);
+          S.after(1.6, () => { if (!DV.Dialogue.isActive() && !S.flag('doorOpen')) this.startTrial(S); });
         }
       }
       // judges turn to follow the player

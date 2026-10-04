@@ -459,9 +459,9 @@
     },
 
     /* ------------------------------ interactions ------------------------------ */
-    talkTo(npc) {
+    talkTo(npc, force) {
       if (!npc || !npc.present) return;
-      if (DV.Player.state === 'sitting' && npc.dist > 2.6) return;
+      if (!force && DV.Player.state === 'sitting' && U.dist(DV.Player.x, DV.Player.z, npc.x, npc.z) > 2.6) return;
       const ok = DV.Dialogue.start(npc.id);
       if (!ok) return;
       this.state = 'dialogue';
@@ -670,7 +670,7 @@
         DV.UI.fade(0, 2200, true).then(() => {
           this.state = 'playing';
           const juno = DV.NPCs.get('juno_ashgrove');
-          if (juno && juno.present) this.talkTo(juno);
+          if (juno && juno.present) this.talkTo(juno, true);
         });
       });
     },
