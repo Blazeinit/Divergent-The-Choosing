@@ -303,7 +303,7 @@
     start(C, zone, opts) {
       const f = F();
       const pl = DV.State.data.player;
-      if (DV.Quests.obj('the_choosing', 'leave') !== 'done') DV.Quests.setObj('the_choosing', 'leave', 'done', 'You rode the bus home through the dusk.');
+      if (DV.Quests.obj('the_choosing', 'leave') !== 'done') DV.Quests.setObj('the_choosing', 'leave', 'done', opts && opts.walked ? (f === 'amity' ? 'You rode home on the back of an Amity truck, out through the Fence.' : 'You walked home across the city.') : 'You rode the bus home through the dusk.');
       // the parents
       const mom = C.actor({ id: 'mom', name: 'Mom', app: DV.Build2.parentApp('mom'), x: 6.2, z: 1.05, rot: Math.PI, action: 'idle' });
       const dad = C.actor({ id: 'dad', name: 'Dad', app: DV.Build2.parentApp('dad'), x: 2.9, z: 2.85, rot: 0, action: 'sit' });

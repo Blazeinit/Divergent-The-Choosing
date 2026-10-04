@@ -447,6 +447,7 @@
       // clock & player
       if (!this.ctrl()) DV.Clock.update(dt); // simulations and chapters keep their own (story) time
       const bodies = DV.NPCs.bodies(DV.Player.x, DV.Player.z, 2);
+      if (zone.streetLife) for (const b of zone.streetLife.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
       const ctl = this.ctrl();
       if (ctl) for (const b of ctl.bodies()) if (Math.abs(b.x - DV.Player.x) < 2 && Math.abs(b.z - DV.Player.z) < 2) bodies.push(b);
       DV.Player.update(dt, { input, rig: this.rig, zone, npcs: bodies, enabled: true, lookYaw: 0 });

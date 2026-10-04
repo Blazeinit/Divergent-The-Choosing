@@ -26,7 +26,7 @@
   const S = {
     zone: null,
     acc: 0,
-    timers: { bird: 5, train: 50, flag: 2, drip: 1.5, tick: 1 },
+    timers: { bird: 5, train: 50, flag: 2, drip: 1.5, tick: 1, cityHorn: 12, dog: 30 },
 
     reverbFor(room) {
       if (!room) return 'exterior';
@@ -147,6 +147,13 @@
           L.boiler = U.clamp(1 - d / 34, 0, 1) * (inPit ? 1 : 0.25) * 0.9;
         }
       }
+      // out in the streets: people about make a murmur, louder where it's busy
+      const life = zone.streetLife;
+      if (life && outside && life.shown !== false) {
+        let near = 0;
+        for (const q of life.peds) if (Math.abs(q.x - p.x) < 14 && Math.abs(q.z - p.z) < 14) near++;
+        L.crowd = Math.max(L.crowd, Math.min(0.07, near * 0.008));
+      }
       const hum = this.nearest(this._hummers, p.x, p.z);
       if (hum && hum.d < 3.5) L.vend = (1 - hum.d / 3.5) * (outside ? 0.3 : 1);
       if (!detail) { L.buzz *= 0.5; L.vend = 0; }
@@ -173,6 +180,11 @@
         A.play('clink', { x: q[0], z: q[1], volume: 0.9, range: 18 });
       }
       if (zone.def.underground) return;
+      // the city round you: a horn a few streets off, a dog somewhere
+      if (life && !room) {
+        if (this.timers.cityHorn <= 0) { this.timers.cityHorn = U.rand(14, 40); A.play('carhorn', { bus: 'outdoor', volume: U.rand(0.18, 0.4), big: Math.random() < 0.3 }); }
+        if (this.timers.dog <= 0) { this.timers.dog = U.rand(25, 70); A.play('bark', { bus: 'outdoor', volume: U.rand(0.15, 0.35) }); }
+      }
       // the city beyond the fence (muffled indoors by the outdoor layer's filter)
       if (this.timers.bird <= 0) {
         this.timers.bird = U.rand(7, 18);

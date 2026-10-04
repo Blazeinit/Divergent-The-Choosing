@@ -98,6 +98,18 @@
       g.translate(x, y, z);
       this.add(g, c);
     }
+    // append a built (non-indexed, vertex-coloured) geometry, placed by the current transform
+    // and tinted by k ([r, g, b] or a number)
+    merge(geo, k) {
+      const p = geo.attributes.position.array, c = geo.attributes.color.array, m = this.mat.elements;
+      const kr = Array.isArray(k) ? k[0] : k === undefined ? 1 : k, kg = Array.isArray(k) ? k[1] : kr, kb = Array.isArray(k) ? k[2] : kr;
+      for (let i = 0; i < p.length; i += 3) {
+        const x = p[i], y = p[i + 1], z = p[i + 2];
+        this.pos.push(m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]);
+        this.col.push(c[i] * kr, c[i + 1] * kg, c[i + 2] * kb);
+      }
+    }
+    get count() { return this.pos.length / 3; }
     geometry() {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
@@ -296,14 +308,16 @@
   const V = {
     kinds: Object.keys(KINDS),
     PAINT,
-    build(kind, opts) {
+    MB, // the vertex-coloured mesh builder (street furniture uses it too)
+    // the model's geometry (shared: don't dispose it) and its size: { geo, info }
+    model(kind, opts) {
       opts = Object.assign({ seed: 0 }, opts || {});
       const key = kind + '|' + (opts.color || '') + '|' + (opts.stripe || '') + '|' + (opts.seed % PAINT.length) + '|' + (opts.wreck ? 1 : 0) + '|' + (opts.load === false ? 0 : 1);
       let entry = geoCache[key];
       if (!entry) {
         const M = new MB();
         const info = KINDS[kind](M, opts);
-        let geo = M.geometry();
+        const geo = M.geometry();
         if (opts.wreck) {
           // rust and grime: darken and redden, and sit it down on its flat tyre
           const c = geo.attributes.color.array;
@@ -311,6 +325,11 @@
         }
         entry = geoCache[key] = { geo, info };
       }
+      return entry;
+    },
+    build(kind, opts) {
+      opts = Object.assign({ seed: 0 }, opts || {});
+      const entry = this.model(kind, opts);
       const root = new THREE.Group();
       const mesh = new THREE.Mesh(entry.geo, material(opts.wreck));
       mesh.frustumCulled = true;

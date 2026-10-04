@@ -118,6 +118,18 @@
       const i = this.roomIndexAt(x, z);
       return i >= 0 ? this.rooms[i] : null;
     }
+    // can someone stand at (x, z)? the authored rooms, or (where the zone has a walkable city
+    // round it) the open streets outside them; buildings out there are colliders
+    walkable(x, z) {
+      return this.roomIndexAt(x, z) >= 0 || !!(this.city && this.city.walk && this.city.walkable(x, z));
+    }
+    // what the HUD and the save slots call the place at (x, z)
+    placeName(x, z) {
+      const room = this.roomAt(x, z);
+      if (room) return { name: room.name, sub: this.def.region || '' };
+      if (this.city && this.city.walk && DV.CityMap) return DV.CityMap.locate(x, z);
+      return { name: this.def.name, sub: this.def.region || '' };
+    }
     spot(id) {
       return this.spots[id] || null;
     }
@@ -461,8 +473,11 @@
       if (startPost) s0 += T / 2;
       if (endPost) s1 -= T / 2;
       const c = (orient === 'h' ? this.bz0 : this.bx0) + line * G;
-      const matA = style === 'fence' ? null : this.faceMat(e.A >= 0 ? e.A : e.B, Hh);
-      const matB = style === 'fence' ? null : this.faceMat(e.B >= 0 ? e.B : e.A, Hh);
+      // a face that looks out of the map (the outside of the building) gets the facade, not the
+      // paint of the room on the other side
+      const outside = DV.Mat.get(this.def.facade || 'facade');
+      const matA = style === 'fence' ? null : e.A >= 0 ? this.faceMat(e.A, Hh) : outside;
+      const matB = style === 'fence' ? null : e.B >= 0 ? this.faceMat(e.B, Hh) : outside;
       // perimeter walls between exterior areas use their own material
       let mA = matA, mB = matB;
       if (ext && style === 'wall') { mA = mB = DV.Mat.get(ext.edgeMat || 'concrete'); }
@@ -950,13 +965,21 @@
       const g = this.lg;
       out = out || [1, 1, 1];
       if (!g) { out[0] = out[1] = out[2] = 1; return out; }
-      const i = U.clamp(Math.floor((x - this.bx0) / g.S), 0, g.w - 1), j = U.clamp(Math.floor((z - this.bz0) / g.S), 0, g.h - 1);
-      const k = (j * g.w + i) * 3;
-      out[0] = g.data[k]; out[1] = g.data[k + 1]; out[2] = g.data[k + 2];
+      const fi = Math.floor((x - this.bx0) / g.S), fj = Math.floor((z - this.bz0) / g.S);
+      const walk = this.city && this.city.walk;
+      if (walk && (fi < 0 || fj < 0 || fi >= g.w || fj >= g.h)) {
+        // out in the city, past the zone's light grid: open air
+        const L = this.openAir || (this.openAir = this.lighting.sample(this.bx0 - 50, 1.3, this.bz0 - 50, 0, 1, 0, null, true));
+        out[0] = L[0]; out[1] = L[1]; out[2] = L[2];
+      } else {
+        const i = U.clamp(fi, 0, g.w - 1), j = U.clamp(fj, 0, g.h - 1);
+        const k = (j * g.w + i) * 3;
+        out[0] = g.data[k]; out[1] = g.data[k + 1]; out[2] = g.data[k + 2];
+      }
       // outdoors, people darken a little as a cloud shadow passes over them
       if (this.city) {
         const room = this.roomAt(x, z);
-        if (room && room.exterior) {
+        if ((room && room.exterior) || (!room && walk)) {
           const s = 1 - 0.24 * this.city.cloudShadeAt(x, z);
           out[0] *= s; out[1] *= s; out[2] *= s;
         }

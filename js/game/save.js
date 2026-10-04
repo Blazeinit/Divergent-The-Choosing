@@ -56,11 +56,11 @@
       try {
         const state = this.snapshot();
         const zone = DV.World.current;
-        const room = zone ? zone.roomAt(DV.Player.x, DV.Player.z) : null;
+        const place = zone ? zone.placeName(DV.Player.x, DV.Player.z) : null;
         const summary = {
           name: state.player.name,
           level: state.player.level,
-          location: room ? room.name : zone ? zone.def.name : '',
+          location: place ? place.name : '',
           time: U.formatTime(state.world.time),
           day: state.world.day,
           playTime: Math.round(state.meta.playTime),

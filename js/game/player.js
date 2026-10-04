@@ -213,8 +213,8 @@
           }
           [nx, nz] = zone.colliders.resolveCircle(nx, nz, P.radius, 'player', feet);
         }
-        // never leave the authored map
-        if (zone.roomIndexAt(nx, nz) < 0) {
+        // never leave the map (the authored rooms, or the city's streets where there's one to walk)
+        if (!zone.walkable(nx, nz)) {
           nx = this.lastSafe[0];
           nz = this.lastSafe[1];
           this.vx = this.vz = 0;

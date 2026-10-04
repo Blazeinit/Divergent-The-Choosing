@@ -29,6 +29,48 @@
     grim: { ambient: [0.18, 0.17, 0.16], color: [1, 0.8, 0.55], intensity: 0.95, spacing: 4.5, range: 6, fixture: 'bulb' },
   };
 
+  // The Testing Center seen from the city: everything inside its grounds that isn't a room (or a
+  // neighbour's building) becomes solid concrete up to the grounds' edge, so the street sees a
+  // building's face instead of the backs of the rooms' walls. Bays stay open outside the windows
+  // that look out. Returns boxes for the city's extras.
+  function outerShell(zone, rect, others) {
+    const G = 0.5, pad = 0.16, H = 9.4; // (the rooms' outer walls stand 9 m tall)
+    const [rx0, rz0, rx1, rz1] = rect;
+    const nx = Math.round((rx1 - rx0) / G), nz = Math.round((rz1 - rz0) / G);
+    const free = new Uint8Array(nx * nz);
+    const rooms = zone.def.rooms;
+    const views = (zone.def.windows || []).filter((w) => !w.oneWay).map((w) => {
+      // a window with nothing on one side looks out: keep the view clear to the edge
+      const out = w.dir === 'z' ? [[-0.6, 0], [0.6, 0]] : [[0, -0.6], [0, 0.6]];
+      const side = out.find(([ox, oz]) => zone.roomIndexAt(w.x + ox, w.z + oz) < 0);
+      if (!side) return null;
+      const hw = (w.w || 2) / 2 + 0.4;
+      return w.dir === 'z' ? [side[0] < 0 ? rx0 - 1 : w.x, w.z - hw, side[0] < 0 ? w.x : rx1 + 1, w.z + hw] : [w.x - hw, side[1] < 0 ? rz0 - 1 : w.z, w.x + hw, side[1] < 0 ? w.z : rz1 + 1];
+    }).filter(Boolean);
+    const inside = (x, z, q, p) => x > q[0] - p && x < q[2] + p && z > q[1] - p && z < q[3] + p;
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const x = rx0 + (i + 0.5) * G, z = rz0 + (j + 0.5) * G;
+      if (rooms.some((r) => inside(x, z, [r.x0, r.z0, r.x1, r.z1], pad))) continue;
+      if (others.some((q) => inside(x, z, q, 0))) continue;
+      if (views.some((q) => inside(x, z, q, 0))) continue;
+      free[j * nx + i] = 1;
+    }
+    // greedy rectangles: runs along x, grown down z while the run below matches
+    const out = [];
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      if (!free[j * nx + i]) continue;
+      let i1 = i;
+      while (i1 + 1 < nx && free[j * nx + i1 + 1]) i1++;
+      let j1 = j;
+      const rowFull = (jj) => { for (let k = i; k <= i1; k++) if (!free[jj * nx + k]) return false; return true; };
+      while (j1 + 1 < nz && rowFull(j1 + 1)) j1++;
+      for (let jj = j; jj <= j1; jj++) for (let k = i; k <= i1; k++) free[jj * nx + k] = 0;
+      const x0 = rx0 + i * G, x1 = rx0 + (i1 + 1) * G, z0 = rz0 + j * G, z1 = rz0 + (j1 + 1) * G;
+      out.push({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, w: x1 - x0, d: z1 - z0, h: H, style: 'institution', tint: [0.96, 0.96, 0.95], seed: 30 + out.length, parapet: false });
+    }
+    return out;
+  }
+
   // test rooms are 7m wide starting at x=24
   const TR = [1, 2, 3, 4, 5, 6].map((n) => ({ n, x0: 24 + (n - 1) * 7, cx: 24 + (n - 1) * 7 + 3.5 }));
 
@@ -54,7 +96,7 @@
       ] },
     },
     { id: 'plaza', name: 'Front Plaza', x0: 22, z0: 60, x1: 58, z1: 76, exterior: true, floor: 'pavement', edge: 'fence', edgeH: 3.2, barbed: true },
-    { id: 'street', name: 'Street', x0: 14, z0: 76, x1: 66, z1: 84, exterior: true, floor: 'asphalt', edge: 'none', noMap: true },
+    { id: 'street', name: 'Lake Street', x0: 14, z0: 76, x1: 66, z1: 84, exterior: true, floor: 'asphalt', noFloor: true, edge: 'none', noMap: true },
     { id: 'wpass', name: 'West Passage', x0: 14, z0: 28, x1: 26, z1: 32, h: 3.2, floor: 'carpet_blue', wall: 'paint_blue', light: L.office, connect: ['acorr'] },
     { id: 'acorr', name: 'Administration Corridor', x0: 10, z0: 20, x1: 14, z1: 48, h: 3.2, floor: 'carpet_blue', wall: 'paint_blue', light: Object.assign({}, L.office, { spacing: 5 }), connect: ['tc_corr'] },
     { id: 'director', name: 'Director\'s Office', x0: 0, z0: 20, x1: 10, z1: 29, h: 3.2, floor: 'carpet_red', wall: 'wood_panel', light: L.warm },
@@ -306,23 +348,19 @@
   add('rubble', 56.5, 75.2, { n: 5 });
 
   /* ---------------- Lake Street, outside the gate ----------------
-     A pavement along the fence (z 75–78.8), the kerb, two lanes (westbound on this side,
-     where the Route 5 bus stops; eastbound beyond the centre line), and the far pavement
-     under the L, between its columns (z 86.4–92). Traffic keeps right. */
-  add('kerb', 7, 78.8, { len: 30, depth: 3.8 });
-  add('kerb', 40, 78.8, { len: 36, depth: 2.8 }); // (the plaza fence is at z 76 here)
-  add('kerb', 73, 78.8, { len: 30, depth: 3.8 });
-  add('kerb', 40, 86.4, { len: 96, depth: 5.6, rotDeg: 180 });
-  add('road_paint', 18.5, 82.6, { kind: 'dashes', len: 37 });
-  add('road_paint', 65.5, 82.6, { kind: 'dashes', len: 45 });
+     The city lays the street itself (asphalt, the pavement along the fence, the kerbs, the far
+     pavement under the L between its columns). Here: what's on it. One-way, westbound: the
+     Route 5 bus stops on this side, at the kerb outside the gate. */
   add('road_paint', 40, 82.6, { kind: 'zebra', w: 4, d: 7.4 }); // the crossing at the gate
   add('road_paint', 51, 81.75, { kind: 'busbay', len: 15 });
+  add('road_paint', 24, 83.6, { kind: 'arrow', rotDeg: -90 });
+  add('road_paint', 66, 83.6, { kind: 'arrow', rotDeg: -90 });
   add('manhole', 29.5, 82.1);
   add('manhole', 61, 84.4);
   // the stop: shelter against the fence, the pole at the kerb where the bus's front door opens
   add('bus_shelter', 51, 76.95, { id: 'shelter', ad: 'factions' });
   add('bus_stop_sign', 44.6, 78.35, { rotDeg: 90 });
-  add('street_sign', 36.9, 78.35, { a: 'W LAKE ST', b: 'TESTING CTR' });
+  add('street_sign', 36.9, 78.35, { a: 'W LAKE ST', b: 'TESTING CTR', oneWay: -1 });
   add('news_box', 33.9, 76.55, { n: 2 });
   add('hydrant', 57.6, 78.35);
   add('trash_bin', 47.8, 78.3);
@@ -333,8 +371,8 @@
   add('car', 20.2, 79.85, { rotDeg: -90, kind: 'sedan', seed: 3 });
   add('car', 26.4, 79.85, { rotDeg: -90, kind: 'hatch', seed: 8 });
   add('vehicle', 63.4, 79.95, { rotDeg: -90, kind: 'van', color: 0xd6d8d8, stripe: 0x2a4a8a }); // an Erudite lab van
-  add('car', 9.5, 85.35, { rotDeg: 90, kind: 'sedan', seed: 5 });
-  add('vehicle', 72.5, 85.3, { rotDeg: 90, kind: 'pickup' }); // Amity, with apples
+  add('car', 9.5, 85.45, { rotDeg: -90, kind: 'sedan', seed: 5 });
+  add('vehicle', 72.5, 85.4, { rotDeg: -90, kind: 'pickup' }); // Amity, with apples
   add('rubble', 15.5, 87.6, { n: 6 });
   add('rubble', 66, 77.2, { n: 5 });
   // beyond the street: under the L tracks, a vacant lot behind a sagging fence (the city
@@ -645,27 +683,70 @@
       // the city around the Testing Center: Sector 4 is on the quiet north-west edge of the
       // city; downtown and the Hub are to the south, the dried-up marsh and the old Ferris
       // wheel to the east at the far end of the street, the L right across the street
+      // (the layout is the city map's: the same streets, sectors and landmarks the world map shows)
+      // Once your results are in you can walk out of the gate into it, all the way to the Fence.
+      const CM = DV.CityMap;
+      const shell = outerShell(zone, CM.campus, [[-1, 61.5, 19, 76], [60, 63.5, 86, 76]]);
+      const signTex = () => DV.Tex.sign('APTITUDE TESTING CENTER — SECTOR 4', { w: 512, h: 48, bg: '#2a2824', color: '#e0d6b8', size: 24 });
       const city = DV.City.build({
-        seed: 1871,
-        campus: [-8, -6, 88, 75],
-        gridX: [-546, -470, -394, -318, -242, -166, -90, -14, 94, 170, 246, 322, 398],
-        gridZ: [-524, -460, -396, -332, -268, -204, -140, -76, -12, [83.5, 17], 150, 214, 278, 342, 406, 470, 534],
-        radius: 580,
-        hub: [96, 360],
-        marshX: 420,
-        ferris: [458, 84],
-        track: { x0: -720, x1: 720, z0: 86.6, z1: 91.2, y: 7.4, span: 15 },
+        seed: CM.seed,
+        campus: CM.campus,
+        centre: CM.centre,
+        gridX: CM.gridX(),
+        gridZ: CM.gridZ(),
+        radius: CM.radius,
+        hub: CM.hub,
+        marshX: CM.marshX,
+        ferris: CM.ferris,
+        track: CM.track,
         keepClear: [[-8, 92, 88, 144]],
         extras: [
-          { x: 9, z: 68, w: 20, d: 13, h: 9.6, style: 'brick', tint: [0.95, 0.92, 0.9], seed: 11 },
-          { x: 73, z: 69, w: 26, d: 11, h: 12.8, style: 'brick', tint: [1.0, 0.95, 0.9], seed: 12, waterTower: [7, 0] },
-          { x: -5, z: 30, w: 5, d: 50, h: 4, style: 'derelict', seed: 13 },
+          // (their cornices stop at the plaza's fence line, z 76)
+          { x: 9, z: 68.625, w: 20, d: 14.25, h: 9.6, style: 'brick', tint: [0.95, 0.92, 0.9], seed: 11 },
+          { x: 73, z: 69.625, w: 26, d: 12.25, h: 12.8, style: 'brick', tint: [1.0, 0.95, 0.9], seed: 12, waterTower: [7, 0] },
+          ...shell,
         ],
         haze: 0x98a0a6,
         exterior: zone.def.rooms.filter((r) => r.exterior).map((r) => [r.x0, r.z0, r.x1, r.z1]),
+        districts: CM.districts,
+        walk: {
+          fence: CM.fence, gate: [CM.fenceGate.x, CM.fenceGate.z], sidewalk: CM.sidewalk, landmarks: CM.landmarks, homes: CM.homes,
+          light: zone.lighting.sample(-60, 0.5, -60, 0, 1, 0, null, true),
+          // the building's name on its street sides
+          signs: [
+            { x: 40, y: 3.0, z: CM.campus[1] - 0.04, rot: Math.PI, w: 9, h: 0.85, tex: signTex },
+            { x: CM.campus[2] + 0.04, y: 3.0, z: 12, rot: Math.PI / 2, w: 9, h: 0.85, tex: signTex },
+            { x: CM.campus[0] - 0.04, y: 3.0, z: 12, rot: -Math.PI / 2, w: 9, h: 0.85, tex: signTex },
+          ],
+        },
       });
       ctx.add(city.group);
       zone.city = city;
+      // everything standing out there is solid (the zone's own grounds have their own walls)
+      for (const q of city.walk.solids) {
+        if (q[2] > CM.campus[0] && q[0] < CM.campus[2] && q[3] > CM.campus[1] && q[1] < CM.campus[3]) continue;
+        zone.colliders.add(q[0], q[1], q[2], q[3], { y1: q[4], tag: 'city' });
+      }
+      // the walk home: your own front door, out in your sector (for Amity: the truck at the Fence gate)
+      for (const f in CM.homes) {
+        const h = CM.homes[f];
+        ctx.interact({
+          id: 'home_door_' + f, kind: 'action', x: h.x, y: 1.2, z: h.z, radius: 2.4,
+          label: h.gate ? 'Ride home' : 'Go inside', name: h.gate ? 'Amity Truck' : 'Home',
+          cond: () => DV.State.data.player.upbringing === f && DV.Build2.canGoHome(),
+          onUse: () => DV.Build2.walkHome(),
+        });
+      }
+      DV.Vehicles.park(zone, 'pickup', CM.homes.amity.x + 5, CM.homes.amity.z + 3.2, -Math.PI / 2, { color: 0x6a8a3a });
+      // what's on the streets (the zone dresses its own stretch of Lake Street), and who's on them
+      const b = zone.def.bounds;
+      const kit = DV.StreetKit.attach(zone, city, { skip: [CM.campus[0] - 6.5, b.z1 - 11, CM.campus[2] + 6.5, b.z1 + 6.5] });
+      const life = DV.StreetLife.attach(zone, city, kit);
+      ctx.update((dt) => {
+        const cam = DV.Game && DV.Game.camera;
+        if (cam) kit.update(cam.position.x, cam.position.z);
+        life.update(dt);
+      });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 
       // pigeons on the plaza, street and courtyard; crows and gulls over the city; litter
@@ -691,8 +772,9 @@
       });
     },
     onExit(zone) {
-      // e.g. into a simulation: the train's sound must not keep running in there
+      // e.g. into a simulation: the train's sound (and the traffic's) must not keep running in there
       if (zone.city && zone.city.train && zone.city.train.sound) { zone.city.train.sound.stop(); zone.city.train.sound = null; }
+      if (zone.streetLife) zone.streetLife.sleep();
     },
   });
 })();

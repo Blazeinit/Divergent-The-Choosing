@@ -251,6 +251,7 @@
       const pan = c.createStereoPanner ? c.createStereoPanner() : null;
       if (pan) { g.connect(pan); pan.connect(this.beds.outIn); } else g.connect(this.beds.outIn);
       const srcs = [];
+      if (kind === 'engine' || kind === 'bus') return this.engineMover(kind, g, pan, srcs);
       // kind === 'train': rumble of the cars, hiss of steel on steel, traction motor whine, wheel clacks
       const rumble = this.noiseSrc(this.brown, true);
       const rf = c.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 240;
@@ -295,6 +296,52 @@
           const t = c.currentTime;
           g.gain.setTargetAtTime(0.0001, t, 0.4);
           for (const s of srcs) { try { s.stop(t + 2); } catch (e) { /* already stopped */ } }
+        },
+      };
+    },
+
+    // a car or a bus going by: the engine's low note (it rises with speed), the exhaust's
+    // rumble, the tyres hissing on the asphalt
+    engineMover(kind, g, pan, srcs) {
+      const A = this, c = this.ctx;
+      const big = kind === 'bus';
+      const rumble = this.noiseSrc(this.brown, true);
+      const rf = c.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = big ? 130 : 170;
+      const rg = c.createGain(); rg.gain.value = big ? 0.9 : 0.6;
+      rumble.connect(rf); rf.connect(rg); rg.connect(g); rumble.start(); srcs.push(rumble);
+      const eng = c.createOscillator(); eng.type = 'sawtooth'; eng.frequency.value = big ? 34 : 46;
+      const ef = c.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = big ? 220 : 320; ef.Q.value = 2;
+      const eg = c.createGain(); eg.gain.value = big ? 0.05 : 0.035;
+      eng.connect(ef); ef.connect(eg); eg.connect(g); eng.start(); srcs.push(eng);
+      const hiss = this.noiseSrc(this.white, true);
+      const hf = c.createBiquadFilter(); hf.type = 'bandpass'; hf.frequency.value = 1100; hf.Q.value = 0.7;
+      const hg = c.createGain(); hg.gain.value = 0;
+      hiss.connect(hf); hf.connect(hg); hg.connect(g); hiss.start(); srcs.push(hiss);
+      let dead = false;
+      return {
+        kind,
+        update(x, z, speed) {
+          const cam = DV.Game && DV.Game.camera;
+          if (dead || !cam) return;
+          const dx = x - cam.position.x, dz = z - cam.position.z, d = Math.hypot(dx, dz);
+          const t = c.currentTime;
+          g.gain.setTargetAtTime((big ? 0.6 : 0.42) / (1 + Math.pow(d / 9, 1.6)), t, 0.15);
+          eng.frequency.setTargetAtTime((big ? 30 : 42) + speed * (big ? 2.6 : 4.2), t, 0.35);
+          hg.gain.setTargetAtTime(Math.min(1, speed / 11) * 0.05 / (1 + d / 12), t, 0.2);
+          rf.frequency.setTargetAtTime((big ? 110 : 140) + 160 / (1 + d / 10), t, 0.2);
+          if (pan) {
+            cam.getWorldDirection(A._v);
+            const fx = A._v.x, fz = A._v.z, fl = Math.hypot(fx, fz) || 1;
+            const r = (dx * -fz + dz * fx) / (fl * Math.max(d, 0.001));
+            pan.pan.setTargetAtTime(U.clamp(r, -1, 1) * Math.min(1, d / 5) * 0.8, t, 0.08);
+          }
+        },
+        stop() {
+          if (dead) return;
+          dead = true;
+          const t = c.currentTime;
+          g.gain.setTargetAtTime(0.0001, t, 0.3);
+          for (const sr of srcs) { try { sr.stop(t + 1.5); } catch (e) { /* already stopped */ } }
         },
       };
     },
@@ -471,6 +518,17 @@
             s.connect(f); f.connect(g); g.connect(this._dest);
             s.start(t); s.stop(t + 11.2);
             for (let k = 0; k < 22; k++) this.burst('bandpass', 900 + Math.random() * 300, 2.5, 0.05, (0.02 + 0.03 * Math.sin((k / 22) * Math.PI)) * v, 1.5 + k * 0.36 + (k % 2) * 0.09);
+            break;
+          }
+          case 'carhorn': { // a driver leaning on the horn: two short blasts (a bus: lower and longer)
+            const low = !!opts.big;
+            [0, 0.32].forEach((dt0) => [low ? 290 : 410, low ? 345 : 505].forEach((fq) => {
+              const c = this.ctx, t = c.currentTime + dt0;
+              const o = c.createOscillator(); o.type = 'square'; o.frequency.value = fq;
+              const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400;
+              const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.045 * v, t + 0.02); g.gain.setValueAtTime(0.045 * v, t + (low ? 0.4 : 0.22)); g.gain.exponentialRampToValueAtTime(0.0001, t + (low ? 0.5 : 0.28));
+              o.connect(f); f.connect(g); g.connect(this._dest); o.start(t); o.stop(t + 0.6);
+            }));
             break;
           }
           case 'horn': { // train horn, far off

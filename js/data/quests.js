@@ -101,7 +101,8 @@
     summary: 'The test is over. Tonight you go home to your family. Tomorrow, at the Choosing Ceremony in the Hub, you cut your palm and let your blood fall into one of five bowls — and that faction is yours for the rest of your life.',
     startText: 'Candidates who have finished testing may go home. Buses leave from the street outside the front gate.',
     objectives: [
-      { id: 'leave', text: 'Go home — the bus waits outside the front gate', target: { x: 47, z: 78.6 } },
+      // (the marker leads to the bus, unless you've set off on foot and your own door is nearer)
+      { id: 'leave', text: 'Go home — the bus waits outside the front gate (or walk: it\'s a long way)', target: () => DV.Build2.homeTarget() },
       { id: 'dinner', text: 'Have dinner with your family', hidden: true, target: { x: 3.4, z: 3.6 } },
       { id: 'sleep', text: 'Get some sleep — your room is at the back', hidden: true, target: { x: 15.4, z: 8.9 } },
       { id: 'ceremony', text: 'The Choosing Ceremony: wait for your name', hidden: true, target: { x: 22, z: 14 } },

@@ -69,10 +69,10 @@
       const p = DV.Player;
       const sim = game.inSimulation();
       // location & clock
-      const room = zone ? zone.roomAt(p.x, p.z) : null;
-      const loc = sim ? '' : room ? room.name : zone ? zone.def.name : '';
+      const place = zone && !sim ? zone.placeName(p.x, p.z) : null;
+      const loc = place ? place.name : '';
       if (this._loc !== loc) { this._loc = loc; this.q('#hud-loc .loc').textContent = loc; }
-      const sub = sim ? '' : zone ? zone.def.region || '' : '';
+      const sub = place ? place.sub : '';
       if (this._sub !== sub) { this._sub = sub; this.q('#hud-loc .sub').textContent = sub; }
       const clk = sim ? '' : 'Day ' + DV.Clock.day() + '  ·  ' + DV.Clock.str();
       if (this._clk !== clk) { this._clk = clk; this.q('#hud-loc .clock').textContent = clk; }
@@ -201,14 +201,14 @@
         e.style.top = ((1 - v.y) / 2) * h + 'px';
         e.style.opacity = U.clamp((n.bark.until - now) / 600, 0, 1) * U.clamp((16 - n.dist) / 4, 0.3, 1);
       }
-      // chapter actors (ceremony speakers, family, initiates)
-      if (DV.Chapter && DV.Chapter.active) {
-        for (const a of DV.Chapter.barkSources()) {
+      // chapter actors (ceremony speakers, family, initiates) and people in the street
+      const others = (list, prefix, range) => {
+        for (const a of list) {
           const d = Math.hypot(a.x - cam.position.x, a.z - cam.position.z);
-          if (d > 22 || !a.name || a.bark.quiet) continue;
+          if (d > range || !a.name || a.bark.quiet) continue;
           v.set(a.x, a.headY() + 0.35, a.z).project(cam);
           if (v.z > 1 || v.z < -1) continue;
-          const key = 'ch:' + a.id;
+          const key = prefix + a.id;
           live.add(key);
           let e = this.barksEl.querySelector('[data-id="' + key + '"]');
           if (!e) { e = el('div', 'bark', null, this.barksEl); e.dataset.id = key; }
@@ -216,9 +216,12 @@
           if (e._t !== txt) { e._t = txt; e.innerHTML = txt; }
           e.style.left = ((v.x + 1) / 2) * w + 'px';
           e.style.top = ((1 - v.y) / 2) * h + 'px';
-          e.style.opacity = U.clamp((a.bark.until - now) / 600, 0, 1) * U.clamp((22 - d) / 5, 0.3, 1);
+          e.style.opacity = U.clamp((a.bark.until - now) / 600, 0, 1) * U.clamp((range - d) / 5, 0.3, 1);
         }
-      }
+      };
+      if (DV.Chapter && DV.Chapter.active) others(DV.Chapter.barkSources(), 'ch:', 22);
+      const street = DV.StreetLife && DV.StreetLife.active();
+      if (street) others(street.barkSources(), 'st:', 18);
       for (const e of Array.from(this.barksEl.children)) if (!live.has(e.dataset.id)) e.remove();
     },
     // cinematic bars for cutscenes

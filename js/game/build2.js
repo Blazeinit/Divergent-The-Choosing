@@ -35,6 +35,19 @@
     rideHome() {
       DV.Dialogue.startScene('ride_home');
     },
+    // walked all the way to your own front door (or, from Amity, to the truck at the Fence gate)
+    walkHome() {
+      DV.Dialogue.startScene(DV.State.data.player.upbringing === 'amity' ? 'truck_home' : 'walk_home');
+    },
+    // where the objective marker points: the bus stop, or your door once you're nearer to it
+    homeTarget() {
+      const bus = { x: 47, z: 78.6 };
+      const CM = DV.CityMap, h = CM && CM.homes[DV.State.data.player.upbringing];
+      const zone = DV.World.current;
+      if (!h || !zone || zone.id !== 'testing_center') return bus;
+      const P = DV.Player;
+      return Math.hypot(P.x - h.x, P.z - h.z) < Math.hypot(P.x - bus.x, P.z - bus.z) ? { x: h.x, z: h.z } : bus;
+    },
 
     /* ---------------- the choice ---------------- */
     setFaction(f) {
@@ -79,6 +92,40 @@
         text: '[The northbound bus idles at the curb, half empty. The driver, in Abnegation grey, nods you aboard.]\n\nLast run before curfew. Going home?',
         choices: [
           { text: 'Yes. Take me home.', end: true, effect: () => { DV.Chapter.start('home'); } },
+          { text: 'Not yet.', end: true },
+        ],
+      },
+    },
+  });
+
+  // the walk home ends at the door
+  DV.DialogueDB.add('walk_home', {
+    entry: 'start',
+    nodes: {
+      start: {
+        speaker: 'Home',
+        text: () => {
+          const f = DV.State.data.player.upbringing;
+          return f === 'abnegation' ? '[Your street. Grey houses, all the same, all lit the same; yours is the one with the light on in the kitchen. The door is never locked.]'
+            : f === 'erudite' ? '[The lobby of your building smells of floor polish and someone\'s reheated coffee. Your floor. Your door. Through it, voices discussing something precisely.]'
+              : f === 'candor' ? '[Your building\'s door, the black-and-white tiles in the hall. Somebody upstairs is arguing — honestly, loudly — about whose turn it is to sweep.]'
+                : '[The stairwell is dark and loud with music from somewhere. Your door has a dent in it from the time your brother kicked it shut.]';
+        },
+        choices: [
+          { text: 'Go inside.', end: true, effect: () => { DV.Chapter.start('home', { walked: true }); } },
+          { text: 'Not yet.', end: true },
+        ],
+      },
+    },
+  });
+  DV.DialogueDB.add('truck_home', {
+    entry: 'start',
+    nodes: {
+      start: {
+        speaker: 'Amity Driver', faction: 'amity',
+        text: '[An Amity truck idles inside the Fence gate, its bed half full of empty apple crates. The driver waves you over with a smile.]\n\nHeading back to the farms? Climb up — there\'s room on the crates.',
+        choices: [
+          { text: 'Climb up. Take me home.', end: true, effect: () => { DV.Chapter.start('home', { walked: true }); } },
           { text: 'Not yet.', end: true },
         ],
       },

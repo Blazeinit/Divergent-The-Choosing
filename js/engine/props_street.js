@@ -87,6 +87,18 @@
       B.push(0, 0, 0, Math.PI / 2); B.panel(b, 0.55, 2.72, 0.025, 1.1, 0.19); B.pop();
       B.push(0, 0, 0, -Math.PI / 2); B.panel(b, -0.55, 2.72, 0.025, 1.1, 0.19); B.pop();
     }
+    // ONE WAY, under the blades: p.oneWay = -1 (towards local -x) or 1; the back plate points
+    // the same way along the street, so it's drawn the other way round
+    if (p.oneWay) {
+      const plate = (dir) => DV.Mat.fromTexture('oneway|' + dir, DV.Tex.custom('oneway|' + dir, 128, 40, (g) => {
+        g.fillStyle = '#111111'; g.fillRect(0, 0, 128, 40);
+        g.fillStyle = '#f2f2ee'; g.save(); if (dir > 0) { g.translate(128, 0); g.scale(-1, 1); }
+        g.beginPath(); g.moveTo(8, 20); g.lineTo(30, 6); g.lineTo(30, 14); g.lineTo(120, 14); g.lineTo(120, 26); g.lineTo(30, 26); g.lineTo(30, 34); g.closePath(); g.fill(); g.restore();
+        g.fillStyle = '#111111'; g.font = 'bold 10px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ONE WAY', 74, 20);
+      }), {});
+      B.panel(plate(p.oneWay), 0, 2.38, 0.03, 0.75, 0.24);
+      B.push(0, 0, 0, Math.PI); B.panel(plate(-p.oneWay), 0, 2.38, 0.03, 0.75, 0.24); B.pop();
+    }
     ctx.collide(-0.07, -0.07, 0.07, 0.07, { y1: 3.2, camera: false });
   });
 
@@ -148,6 +160,10 @@
     } else if (p.kind === 'line') {
       const len = p.len || 40;
       B.flat(paint, -len / 2, -0.06, len / 2, 0.06, y);
+    } else if (p.kind === 'arrow') {
+      // a lane arrow pointing along local +z
+      B.flat(paint, -0.09, -2.4, 0.09, 0.6, y);
+      B.quad(paint, [-0.45, y, 0.6], [0.45, y, 0.6], [0, y, 1.8], [0, y, 1.8], [0, 0], [1, 0], [0.5, 1], [0.5, 1]);
     } else if (p.kind === 'busbay') {
       const len = p.len || 14;
       for (let x = -len / 2; x < len / 2; x += 1.2) B.flat(ctx.M('plastic_orange'), x, -0.07, x + 0.6, 0.07, y);
