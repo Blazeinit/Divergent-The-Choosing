@@ -114,6 +114,10 @@
         const html = '<span class="key">E</span>' + U.esc(pr.label) + ' <span class="nm">' + U.esc(pr.name || '') + '</span>';
         if (this._pr !== html) { this._pr = html; pe.innerHTML = html; }
       }
+      // PA / overheard subtitles sit above the dialogue window while you're talking
+      const dw = DV.DialogueUI && DV.DialogueUI.el;
+      const subB = dw && !dw.classList.contains('hidden') ? dw.offsetHeight + 30 : 140;
+      if (this._subB !== subB) { this._subB = subB; this.subtitleEl.style.bottom = subB + 'px'; }
       // hint about mouse capture
       const hint = this.q('#hud-hint');
       const needHint = game.state === 'playing' && !DV.Input.locked && !DV.Input.dragging && game.hintTimer > 0;

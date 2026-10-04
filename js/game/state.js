@@ -8,7 +8,7 @@
   const DV = window.DV;
   const U = DV.U;
 
-  const SAVE_VERSION = 2;
+  const SAVE_VERSION = 3;
 
   // v2 renamed several NPCs (and their ids) to fit the setting, and turned the
   // candidate card into a name badge. Old saves are rewritten through this map.
@@ -29,6 +29,65 @@
     ['owen_pryce', 'samuel_penrose', 'Owen Pryce', 'Samuel Penrose'],
     ['nell_avery', 'hannah_merrick', 'Nell Avery', 'Hannah Merrick'],
     ['candidate_card', 'name_badge'],
+  ];
+  // v3 replaced the remaining invented, "fantasy" names with ordinary ones — ids, display
+  // names and the flags/memory keys that embedded a first name.
+  const RENAMES_V3 = [
+    ['juno_ashgrove', 'claire_dawson', 'Juno Ashgrove', 'Claire Dawson'],
+    ['kade_mercer', 'dean_walsh', 'Kade Mercer', 'Dean Walsh'],
+    ['rae_dunmore', 'jess_thompson', 'Rae Dunmore', 'Jess Thompson'],
+    ['brann_holt', 'frank_kowalski', 'Brann Holt', 'Frank Kowalski'],
+    ['marion_hale', 'martha_bell', 'Marion Hale', 'Martha Bell'],
+    ['cassius_wren', 'alan_pierce', 'Dr. Cassius Wren', 'Dr. Alan Pierce'],
+    ['ines_calder', 'sarah_lin', 'Ines Calder', 'Sarah Lin'],
+    ['cyrus_albright', 'kevin_shah', 'Cyrus Albright', 'Kevin Shah'],
+    ['gideon_royce', 'tom_garza', 'Gideon Royce', 'Tom Garza'],
+    ['matthias_lowell', 'paul_becker', 'Matthias Lowell', 'Paul Becker'],
+    ['willow_fairbrook', 'rose_murphy', 'Willow Fairbrook', 'Rose Murphy'],
+    ['josiah_pell', 'walter_grant', 'Josiah Pell', 'Walter Grant'],
+    ['gus_ferro', 'gus_novak', 'Gus Ferro', 'Gus Novak'],
+    ['delia_strand', 'denise_carter', 'Delia Strand', 'Denise Carter'],
+    ['lydia_ashworth', 'emily_shaw', 'Lydia Ashworth', 'Emily Shaw'],
+    ['ruth_calloway', 'ruth_abbott', 'Ruth Calloway', 'Ruth Abbott'],
+    ['sorrel_gale', 'leo_brooks', 'Sorrel Gale', 'Leo Brooks'],
+    ['mara_voss', 'jenna_morales', 'Mara Voss', 'Jenna Morales'],
+    ['elias_thorne', 'daniel_webb', 'Elias Thorne', 'Daniel Webb'],
+    ['pip_hollis', 'lucy_barnes', 'Pip Hollis', 'Lucy Barnes'],
+    ['rook_delaney', 'nate_russo', 'Rook Delaney', 'Nate Russo'],
+    ['edmund_kell', 'ben_fischer', 'Edmund Kell', 'Ben Fischer'],
+    ['cordelia_wynn', 'grace_chen', 'Cordelia Wynn', 'Grace Chen'],
+    ['mags_tierney', 'kat_malone', 'Mags Tierney', 'Kat Malone'],
+    ['ty_brennan', 'joey_brennan', 'Ty \\"Torch\\" Brennan', 'Joey Brennan'],
+    ['rafe_dorsey', 'josh_miller', 'Rafe Dorsey', 'Josh Miller'],
+    ['nora_halloran', 'nora_kelly', 'Nora Halloran', 'Nora Kelly'],
+    ['samuel_penrose', 'samuel_ward', 'Samuel Penrose', 'Samuel Ward'],
+    ['hannah_merrick', 'hannah_lewis', 'Hannah Merrick', 'Hannah Lewis'],
+    ['juniper_nash', 'abby_morgan', 'Juniper Nash', 'Abby Morgan'],
+    ['elias_convinced', 'daniel_convinced'],
+    ['elias_missed', 'daniel_missed'],
+    ['elias_tested', 'daniel_tested'],
+    ['elias_style', 'daniel_style'],
+    ['elias_reason', 'daniel_reason'],
+    ['elias_knows_list', 'daniel_knows_list'],
+    ['elias_maybe_divergent', 'daniel_maybe_divergent'],
+    ['eliasConvinced', 'danielConvinced'],
+    ['wren_watching', 'pierce_watching'],
+    ['took_wren_key', 'took_pierce_key'],
+    ['asked_wren_pd', 'asked_pierce_pd'],
+    ['wren_drawer_hint', 'pierce_drawer_hint'],
+    ['wren_suspicious', 'pierce_suspicious'],
+    ['pd_wren', 'pd_pierce'],
+    ['heardWren', 'heardPierce'],
+    ['juno_hinted', 'claire_hinted'],
+    ['asked_juno_pd', 'asked_claire_pd'],
+    ['juno_ally', 'claire_ally'],
+    ['mara_knows_pd', 'jenna_knows_pd'],
+    ['told_mara_envelope', 'told_jenna_envelope'],
+    ['mara_knows_divergent', 'jenna_knows_divergent'],
+    ['ines_lost_card', 'sarah_lost_card'],
+    ['ines_warned', 'sarah_warned'],
+    ['willow_hint', 'rose_hint'],
+    ['kadepast', 'deanpast'],
   ];
 
   function blank() {
@@ -116,23 +175,31 @@
     // migrate older saves forward. Each version bump adds a step here.
     migrate(d) {
       if (!d.version) d.version = 1;
-      if (d.version < 2) {
-        // ids and names appear as keys and values all over the state (npcs, runtime,
-        // schedules partners, flags, journal) — rewrite the serialized form once
+      // ids and names appear as keys and values all over the state (npcs, runtime,
+      // schedules partners, flags, journal) — rewrite the serialized form once per step
+      const rename = (d, table) => {
         let json = JSON.stringify(d);
-        for (const [from, to, fromName, toName] of RENAMES_V2) {
+        for (const [from, to, fromName, toName] of table) {
           // match the id even inside other identifiers (talked_to_theo_vance) but not inside longer ids
-          json = json.replace(new RegExp('(^|[^a-z0-9])' + from + '(?![a-z0-9])', 'g'), '$1' + to);
+          json = json.replace(new RegExp('(^|[^A-Za-z0-9])' + from + '(?![A-Za-z0-9])', 'g'), '$1' + to);
           if (fromName) json = json.split(fromName).join(toName);
         }
-        d = JSON.parse(json);
+        return JSON.parse(json);
+      };
+      if (d.version < 2) {
+        d = rename(d, RENAMES_V2);
         // the badge check at security is new in v2: anyone already past security showed theirs
         if (d.world && d.world.flags && d.world.flags.security_cleared) d.world.flags.badge_shown = true;
         d.version = 2;
+      }
+      if (d.version < 3) {
+        d = rename(d, RENAMES_V3);
+        d.version = 3;
       }
       U.fillDefaults(d, blank());
       return d;
     },
     RENAMES_V2,
+    RENAMES_V3,
   };
 })();

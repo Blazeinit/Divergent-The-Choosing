@@ -1,5 +1,6 @@
 // Mouse capture: the pointer stays locked through dialogue (mouse/wheel/click choose), and is
 // taken back automatically after clicking a choice or closing the Tab menu.
+// This covers the classic mode (in-game cursor off); cursor.test.js covers the default.
 // Headless Chromium can't really lock the pointer, so the lock calls are stubbed and counted.
 const L = require('./lib.js');
 L.run('mouse capture & dialogue input', async (p, T, errs) => {
@@ -12,9 +13,10 @@ L.run('mouse capture & dialogue input', async (p, T, errs) => {
     const ex = I.exitLock.bind(I);
     I.exitLock = function () { LK.exit++; ex(); };
     I.locked = true;
-    DV.Settings.set ? DV.Settings.set('textSpeed', 'instant') : (DV.Settings.data.textSpeed = 'instant');
+    DV.Settings.set('textSpeed', 'instant');
+    DV.Settings.set('softCursor', false);
   });
-  const a = await ev(() => { QA.talk('marion_hale'); return [DV.Game.state, DV.Input.locked, LK.exit, document.querySelector('#dialogue .dhint').textContent]; });
+  const a = await ev(() => { QA.talk('martha_bell'); return [DV.Game.state, DV.Input.locked, LK.exit, document.querySelector('#dialogue .dhint').textContent]; });
   T.ok(a[0] === 'dialogue' && a[1] && a[2] === 0, 'talking keeps the mouse captured', a);
   T.ok(/scroll to choose/i.test(a[3]), 'hint explains mouse controls: "' + a[3] + '"');
   await p.waitForTimeout(200);
@@ -35,7 +37,7 @@ L.run('mouse capture & dialogue input', async (p, T, errs) => {
   const b = await ev(() => [DV.Game.state, DV.Input.locked, LK.exit]);
   T.ok(b[0] === 'playing' && b[1] && b[2] === 0, 'after the conversation the mouse is still captured — no re-click', b);
   // cursor free (e.g. after opening the inventory): clicking a choice re-captures on the way out
-  await ev(() => { DV.Input.locked = false; QA.talk('kade_mercer'); });
+  await ev(() => { DV.Input.locked = false; QA.talk('dean_walsh'); });
   for (let i = 0; i < 10; i++) {
     if (!(await ev(() => !!DV.Dialogue.active))) break;
     const sel = (await p.$('#dialogue .choice.end:not(.dis)')) ? '#dialogue .choice.end:not(.dis) >> nth=0' : '#dialogue .choice:not(.dis) >> nth=-1';

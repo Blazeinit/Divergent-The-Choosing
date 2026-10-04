@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DIVERGENT — Juno Ashgrove (Tier 3): briefing, serum, results
+   DIVERGENT — Claire Dawson (Tier 3): briefing, serum, results
    ========================================================================== */
 (function () {
   'use strict';
@@ -25,13 +25,13 @@
     c.setFlag('results_discussed');
     c.give('result_slip');
     c.setObj('aptitude_day', 'results', 'done', c.divergent()
-      ? 'Juno told you your result was inconclusive — "Divergent" — and recorded it manually as ' + DV.Factions.name(c.recorded()) + '. You must tell no one.'
-      : 'Juno told you your result: ' + DV.Factions.name(c.result()) + '.');
+      ? 'Claire told you your result was inconclusive — "Divergent" — and recorded it manually as ' + DV.Factions.name(c.recorded()) + '. You must tell no one.'
+      : 'Claire told you your result: ' + DV.Factions.name(c.result()) + '.');
     c.completeQuest('aptitude_day', c.divergent() ? 'divergent' : c.result());
     if (DV.Game && DV.Game.showCompletion) setTimeout(() => DV.Game.showCompletion(), 900);
   };
 
-  T('juno', {
+  T('claire', {
     entry: [
       { if: (c) => DV.State.data.aptitude.status === 'complete' && !c.flag('results_discussed'), node: 'results' },
       { if: (c) => c.flag('results_discussed'), node: 'after' },
@@ -45,12 +45,12 @@
         end: true,
       },
       brief: {
-        text: (c) => '{name}? Come in, come in. I\'m Juno Ashgrove — I\'ll be administering your test. [She checks a clipboard, then looks at you properly.]' +
+        text: (c) => '{name}? Come in, come in. I\'m Claire Dawson — I\'ll be administering your test. [She checks a clipboard, then looks at you properly.]' +
           (c.outfit() === 'neutral' ? ' You\'re in candidate greys. Not many do that.' : ' ' + DV.Factions.name(c.outfit()) + ' colors. Proud of them?'),
         onEnter: (c) => {
           c.setMem('briefed', true);
           if (c.qObj('aptitude_day', 'report') === 'active') c.setObj('aptitude_day', 'report', 'done');
-          c.setObj('aptitude_day', 'technician', 'done', 'Met your technician, Juno Ashgrove, in Testing Room 4.');
+          c.setObj('aptitude_day', 'technician', 'done', 'Met your technician, Claire Dawson, in Testing Room 4.');
         },
         next: 'ready_q', nextText: 'Nice to meet you.',
       },
@@ -84,13 +84,13 @@
       },
       nervous: {
         text: '[A small laugh.] Do I? Room Four has a... reputation this week. The Director likes to watch it. [Her eyes flick to the mirrored wall, then back.] Don\'t worry about that. Worry about nothing. That\'s my professional advice.',
-        onEnter: (c) => { c.setFlag('juno_hinted'); c.addRel(2); },
+        onEnter: (c) => { c.setFlag('claire_hinted'); c.addRel(2); },
         next: 'ready_q', nextText: '...Okay.',
       },
       amityborn: { text: 'Amity-born. Orchards, songs, sticky fingers. I transferred because I wanted to understand why people are the way they are. Now I spend my days watching sixteen-year-olds dream. [She smiles.] It\'s not so far from orchards.', onEnter: (c) => c.addRel(3), next: 'ready_q', nextText: 'That\'s nice.' },
       pd: {
         text: '[She freezes, the clipboard halfway to the desk.] Where — no. Don\'t answer that. Not in here. [She glances at the mirror.] Ask me later. If there is a later.',
-        onEnter: (c) => { c.setMem('askedPD', true); c.setFlag('asked_juno_pd'); },
+        onEnter: (c) => { c.setMem('askedPD', true); c.setFlag('asked_claire_pd'); },
         next: 'ready_q', nextText: '...',
       },
       notyet: { text: 'Of course. Take whatever time you need. I\'ll be right here.', end: true },
@@ -99,8 +99,8 @@
       /* ---------------------------- results ---------------------------- */
       results: {
         text: (c) => (c.divergent() || c.result() === 'inconclusive'
-          ? '[You open your eyes. The ceiling. The console\'s hum. Juno isn\'t looking at you — she is staring at the screen, tapping a key. Then another. She glances at the mirrored wall.] ...Don\'t sit up yet. Listen to me very carefully.'
-          : '[You open your eyes. The ceiling. The hum of the console. Juno is watching you, a stylus pressed to her lip.] Welcome back. Take your time. [She reads the screen.] ...Your result is ' + DV.Factions.name(c.result()) + '.'),
+          ? '[You open your eyes. The ceiling. The console\'s hum. Claire isn\'t looking at you — she is staring at the screen, tapping a key. Then another. She glances at the mirrored wall.] ...Don\'t sit up yet. Listen to me very carefully.'
+          : '[You open your eyes. The ceiling. The hum of the console. Claire is watching you, a stylus pressed to her lip.] Welcome back. Take your time. [She reads the screen.] ...Your result is ' + DV.Factions.name(c.result()) + '.'),
         choices: (c) => (c.divergent() || c.result() === 'inconclusive'
           ? [{ text: 'What\'s wrong?', to: 'd1' }, { text: 'Is something broken?', to: 'd1' }]
           : [{ text: DV.Factions.name(c.result()) + '?', to: 'r_explain' }]),
@@ -120,7 +120,7 @@
         text: 'Here — your result slip. Go get some water. And {name}... well done.',
         onEnter: finish,
         choices: [
-          { text: 'Thank you, Juno.', end: true },
+          { text: 'Thank you, Claire.', end: true },
           { text: 'What did you see me do in there?', to: 'saw' },
         ],
       },
@@ -140,10 +140,10 @@
       },
       d2: {
         text: '[Barely a whisper.] The word for it is Divergent. You will never say that word aloud. Not to your friends. Not to your family. Not to anyone in this building.',
-        onEnter: (c) => c.note('Juno told me the word for my result: Divergent. I must never say it aloud.'),
+        onEnter: (c) => c.note('Claire told me the word for my result: Divergent. I must never say it aloud.'),
         choices: [
           { text: 'Why? What\'s wrong with being Divergent?', to: 'd3' },
-          { text: 'Protocol D.', to: 'd_pd', if: (c) => c.flag('mara_knows_pd') || c.has('protocol_file') || c.qDone('protocol_d') },
+          { text: 'Protocol D.', to: 'd_pd', if: (c) => c.flag('jenna_knows_pd') || c.has('protocol_file') || c.qDone('protocol_d') },
           { text: 'You\'re scaring me.', to: 'd3' },
         ],
       },
@@ -173,12 +173,12 @@
         text: 'Go out the way you came. Act tired. Bored. Everyone is, afterward. And if the Director asks you anything — anything — you\'re {recorded}, you felt dizzy, and you can\'t remember much.',
         onEnter: finish,
         choices: [
-          { text: 'Thank you, Juno.', end: true },
+          { text: 'Thank you, Claire.', end: true },
           { text: 'If anyone comes for you because of this, I\'ll help.', check: { attr: 'charisma', dc: 7 }, to: 'd_ally' },
           { text: 'Will you be okay?', to: 'd_okay' },
         ],
       },
-      d_ally: { text: '[Her eyes shine for a second.] ...Then we\'ll both be very careful. Go.', onEnter: (c) => { c.addRel(10); c.setFlag('juno_ally'); }, end: true },
+      d_ally: { text: '[Her eyes shine for a second.] ...Then we\'ll both be very careful. Go.', onEnter: (c) => { c.addRel(10); c.setFlag('claire_ally'); }, end: true },
       d_okay: { text: 'Ask me tomorrow. [She tries to smile.] Go.', end: true },
 
       /* ---------------------------- after ---------------------------- */
@@ -189,7 +189,7 @@
           { text: 'What else can you tell me about... my result?', to: 'div_more', if: (c) => c.divergent() },
           { text: 'Who else knows?', to: 'div_who', if: (c) => c.divergent() },
           { text: 'Do results ever surprise you?', to: 'surprise', if: (c) => !c.divergent() },
-          { text: 'What is Protocol D?', to: 'pd_after', if: (c) => c.flag('asked_juno_pd') && !c.mem('pdAfter') },
+          { text: 'What is Protocol D?', to: 'pd_after', if: (c) => c.flag('asked_claire_pd') && !c.mem('pdAfter') },
           { text: 'Tell me about Amity.', to: 'amityborn2' },
           bye,
         ],
@@ -210,11 +210,11 @@
   });
 
   // scene used when the player sits in the testing chair
-  T('juno_serum', {
+  T('claire_serum', {
     entry: () => 'start',
     nodes: {
       start: {
-        speaker: 'Juno Ashgrove', faction: 'erudite',
+        speaker: 'Claire Dawson', faction: 'erudite',
         text: '[She swabs the inside of your arm with something cold. The syringe is filled with a pale blue liquid.] Deep breath. This will sting, then you\'ll feel very heavy. Don\'t fight it.',
         choices: [
           { text: 'Do it.', to: 'inject' },
@@ -223,7 +223,7 @@
         ],
       },
       remember: {
-        speaker: 'Juno Ashgrove', faction: 'erudite',
+        speaker: 'Claire Dawson', faction: 'erudite',
         text: 'Every second. That\'s the hard part. [Softly.] And the good part.',
         choices: [
           { text: 'Do it.', to: 'inject' },
@@ -231,7 +231,7 @@
         ],
       },
       inject: {
-        speaker: 'Juno Ashgrove', faction: 'erudite',
+        speaker: 'Claire Dawson', faction: 'erudite',
         text: '[A sharp pinch. Cold spreads up your arm and into your chest. The mirrored walls begin to soften at the edges.] I\'ll see you on the other side, {name}.',
         choices: [{ text: '...', end: true, effect: () => { DV.Game.beginAptitudeTest(); } }],
       },

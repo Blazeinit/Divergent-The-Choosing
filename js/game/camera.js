@@ -59,8 +59,9 @@
       const cam = this.camera;
       let desiredPos, desiredLook, lambda = C.followLambda;
       if (this.mode === 'follow' && target) {
-        const ph = C.pivotHeight * (target.scale || 1);
-        const tx = target.x, ty = (target.y || 0) + ph, tz = target.z;
+        const ph = C.pivotHeight * (target.scale || 1) * (target.pivotScale || 1);
+        // follow jumps only partly so the view doesn't bob
+        const tx = target.x, ty = (target.y || 0) * 0.6 + ph, tz = target.z;
         if (!this.initialized || this.pivot.distanceToSquared(new THREE.Vector3(tx, ty, tz)) > 9) this.pivot.set(tx, ty, tz);
         else {
           const k = 1 - Math.exp(-lambda * dt);

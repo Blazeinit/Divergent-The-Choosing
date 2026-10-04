@@ -340,12 +340,14 @@
       info.textContent = (zone.def.name + ' — ' + (zone.def.region || '')).toUpperCase();
       requestAnimationFrame(() => this.drawMap(cv, zone));
       cv.onmousemove = (e) => {
+        if (!this._mo) return; // not drawn yet
         const r = cv.getBoundingClientRect();
         const wx = (e.clientX - r.left - this._mo[0]) / this._ms + zone.bx0;
         const wz = (e.clientY - r.top - this._mo[1]) / this._ms + zone.bz0;
         const room = zone.roomAt(wx, wz);
         const vis = room && (DV.State.zoneState(zone.id).visited[room.id] || room.exterior);
-        cv.title = room && !room.noMap ? (vis ? room.name : 'Unexplored') : '';
+        const tip = room && !room.noMap ? (vis ? room.name : 'Unexplored') : '';
+        if (DV.Cursor.enabled()) cv.dataset.tip = tip; else cv.title = tip;
       };
     },
     drawMap(cv, zone) {

@@ -133,6 +133,7 @@
       el('div', 'h', 'Controls', body);
       range('Mouse sensitivity', 'mouseSensitivity', 0.2, 3, 0.05);
       toggle('Invert vertical look', 'invertY');
+      toggle('In-game cursor (menus keep the mouse captured)', 'softCursor');
       el('div', 'h', 'Video', body);
       select('Render resolution', 'renderScale', [['ultra', 'Ultra retro (360p)'], ['retro', 'Retro (480p) — default'], ['crisp', 'Crisp (720p)'], ['native', 'Native']]);
       select('Texture filtering', 'textureFilter', [['retro', 'Nearest (crunchy)'], ['smooth', 'Bilinear (smooth)']]);
@@ -158,7 +159,7 @@
       const p = this.side('Controls');
       p.querySelector('.body').innerHTML = [
         ['W A S D / Arrows', 'Move'], ['Mouse', 'Look / orbit camera (click to capture; or hold a button and drag)'], ['Mouse wheel', 'Zoom camera'],
-        ['Shift', 'Run (uses stamina)'], ['E', 'Interact · talk · take · sit'], ['Tab', 'RPG menu (Character, Skills, Inventory, Quests, Reputation, Map)'],
+        ['Shift', 'Run (uses stamina)'], ['Space', 'Jump (uses stamina)'], ['C', 'Crouch / sneak (quieter; Shift or C to stand)'], ['E', 'Interact · talk · take · sit'], ['Tab', 'RPG menu (Character, Skills, Inventory, Quests, Reputation, Map)'],
         ['M', 'Map'], ['J', 'Quests'], ['I', 'Inventory'], ['T', 'Wait (while seated)'], ['Dialogue', 'Move the mouse or scroll to choose, click / E / Enter to confirm (or 1-9)'], ['Esc', 'Pause / close windows'],
       ].map(([k, v]) => '<div class="kv"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>').join('');
     },

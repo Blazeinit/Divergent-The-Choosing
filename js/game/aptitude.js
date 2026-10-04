@@ -108,7 +108,7 @@
       DV.State.setFlag('aptitude_complete');
       if (a.divergent) DV.State.setFlag('divergent');
     },
-    // phrases for Juno's "what did you see me do"
+    // phrases for Claire's "what did you see me do"
     highlights(n) {
       const a = this.data();
       const out = [];

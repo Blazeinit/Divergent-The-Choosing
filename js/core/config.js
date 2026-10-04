@@ -24,6 +24,10 @@
       staminaMax: 100,
       staminaDrain: 9, // per second while running
       staminaRegen: 14,
+      crouchSpeed: 1.15,
+      jumpSpeed: 3.9, // m/s upward (≈0.75 m hop)
+      jumpCost: 14, // stamina per jump
+      gravity: 10.5,
     },
 
     CAMERA: {
@@ -55,6 +59,7 @@
   const SETTINGS_KEY = DV.Config.SAVE_PREFIX + 'settings';
   const defaults = {
     mouseSensitivity: 1.0,
+    softCursor: true, // in-game cursor: menus keep the mouse captured
     invertY: false,
     renderScale: 'retro', // 'ultra' | 'retro' | 'crisp' | 'native'
     vertexWobble: true, // PS1-style vertex snapping on characters

@@ -60,7 +60,7 @@ button { font-family: inherit; }
   color: var(--text); background: linear-gradient(180deg, #3a3631, #1e1c19);
   border: 1px solid #000; box-shadow: inset 1px 1px 0 var(--bevel-hi), inset -1px -1px 0 var(--bevel-lo);
 }
-.btn:hover { color: #1a1408; background: linear-gradient(180deg, var(--accent-2), var(--accent)); }
+.btn:hover, .btn.vhover { color: #1a1408; background: linear-gradient(180deg, var(--accent-2), var(--accent)); }
 .btn:active { transform: translateY(1px); }
 .btn.disabled, .btn:disabled { opacity: 0.4; pointer-events: none; }
 .btn.small { padding: 3px 8px; font-size: 11px; }
@@ -157,10 +157,10 @@ button { font-family: inherit; }
 .choice .chk { color: var(--info); font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
 .choice .chk.pass { color: var(--good); }
 .choice .tag { color: var(--faint); font-size: 12px; white-space: nowrap; }
-.choice:hover, .choice.sel { background: linear-gradient(90deg, rgba(216, 162, 74, 0.28), rgba(216, 162, 74, 0.04)); color: #fff4d8; }
+.choice:hover, .choice.sel, .choice.vhover { background: linear-gradient(90deg, rgba(216, 162, 74, 0.28), rgba(216, 162, 74, 0.04)); color: #fff4d8; }
 .choice.dis { color: #5e584f; cursor: default; }
 .choice.dis .chk { color: #7a4a40; }
-.choice.dis:hover { background: none; }
+.choice.dis:hover, .choice.dis.vhover { background: none; }
 .choice.end { color: var(--dim); }
 
 /* ------------------------------ reading / confirm ------------------------------ */
@@ -176,7 +176,7 @@ button { font-family: inherit; }
 #rpgmenu .tabs { display: flex; border-bottom: 1px solid #000; background: #0d0d0e; }
 #rpgmenu .tab { flex: 1; text-align: center; padding: 9px 0 7px; cursor: pointer; font-family: var(--serif); letter-spacing: 0.2em; font-size: 13px; color: var(--dim); text-transform: uppercase;
   background: linear-gradient(180deg, #23211d, #121110); border-right: 1px solid #000; box-shadow: inset 1px 1px 0 rgba(255,240,210,0.07); }
-#rpgmenu .tab:hover { color: var(--text); }
+#rpgmenu .tab:hover, #rpgmenu .tab.vhover { color: var(--text); }
 #rpgmenu .tab.on { color: var(--accent-2); background: linear-gradient(180deg, #3d362b, #1b1813); }
 #rpgmenu .tab .dot { color: #ffd36a; }
 #rpgmenu .content { flex: 1; overflow: hidden; display: flex; }
@@ -195,9 +195,9 @@ button { font-family: inherit; }
 .attr-row .pips i { flex: 1; height: 8px; background: #191816; border: 1px solid #000; }
 .attr-row .pips i.on { background: linear-gradient(180deg, var(--accent-2), var(--accent-dim)); }
 .attr-row .pips i.buff { background: linear-gradient(180deg, #9ed0ff, #3d7ab8); }
-.attr-row:hover { background: rgba(216,162,74,0.07); }
+.attr-row:hover, .attr-row.vhover { background: rgba(216,162,74,0.07); }
 .list-item { padding: 5px 8px; cursor: pointer; border-bottom: 1px solid rgba(0,0,0,0.6); font-size: 13px; display: flex; align-items: center; gap: 8px; }
-.list-item:hover { background: rgba(216,162,74,0.12); }
+.list-item:hover, .list-item.vhover { background: rgba(216,162,74,0.12); }
 .list-item.on { background: linear-gradient(90deg, rgba(216,162,74,0.32), rgba(216,162,74,0.05)); color: #fff4d8; }
 .list-item .qty { margin-left: auto; color: var(--dim); font-family: var(--mono); }
 .list-item .st { margin-left: auto; font-size: 10px; letter-spacing: 0.12em; }
@@ -236,8 +236,8 @@ button { font-family: inherit; }
 .mm-item {
   font-family: var(--serif); font-size: 20px; letter-spacing: 0.32em; color: #cfc6b2; cursor: pointer; padding: 6px 28px; text-transform: uppercase; position: relative; transition: color 0.12s, letter-spacing 0.2s;
 }
-.mm-item:hover { color: var(--accent-2); letter-spacing: 0.38em; text-shadow: 0 0 10px rgba(216,162,74,0.5); }
-.mm-item:hover::before { content: '\25B8'; position: absolute; left: 4px; color: var(--accent); }
+.mm-item:hover, .mm-item.vhover { color: var(--accent-2); letter-spacing: 0.38em; text-shadow: 0 0 10px rgba(216,162,74,0.5); }
+.mm-item:hover::before, .mm-item.vhover::before { content: '\25B8'; position: absolute; left: 4px; color: var(--accent); }
 .mm-item.disabled { color: #4d4840; pointer-events: none; }
 #mainmenu .foot { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--faint); letter-spacing: 0.1em; }
 @keyframes titleGlow { 0%, 100% { text-shadow: 0 0 18px rgba(216,162,74,0.25), 0 3px 0 #000; } 50% { text-shadow: 0 0 34px rgba(216,162,74,0.5), 0 3px 0 #000; } }
@@ -253,7 +253,7 @@ button { font-family: inherit; }
 .toggle { cursor: pointer; padding: 2px 10px; border: 1px solid #000; background: #191816; color: var(--dim); font-size: 12px; letter-spacing: 0.1em; min-width: 56px; text-align: center; }
 .toggle.on { background: var(--accent); color: #1a1408; }
 .slot { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(0,0,0,0.6); cursor: pointer; }
-.slot:hover { background: rgba(216,162,74,0.12); }
+.slot:hover, .slot.vhover { background: rgba(216,162,74,0.12); }
 .slot .sl { width: 90px; font-family: var(--serif); letter-spacing: 0.1em; color: var(--accent); }
 .slot .si { flex: 1; font-size: 12.5px; }
 .slot .si .a { color: var(--text); }
@@ -270,7 +270,7 @@ button { font-family: inherit; }
 #creator .opt .ol { color: var(--dim); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; width: 110px; }
 #creator .opt .ov { flex: 1; text-align: center; font-family: var(--serif); color: var(--text); }
 #creator .arrow { cursor: pointer; width: 26px; height: 22px; text-align: center; line-height: 20px; color: var(--accent); background: #191816; border: 1px solid #000; }
-#creator .arrow:hover { background: var(--accent); color: #111; }
+#creator .arrow:hover, #creator .arrow.vhover { background: var(--accent); color: #111; }
 #creator input[type=text] { width: 100%; padding: 6px 8px; font-family: var(--serif); font-size: 17px; background: #0c0c0c; color: var(--accent-2); border: 1px solid #000; box-shadow: inset 0 0 0 1px #2c2822; letter-spacing: 0.08em; }
 #creator .swatches { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; flex: 1; }
 #creator .sw { width: 22px; height: 18px; cursor: pointer; border: 1px solid #000; box-shadow: inset 1px 1px 0 rgba(255,255,255,0.15); }
@@ -285,7 +285,7 @@ button { font-family: inherit; }
 #creator .center-hint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); font-size: 11px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; pointer-events: none; }
 #creator .pool { font-family: var(--serif); font-size: 16px; text-align: center; padding: 6px; color: var(--accent-2); border: 1px solid #000; background: #0d0d0c; margin-bottom: 8px; }
 #creator .attr-row .pm { width: 22px; height: 20px; text-align: center; line-height: 18px; cursor: pointer; background: #191816; border: 1px solid #000; color: var(--accent); font-family: var(--mono); }
-#creator .attr-row .pm:hover { background: var(--accent); color: #111; }
+#creator .attr-row .pm:hover, #creator .attr-row .pm.vhover { background: var(--accent); color: #111; }
 #creator .attr-row.sel { background: rgba(216,162,74,0.12); }
 #creator .attrdesc { font-family: var(--serif); font-size: 14px; line-height: 1.5; color: #ddd3bd; min-height: 110px; }
 
@@ -336,3 +336,14 @@ button { font-family: inherit; }
 .side.panel, #pause .panel, .modal.panel { background: linear-gradient(180deg, rgba(30, 29, 27, 0.985), rgba(12, 13, 15, 0.985)); }
 
 #dialogue .dhint { padding: 3px 12px 6px; font-size: 10.5px; letter-spacing: 0.08em; color: var(--faint); text-align: right; border-top: 1px solid rgba(255,255,255,0.04); }
+
+/* in-game cursor (js/ui/cursor.js) */
+html.vcur, html.vcur * { cursor: none !important; }
+#vcursor { position: fixed; left: 0; top: 0; width: 26px; height: 30px; margin: -2px 0 0 -2px; pointer-events: none; z-index: 10000; display: none; will-change: transform; filter: drop-shadow(0 0 0 rgba(0,0,0,0)); }
+#vcursor.on { display: block; }
+#vcursor.on.hidden { display: none; }
+#vcursor svg { display: block; transform-origin: 2px 2px; transition: transform 0.08s, filter 0.12s; }
+#vcursor.hot svg { transform: scale(1.08); filter: brightness(1.25) drop-shadow(0 0 4px rgba(255,214,140,0.65)); }
+#vcursor.down svg { transform: scale(0.92) translate(1px, 1px); }
+#vcursor-tip { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 10001; display: none; padding: 2px 8px; font-family: var(--serif); font-size: 12px; letter-spacing: 0.08em; color: var(--text); background: rgba(14,13,11,0.92); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(216,162,74,0.35); white-space: nowrap; }
+#vcursor-tip.on { display: block; }

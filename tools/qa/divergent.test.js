@@ -1,5 +1,5 @@
 // The divergent path: awareness choices in all three simulations → INCONCLUSIVE,
-// Juno's warning, the manual record, the result slip, the character sheet.
+// Claire's warning, the manual record, the result slip, the character sheet.
 const L = require('./lib.js');
 L.run('divergent path', async (p, T, errs) => {
   await L.quickStart(p, { strength: 4, agility: 5, intelligence: 6, perception: 8, charisma: 5, resolve: 8 });
@@ -37,7 +37,7 @@ L.run('divergent path', async (p, T, errs) => {
     }
     return seen;
   });
-  T.ok(['d1', 'd2', 'd_record', 'd_final'].every((n) => path.includes(n)), 'Juno: inconclusive → "Divergent" warning → manual record → farewell', path);
+  T.ok(['d1', 'd2', 'd_record', 'd_final'].every((n) => path.includes(n)), 'Claire: inconclusive → "Divergent" warning → manual record → farewell', path);
   await p.waitForTimeout(1200);
   const s = await ev(() => ({ div: DV.State.data.aptitude.divergent, rec: DV.State.data.aptitude.recordedAs, slip: DV.Inventory.has('result_slip'), q: QA.q('aptitude_day'), faction: DV.State.data.player.faction }));
   T.ok(s.div, 'marked divergent (hidden)');

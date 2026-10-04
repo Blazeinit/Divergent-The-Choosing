@@ -363,6 +363,10 @@
           case 'drip': { const o = this.tone(1900 + Math.random() * 500, 0.09, 'sine', 0.05 * v); o.frequency.exponentialRampToValueAtTime(1100, this.ctx.currentTime + 0.08); break; }
           case 'tick': this.tone(3200, 0.012, 'square', 0.012 * v); break;
           case 'buzzer': this.tone(160, 0.35, 'sawtooth', 0.05 * v); this.tone(163, 0.35, 'square', 0.03 * v); break;
+          case 'hop': this.burst('bandpass', 700, 0.8, 0.12, 0.12 * v); this.tone(160, 0.08, 'sine', 0.1 * v); break;
+          case 'land': this.burst('lowpass', 260, 0.8, 0.18, 0.35 * v); this.tone(70, 0.12, 'sine', 0.22 * v); this.burst('bandpass', 1800, 1.2, 0.05, 0.06 * v, 0.02); break;
+          case 'keys': for (let i = 0; i < 5; i++) this.tone(2100 + Math.random() * 600, 0.012, 'square', 0.025 * v, i * 0.1 + Math.random() * 0.04); break;
+          case 'badge': this.burst('lowpass', 520, 1, 0.12, 0.22 * v); this.tone(1700, 0.03, 'square', 0.04 * v, 0.55); this.burst('bandpass', 3200, 3, 0.03, 0.06 * v, 0.56); break;
           case 'scanner': this.tone(880, 0.14, 'triangle', 0.07 * v); this.tone(1320, 0.22, 'triangle', 0.06 * v, 0.1); break;
         }
       } catch (e) {

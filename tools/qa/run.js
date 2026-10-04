@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const all = fs.readdirSync(__dirname).filter((f) => f.endsWith('.test.js')).sort();
-const order = ['static', 'boot', 'dialogue', 'checkpoint', 'main-flow', 'divergent', 'side-quests', 'sims-idle', 'input', 'audio', 'save-migration', 'npc-day', 'perf'];
+const order = ['static', 'boot', 'dialogue', 'reception', 'checkpoint', 'main-flow', 'divergent', 'side-quests', 'sims-idle', 'movement', 'input', 'cursor', 'audio', 'save-migration', 'npc-day', 'perf'];
 all.sort((a, b) => (order.indexOf(a.replace('.test.js', '')) + 1 || 99) - (order.indexOf(b.replace('.test.js', '')) + 1 || 99));
 const want = process.argv.slice(2);
 const files = want.length ? all.filter((f) => want.some((w) => f.startsWith(w))) : all;

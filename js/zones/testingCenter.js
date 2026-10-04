@@ -108,7 +108,7 @@
     { id: 'copy_door', x: 18.5, z: 28, dir: 'x', w: 1.5, type: 'slide', label: 'COPY ROOM' },
     { id: 'off_n', x: 21, z: 32, dir: 'x', w: 2, type: 'opening', frame: true, h: 2.5, label: 'ADMINISTRATION OFFICE' },
     { id: 'off_w', x: 14, z: 38, dir: 'z', w: 1.5, type: 'slide' },
-    { id: 'dir_door', x: 10, z: 24.5, dir: 'z', w: 1.5, type: 'slide', label: 'DIRECTOR — DR. C. WREN' },
+    { id: 'dir_door', x: 10, z: 24.5, dir: 'z', w: 1.5, type: 'slide', label: 'DIRECTOR — DR. A. PIERCE' },
     { id: 'conf_door', x: 10, z: 33.5, dir: 'z', w: 1.5, type: 'slide', label: 'CONFERENCE' },
     { id: 'rec_door', x: 10, z: 43, dir: 'z', w: 1.5, type: 'slide', lock: 'records', label: 'RECORDS ARCHIVE', lockMsg: 'Locked. RECORDS — AUTHORIZED STAFF. A keyhole, not a card reader.' },
     { id: 'exit_s', x: 12, z: 48, dir: 'x', w: 1.5, type: 'sealed', label: 'EMERGENCY EXIT', lockMsg: 'EMERGENCY EXIT — ALARM WILL SOUND. Better not.' },
@@ -157,7 +157,7 @@
   add('whiteboard', 14.12, 10.5, { rotDeg: 90, y: 1.55, w: 2.4 });
   add('table', 22.8, 12, { w: 1.2, d: 0.6, chairs: 0 });
   add('coffee_machine', 22.8, 12, { elev: 0.74, id: 'proc_coffee' });
-  add('noticeboard', 23.88, 11, { rotDeg: -90, title: 'Proctor Notes', text: 'TODAY: Rooms 1, 2, 4, 5 active. Room 3 offline (serum lot 33 recalled). Room 6 reserved.\n\nREMINDER from Dr. Wren: ALL irregular readings are to be escalated to me in person. No exceptions. Do not discuss irregular readings with technicians from other factions.\n\n— I.C.' });
+  add('noticeboard', 23.88, 11, { rotDeg: -90, title: 'Proctor Notes', text: 'TODAY: Rooms 1, 2, 4, 5 active. Room 3 offline (serum lot 33 recalled). Room 6 reserved.\n\nREMINDER from Dr. Pierce: ALL irregular readings are to be escalated to me in person. No exceptions. Do not discuss irregular readings with technicians from other factions.\n\n— I.C.' });
 
   /* ---------------- observation gallery ---------------- */
   for (const t of TR) {
@@ -222,7 +222,7 @@
   add('banner', 53.85, 35.5, { faction: 'candor', rotDeg: -90, y: 4.7, h: 2.6 });
   add('banner', 30.0, 20.15, { faction: 'amity', rotDeg: 0, y: 4.7, h: 2.6 });
   add('banner', 50.0, 20.15, { faction: 'factionless', rotDeg: 0, y: 4.7, h: 2.6 });
-  add('noticeboard', 26.12, 27.0, { rotDeg: 90, id: 'hall_notice', title: 'Candidate Notices', text: 'APTITUDE TESTING — CANDIDATE RULES\n\n1. Check in at Reception (lobby, east desk) BEFORE security. Wear your name badge at all times.\n2. Remain in the Waiting Hall until your name or group is called.\n3. Do not enter testing rooms unaccompanied.\n4. Do NOT discuss results with other candidates.\n5. Candidates who have completed testing may use the Courtyard (East Wing).\n\nLOST SOMETHING? Ask the custodial staff. Items are kept in Storage.\n\nA handwritten addition, half torn off: "...if anyone finds a little wooden bird please tell Pip H."' });
+  add('noticeboard', 26.12, 27.0, { rotDeg: 90, id: 'hall_notice', title: 'Candidate Notices', text: 'APTITUDE TESTING — CANDIDATE RULES\n\n1. Check in at Reception (lobby, east desk) BEFORE security. Wear your name badge at all times.\n2. Remain in the Waiting Hall until your name or group is called.\n3. Do not enter testing rooms unaccompanied.\n4. Do NOT discuss results with other candidates.\n5. Candidates who have completed testing may use the Courtyard (East Wing).\n\nLOST SOMETHING? Ask the custodial staff. Items are kept in Storage.\n\nA handwritten addition, half torn off: "...if anyone finds a little wooden bird please tell Lucy B."' });
   add('poster', 33, 37.88, { rotDeg: 180, kind: 'factions' });
   add('poster', 44.6, 37.88, { rotDeg: 180, kind: 'test' });
   add('trash_bin', 37.3, 21.0);
@@ -316,7 +316,6 @@
   add('backdrop', 4, 90, { rotDeg: 135, w: 30, h: 18, mat: 'brick' });
   add('backdrop', 76, 90, { rotDeg: -135, w: 30, h: 18 });
   add('backdrop', 10, 68, { rotDeg: 90, w: 30, h: 16 });
-  add('backdrop', 66, 70, { rotDeg: -90, w: 14, h: 16, mat: 'brick' });
   add('backdrop', -16, 26, { rotDeg: 90, w: 40, h: 20 });
   add('backdrop', 94, 30, { rotDeg: -90, w: 50, h: 20, mat: 'brick' });
 
@@ -403,7 +402,7 @@
   add('sofa', 77.35, 29.8, { id: 'brk_sofa', len: 2.2, rotDeg: -90 });
   add('crt_tv', 72, 31.6, { rotDeg: 180 });
   add('water_cooler', 66.55, 31.3, { rotDeg: 90, id: 'brk_water' });
-  add('noticeboard', 66.12, 24.2, { rotDeg: 90, title: 'Break Room', text: 'LABEL YOUR FOOD.\n\n(Someone has drawn a tiny flame next to every item labeled "Brann".)' });
+  add('noticeboard', 66.12, 24.2, { rotDeg: 90, title: 'Break Room', text: 'LABEL YOUR FOOD.\n\n(Someone has drawn a tiny flame next to every item labeled "Frank".)' });
   add('trash_bin', 73.5, 22.5);
   add('poster', 75.5, 22.12, { kind: 'harvest' });
   // lockers
@@ -483,7 +482,7 @@
     corr_talk_a: { x: 45.0, z: 18.0, rot: Math.PI / 2 },
     corr_talk_b: { x: 46.3, z: 18.0, rot: -Math.PI / 2 },
     rest_sink: { x: 27.3, z: 40.2, rot: -Math.PI / 2 },
-    elias_hide: { x: 33.3, z: 39.0, rot: -Math.PI / 2, act: 'crouch' },
+    daniel_hide: { x: 33.3, z: 39.0, rot: -Math.PI / 2, act: 'crouch' },
     proc_watch: { x: 22, z: 6.0, rot: Math.PI / 2 },
     gal_watch: { x: 48.5, z: 6.6, rot: 0, act: 'arms_crossed' },
     gal_watch2: { x: 41.5, z: 6.6, rot: 0, act: 'arms_crossed' },
@@ -585,12 +584,13 @@
       DV.Checkpoint.attach(zone, { pivot, block: zone.securityBlock, lamps });
       ctx.interact({ id: 'cp_duck', kind: 'action', action: 'duckBarrier', x: 40, y: 1.0, z: 41.75, radius: 0.95, bias: 1.0, label: 'Duck under', name: 'Barrier Arm', cond: () => !DV.State.flag('security_cleared') });
       // story interactables that are not props
-      ctx.interact({ id: 'dir_drawer', kind: 'action', action: 'wrenDrawer', x: 4.3, y: 0.7, z: 24.5, radius: 1.3, label: 'Search', name: 'Desk Drawer' });
+      ctx.interact({ id: 'dir_drawer', kind: 'action', action: 'pierceDrawer', x: 4.3, y: 0.7, z: 24.5, radius: 1.3, label: 'Search', name: 'Desk Drawer' });
       ctx.interact({ id: 'protocol_box', kind: 'action', action: 'protocolBox', x: 1.0, y: 0.8, z: 44.35, radius: 1.4, label: 'Search', name: 'Archive Box "D"' });
       ctx.interact({ id: 'tr4_chair', kind: 'action', action: 'testChair', x: 48.5, y: 0.8, z: 11.6, radius: 1.6, label: 'Sit', name: 'Testing Chair' });
       ctx.interact({ id: 'cp_monitor', kind: 'examine', x: 43.7, y: 1.1, z: 42.8, radius: 1.2, label: 'Examine', name: 'CCTV Monitors', title: 'CCTV Monitors', text: 'Grainy grey feeds: the lobby, the plaza gate, the waiting hall, the courtyard. One screen simply reads FEED 7 — GALLERY — RESTRICTED.\n\nIn the hall feed, a small figure in grey is slipping into the washroom.' });
       ctx.interact({ id: 'tr3_look', kind: 'examine', x: 41.5, y: 1.2, z: 16.4, radius: 1.0, label: 'Peer through', name: 'Room 3 Door', title: 'Testing Room 3', text: 'Through the narrow window you can see the chair under a dust sheet, and a crate stenciled SIM-A LOT 33 — RECALLED.' });
-      ctx.update((dt) => DV.Checkpoint.update(dt));
+      DV.Reception.attach(zone);
+      ctx.update((dt) => { DV.Checkpoint.update(dt); DV.Reception.update(dt); });
     },
   });
 })();

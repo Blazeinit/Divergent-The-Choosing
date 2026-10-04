@@ -8,63 +8,64 @@ L.run('side quests, menus, save/load', async (p, T, errs) => {
   const pick = await ev(() => { DV.State.data.player.attributes.agility = 8; QA.tp(11, 43); QA.door('rec_door'); const a = QA.pick('hairpin'); const t = QA.view(); QA.end(); DV.State.data.player.attributes.agility = 6; return [a, t, DV.State.zoneState('testing_center').doors.rec_door]; });
   T.ok(pick[2] === 'unlocked', 'lockpick [AGILITY 8] opens the records archive', pick);
   // reception (+ Paper Trail) and security
-  await ev(() => { QA.talk('marion_hale'); QA.seq(['tester', 'thank you', 'anything i can do', 'take it']); QA.end(); });
-  T.ok(await ev(() => DV.Inventory.has('name_badge') && DV.Inventory.has('sealed_envelope')), 'checked in; Marion hands over the sealed envelope');
+  await ev(() => { QA.talk('martha_bell'); QA.seq(['tester', 'thank you', 'anything i can do', 'take it']); QA.end(); });
+  T.ok(await ev(() => DV.Inventory.has('name_badge') && DV.Inventory.has('sealed_envelope')), 'checked in; Martha hands over the sealed envelope');
   T.ok(await ev(() => QA.clearSecurity()), 'security cleared');
-  // THE WOODEN BIRD (Pip → Gus → storage → back to Pip)
+  // THE WOODEN BIRD (Lucy → Gus → storage → back to Lucy)
   await ev(() => QA.skip('08:20'));
-  const pip = await ev(() => { QA.talk('pip_hollis'); const a = QA.seq(['what kind', 'help you look', 'fine', 'where did you last']); a.push(QA.pick('')); a.push(QA.pick('swept it up')); QA.end(); return a; });
-  T.ok(pip.every((x) => /^ok/.test(x)), 'Pip asks for help; [PERCEPTION 5] works out who swept it up', pip);
-  const gus = await ev(() => { QA.talk('gus_ferro'); const a = QA.seq(['clean floor', 'wooden bird', 'amity kid']); QA.end(); return [a, DV.Inventory.has('storage_key')]; });
+  const pip = await ev(() => { QA.talk('lucy_barnes'); const a = QA.seq(['what kind', 'help you look', 'fine', 'where did you last']); a.push(QA.pick('')); a.push(QA.pick('swept it up')); QA.end(); return a; });
+  T.ok(pip.every((x) => /^ok/.test(x)), 'Lucy asks for help; [PERCEPTION 5] works out who swept it up', pip);
+  const gus = await ev(() => { QA.talk('gus_novak'); const a = QA.seq(['clean floor', 'wooden bird', 'amity kid']); QA.end(); return [a, DV.Inventory.has('storage_key')]; });
   T.ok(gus[1], 'Gus lends the storage key [CHARISMA 5]', gus[0]);
   await ev(() => { QA.door('storage_door'); QA.tp(59.4, 35.4); QA.act('lostfound', 'lostfound'); });
   T.ok(await ev(() => DV.Inventory.has('wooden_bird') && DV.Inventory.has('staff_keycard')), 'Lost & Found: the bird (and a proctor\'s keycard)');
-  await ev(() => { QA.talk('pip_hollis'); QA.seq(["it's yours", 'good luck']); QA.end(); QA.talk('gus_ferro'); QA.seq(['storage key back', 'thanks, gus']); QA.end(); });
+  await ev(() => { QA.talk('lucy_barnes'); QA.seq(["it's yours", 'good luck']); QA.end(); QA.talk('gus_novak'); QA.seq(['storage key back', 'thanks, gus']); QA.end(); });
   T.eq(await ev(() => [QA.q('lost_bird'), DV.State.flag('closet_open')]), ['complete', true], 'The Wooden Bird complete; Gus opens his closet to you');
   // FINDERS KEEPERS
-  await ev(() => { QA.talk('ines_calder'); QA.pick('lost & found. here'); QA.end(); });
+  await ev(() => { QA.talk('sarah_lin'); QA.pick('lost & found. here'); QA.end(); });
   T.eq(await ev(() => QA.q('finders_keepers')), 'complete', 'Finders Keepers: keycard returned');
   // PAPER TRAIL (read it, deliver, confess)
-  await ev(() => { DV.Inventory.use('sealed_envelope'); QA.pick('lift the seal'); QA.pick('fold'); QA.end(); QA.talk('cassius_wren'); QA.pick('of course'); QA.end(); QA.talk('marion_hale'); QA.pick('i read it'); QA.pick('careful'); QA.end(); });
+  await ev(() => { DV.Inventory.use('sealed_envelope'); QA.pick('lift the seal'); QA.pick('fold'); QA.end(); QA.talk('alan_pierce'); QA.pick('of course'); QA.end(); QA.talk('martha_bell'); QA.pick('i read it'); QA.pick('careful'); QA.end(); });
   T.eq(await ev(() => [DV.State.flag('read_envelope'), QA.q('paper_trail')]), [true, 'complete'], 'Paper Trail: read, delivered, confessed');
-  // PROTOCOL D (Mara, Ruth, the archive box)
-  await ev(() => { QA.talk('mara_voss'); QA.pick('hiding something'); QA.pick("i'm in"); QA.end(); QA.talk('mara_voss'); QA.pick('a list'); QA.pick('additional review'); QA.end(); });
-  const ruth = await ev(() => { QA.talk('ruth_calloway'); const a = QA.seq(['just exploring', 'could i see', 'someone i care']); QA.end(); return [a, DV.Inventory.has('records_key')]; });
+  // PROTOCOL D (Jenna, Ruth, the archive box)
+  await ev(() => { QA.talk('jenna_morales'); QA.pick('hiding something'); QA.pick("i'm in"); QA.end(); QA.talk('jenna_morales'); QA.pick('a list'); QA.pick('additional review'); QA.end(); });
+  const ruth = await ev(() => { QA.talk('ruth_abbott'); const a = QA.seq(['just exploring', 'could i see', 'someone i care']); QA.end(); return [a, DV.Inventory.has('records_key')]; });
   T.ok(ruth[1], 'Ruth gives you the archive key [CHARISMA 7]', ruth[0]);
   await ev(() => { QA.door('rec_door'); QA.tp(2, 44.35); });
   await p.waitForTimeout(400);
-  await ev(() => { QA.act('protocolBox', 'protocol_box'); QA.talk('mara_voss'); QA.pick('read it yourself'); QA.end(); });
+  await ev(() => { QA.act('protocolBox', 'protocol_box'); QA.talk('jenna_morales'); QA.pick('read it yourself'); QA.end(); });
   T.eq(await ev(() => QA.q('protocol_d')), 'complete', 'Protocol D complete');
-  // INITIATION STARTS EARLY (Rook's coffee dare)
-  await ev(() => { QA.talk('rook_delaney'); QA.seq(['brave', 'how', "you're on"]); QA.end(); });
+  // INITIATION STARTS EARLY (Nate's coffee dare)
+  await ev(() => { QA.talk('nate_russo'); QA.seq(['brave', 'how', "you're on"]); QA.end(); });
   const coffee = await ev(() => { QA.tp(69, 23.0); return [QA.act('coffee', 'coffee:brk_coffee'), DV.State.flag('coffee_stolen')]; });
   T.ok(coffee[1], 'coffee stolen unseen', coffee[0]);
-  await ev(() => { QA.talk('rook_delaney'); QA.pick('swiped'); QA.end(); });
+  await ev(() => { QA.talk('nate_russo'); QA.pick('swiped'); QA.end(); });
   T.eq(await ev(() => QA.q('initiation')), 'complete', 'Initiation Starts Early complete');
-  // caught version: Brann turned toward you
+  // caught version: Frank turned toward you
   const caught = await ev(() => {
     DV.Inventory.remove('coffee');
     QA.tp(69, 23.0);
-    // stand Brann in the break room, looking straight at the coffee machine
-    const b = DV.NPCs.get('brann_holt');
+    // stand Frank in the break room, looking straight at the coffee machine
+    const b = DV.NPCs.get('frank_kowalski');
     b.present = true; b.mode = 'acting'; b.path = null;
     b.x = 71.5; b.z = 25.5; b.lookYaw = 0;
     b.rot = DV.U.yawTo(b.x, b.z, DV.Player.x, DV.Player.z);
     return [QA.act('coffee', 'coffee:brk_coffee'), !!DV.State.flag('coffee_caught'), DV.Inventory.has('coffee')];
   });
   T.ok(caught[1] && !caught[2], 'a staff member watching catches a second theft', caught);
-  // COLD FEET (Elias)
+  // COLD FEET (Daniel)
   await ev(() => QA.skip('09:05'));
-  const el = await ev(() => { QA.talk('elias_thorne'); const a = QA.seq(['why are you hiding', 'collecting yourself', '...', 'honest son']); QA.end(); return [a, DV.State.flag('elias_convinced')]; });
-  T.ok(el[1], 'Elias convinced to go back', el[0]);
+  const el = await ev(() => { QA.talk('daniel_webb'); const a = QA.seq(['why are you hiding', 'collecting yourself', '...', 'honest son']); QA.end(); return [a, DV.State.flag('daniel_convinced')]; });
+  T.ok(el[1], 'Daniel convinced to go back', el[0]);
   await ev(() => { QA.skip('11:31'); QA.skip('12:16'); DV.Story.onMinute(DV.U.parseTime('12:16')); });
-  await ev(() => { QA.talk('elias_thorne'); QA.pick('glad you went'); QA.end(); });
-  T.eq(await ev(() => QA.q('cold_feet')), 'complete', 'Cold Feet complete (Elias tested at 11:30)');
+  await ev(() => { QA.talk('daniel_webb'); QA.pick('glad you went'); QA.end(); });
+  T.eq(await ev(() => QA.q('cold_feet')), 'complete', 'Cold Feet complete (Daniel tested at 11:30)');
   // Tab menu, pause
   await ev(() => QA.end());
   await p.keyboard.press('Tab'); await p.waitForTimeout(300);
   T.eq(await ev(() => DV.Game.state), 'menu', 'Tab opens the RPG menu');
-  for (const k of ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6']) { await p.keyboard.press(k); await p.waitForTimeout(200); }
+  for (const k of ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6']) { await p.keyboard.press(k); await p.waitForTimeout(250); }
+  try { await p.waitForFunction(() => DV.RPGMenu.tab === 'map', null, { timeout: 2000 }); } catch (e) { /* asserted below */ }
   T.eq(await ev(() => DV.RPGMenu.tab), 'map', 'number keys switch tabs');
   await L.shot(p, 'side_map');
   await p.keyboard.press('Escape'); await p.waitForTimeout(200);
@@ -76,11 +77,13 @@ L.run('side quests, menus, save/load', async (p, T, errs) => {
   await ev(() => { QA.tp(30, 33); DV.Game.sitOn(DV.World.current.spot('hb_w3a_s3')); });
   const t0 = await ev(() => DV.Clock.minutes());
   await p.keyboard.press('KeyT'); await p.waitForTimeout(300);
-  await p.click('#waitmenu .btn:has-text("Wait")'); await p.waitForTimeout(2000);
+  // the wait menu keeps the mouse captured, so click through the in-game cursor
+  T.eq(await ev(() => QA.click('#waitmenu .btn', 'Wait')), 'ok', 'Wait clicked with the in-game cursor');
+  await p.waitForTimeout(2000);
   T.ok(await ev((t0) => DV.Clock.minutes() - t0 >= 59, t0), 'waiting on a bench passes the hour');
   // save, reload, continue
   T.ok(await ev(() => DV.Save.write('2').ok), 'saved to slot 2');
-  const snap = () => ({ t: DV.Clock.str(), q: DV.Quests.all().map((x) => x.id + ':' + x.q.state).join(','), inv: DV.Inventory.list().map((i) => i.id).sort().join(','), flags: Object.keys(DV.State.data.world.flags).length, rel: DV.State.npc('pip_hollis').rel, badge: DV.Player.model.tagOn });
+  const snap = () => ({ t: DV.Clock.str(), q: DV.Quests.all().map((x) => x.id + ':' + x.q.state).join(','), inv: DV.Inventory.list().map((i) => i.id).sort().join(','), flags: Object.keys(DV.State.data.world.flags).length, rel: DV.State.npc('lucy_barnes').rel, badge: DV.Player.model.tagOn });
   const before = await ev(snap);
   await p.reload();
   await p.waitForFunction(() => window.DV && DV.Game && DV.Game.state === 'mainmenu', null, { timeout: 30000 });

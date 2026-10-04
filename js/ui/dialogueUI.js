@@ -2,8 +2,10 @@
    DIVERGENT — dialogue window
    NAME / FACTION header, typewriter text, numbered responses, attribute
    check labels (greyed when unavailable), keyboard + mouse selection.
-   The mouse stays captured while talking: moving it up/down or scrolling
-   moves the highlight and a click confirms — no re-click needed afterwards.
+   The mouse stays captured while talking. With the in-game cursor you
+   point and click a response; without it, moving the mouse up/down or
+   scrolling moves the highlight and a click confirms. Either way there's no
+   re-click needed afterwards.
    ========================================================================== */
 (function () {
   'use strict';
@@ -63,12 +65,13 @@
       this.updateHint();
     },
     updateHint() {
-      const locked = DV.Input.locked;
-      if (locked === this.hintLocked) return;
-      this.hintLocked = locked;
-      this.el.querySelector('.dhint').textContent = locked
+      const mode = DV.Cursor.active ? 'cursor' : DV.Input.locked ? 'locked' : 'free';
+      if (mode === this.hintLocked) return;
+      this.hintLocked = mode;
+      this.el.querySelector('.dhint').textContent = mode === 'locked'
         ? 'Move the mouse or scroll to choose · Click, E or Enter to confirm · 1–9'
-        : 'Click a response · 1–9 · ↑/↓ + Enter';
+        : mode === 'cursor' ? 'Click a response · Scroll or ↑/↓ to choose · E or Enter to confirm · 1–9'
+          : 'Click a response · 1–9 · ↑/↓ + Enter';
     },
     renderText() {
       const t = this.typing ? this.full.slice(0, Math.floor(this.shown)) : this.full;
@@ -130,13 +133,14 @@
       const wheel = input.takeWheel();
       if (wheel) this.step(wheel > 0 ? 1 : -1, n);
       const my = input.takeMouse()[1];
-      if (input.locked && !this.typing) {
+      if (input.locked && !this.typing && !DV.Cursor.active) {
         this.mouseAcc += my;
         if (Math.abs(this.mouseAcc) > 55) { this.step(this.mouseAcc > 0 ? 1 : -1, n); this.mouseAcc = 0; }
       }
       if (input.consume('MouseLeft')) {
+        // a click on the 3D view: finishes the line; picks the highlight only without the in-game cursor
         if (this.typing) this.finishTyping();
-        else this.pick(this.sel);
+        else if (!DV.Cursor.active) this.pick(this.sel);
         return;
       }
       if (input.consume('ArrowDown') || input.consume('KeyS')) { this.step(1, n); }

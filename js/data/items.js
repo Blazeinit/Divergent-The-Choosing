@@ -72,27 +72,27 @@
       name: 'Name Badge 4-17', cat: 'quest', quest: true, usable: true,
       desc: 'A laminated clip-on badge, still warm from the reception press. Your name, your group, your room. Show it at the security arch; keep it on all day.',
       use: { type: 'action', action: 'showBadge' },
-      badgeText: 'APTITUDE TESTING CENTER — SECTOR 4\n\nCANDIDATE 4-17: {name}\nGROUP: 4\nROOM: 4\nTECHNICIAN: J. ASHGROVE\n\nWear this badge where it can be seen at all times. Present it at security. Do not discuss your results with other candidates.',
+      badgeText: 'APTITUDE TESTING CENTER — SECTOR 4\n\nCANDIDATE 4-17: {name}\nGROUP: 4\nROOM: 4\nTECHNICIAN: C. DAWSON\n\nWear this badge where it can be seen at all times. Present it at security. Do not discuss your results with other candidates.',
       icon: { shape: 'card', color: '#e8e0c8' },
     },
     wooden_bird: {
       name: 'Carved Wooden Bird', cat: 'quest', quest: true,
-      desc: 'A small bird carved from pale wood, worn smooth by a thumb. Initials on the base: P.H.',
+      desc: 'A small bird carved from pale wood, worn smooth by a thumb. Initials on the base: L.B.',
       icon: { shape: 'token', color: '#c8a070' },
     },
     sealed_envelope: {
       name: 'Sealed Envelope', cat: 'quest', quest: true, usable: true,
-      desc: 'Addressed to Dr. C. Wren, Administration. The seal is cheap — it would lift with a fingernail.',
+      desc: 'Addressed to Dr. A. Pierce, Administration. The seal is cheap — it would lift with a fingernail.',
       use: { type: 'action', action: 'readEnvelope' }, icon: { shape: 'paper', color: '#e8e0c8' },
     },
     signed_form: {
       name: 'Signed Schedule Amendment', cat: 'quest', quest: true,
-      desc: 'A schedule amendment with Dr. Wren\'s looping signature. For Marion at reception.',
+      desc: 'A schedule amendment with Dr. Pierce\'s looping signature. For Martha at reception.',
       icon: { shape: 'paper', color: '#e0e8f0' },
     },
     staff_keycard: {
       name: 'Proctor\'s Keycard', cat: 'quest', quest: true,
-      desc: 'A white plastic keycard on a frayed blue lanyard. CALDER, I. — PROCTOR ACCESS. It opens the Proctor Station and Observation Gallery.',
+      desc: 'A white plastic keycard on a frayed blue lanyard. LIN, S. — PROCTOR ACCESS. It opens the Proctor Station and Observation Gallery.',
       icon: { shape: 'card', color: '#f0f0f0', color2: '#3b72b6' },
     },
     storage_key: {

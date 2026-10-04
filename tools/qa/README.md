@@ -27,9 +27,9 @@ To use a Chromium you already have, set `CHROMIUM_PATH=/path/to/chrome`. Screens
 | `static` | Every schedule spot exists and is reachable on the nav grid; no double-booked spots; no dangling dialogue links; quest targets exist; interactables can be reached; simulation zones build |
 | `boot` | Main menu → creator → intro → world through the real UI, then movement |
 | `dialogue` | Random walk through every NPC's dialogue tree, looking for exceptions and dead ends |
-| `checkpoint` | Reception → name badge → Kade → the arm. Covers blocking, NPCs showing badges at the arm, ducking under (caught, unseen, low Agility) and showing the badge from the inventory |
+| `checkpoint` | Reception → name badge → Dean → the arm. Covers blocking, NPCs showing badges at the arm, ducking under (caught, unseen, low Agility) and showing the badge from the inventory |
 | `main-flow` | The whole main quest through all three simulations to the completion banner and a save |
-| `divergent` | Awareness choices → INCONCLUSIVE → Juno's warning and manual record → the character sheet |
+| `divergent` | Awareness choices → INCONCLUSIVE → Claire's warning and manual record → the character sheet |
 | `side-quests` | All six side quests, lockpicking, the coffee theft (seen and unseen), Tab menu, pause, waiting, and save → reload → Continue |
 | `sims-idle` | Doing nothing in each simulation still progresses: the dog lunge, drowning, refusing to sit |
 | `input` | The mouse stays captured through dialogue (mouse, wheel and click to choose) and re-captures after menus |

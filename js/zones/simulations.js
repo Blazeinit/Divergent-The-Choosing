@@ -1039,10 +1039,10 @@
       return 'waiting hall';
     },
     accuseName(S) {
-      for (const id of ['mara_voss', 'elias_thorne', 'pip_hollis', 'rook_delaney', 'edmund_kell', 'juniper_nash']) {
+      for (const id of ['jenna_morales', 'daniel_webb', 'lucy_barnes', 'nate_russo', 'ben_fischer', 'abby_morgan']) {
         if (DV.State.npc(id).mem.met) return DV.NPCData.get(id).name;
       }
-      return 'Mara Voss';
+      return 'Jenna Morales';
     },
     sit(S) {
       S.setFlag('sat');

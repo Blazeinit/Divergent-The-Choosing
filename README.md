@@ -36,6 +36,8 @@ Saves, settings and autosaves live in the browser's `localStorage` under the `di
 | **Mouse** | Orbit the camera. Click the game to capture the mouse, or hold a button and drag |
 | **Mouse wheel** | Zoom the camera |
 | **Shift** | Run (uses stamina) |
+| **Space** | Jump (uses stamina; you can't jump when you're winded) |
+| **C** | Crouch / sneak. Slower, and staff don't hear you coming. Shift or C stands you back up |
 | **E** | Interact: talk, take, sit, open, examine. Also advances dialogue |
 | **Tab** | RPG menu: Character · Skills · Inventory · Quests · Reputation · Map |
 | **M / J / I** | Open the RPG menu on Map / Quests / Inventory |
@@ -68,7 +70,7 @@ js/
     dialogue/
       ambient.js           Tier-1 dialogue generator (builds a tree from an NPC's `lines`)
       staff.js             Handwritten staff trees (guard, receptionist, director, nurse, custodian…)
-      candidates.js        Candidate trees (Mara, Elias, Pip, Rook…)
+      candidates.js        Candidate trees (Jenna, Daniel, Lucy, Nate…)
       juno.js              The technician: briefing, serum, results, inconclusive branch
       sims.js              Simulation choice scenes (every choice carries hidden aptitude weights)
   engine/                  Reusable engine layer (knows nothing about the story)
@@ -127,11 +129,11 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 1. **Main menu → New Game →** character creation: name, sex, skin, face, hair, hair colour, eyes, body type, height, and the faction you were raised in. Then spend 12 points across six attributes, each with a description. The upbringing sets your starting clothes and a little reputation. It never locks you out of anything.
 2. **Intro**, then you arrive at 08:00 in the entrance lobby of the Sector 4 Aptitude Testing Center.
-3. **Reception** (Marion, at the east desk in the lobby) checks you in and prints your **name badge**, which then shows on your chest. At the **security arch**, Kade won't lift the barrier arm until you show him the badge. You can also try to **duck under the arm** [AGILITY 7], which only works while he's busy checking someone else's badge. Then you wait in the hall. About 30–60 game minutes after you clear security, the PA calls you to **Testing Room 4**. Use that time to explore, eavesdrop, talk and start side quests.
-4. **Juno** briefs you and gives you the serum. Then come three simulations: **I. The Platform** (a rod or a flare, a starving dog, a lost child), **II. The Flood** (rising water, a trapped woman, a panicking man, a keypad code) and **III. The Tribunal** (an interrogation, a confession, a button). Each one can be approached by fighting, reasoning, protecting, deceiving, defying or mediating, or by noticing that none of it is real.
-5. You wake up and Juno gives you your result. If your profile is **inconclusive** (Divergent), she reacts, warns you, and lets you choose what gets *recorded*. The result never decides your faction, and the character sheet still shows **CURRENT FACTION: UNDECIDED**.
+3. **Reception** (Martha, at the east desk in the lobby) checks you in and prints your **name badge**, which then shows on your chest. At the **security arch**, Dean won't lift the barrier arm until you show him the badge. You can also try to **duck under the arm** [AGILITY 7], which only works while he's busy checking someone else's badge. Then you wait in the hall. About 30–60 game minutes after you clear security, the PA calls you to **Testing Room 4**. Use that time to explore, eavesdrop, talk and start side quests.
+4. **Claire** briefs you and gives you the serum. Then come three simulations: **I. The Platform** (a rod or a flare, a starving dog, a lost child), **II. The Flood** (rising water, a trapped woman, a panicking man, a keypad code) and **III. The Tribunal** (an interrogation, a confession, a button). Each one can be approached by fighting, reasoning, protecting, deceiving, defying or mediating, or by noticing that none of it is real.
+5. You wake up and Claire gives you your result. If your profile is **inconclusive** (Divergent), she reacts, warns you, and lets you choose what gets *recorded*. The result never decides your faction, and the character sheet still shows **CURRENT FACTION: UNDECIDED**.
 
-**Side quests:** *The Wooden Bird* (Pip, Amity; a social quest about a lost carving and a gruff custodian), *Cold Feet* (Elias, Abnegation; talk a frightened candidate into going back to his test before noon), *Paper Trail* (Marion; a sealed envelope you can deliver, read or open), *Initiation Starts Early* (Rook, Dauntless; steal the guard's coffee without being seen), *Protocol D* (Mara, Candor; what are the staff hiding?) and *Finders Keepers* (lost property).
+**Side quests:** *The Wooden Bird* (Lucy, Amity; a social quest about a lost carving and a gruff custodian), *Cold Feet* (Daniel, Abnegation; talk a frightened candidate into going back to his test before noon), *Paper Trail* (Martha; a sealed envelope you can deliver, read or open), *Initiation Starts Early* (Nate, Dauntless; steal the guard's coffee without being seen), *Protocol D* (Jenna, Candor; what are the staff hiding?) and *Finders Keepers* (lost property).
 
 ---
 
@@ -147,7 +149,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 - Third-person controller with camera-relative movement, stamina, collision with walls, furniture and NPCs, and footstep surfaces.
 - Smooth orbit camera with pitch limits, zoom, wall and ceiling collision, and a dialogue framing mode.
 - 30 NPCs: 7 Abnegation, 6 Dauntless, 7 Erudite, 5 Candor, 4 Amity, 1 Factionless. Each has a name, age, sex, faction, look, personality, job, access rights, schedule, dialogue, relationship and memory.
-  - Names follow each faction's style: plain old-fashioned names for Abnegation (Josiah Pell, Hannah Merrick), short punchy ones for Dauntless (Rae Dunmore, Ty "Torch" Brennan), formal ones for Erudite (Cyrus Albright, Cordelia Wynn), direct ones for Candor (Gideon Royce, Nora Halloran) and soft ones for Amity (Willow Fairbrook, Sorrel Gale).
+  - Everyone has an ordinary first and last name (Walter Grant, Jess Thompson, Kevin Shah, Nora Kelly, Rose Murphy) — no fantasy names.
   - Candidates wear the clip-on name badge once they've checked in. Staff wear ID lanyards; Dauntless security wear metal badges.
   - Dialogue comes in three tiers: Tier 1 is generated from `lines`, Tier 2 is a handwritten tree, Tier 3 has deep memory.
   - Schedules run on the game clock with A* navigation through doors the NPC is allowed to open. NPCs claim seats and workstations, queue at reception, stop at the security arch to show a badge or tap a keycard, step around each other, hold NPC↔NPC conversations, bark at the player (greetings, "no running", staff-only areas), and use distance-based LOD.
@@ -165,7 +167,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
   - The crowd murmur grows with the number of people nearby.
   - The PA sounds like horn speakers: roomy indoors, echoing outside.
   - Each simulation has its own bed and space.
-- PA announcements: group calls, your own call, reminders, and Elias' final calls. Speech synthesis is optional.
+- PA announcements: group calls, your own call, reminders, and Daniel's final calls. Speech synthesis is optional.
 - Save/Load/Continue with an autosave and six manual slots. A save stores everything: world time, flags, doors, taken items, visited rooms, NPC memory, relationships, positions, quests, inventory and aptitude.
 - Main menu, settings (sensitivity, invert Y, render scale, filtering, wobble, draw distance, FPS counter, volumes, PA voice, room reverb, ambience detail, quest markers, text speed), credits, pause menu, wait menu, and a canvas map of visited rooms. The character sheet shows your candidate number.
 - Saves are versioned. Build 1 saves migrate automatically: renamed NPCs keep their relationships and memory, and the old candidate card becomes the name badge.
@@ -179,22 +181,22 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:** every schedule spot exists and can be reached on the nav grid, every dialogue target node exists, all quest references are valid, every interactable can be reached, and all four zones build.
 - **Dialogue fuzzing:** a random walk through all 30 NPC trees.
-- **Main path**, start to finish: reception → name badge → security arch → PA call → Juno → serum → all three simulations → result → banner → save.
+- **Main path**, start to finish: reception → name badge → security arch → PA call → Claire → serum → all three simulations → result → banner → save.
 - **Checkpoint:** the arm blocks you until you show the badge, and the lamp flashes red when you push at it. NPCs coming through all stop to show a badge or tap a keycard. Ducking under gets you caught when the guard is watching and works unseen while he's busy. The option is greyed out at low Agility. Showing the badge from the inventory works.
 - **Mouse capture:** the mouse stays locked through dialogue (mouse, wheel and click choose), and is re-captured after clicking a choice with a free cursor or closing the Tab menu.
 - **Audio:** per-room reverb and layers from the street to the lobby, hall, washroom, maintenance and courtyard; open-door bleed; the simulation beds; the reverb setting.
 - **Save migration:** a v1 save with the old NPC ids loads with relationships, memory, flags and the badge intact.
 - **Render budget:** the busiest view (the lobby) went from about 280 to about 190 draw calls.
-- **Divergent path:** awareness choices in all three sims give INCONCLUSIVE. Juno's warning, the manual "record it as…" choice, the result slip and the character sheet all reflect it.
+- **Divergent path:** awareness choices in all three sims give INCONCLUSIVE. Claire's warning, the manual "record it as…" choice, the result slip and the character sheet all reflect it.
 - **Passive path:** a player who does nothing still gets through. The dog lunges, the drowning scene plays, and refusing to sit still starts the trial.
-- **Side quests:** every one, including the Pip → Gus → storage → return chain, the lockpick check, the coffee heist, Ruth's archive key and Elias' full arc.
+- **Side quests:** every one, including the Lucy → Gus → storage → return chain, the lockpick check, the coffee heist, Ruth's archive key and Daniel's full arc.
 - **Full-day NPC simulation** (08:00–17:30): no stuck NPCs, no teleports, no failed paths, no doubled seats.
 - **Doors:** locked doors block both ways and open with a key.
 - **Persistence:** save → reload page → Continue restores state. Two playthroughs in one browser session also work.
 
 Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 - Thin props (railings, queue tape, partitions) didn't block NPC paths, so NPCs walked through the checkpoint railings.
-- Juno's results talk didn't auto-start because of a stale NPC distance.
+- Claire's results talk didn't auto-start because of a stale NPC distance.
 - A long NPC walk could trigger the "stuck" teleport.
 - An NPC that started the day queued at reception could stay stuck in line.
 - An infinite loop when waiting "until called" before checking in.
@@ -223,7 +225,7 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 
 1. **The Choosing Ceremony.** A Hub zone with the five bowls, a family-and-candidates crowd scene, and a real choice that sets `player.faction`. The groundwork is already there: aptitude data, `recordedAs`, the divergent flag, faction reputation and NPC memory.
 2. **The first faction zone.** For example, Dauntless arrival: the train jump, the net, the Pit, plus faction-specific quests, ranks and initiation stages. Each faction should get its own `DV.Zones.define` file.
-3. **Consequences.** Payoffs for this build's choices. Juno could be investigated, Elias could transfer, Mara could expose Protocol D, and Gus' past could come up.
+3. **Consequences.** Payoffs for this build's choices. Claire could be investigated, Daniel could transfer, Jenna could expose Protocol D, and Gus' past could come up.
 4. **Content pipeline.** Optional loading of authored glTF characters and props from `assets/`, with procedural fallbacks. A small in-browser dialogue and quest editor would also help, since the trees are already plain data.
 5. **Animation.** Layered upper and lower body, IK feet, facial visemes during speech, and more idle variety.
 6. **Better crowds.** Proper steering or RVO for big crowd scenes like the Choosing Ceremony, plus daily routines across multiple days and zones.

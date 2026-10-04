@@ -40,6 +40,7 @@
       DV.NPCs.init(this.scene);
       DV.Input.init(canvas);
       DV.UI.init();
+      DV.Cursor.init();
       DV.DialogueUI.init();
       DV.RPGMenu.init();
       this.resize();
@@ -313,6 +314,7 @@
       }
       DV.World.update(dt, this.camera);
       DV.Soundscape.update(dt);
+      DV.Cursor.update(this);
       this.renderer.render(this.scene, this.camera);
       DV.Input.endFrame();
     },
@@ -477,6 +479,7 @@
       if (!force && DV.Player.state === 'sitting' && U.dist(DV.Player.x, DV.Player.z, npc.x, npc.z) > 2.6) return;
       const ok = DV.Dialogue.start(npc.id, opts);
       if (!ok) return;
+      if (npc.id === 'martha_bell' && !DV.State.flag('checked_in') && DV.Reception) DV.Reception.cutInLine();
       this.state = 'dialogue';
       this.npcSpeaking = npc.id;
       DV.NPCAI.beginTalk(npc);
@@ -585,13 +588,14 @@
     openRPGMenu(tab) {
       if (this.inSimulation() && tab !== 'character' && tab) { DV.UI.notify('Your thoughts are elsewhere.'); return; }
       this.state = 'menu';
-      DV.Input.exitLock();
+      // with the in-game cursor the mouse stays captured; otherwise free it for the menu
+      if (!DV.Cursor.enabled()) DV.Input.exitLock();
       DV.Input.clearMovement();
       DV.RPGMenu.open(tab);
     },
     openWait() {
       this.state = 'wait';
-      DV.Input.exitLock();
+      if (!DV.Cursor.enabled()) DV.Input.exitLock();
       DV.Menus.showWait();
     },
     closeOverlay() {
@@ -687,14 +691,14 @@
         this.lastRoom = null;
         DV.UI.fade(0, 2200, true).then(() => {
           this.state = 'playing';
-          const juno = DV.NPCs.get('juno_ashgrove');
-          if (juno && juno.present) this.talkTo(juno, true);
+          const tech = DV.NPCs.get('claire_dawson');
+          if (tech && tech.present) this.talkTo(tech, true);
         });
       });
     },
     showCompletion() {
       this.state = 'banner';
-      DV.Input.exitLock();
+      if (!DV.Cursor.enabled()) DV.Input.exitLock();
       DV.Audio.setMusic('calm');
       DV.UI.banner('APTITUDE TEST COMPLETE', 'YOUR CHOOSING CEREMONY AWAITS.', 'Click or press any key to keep exploring · Build 1 complete', () => {
         DV.UI.modalOpen = null;

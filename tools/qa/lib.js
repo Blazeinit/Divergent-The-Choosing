@@ -96,8 +96,22 @@ exports.helpers = (page) => page.evaluate(() => {
         if (keepPlayerAt) DV.Player.place(keepPlayerAt[0], keepPlayerAt[1], 0);
       }
     },
-    checkIn() { QA.talk('marion_hale'); QA.pick('{name}'.replace('{name}', DV.State.data.player.name)); QA.end(); return DV.Inventory.has('name_badge'); },
-    clearSecurity() { QA.talk('kade_mercer'); QA.seq(['show your name badge', 'arms out']); QA.end(); return !!DV.State.flag('security_cleared'); },
+    // click a page element the way the player would: through the in-game cursor while the
+    // mouse is captured (Playwright's real clicks land at screen coordinates, not on the
+    // game's cursor), or a plain click when the mouse is free
+    click(sel, text) {
+      const el = [...document.querySelectorAll(sel)].find((e) => !text || e.textContent.indexOf(text) >= 0);
+      if (!el) return 'NO ' + sel + (text ? ' "' + text + '"' : '');
+      const r = el.getBoundingClientRect();
+      if (DV.Cursor.active && DV.Input.locked) {
+        DV.Cursor.moveBy(r.left + r.width / 2 - DV.Cursor.x, r.top + r.height / 2 - DV.Cursor.y);
+        DV.Input.canvas.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }));
+        window.dispatchEvent(new MouseEvent('mouseup', { button: 0, bubbles: true }));
+      } else el.click();
+      return 'ok';
+    },
+    checkIn() { QA.talk('martha_bell'); QA.pick('{name}'.replace('{name}', DV.State.data.player.name)); QA.end(); return DV.Inventory.has('name_badge'); },
+    clearSecurity() { QA.talk('dean_walsh'); QA.seq(['show your name badge', 'arms out']); QA.end(); return !!DV.State.flag('security_cleared'); },
   };
 });
 

@@ -43,11 +43,16 @@
         this.keys = {};
       });
       document.addEventListener('mousemove', (e) => {
+        if (e.vcursor) return;
         if (this.locked) {
           // ignore absurd spikes some browsers produce right after locking
           if (Math.abs(e.movementX) < 400 && Math.abs(e.movementY) < 400) {
-            this.mouseDX += e.movementX;
-            this.mouseDY += e.movementY;
+            // a window is up: the movement drives the in-game cursor, not the camera
+            if (DV.Cursor && DV.Cursor.active) DV.Cursor.moveBy(e.movementX, e.movementY);
+            else {
+              this.mouseDX += e.movementX;
+              this.mouseDY += e.movementY;
+            }
           }
         } else if (this.dragging) {
           this.mouseDX += e.movementX || 0;
@@ -55,19 +60,25 @@
         }
       });
       canvas.addEventListener('mousedown', (e) => {
-        this.dragging = true;
+        if (e.vcursor) return;
         this.clicks++;
+        // captured mouse + in-game cursor over a window: the click goes to the page under the cursor
+        if (DV.Cursor && DV.Cursor.onDown(e)) return;
+        this.dragging = true;
         // with the pointer captured, clicks are game input (e.g. confirm a dialogue choice)
         if (e.button === 0 && this.locked) this.pressed.MouseLeft = true;
         DV.Events.emit('input:canvasClick', e);
       });
-      window.addEventListener('mouseup', () => {
+      window.addEventListener('mouseup', (e) => {
+        if (e.vcursor) return;
         this.dragging = false;
+        if (DV.Cursor) DV.Cursor.onUp(e);
       });
       canvas.addEventListener('contextmenu', (e) => e.preventDefault());
       canvas.addEventListener('wheel', (e) => {
-        this.wheel += Math.sign(e.deltaY);
         e.preventDefault();
+        if (DV.Cursor && DV.Cursor.onWheel(e)) return; // scrolled a list under the in-game cursor
+        this.wheel += Math.sign(e.deltaY);
       }, { passive: false });
       document.addEventListener('pointerlockchange', () => {
         const was = this.locked;

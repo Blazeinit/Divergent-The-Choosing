@@ -53,7 +53,7 @@
     staff: [
       [[0, 'Room three is still offline.'], [1, 'Calibration again?'], [0, 'Something in the serum lot. Don\'t ask me.']],
       [[0, 'How many today?'], [1, 'Forty-one in our sector. Seven left.'], [0, 'Coffee first.']],
-      [[0, 'Wren wants every inconclusive flagged in person.'], [1, 'There won\'t be any.'], [0, 'There never are. Officially.']],
+      [[0, 'Pierce wants every inconclusive flagged in person.'], [1, 'There won\'t be any.'], [0, 'There never are. Officially.']],
       [[0, 'Did you see the Amity kid crying?'], [1, 'They all cry. The Dauntless ones just hide it worse.']],
     ],
     mixed: [
@@ -71,7 +71,7 @@
     'The courtyard is open to candidates who have completed testing.',
     'Testing Room Three remains out of service. Group schedules have been adjusted.',
     'Please keep the central aisle of the waiting hall clear.',
-    'Staff member Gus Ferro, please report to the east corridor.',
+    'Staff member Gus Novak, please report to the east corridor.',
     'Water is available at the stations in the waiting hall. Please hydrate before testing.',
     'A reminder: the Choosing Ceremony will take place tomorrow at the Hub. Faction before blood.',
     'Will the owner of a blue lanyard left at reception please collect it.',

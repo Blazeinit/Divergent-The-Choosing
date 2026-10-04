@@ -41,6 +41,14 @@
       let idx = -1;
       for (let i = 0; i < s.list.length; i++) if (U.parseTime(s.list[i].t) <= now) idx = i;
       if (idx < 0) return { entry: null, key: s.key + ':pre:' + DV.Clock.day() };
+      // the reception line: nobody leaves it before they've been served (up to 25 minutes),
+      // and once they have their badge they move straight on to their next entry
+      for (let i = idx; i >= 0 && i >= idx - 3; i--) {
+        if (!DV.Reception || !DV.Reception.isQueueSpot(s.list[i].to)) continue;
+        if (npc.served && i === idx && s.list[i + 1]) idx = i + 1;
+        else if (!npc.served && npc.inLine && i < idx && now - U.parseTime(s.list[i].t) < 25) idx = i;
+        break;
+      }
       return { entry: s.list[idx], key: s.key + ':' + idx + ':' + DV.Clock.day() + (s.key === 'ovr' ? ':' + JSON.stringify(s.list[0]) : '') };
     },
 
@@ -76,6 +84,8 @@
       if (!zone || zone.id !== (npc.def.zone || 'testing_center')) return;
       // candidates get their name badge at reception: any later task means they have it
       if (npc.def.role === 'candidate' && ((npc.spot && /^reception_q/.test(npc.spot.id)) || (e && e.do !== 'arrive'))) npc.badgeOn = true;
+      const toLine = !!(e && DV.Reception && DV.Reception.isQueueSpot(e.to) && DV.Reception.active());
+      if (npc.inLine && !toLine) DV.Reception.leave(npc);
       this.releaseSpot(npc);
       npc.action = 'idle';
       npc.path = null;
@@ -95,6 +105,14 @@
           const a = zone.spot('arrive');
           this.spawnAt(npc, a.x + U.rand(-1, 1), a.z + U.rand(-0.5, 0.5), Math.PI);
         }
+      }
+      if (toLine) {
+        // join the reception line (DV.Reception walks them up as it moves)
+        npc.mode = 'queued';
+        npc.rotTarget = DV.Reception.rot;
+        DV.Reception.join(npc, e, snap);
+        this.syncModel(npc);
+        return;
       }
       if (doIt === 'go' || doIt === 'arrive' || doIt === 'talk') {
         const spot = zone.spot(e.to);
@@ -157,6 +175,7 @@
       npc.path = null;
       const p = npc.purpose;
       if (p === 'leave') { this.despawn(npc); return; }
+      if (p === 'queue') { npc.mode = 'queued'; npc.action = 'idle'; npc.rotTarget = DV.Reception.rot; return; }
       if (p === 'spot') this.arrive(npc, npc.walkSpot, false);
       else if (p === 'wander') { npc.mode = 'waiting'; npc.timer = U.rand(5, 14); npc.action = U.pick(['idle', 'idle', 'arms_crossed', 'idle']); }
       else if (p === 'patrol') { npc.mode = 'waiting'; npc.timer = npc.routeWait; const s = npc.walkSpot; if (s) npc.rotTarget = s.rot; npc.action = 'guard'; }
@@ -259,7 +278,7 @@
           npc.animAcc = 0;
           npc.model.animate(Math.min(adt, 0.1), {
             speed: npc.speed,
-            action: npc.gateShow ? 'badge' : npc.mode === 'walking' ? 'idle' : npc.action,
+            action: npc.poseOverride || (npc.gateShow ? 'badge' : npc.mode === 'walking' ? 'idle' : npc.action),
             seatY: npc.seatY,
             lookYaw: npc.lookYaw,
             talking: npc.mode === 'talking' ? DV.Game && DV.Game.npcSpeaking === npc.id : !!(npc.bark && npc.bark.until > performance.now()),
@@ -322,6 +341,9 @@
           break;
         case 'talking':
           npc.rot = U.dampAngle(npc.rot, U.yawTo(npc.x, npc.z, player.x, player.z), npc.action === 'sit' || npc.action === 'work' ? 0 : 6, dt);
+          break;
+        case 'queued': // standing in the reception line
+          if (npc.rotTarget !== undefined) npc.rot = U.dampAngle(npc.rot, npc.rotTarget, 5, dt);
           break;
       }
       // head tracking toward the player
@@ -427,6 +449,12 @@
       if (npc.bark && npc.bark.until > now) return;
       const room = zone.roomAt(player.x, player.z);
       const isStaff = npc.def.role === 'staff';
+      // reactive: horseplay indoors near staff
+      if (isStaff && this.reactCooldown <= 0 && (player.justJumped || !player.onGround) && npc.dist < 6 && room && !room.exterior) {
+        npc.say(npc.def.faction === 'dauntless' ? U.pick(['Nice hops. Now quit it.', 'Save it for the Pit, candidate.']) : U.pick(['Feet on the floor, please.', 'No jumping in the facility!', 'This is a testing center, not a gymnasium.']));
+        this.reactCooldown = 20;
+        return;
+      }
       // reactive: running indoors near staff
       if (isStaff && this.reactCooldown <= 0 && player.speed > 3.6 && npc.dist < 5 && room && !room.exterior) {
         npc.say(U.pick(['No running in the facility!', 'Walk, please!', 'Slow down, candidate.', 'This isn\'t the Dauntless compound — walk.']));

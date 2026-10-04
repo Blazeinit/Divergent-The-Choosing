@@ -17,11 +17,11 @@
   // who tests where and when (status board + PA)
   const TEST_TABLE = [
     { room: 1, who: 'VANCE, T.', t0: '08:30', t1: '09:10' }, { room: 1, who: 'QUILL, A.', t0: '09:20', t1: '10:00' },
-    { room: 1, who: 'NASH, J.', t0: '10:10', t1: '10:50' }, { room: 1, who: 'HOLLIS, P.', t0: '10:52', t1: '11:32' },
+    { room: 1, who: 'MORGAN, J.', t0: '10:10', t1: '10:50' }, { room: 1, who: 'BARNES, P.', t0: '10:52', t1: '11:32' },
     { room: 2, who: 'ORTIZ, L.', t0: '08:30', t1: '09:10' }, { room: 2, who: 'KESSLER, B.', t0: '09:20', t1: '10:00' },
-    { room: 2, who: 'VOSS, M.', t0: '10:10', t1: '10:52' }, { room: 2, who: 'KWAN, I.', t0: '11:00', t1: '11:40' },
+    { room: 2, who: 'MORALES, J.', t0: '10:10', t1: '10:52' }, { room: 2, who: 'KWAN, I.', t0: '11:00', t1: '11:40' },
     { room: 5, who: 'ROMERO, D.', t0: '08:30', t1: '09:10' }, { room: 5, who: 'PRYCE, O.', t0: '09:20', t1: '10:00' },
-    { room: 5, who: 'DELANEY, R.', t0: '10:10', t1: '10:50' }, { room: 5, who: 'AVERY, N.', t0: '11:00', t1: '11:40' },
+    { room: 5, who: 'RUSSO, R.', t0: '10:10', t1: '10:50' }, { room: 5, who: 'AVERY, N.', t0: '11:00', t1: '11:40' },
   ];
 
   const Story = {
@@ -77,18 +77,18 @@
         if (m === T('09:15')) once('g2', () => this.pa('Group Two candidates, please proceed to the testing wing.'));
         if (m === T('10:05')) once('g3', () => this.pa('Group Three candidates, please proceed to the testing wing.'));
         if (m === T('10:55')) once('g4', () => this.pa('Group Four candidates, please proceed to the testing wing.'));
-        // Elias
-        if (m === T('11:15') && !flag('elias_convinced')) once('e1', () => this.pa('Candidate Elias Thorne, please report to the testing wing. Candidate Elias Thorne.'));
-        if (m === T('11:45') && !flag('elias_convinced')) once('e2', () => this.pa('Final call for candidate Elias Thorne. Testing Room Four.'));
-        if (m >= T('12:00') && !flag('elias_convinced') && !flag('elias_missed')) {
-          setFlag('elias_missed');
-          if (DV.Quests.isActive('cold_feet')) DV.Quests.fail('cold_feet', 'Noon passed. Elias Thorne was marked absent and will be tested "under supervision" at the Hub.');
-          this.refreshNPC('elias_thorne');
+        // Daniel
+        if (m === T('11:15') && !flag('daniel_convinced')) once('e1', () => this.pa('Candidate Daniel Webb, please report to the testing wing. Candidate Daniel Webb.'));
+        if (m === T('11:45') && !flag('daniel_convinced')) once('e2', () => this.pa('Final call for candidate Daniel Webb. Testing Room Four.'));
+        if (m >= T('12:00') && !flag('daniel_convinced') && !flag('daniel_missed')) {
+          setFlag('daniel_missed');
+          if (DV.Quests.isActive('cold_feet')) DV.Quests.fail('cold_feet', 'Noon passed. Daniel Webb was marked absent and will be tested "under supervision" at the Hub.');
+          this.refreshNPC('daniel_webb');
         }
-        if (m >= T('12:10') && flag('elias_convinced') && !flag('elias_tested')) {
-          setFlag('elias_tested');
-          this.refreshNPC('elias_thorne');
-          if (DV.Quests.isActive('cold_feet')) DV.Quests.log('cold_feet', 'Elias should be finished with his test by now — he\'ll probably be in the courtyard.');
+        if (m >= T('12:10') && flag('daniel_convinced') && !flag('daniel_tested')) {
+          setFlag('daniel_tested');
+          this.refreshNPC('daniel_webb');
+          if (DV.Quests.isActive('cold_feet')) DV.Quests.log('cold_feet', 'Daniel should be finished with his test by now — he\'ll probably be in the courtyard.');
         }
         if (m === T('12:00')) once('lunch', () => this.pa('Staff lunch rotation is now in effect. Candidates who have completed testing may use the courtyard.'));
         if (m === T('17:00')) once('close', () => this.pa('The testing center will close to candidates shortly. Please collect your belongings. The Choosing Ceremony begins tomorrow at the Hub.'));
@@ -119,14 +119,14 @@
           const g = DV.Checkpoint.guard();
           if (flag('security_cleared') || !g) break;
           const now = performance.now();
-          if (this.kadeCalledAt && now - this.kadeCalledAt < 20000) break;
-          this.kadeCalledAt = now;
+          if (this.deanCalledAt && now - this.deanCalledAt < 20000) break;
+          this.deanCalledAt = now;
           if (!flag('checked_in')) g.say('Reception first, candidate. No badge, no arch. Desk\'s behind you — east side.', 4.5);
           else g.say('Badge ready? Over here.', 3.5);
           break;
         }
         case 't_restroom':
-          if (!DV.Quests.started('cold_feet') && DV.Clock.minutes() >= T('08:45') && !flag('elias_convinced') && !flag('elias_missed')) {
+          if (!DV.Quests.started('cold_feet') && DV.Clock.minutes() >= T('08:45') && !flag('daniel_convinced') && !flag('daniel_missed')) {
             DV.UI.notify('Behind the stalls, someone is breathing unevenly — trying very hard to be quiet.');
           }
           break;
@@ -148,7 +148,7 @@
           if (!flag('saw_courtyard')) {
             setFlag('saw_courtyard');
             if (DV.State.data.aptitude.status !== 'complete') {
-              const s = DV.NPCs.get('sorrel_gale');
+              const s = DV.NPCs.get('leo_brooks');
               if (s && s.present) s.say('Oh — you\'re early! Courtyard\'s meant for after. I won\'t tell.', 4);
             }
           }
@@ -168,7 +168,7 @@
           else if (flag('tr4_open')) { status = 'CALLED'; color = '#7fd07f'; }
           else if (flag('checked_in')) status = 'PLEASE WAIT';
           let name = 'ROOM 4  ' + (DV.State.data.player.name || '').toUpperCase().slice(0, 10);
-          if (a.status === 'complete' && flag('elias_convinced') && !flag('elias_tested')) { name = 'ROOM 4  THORNE, E.'; status = now >= T('11:30') ? 'IN TEST' : 'NEXT ' + '11:30'; }
+          if (a.status === 'complete' && flag('daniel_convinced') && !flag('daniel_tested')) { name = 'ROOM 4  WEBB, D.'; status = now >= T('11:30') ? 'IN TEST' : 'NEXT ' + '11:30'; }
           rows.push({ name, status, color });
           continue;
         }
@@ -203,6 +203,8 @@
     // staff who can see the player right now (used for theft / lockpicking)
     watchers(range, coneDeg) {
       const p = DV.Player;
+      const sneaking = p.crouched && p.onGround;
+      if (sneaking) range = (range || 8) * 0.6; // crouched and quiet: harder to notice
       const zone = DV.World.current;
       const proom = zone.roomAt(p.x, p.z);
       const cosLim = Math.cos(((coneDeg || 110) * Math.PI) / 180 / 2);
@@ -215,7 +217,7 @@
         if (d > (range || 8)) continue;
         const fx = Math.sin(n.rot + n.lookYaw), fz = Math.cos(n.rot + n.lookYaw);
         const sees = (dx * fx + dz * fz) / Math.max(d, 0.01) > cosLim;
-        const hears = d < 2.6 && (p.speed > 3 || DV.Stats.attr('agility') < 6);
+        const hears = !sneaking && d < 2.6 && (p.speed > 3 || DV.Stats.attr('agility') < 6);
         if ((sees && zone.colliders.segmentClear(n.x, n.z, p.x, p.z, 1.5)) || hears) out.push(n);
       }
       return out;
@@ -255,7 +257,7 @@
         if (seen.length) {
           const n = seen[0];
           setFlag('coffee_caught');
-          n.say(n.id === 'brann_holt' ? 'HEY! That\'s MY coffee! Out!' : 'Excuse me! That is staff coffee!', 5);
+          n.say(n.id === 'frank_kowalski' ? 'HEY! That\'s MY coffee! Out!' : 'Excuse me! That is staff coffee!', 5);
           DV.Audio.play('error');
           DV.Reputation.addRel(n.id, -6);
           if (DV.Quests.isActive('initiation')) {
@@ -290,10 +292,10 @@
       if (!flag('lf_bird') && !DV.Quests.isDone('lost_bird') && !flag('kept_bird')) {
         setFlag('lf_bird');
         DV.Inventory.add('wooden_bird');
-        found.push('a small carved wooden bird with the initials P.H.');
+        found.push('a small carved wooden bird with the initials L.B.');
         if (!DV.Quests.started('lost_bird')) {
           DV.Quests.start('lost_bird');
-          DV.Quests.log('lost_bird', 'Found a carved bird marked P.H. in the Lost & Found bin. The notice in the hall mentioned someone named Pip H.');
+          DV.Quests.log('lost_bird', 'Found a carved bird marked L.B. in the Lost & Found bin. The notice in the hall mentioned someone named Lucy B.');
         }
         DV.Quests.setObj('lost_bird', 'find', 'done');
         DV.Quests.setObj('lost_bird', 'storage', 'done', 'Found the carved bird in the Lost & Found bin.');
@@ -302,7 +304,7 @@
       if (!flag('lf_card')) {
         setFlag('lf_card');
         DV.Inventory.add('staff_keycard');
-        found.push('a white keycard on a blue lanyard — CALDER, I.');
+        found.push('a white keycard on a blue lanyard — LIN, S.');
         DV.Quests.start('finders_keepers');
       }
       setFlag('lostfound_searched');
@@ -312,26 +314,26 @@
       DV.UI.showReading('Lost & Found', text);
       return null;
     },
-    wrenDrawer(game, it) {
-      const wren = DV.NPCs.get('cassius_wren');
+    pierceDrawer(game, it) {
+      const dir = DV.NPCs.get('alan_pierce');
       const zone = DV.World.current;
-      if (wren && wren.present && zone.roomAt(wren.x, wren.z) && zone.roomAt(wren.x, wren.z).id === 'director') {
-        wren.say('Can I help you find something, candidate?', 4);
-        DV.Reputation.addRel('cassius_wren', -8);
-        setFlag('wren_watching');
-        return { message: 'Dr. Wren is watching you very closely.' };
+      if (dir && dir.present && zone.roomAt(dir.x, dir.z) && zone.roomAt(dir.x, dir.z).id === 'director') {
+        dir.say('Can I help you find something, candidate?', 4);
+        DV.Reputation.addRel('alan_pierce', -8);
+        setFlag('pierce_watching');
+        return { message: 'Dr. Pierce is watching you very closely.' };
       }
-      if (flag('took_wren_key')) return { message: 'A fountain pen, ration slips, and a photograph turned face-down. Nothing else.' };
+      if (flag('took_pierce_key')) return { message: 'A fountain pen, ration slips, and a photograph turned face-down. Nothing else.' };
       const seen = Story.watchers(8, 120);
       if (seen.length) {
         seen[0].say('What are you doing in the Director\'s desk?', 4);
         return { message: 'Someone is watching.' };
       }
-      setFlag('took_wren_key');
+      setFlag('took_pierce_key');
       DV.Stats.practice('stealth', 2);
       if (!DV.Inventory.has('records_key')) DV.Inventory.add('records_key');
       DV.UI.showReading('Desk Drawer', 'Inside: a fountain pen, a stack of ration slips, a photograph turned face-down — a young man in Erudite blue, laughing — and a small steel key tagged RECORDS.\n\nYou take the key.');
-      if (DV.Quests.isActive('protocol_d')) DV.Quests.activate('protocol_d', 'archive', 'You took the Records key from Dr. Wren\'s drawer.');
+      if (DV.Quests.isActive('protocol_d')) DV.Quests.activate('protocol_d', 'archive', 'You took the Records key from Dr. Pierce\'s drawer.');
       return null;
     },
     protocolBox(game, it) {
@@ -350,13 +352,13 @@
       const a = DV.State.data.aptitude;
       if (a.status === 'complete') return { message: 'You\'ve already taken your test. The chair is still warm.' };
       if (!flag('tr4_open')) return { message: 'Not yet. Wait to be called.' };
-      const juno = DV.NPCs.get('juno_ashgrove');
-      if (!DV.State.npc('juno_ashgrove').mem.briefed) {
-        if (juno) juno.say('Talk to me first — then the chair.', 3.5);
+      const tech = DV.NPCs.get('claire_dawson');
+      if (!DV.State.npc('claire_dawson').mem.briefed) {
+        if (tech) tech.say('Talk to me first — then the chair.', 3.5);
         return null;
       }
       game.sitOn(game.zone().spot('tr4_chair'), true);
-      DV.Dialogue.startScene('juno_serum', { speaker: 'Juno Ashgrove', faction: 'erudite' });
+      DV.Dialogue.startScene('claire_serum', { speaker: 'Claire Dawson', faction: 'erudite' });
       return null;
     },
     readEnvelope(game) {
@@ -366,7 +368,7 @@
     },
     readResultSlip() {
       const a = DV.State.data.aptitude;
-      let text = 'APTITUDE TESTING CENTER — SECTOR 4\n\nCANDIDATE 4-17: ' + DV.State.data.player.name.toUpperCase() + '\nRESULT: ' + DV.Factions.name(a.recordedAs || a.result).toUpperCase() + '\nTECHNICIAN: J. ASHGROVE\n\nThis result is advisory. The Choosing Ceremony is the sole determinant of faction membership.';
+      let text = 'APTITUDE TESTING CENTER — SECTOR 4\n\nCANDIDATE 4-17: ' + DV.State.data.player.name.toUpperCase() + '\nRESULT: ' + DV.Factions.name(a.recordedAs || a.result).toUpperCase() + '\nTECHNICIAN: C. DAWSON\n\nThis result is advisory. The Choosing Ceremony is the sole determinant of faction membership.';
       if (a.divergent) text += '\n\n(On the back, in tiny pencil: "Tell no one. Burn this after the Ceremony. — J.")';
       return { read: { title: 'Aptitude Result Slip', text } };
     },
@@ -374,7 +376,7 @@
 
   function envelopeText() {
     const p = DV.State.data.player;
-    return 'SCHEDULE AMENDMENT — SECTOR 4 — CONFIDENTIAL\nTo: Dr. C. Wren, Director\n\nCandidates flagged for additional review under PROTOCOL D (pre-assessment indicators):\n\n  • E. THORNE (Abnegation) — Council family. Handle discreetly.\n  • CANDIDATE 4-17, ' + p.name.toUpperCase() + ' (' + DV.Factions.name(p.upbringing) + ') — requested neutral garments. Monitor.\n  • M. VOSS (Candor) — has been asking questions of staff.\n\nTechnicians are NOT to be informed of flags.\n\n— Erudite Oversight';
+    return 'SCHEDULE AMENDMENT — SECTOR 4 — CONFIDENTIAL\nTo: Dr. A. Pierce, Director\n\nCandidates flagged for additional review under PROTOCOL D (pre-assessment indicators):\n\n  • D. WEBB (Abnegation) — Council family. Handle discreetly.\n  • CANDIDATE 4-17, ' + p.name.toUpperCase() + ' (' + DV.Factions.name(p.upbringing) + ') — requested neutral garments. Monitor.\n  • J. MORALES (Candor) — has been asking questions of staff.\n\nTechnicians are NOT to be informed of flags.\n\n— Erudite Oversight';
   }
 
   DV.DialogueDB.add('envelope_choice', {
@@ -382,7 +384,7 @@
     nodes: {
       start: {
         speaker: 'Sealed Envelope',
-        text: 'The seal is cheap wax over cheap glue. One fingernail would lift it. Marion asked you to keep it sealed.',
+        text: 'The seal is cheap wax over cheap glue. One fingernail would lift it. Martha asked you to keep it sealed.',
         choices: [
           { text: 'Lift the seal and read it.', to: 'read' },
           { text: 'Leave it sealed.', end: true, effect: () => DV.Reputation.add('abnegation', 1, true) },
@@ -393,8 +395,8 @@
         text: () => envelopeText(),
         onEnter: () => {
           DV.State.setFlag('read_envelope');
-          DV.State.note('I read the envelope Marion gave me. Elias, Mara and I are flagged for "additional review under Protocol D."');
-          if (DV.Quests.isActive('protocol_d')) DV.Quests.log('protocol_d', 'The envelope for Dr. Wren listed candidates flagged under Protocol D — including Elias Thorne, Mara Voss, and you.');
+          DV.State.note('I read the envelope Martha gave me. Daniel, Jenna and I are flagged for "additional review under Protocol D."');
+          if (DV.Quests.isActive('protocol_d')) DV.Quests.log('protocol_d', 'The envelope for Dr. Pierce listed candidates flagged under Protocol D — including Daniel Webb, Jenna Morales, and you.');
         },
         choices: [{ text: '(Fold it back into the envelope.)', end: true }],
       },

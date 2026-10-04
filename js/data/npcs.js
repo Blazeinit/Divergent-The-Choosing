@@ -16,12 +16,12 @@
 
   /* ============================== STAFF ============================== */
   add({
-    id: 'juno_ashgrove', name: 'Juno Ashgrove', age: 34, sex: 'f', faction: 'erudite', role: 'staff', tier: 3,
+    id: 'claire_dawson', name: 'Claire Dawson', age: 34, sex: 'f', faction: 'erudite', role: 'staff', tier: 3,
     title: 'Aptitude Technician — Room 4',
     personality: 'Warm, quick, quietly anxious. Born Amity, transferred to Erudite at sixteen. Believes the test should serve candidates, not catalogue them.',
     appearance: { build: 'slim', face: 4, skin: '#e9bf9b', hair: 'bun', hairColor: '#7e2f1c', eyes: '#3f6b4a', height: 0.98, outfit: Object.assign(labcoat('#2f5f9e'), { bottomColor: '#1d2f4e', shoeColor: '#1b1b22', acc: ['glasses'] }) },
     access: ['testing', 'tr4', 'staff', 'proctor'],
-    dialogue: 'juno',
+    dialogue: 'claire',
     schedules: [
       { if: (c) => c.aptDone(), list: [
         { t: '07:40', do: 'arrive', to: 'brk_coffee_stand' },
@@ -39,12 +39,12 @@
     barks: ['Room Four is almost ready.', 'Deep breaths, everyone.', 'Hm? Oh — hello.'],
   });
   add({
-    id: 'kade_mercer', name: 'Kade Mercer', age: 27, sex: 'm', faction: 'dauntless', role: 'staff', tier: 2,
+    id: 'dean_walsh', name: 'Dean Walsh', age: 27, sex: 'm', faction: 'dauntless', role: 'staff', tier: 2,
     title: 'Dauntless Security',
     personality: 'Blunt, bored, secretly decent. Transferred from Candor, which he never mentions.',
     appearance: { build: 'athletic', face: 1, skin: '#a8704a', hair: 'buzzed', hairColor: '#141210', height: 1.07, outfit: { top: 'jacket', topColor: '#1d1d1f', topColor2: '#3a1d1a', bottomColor: '#1a1a1c', shoes: 'boots', tattoos: ['armL', 'neck'], piercings: ['ear', 'brow'], acc: ['badge'] } },
     access: STAFF_ALL,
-    dialogue: 'kade',
+    dialogue: 'dean',
     schedule: [
       { t: '07:00', do: 'arrive', to: 'guard_post', act: 'guard' },
       { t: '12:00', do: 'go', to: 'brk_t1_c3', act: 'sit' },
@@ -54,12 +54,12 @@
     barks: ['Keep moving.', 'Arms where I can see them. Kidding. Mostly.', 'Next.'],
   });
   add({
-    id: 'rae_dunmore', name: 'Rae Dunmore', age: 24, sex: 'f', faction: 'dauntless', role: 'staff', tier: 1,
+    id: 'jess_thompson', name: 'Jess Thompson', age: 24, sex: 'f', faction: 'dauntless', role: 'staff', tier: 1,
     title: 'Dauntless Patrol',
     personality: 'Restless, sardonic, loves heights and hates standing still.',
     appearance: { build: 'athletic', face: 7, skin: '#d8a27c', hair: 'undercut', hairColor: '#2e1f15', hairDye: '#c4232c', outfit: { top: 'tank', topColor: '#161617', bottomColor: '#1a1a1c', shoes: 'boots', tattoos: ['armL', 'armR'], piercings: ['ear', 'nose'], acc: ['belt'] } },
     access: STAFF_ALL,
-    dialogue: 'rae',
+    dialogue: 'jess',
     schedule: [
       { t: '08:00', do: 'arrive', to: 'lobby_e' },
       { t: '08:05', do: 'patrol', route: ['lobby_e', 'plaza_center', 'plaza_gate', 'plaza_w', 'lobby_w', 'cp_hallside', 'hall_c1', 'hall_c2'], wait: 9 },
@@ -78,12 +78,12 @@
     },
   });
   add({
-    id: 'brann_holt', name: 'Brann Holt', age: 35, sex: 'm', faction: 'dauntless', role: 'staff', tier: 2,
+    id: 'frank_kowalski', name: 'Frank Kowalski', age: 35, sex: 'm', faction: 'dauntless', role: 'staff', tier: 2,
     title: 'Dauntless Security (Off Duty)',
     personality: 'Big, slow to anger, very protective of his coffee.',
     appearance: { build: 'heavy', face: 2, skin: '#c48a62', hair: 'buzzed', hairColor: '#2e1f15', beard: 'short', height: 1.06, outfit: { top: 'jacket', topColor: '#232325', topColor2: '#2a2a30', bottomColor: '#222224', shoes: 'boots', tattoos: ['armR'], acc: ['badge'] } },
     access: STAFF_ALL,
-    dialogue: 'brann',
+    dialogue: 'frank',
     schedule: [
       { t: '07:30', do: 'arrive', to: 'sec_desk', act: 'work' },
       { t: '09:00', do: 'go', to: 'brk_t2_c2', act: 'sit' },
@@ -97,12 +97,12 @@
     barks: ['This coffee is mine.', '*sips loudly*', 'Break room\'s staff only, candidate.'],
   });
   add({
-    id: 'marion_hale', name: 'Marion Hale', age: 52, sex: 'f', faction: 'abnegation', role: 'staff', tier: 2,
+    id: 'martha_bell', name: 'Martha Bell', age: 52, sex: 'f', faction: 'abnegation', role: 'staff', tier: 2,
     title: 'Reception (Abnegation Volunteer)',
     personality: 'Patient, precise, tired in a way she would never mention. Sees everything that passes her desk.',
     appearance: { build: 'slim', face: 3, skin: '#e9bf9b', hair: 'bun', hairColor: '#8d8a85', outfit: { top: 'robe', topColor: '#7d7d78', bottomColor: '#5f5f5b' } },
     access: ['staff', 'records'],
-    dialogue: 'marion',
+    dialogue: 'martha',
     schedule: [
       { t: '07:30', do: 'arrive', to: 'reception_1' },
       { t: '12:00', do: 'go', to: 'brk_t1_c2', act: 'sit' },
@@ -112,17 +112,17 @@
     barks: ['Check-in is here, dear.', 'Next, please.', 'Please wait to be called.'],
   });
   add({
-    id: 'cassius_wren', name: 'Dr. Cassius Wren', age: 48, sex: 'm', faction: 'erudite', role: 'staff', tier: 2,
+    id: 'alan_pierce', name: 'Dr. Alan Pierce', age: 48, sex: 'm', faction: 'erudite', role: 'staff', tier: 2,
     title: 'Facility Director',
     personality: 'Courteous, exacting, intensely curious about anything that does not fit. Reports upward to Erudite Oversight.',
     appearance: { build: 'average', face: 5, skin: '#f3d2b8', hair: 'slicked', hairColor: '#8d8a85', height: 1.04, outfit: { top: 'blazer', topColor: '#1f3d68', topColor2: '#e8eef5', bottomColor: '#1d2f4e', acc: ['glasses', 'tie'], tieColor: '#2f5f9e' } },
     access: ['all'],
-    dialogue: 'wren',
+    dialogue: 'pierce',
     schedule: [
       { t: '08:00', do: 'arrive', to: 'dir_desk', act: 'work' },
       { t: '09:45', do: 'go', to: 'gal_watch', act: 'arms_crossed' },
       { t: '10:30', do: 'go', to: 'dir_desk', act: 'work' },
-      { t: '11:00', do: 'talk', to: 'conf_front', act: 'talk', with: 'ines_calder' },
+      { t: '11:00', do: 'talk', to: 'conf_front', act: 'talk', with: 'sarah_lin' },
       { t: '11:45', do: 'go', to: 'dir_desk', act: 'work' },
       { t: '14:00', do: 'go', to: 'proc_console', act: 'type' },
       { t: '15:00', do: 'go', to: 'dir_desk', act: 'work' },
@@ -132,17 +132,17 @@
     barks: ['Carry on.', 'Hm. Fascinating.', 'Do keep to the public areas.'],
   });
   add({
-    id: 'ines_calder', name: 'Ines Calder', age: 31, sex: 'f', faction: 'erudite', role: 'staff', tier: 2,
+    id: 'sarah_lin', name: 'Sarah Lin', age: 31, sex: 'f', faction: 'erudite', role: 'staff', tier: 2,
     title: 'Testing Proctor',
     personality: 'Brisk, competent, perpetually behind schedule. Lost her keycard this morning and is quietly panicking about it.',
     appearance: { build: 'slim', face: 7, skin: '#c48a62', hair: 'ponytail', hairColor: '#141210', outfit: { top: 'blazer', topColor: '#3b72b6', topColor2: '#e8eef5', bottomColor: '#22385c', bottom: 'skirt', acc: ['glasses'] } },
     access: ['proctor', 'testing', 'tr4', 'staff', 'records'],
-    dialogue: 'ines',
+    dialogue: 'sarah',
     schedule: [
       { t: '07:45', do: 'arrive', to: 'proc_desk1', act: 'work' },
       { t: '09:00', do: 'go', to: 'gal_c4', act: 'type' },
       { t: '10:00', do: 'go', to: 'proc_desk1', act: 'work' },
-      { t: '11:00', do: 'talk', to: 'conf_t_c3', act: 'sit', with: 'cassius_wren' },
+      { t: '11:00', do: 'talk', to: 'conf_t_c3', act: 'sit', with: 'alan_pierce' },
       { t: '11:45', do: 'go', to: 'proc_console', act: 'type' },
       { t: '12:30', do: 'go', to: 'brk_t2_c1', act: 'sit' },
       { t: '13:15', do: 'go', to: 'proc_desk1', act: 'work' },
@@ -151,7 +151,7 @@
     barks: ['Have you seen a keycard? Blue lanyard?', 'Excuse me — schedules.', 'Not now, please.'],
   });
   add({
-    id: 'cyrus_albright', name: 'Cyrus Albright', age: 29, sex: 'm', faction: 'erudite', role: 'staff', tier: 1,
+    id: 'kevin_shah', name: 'Kevin Shah', age: 29, sex: 'm', faction: 'erudite', role: 'staff', tier: 1,
     title: 'Aptitude Technician — Room 1',
     personality: 'Talkative, pedantic, kind under the jargon.',
     appearance: { build: 'slim', face: 0, skin: '#e9bf9b', hair: 'short', hairColor: '#c4a565', outfit: Object.assign(labcoat('#3b72b6'), { bottomColor: '#22385c', acc: ['glasses'] }) },
@@ -159,24 +159,24 @@
     schedule: [
       { t: '07:45', do: 'arrive', to: 'brk_t1_c0', act: 'sit' },
       { t: '08:00', do: 'go', to: 'tr1_tech', act: 'type' },
-      { t: '12:00', do: 'talk', to: 'brk_t1_c0', act: 'sit', with: 'gideon_royce' },
+      { t: '12:00', do: 'talk', to: 'brk_t1_c0', act: 'sit', with: 'tom_garza' },
       { t: '12:45', do: 'go', to: 'gal_c1', act: 'type' },
       { t: '15:00', do: 'go', to: 'adm_cub3', act: 'work' },
       { t: '17:00', do: 'leave' },
     ],
-    convo: [[0, 'Juno keeps reading every candidate twice.'], [1, 'Juno is careful.'], [0, 'Careful about what, though?'], [1, 'Eat your lunch, Cyrus.']],
+    convo: [[0, 'Claire keeps reading every candidate twice.'], [1, 'Claire is careful.'], [0, 'Careful about what, though?'], [1, 'Eat your lunch, Kevin.']],
     lines: {
       greet: ['Ah, a candidate! Fascinating day, isn\'t it?', 'Hello again. Still processing?'],
       role: 'I administer the test in Room One. Well — the serum administers it. I monitor the neural telemetry and try not to sneeze on the console.',
       faction: 'Erudite. My mother designed half the serum delivery protocols. I designed a better coffee filter. We don\'t talk about who\'s prouder.',
       test: 'Three stimulus scenarios, generated from a baseline fear-and-value map, then adapted to you in real time. It reads what you DO. Which is why thinking hard about the "right answer" is pointless. Nobody listens when I say that.',
       extra: [{ q: 'Is the simulation dangerous?', a: 'Physically? No. The serum metabolizes within the hour. Psychologically? Everyone comes out a little rearranged. That\'s rather the point.' }],
-      rumor: 'Between us — Room Three isn\'t "calibrating." A serum lot came back wrong. Lot thirty-three. Wren had it pulled and nobody will say what "wrong" means.',
+      rumor: 'Between us — Room Three isn\'t "calibrating." A serum lot came back wrong. Lot thirty-three. Pierce had it pulled and nobody will say what "wrong" means.',
       post: 'Oh, you\'re out! How do you feel? Dizzy is normal. Elated is normal. Furious is... also normal, actually.',
     },
   });
   add({
-    id: 'gideon_royce', name: 'Gideon Royce', age: 38, sex: 'm', faction: 'candor', role: 'staff', tier: 1,
+    id: 'tom_garza', name: 'Tom Garza', age: 38, sex: 'm', faction: 'candor', role: 'staff', tier: 1,
     title: 'Aptitude Technician — Room 2',
     personality: 'Dry, honest to the point of rudeness, fond of candidates who argue back.',
     appearance: { build: 'heavy', face: 1, skin: '#8a5636', hair: 'short', hairColor: '#141210', beard: 'stubble', outfit: Object.assign(labcoat('#141414', '#f0efe9'), { bottomColor: '#151515', acc: ['tie'], tieColor: '#101010' }) },
@@ -184,7 +184,7 @@
     schedule: [
       { t: '07:48', do: 'arrive', to: 'reception_q3' },
       { t: '07:55', do: 'go', to: 'tr2_tech', act: 'type' },
-      { t: '12:00', do: 'talk', to: 'brk_t1_c1', act: 'sit', with: 'cyrus_albright' },
+      { t: '12:00', do: 'talk', to: 'brk_t1_c1', act: 'sit', with: 'kevin_shah' },
       { t: '12:45', do: 'go', to: 'conf_t_c2', act: 'sit' },
       { t: '14:00', do: 'go', to: 'tr2_tech', act: 'type' },
       { t: '17:00', do: 'leave' },
@@ -195,12 +195,12 @@
       faction: 'Candor. Which means if you ask me something, you\'ll get the answer. Not the comfortable one.',
       test: 'You\'ll sit in a chair, drink something blue, and spend about twenty minutes somewhere that isn\'t real. Then you\'ll wake up and I — or whoever — will tell you what you are. It\'s a guess. A very expensive guess.',
       extra: [{ q: 'Can you lie in the simulation?', a: 'You can lie to anyone in there. The simulation doesn\'t care. The readout does. Lying tells us just as much as truth does — sometimes more.' }],
-      rumor: 'Wren wants every "irregular" result reported to him personally. In person. Within the hour. In fifteen years, I\'ve never seen a director care that much about paperwork.',
+      rumor: 'Pierce wants every "irregular" result reported to him personally. In person. Within the hour. In fifteen years, I\'ve never seen a director care that much about paperwork.',
       post: 'Done? Good. Now stop replaying it. You\'ll make yourself sick.',
     },
   });
   add({
-    id: 'matthias_lowell', name: 'Matthias Lowell', age: 45, sex: 'm', faction: 'abnegation', role: 'staff', tier: 1,
+    id: 'paul_becker', name: 'Paul Becker', age: 45, sex: 'm', faction: 'abnegation', role: 'staff', tier: 1,
     title: 'Aptitude Technician — Room 5',
     personality: 'Gentle, slow-spoken, believes the test is a kindness.',
     appearance: { build: 'slim', face: 3, skin: '#f3d2b8', hair: 'short', hairColor: '#4e3423', outfit: Object.assign(labcoat('#7d7d78'), { bottomColor: '#5f5f5b' }) },
@@ -224,17 +224,17 @@
     },
   });
   add({
-    id: 'willow_fairbrook', name: 'Willow Fairbrook', age: 40, sex: 'f', faction: 'amity', role: 'staff', tier: 2,
+    id: 'rose_murphy', name: 'Rose Murphy', age: 40, sex: 'f', faction: 'amity', role: 'staff', tier: 2,
     title: 'Infirmary Nurse (Amity)',
     personality: 'Unhurried, warm, sharper than her softness suggests. Has patched up a lot of candidates.',
     appearance: { build: 'average', face: 6, skin: '#d8a27c', hair: 'long', hairColor: '#6d3f22', outfit: { top: 'tunic', topColor: '#e0a526', topColor2: '#c0392b', bottomColor: '#7a5531', acc: ['flower'], flowerColor: '#e8c030' } },
     access: ['staff'],
-    dialogue: 'willow',
+    dialogue: 'rose',
     schedule: [
       { t: '07:45', do: 'arrive', to: 'inf_desk', act: 'work' },
       { t: '10:00', do: 'go', to: 'inf_stand', act: 'clipboard' },
       { t: '11:00', do: 'go', to: 'inf_desk', act: 'work' },
-      { t: '12:00', do: 'talk', to: 'inf_stand', act: 'idle', with: 'ruth_calloway' },
+      { t: '12:00', do: 'talk', to: 'inf_stand', act: 'idle', with: 'ruth_abbott' },
       { t: '12:15', do: 'go', to: 'brk_sofa_s1', act: 'sit' },
       { t: '12:50', do: 'go', to: 'inf_desk', act: 'work' },
       { t: '17:00', do: 'leave' },
@@ -242,7 +242,7 @@
     barks: ['Breathe, love.', 'Tea\'s on the desk if you need it.', 'Nobody\'s dying today. I checked.'],
   });
   add({
-    id: 'josiah_pell', name: 'Josiah Pell', age: 61, sex: 'm', faction: 'abnegation', role: 'staff', tier: 1,
+    id: 'walter_grant', name: 'Walter Grant', age: 61, sex: 'm', faction: 'abnegation', role: 'staff', tier: 1,
     title: 'Volunteer Usher',
     personality: 'Elderly, cheerful in a quiet way, hands out water and reassurance.',
     appearance: { build: 'slim', face: 0, skin: '#e9bf9b', hair: 'buzzed', hairColor: '#d9d7d2', height: 0.97, outfit: { top: 'robe', topColor: '#8a8a84', bottomColor: '#6a6a65' } },
@@ -262,12 +262,12 @@
       faction: 'Abnegation. I\'ve served the city since before your parents were born.',
       test: 'I took it in a different building, long ago. They told me "Abnegation." I wept with relief. I\'ve never regretted it — though I have wondered.',
       extra: [{ q: 'Wondered about what?', a: 'Whether relief is the same as belonging. Don\'t mind an old man. Drink some water.' }],
-      rumor: 'The little Thorne boy hasn\'t come out of the washroom in a long while. I knocked. He said he was fine. Abnegation children always say they\'re fine.',
+      rumor: 'The little Webb boy hasn\'t come out of the washroom in a long while. I knocked. He said he was fine. Abnegation children always say they\'re fine.',
       post: 'There you are. You\'ve gone pale. Here — sit, sit.',
     },
   });
   add({
-    id: 'gus_ferro', name: 'Gus Ferro', age: 57, sex: 'm', faction: 'factionless', role: 'staff', tier: 2,
+    id: 'gus_novak', name: 'Gus Novak', age: 57, sex: 'm', faction: 'factionless', role: 'staff', tier: 2,
     title: 'Custodian',
     personality: 'Taciturn, observant, wry. Factionless for twenty years. Once Erudite — he never says so.',
     appearance: { build: 'heavy', face: 1, skin: '#c48a62', hair: 'messy', hairColor: '#8d8a85', beard: 'full', outfit: { top: 'hoodie', topColor: '#4f5548', topColor2: '#3f4447', bottomColor: '#3e3a33', shoes: 'boots', acc: ['patches'] } },
@@ -286,7 +286,7 @@
     barks: ['Floor\'s wet.', '*mops*', 'Mind the bucket.'],
   });
   add({
-    id: 'delia_strand', name: 'Delia Strand', age: 33, sex: 'f', faction: 'candor', role: 'staff', tier: 1,
+    id: 'denise_carter', name: 'Denise Carter', age: 33, sex: 'f', faction: 'candor', role: 'staff', tier: 1,
     title: 'Records Clerk & PA Announcer',
     personality: 'Crisp, bored by small talk, delighted by gossip if it\'s true.',
     appearance: { build: 'average', face: 0, skin: '#6e4128', hair: 'medium', hairColor: '#141210', outfit: { top: 'blazer', topColor: '#f0efe9', topColor2: '#1b1b1b', bottomColor: '#151515', acc: ['tie'], tieColor: '#151515' } },
@@ -299,17 +299,17 @@
       { t: '16:30', do: 'leave' },
     ],
     lines: {
-      greet: ['If you\'re checking in, that\'s Marion. I just read names into a microphone.', 'You again. What?'],
+      greet: ['If you\'re checking in, that\'s Martha. I just read names into a microphone.', 'You again. What?'],
       role: 'Records clerk. And the voice on the PA. Yes, that\'s me. No, I won\'t say your name in a funny voice.',
       faction: 'Candor. I like facts. Facts don\'t sulk.',
       test: 'I don\'t know what happens in there and anyone who says they do is lying. I know how long it takes. Forty minutes, give or take. That\'s a fact.',
-      extra: [{ q: 'Who keeps taking the good stapler?', a: 'Lydia. I have witnesses. She knows I know. She keeps doing it. It\'s fascinating, honestly.' }],
+      extra: [{ q: 'Who keeps taking the good stapler?', a: 'Emily. I have witnesses. She knows I know. She keeps doing it. It\'s fascinating, honestly.' }],
       rumor: 'The Director asked for the names of every candidate who tested "slow" this year. Slow how, I asked. He didn\'t answer. That\'s new.',
       post: 'Your result\'s on file now. No, I can\'t tell you anything about it. No, not even a little.',
     },
   });
   add({
-    id: 'lydia_ashworth', name: 'Lydia Ashworth', age: 26, sex: 'f', faction: 'erudite', role: 'staff', tier: 1,
+    id: 'emily_shaw', name: 'Emily Shaw', age: 26, sex: 'f', faction: 'erudite', role: 'staff', tier: 1,
     title: 'Administrative Clerk',
     personality: 'Nervous energy, fast talker, owns the good stapler.',
     appearance: { build: 'slim', face: 4, skin: '#a8704a', hair: 'long', hairColor: '#141210', outfit: { top: 'cardigan', topColor: '#4a7fc1', topColor2: '#e8eef5', bottomColor: '#22385c', bottom: 'skirt', acc: ['glasses'] } },
@@ -327,13 +327,13 @@
       role: 'Scheduling, transcription, filing. Every result goes through this office before it goes up to Oversight. I file them. I don\'t read them. Mostly.',
       faction: 'Erudite. Second year out of the academy. Everyone here is older and calmer than me, which is statistically unsurprising.',
       test: 'I can tell you the median test length is thirty-eight minutes and the longest this year was seventy. I can\'t tell you why that one was seventy. Nobody told me. I asked twice.',
-      extra: [{ q: 'Do you have the good stapler?', a: '...What? No. Who told you that? Was it Delia? It was Delia. I borrowed it. Borrowing isn\'t stealing. Look, it\'s in my drawer for SAFE KEEPING.' }],
+      extra: [{ q: 'Do you have the good stapler?', a: '...What? No. Who told you that? Was it Denise? It was Denise. I borrowed it. Borrowing isn\'t stealing. Look, it\'s in my drawer for SAFE KEEPING.' }],
       rumor: 'There\'s a file in the archive with a single letter on it. "D." Ruth won\'t let me near that shelf. Ruth lets me near every shelf.',
-      post: 'Your paperwork came through! Nobody tell Delia I said that.',
+      post: 'Your paperwork came through! Nobody tell Denise I said that.',
     },
   });
   add({
-    id: 'ruth_calloway', name: 'Ruth Calloway', age: 66, sex: 'f', faction: 'abnegation', role: 'staff', tier: 2,
+    id: 'ruth_abbott', name: 'Ruth Abbott', age: 66, sex: 'f', faction: 'abnegation', role: 'staff', tier: 2,
     title: 'Records Keeper',
     personality: 'Soft-voiced, iron-spined. Has kept the archive for thirty years and knows exactly which files were never meant to exist.',
     appearance: { build: 'slim', face: 6, skin: '#f3d2b8', hair: 'bun', hairColor: '#d9d7d2', height: 0.95, outfit: { top: 'robe', topColor: '#74736d', bottomColor: '#565652', acc: ['glasses'] } },
@@ -343,14 +343,14 @@
       { t: '07:35', do: 'arrive', to: 'adm_desk5', act: 'work' },
       { t: '09:30', do: 'go', to: 'rec_aisle', act: 'read' },
       { t: '10:15', do: 'go', to: 'adm_desk5', act: 'work' },
-      { t: '12:00', do: 'talk', to: 'inf_chair', act: 'sit', with: 'willow_fairbrook' },
+      { t: '12:00', do: 'talk', to: 'inf_chair', act: 'sit', with: 'rose_murphy' },
       { t: '12:30', do: 'go', to: 'adm_desk5', act: 'work' },
       { t: '16:00', do: 'leave' },
     ],
     barks: ['Mind your step, child.', 'The archive is closed to candidates.', '*hums an old hymn*'],
   });
   add({
-    id: 'sorrel_gale', name: 'Sorrel Gale', age: 22, sex: 'm', faction: 'amity', role: 'staff', tier: 1,
+    id: 'leo_brooks', name: 'Leo Brooks', age: 22, sex: 'm', faction: 'amity', role: 'staff', tier: 1,
     title: 'Groundskeeper (Amity)',
     personality: 'Dreamy, generous, talks to plants more than people.',
     appearance: { build: 'slim', face: 6, skin: '#d8a27c', hair: 'messy', hairColor: '#8f7449', outfit: { top: 'shirt', topColor: '#d4b03a', bottomColor: '#6e4b2a', shoes: 'boots', acc: ['flower', 'rolled'], flowerColor: '#e05030' } },
@@ -367,22 +367,22 @@
       faction: 'Amity. Orchards, songs, too much bread. I miss it every minute I\'m inside these walls.',
       test: 'I was so scared I laughed through the whole thing. The technician thought I\'d broken the machine. Got Amity anyway. Maybe laughing is an answer too.',
       extra: [{ q: 'Do the plants really help?', a: 'Sit by the fountain for five minutes and tell me they don\'t. Go on. I\'ll time you.' }],
-      rumor: 'Pip Hollis — little Amity girl, braids — was crying by the cooler this morning. Lost something precious, I think. She wouldn\'t say what. Amity kids never want to be a bother.',
+      rumor: 'Lucy Barnes — little Amity girl, braids — was crying by the cooler this morning. Lost something precious, I think. She wouldn\'t say what. Amity kids never want to be a bother.',
       post: 'You made it out. Sit by the water a while. Things settle.',
     },
   });
 
   /* ============================== CANDIDATES ============================== */
   add({
-    id: 'mara_voss', name: 'Mara Voss', age: 16, sex: 'f', faction: 'candor', role: 'candidate', tier: 3, onlyDay: 1,
+    id: 'jenna_morales', name: 'Jenna Morales', age: 16, sex: 'f', faction: 'candor', role: 'candidate', tier: 3, onlyDay: 1,
     title: 'Candidate (Candor)',
     personality: 'Sharp, observant, allergic to nonsense. Says the true thing first and the kind thing second, if at all. Investigating something she overheard.',
     appearance: { build: 'average', face: 7, skin: '#e9bf9b', hair: 'medium', hairColor: '#141210', eyes: '#2d4d6b', height: 1.0, outfit: { top: 'blazer', topColor: '#1b1b1b', topColor2: '#f0efe9', bottom: 'pants', bottomColor: '#151515', acc: ['tie'], tieColor: '#f0efe9' } },
     access: ['testing'],
-    dialogue: 'mara',
+    dialogue: 'jenna',
     schedule: [
-      { t: '07:55', do: 'arrive', to: 'reception_q1' },
-      { t: '08:01', do: 'go', to: 'hb_w1a_s1', act: 'sit' },
+      { t: '07:59', do: 'arrive', to: 'reception_q1' },
+      { t: '08:06', do: 'go', to: 'hb_w1a_s1', act: 'sit' },
       { t: '08:40', do: 'go', to: 'hall_board', act: 'arms_crossed' },
       { t: '09:00', do: 'go', to: 'hb_w1a_s1', act: 'sit' },
       { t: '10:05', do: 'go', to: 'corr_tr2' },
@@ -394,47 +394,47 @@
     barks: ['Don\'t hover.', 'You\'re the one in the plain clothes.', 'Mm.'],
   });
   add({
-    id: 'elias_thorne', name: 'Elias Thorne', age: 16, sex: 'm', faction: 'abnegation', role: 'candidate', tier: 3, onlyDay: 1,
+    id: 'daniel_webb', name: 'Daniel Webb', age: 16, sex: 'm', faction: 'abnegation', role: 'candidate', tier: 3, onlyDay: 1,
     title: 'Candidate (Abnegation)',
     personality: 'Quiet, scrupulously polite, terrified. Son of a council member. Afraid the test will reveal he doesn\'t belong — and of the rumors about what happens to those who don\'t.',
     appearance: { build: 'slim', face: 3, skin: '#f3d2b8', hair: 'short', hairColor: '#4e3423', eyes: '#5a5a5a', height: 0.97, outfit: { top: 'shirt', topColor: '#8a8a84', bottom: 'pants', bottomColor: '#5f5f5b' } },
     access: ['testing', 'tr4'],
-    dialogue: 'elias',
+    dialogue: 'daniel',
     schedules: [
-      { if: (c) => c.flag('elias_convinced') && !c.flag('elias_tested'), list: [
+      { if: (c) => c.flag('daniel_convinced') && !c.flag('daniel_tested'), list: [
         { t: '00:00', do: 'go', to: 'hb_w3a_s0', act: 'sit' },
         { t: '11:25', do: 'go', to: 'corr_tr4' },
         { t: '11:30', do: 'go', to: 'tr4_chair', act: 'recline' },
         { t: '12:10', do: 'go', to: 'ct_fountain_s3', act: 'sit' },
         { t: '13:40', do: 'leave' },
       ] },
-      { if: (c) => c.flag('elias_tested'), list: [
+      { if: (c) => c.flag('daniel_tested'), list: [
         { t: '00:00', do: 'go', to: 'ct_fountain_s3', act: 'sit' },
         { t: '13:40', do: 'leave' },
       ] },
-      { if: (c) => c.flag('elias_missed'), list: [
+      { if: (c) => c.flag('daniel_missed'), list: [
         { t: '00:00', do: 'go', to: 'lb_w_s1', act: 'sit' },
         { t: '12:40', do: 'leave' },
       ] },
       { list: [
-        { t: '07:50', do: 'arrive', to: 'reception_q1' },
-        { t: '07:54', do: 'go', to: 'hb_w3a_s0', act: 'sit' },
-        { t: '08:45', do: 'go', to: 'elias_hide', act: 'crouch' },
+        { t: '07:58', do: 'arrive', to: 'reception_q1' },
+        { t: '08:04', do: 'go', to: 'hb_w3a_s0', act: 'sit' },
+        { t: '08:45', do: 'go', to: 'daniel_hide', act: 'crouch' },
         { t: '12:20', do: 'leave' },
       ] },
     ],
     barks: ['S-sorry.', 'Excuse me.', '...'],
   });
   add({
-    id: 'pip_hollis', name: 'Pip Hollis', age: 16, sex: 'f', faction: 'amity', role: 'candidate', tier: 2, onlyDay: 1,
+    id: 'lucy_barnes', name: 'Lucy Barnes', age: 16, sex: 'f', faction: 'amity', role: 'candidate', tier: 2, onlyDay: 1,
     title: 'Candidate (Amity)',
     personality: 'Small, bright, anxious, apologizes to furniture. Lost her grandmother\'s carved bird this morning.',
     appearance: { build: 'slim', face: 6, skin: '#f3d2b8', hair: 'braids', hairColor: '#a2421d', eyes: '#3f6b4a', height: 0.93, freckles: true, outfit: { top: 'tunic', topColor: '#e0a526', topColor2: '#c0392b', bottom: 'longskirt', bottomColor: '#a3402c', acc: ['flower'], flowerColor: '#f0f0e0' } },
     access: ['testing'],
-    dialogue: 'pip',
+    dialogue: 'lucy',
     schedule: [
-      { t: '08:05', do: 'arrive', to: 'reception_q1' },
-      { t: '08:12', do: 'wander', room: 'hall' },
+      { t: '08:12', do: 'arrive', to: 'reception_q1' },
+      { t: '08:18', do: 'wander', room: 'hall' },
       { t: '08:50', do: 'go', to: 'hb_e0a_s1', act: 'sit' },
       { t: '10:45', do: 'go', to: 'corr_tr1' },
       { t: '10:52', do: 'go', to: 'tr1_chair', act: 'recline' },
@@ -444,81 +444,81 @@
     barks: ['Have you seen a little wooden bird?', 'Oh! Sorry. Sorry.', 'Hello!'],
   });
   add({
-    id: 'rook_delaney', name: 'Rook Delaney', age: 16, sex: 'm', faction: 'dauntless', role: 'candidate', tier: 2, onlyDay: 1,
+    id: 'nate_russo', name: 'Nate Russo', age: 16, sex: 'm', faction: 'dauntless', role: 'candidate', tier: 2, onlyDay: 1,
     title: 'Candidate (Dauntless)',
     personality: 'Loud, restless, challenges everyone to something. Brave in the way of someone who has never been allowed to be afraid.',
     appearance: { build: 'athletic', face: 7, skin: '#c48a62', hair: 'mohawk', hairColor: '#141210', hairDye: '#2c5fd6', height: 1.04, outfit: { top: 'jacket', topColor: '#1d1d1f', topColor2: '#2a2a30', bottomColor: '#1a1a1c', shoes: 'boots', tattoos: ['armR'], piercings: ['ear', 'lip'] } },
     access: ['testing'],
-    dialogue: 'rook',
+    dialogue: 'nate',
     schedule: [
-      { t: '08:00', do: 'arrive', to: 'reception_q1' },
-      { t: '08:10', do: 'talk', to: 'hall_g2a', with: 'ty_brennan' },
+      { t: '07:59', do: 'arrive', to: 'reception_q1' },
+      { t: '08:10', do: 'talk', to: 'hall_g2a', with: 'joey_brennan' },
       { t: '08:28', do: 'go', to: 'ct_corner', act: 'arms_crossed' },
       { t: '09:30', do: 'wander', room: 'hall' },
       { t: '10:05', do: 'go', to: 'corr_tr5' },
       { t: '10:10', do: 'go', to: 'tr5_chair', act: 'recline' },
-      { t: '10:50', do: 'talk', to: 'lobby_talk_a', with: 'mags_tierney' },
+      { t: '10:50', do: 'talk', to: 'lobby_talk_a', with: 'kat_malone' },
       { t: '12:10', do: 'leave' },
     ],
     convo: [[0, 'Ten minutes. I\'ll be out in ten.'], [1, 'You said that about the train.'], [0, 'And I made the train.'], [1, 'You made the LAST car.'], [0, 'Still the train.']],
     barks: ['What, you scared?', 'Bet you won\'t.', 'Hey — you. Neutral clothes.'],
   });
   add({
-    id: 'edmund_kell', name: 'Edmund Kell', age: 16, sex: 'm', faction: 'erudite', role: 'candidate', tier: 1, onlyDay: 1,
+    id: 'ben_fischer', name: 'Ben Fischer', age: 16, sex: 'm', faction: 'erudite', role: 'candidate', tier: 1, onlyDay: 1,
     personality: 'Smug, curious, secretly terrified of being average.',
     appearance: { build: 'slim', face: 5, skin: '#e9bf9b', hair: 'slicked', hairColor: '#c4a565', outfit: { top: 'blazer', topColor: '#2f5f9e', topColor2: '#e8eef5', bottomColor: '#1d2f4e', acc: ['glasses'] } },
     access: ['testing'],
     schedule: [
-      { t: '07:52', do: 'arrive', to: 'reception_q1' },
-      { t: '07:58', do: 'go', to: 'hb_w0b_s2', act: 'sit' },
+      { t: '07:58', do: 'arrive', to: 'reception_q1' },
+      { t: '08:05', do: 'go', to: 'hb_w0b_s2', act: 'sit' },
       { t: '08:25', do: 'go', to: 'corr_tr1' },
       { t: '08:30', do: 'go', to: 'tr1_chair', act: 'recline' },
       { t: '09:10', do: 'go', to: 'hb_e2b_s0', act: 'sit' },
-      { t: '10:30', do: 'talk', to: 'ct_picnic1_a0', act: 'sit', with: 'cordelia_wynn' },
+      { t: '10:30', do: 'talk', to: 'ct_picnic1_a0', act: 'sit', with: 'grace_chen' },
       { t: '12:00', do: 'leave' },
     ],
-    convo: [[0, 'Mine was obviously Erudite.'], [1, 'You can\'t know that.'], [0, 'I can infer it.'], [1, 'Inference isn\'t knowledge, Edmund.'], [0, '...That\'s exactly what an Erudite would say.']],
+    convo: [[0, 'Mine was obviously Erudite.'], [1, 'You can\'t know that.'], [0, 'I can infer it.'], [1, 'Inference isn\'t knowledge, Ben.'], [0, '...That\'s exactly what an Erudite would say.']],
     lines: {
       greet: ['Hm? Another candidate.', 'Oh. You again.'],
       nervous: 'Nervous? The test measures tendency, not ability. There\'s nothing to be nervous about. I\'ve said that to myself eleven times this morning.',
       faction: 'Erudite. Obviously. Blue, glasses, vocabulary — I\'m not exactly in disguise.',
       test: 'Three scenarios, by most accounts. Adaptive. I intend to treat each one as a logic problem. The simulation can\'t surprise you if you\'ve already modeled it.',
       extra: [{ q: 'What if it does surprise you?', a: '...Then I\'ll model that. Next question.' }],
-      rumor: 'One of the technicians — the red-haired one, Ashgrove — used to be Amity. Transferred. Erudite who used to be Amity. You can always tell; they say "please" too much.',
+      rumor: 'One of the technicians — the red-haired one, Dawson — used to be Amity. Transferred. Erudite who used to be Amity. You can always tell; they say "please" too much.',
       post: 'I... yes. It went fine. It was a dog. It\'s not relevant. Erudite, I\'m sure. Fairly sure.',
     },
   });
   add({
-    id: 'mags_tierney', name: 'Mags Tierney', age: 16, sex: 'f', faction: 'dauntless', role: 'candidate', tier: 1, onlyDay: 1,
-    personality: 'Cool, dry, protective of Rook in a sisterly, eye-rolling way.',
+    id: 'kat_malone', name: 'Kat Malone', age: 16, sex: 'f', faction: 'dauntless', role: 'candidate', tier: 1, onlyDay: 1,
+    personality: 'Cool, dry, protective of Nate in a sisterly, eye-rolling way.',
     appearance: { build: 'athletic', face: 4, skin: '#a8704a', hair: 'ponytail', hairColor: '#141210', outfit: { top: 'jacket', topColor: '#161617', topColor2: '#3a1d1a', bottomColor: '#1a1a1c', shoes: 'boots', piercings: ['ear', 'brow'], tattoos: ['neck'] } },
     access: ['testing'],
     schedule: [
-      { t: '08:10', do: 'arrive', to: 'reception_q1' },
+      { t: '08:12', do: 'arrive', to: 'reception_q1' },
       { t: '08:16', do: 'go', to: 'hb_e1b_s3', act: 'sit' },
       { t: '08:25', do: 'go', to: 'corr_tr2' },
       { t: '08:30', do: 'go', to: 'tr2_chair', act: 'recline' },
-      { t: '09:10', do: 'talk', to: 'lobby_talk_b', with: 'rook_delaney' },
+      { t: '09:10', do: 'talk', to: 'lobby_talk_b', with: 'nate_russo' },
       { t: '12:10', do: 'leave' },
     ],
     lines: {
       greet: ['What.', 'You again. Hi.'],
       nervous: 'Nervous? I\'m Dauntless. We don\'t get nervous. We get "focused."',
-      faction: 'Dauntless. Same as Rook — we grew up three doors apart over the Pit. Someone has to stop him jumping off things.',
+      faction: 'Dauntless. Same as Nate — we grew up three doors apart over the Pit. Someone has to stop him jumping off things.',
       test: 'Don\'t think. Just move. That\'s all the advice you\'re getting from me.',
-      extra: [{ q: 'Is Rook always like this?', a: 'Since he was six. He dared a train once. The train won. He still says it was a draw.' }],
-      rumor: 'Rook\'s been daring people all morning. If he tries it on you, say no. Or say yes and do something better. He hates that.',
+      extra: [{ q: 'Is Nate always like this?', a: 'Since he was six. He dared a train once. The train won. He still says it was a draw.' }],
+      rumor: 'Nate\'s been daring people all morning. If he tries it on you, say no. Or say yes and do something better. He hates that.',
       post: 'Done? Same. Don\'t talk about it. I don\'t want to hear what you saw, and I really don\'t want to tell you what I saw.',
     },
   });
   add({
-    id: 'ty_brennan', name: 'Ty "Torch" Brennan', age: 16, sex: 'm', faction: 'dauntless', role: 'candidate', tier: 1, onlyDay: 1,
+    id: 'joey_brennan', name: 'Joey Brennan', age: 16, sex: 'm', faction: 'dauntless', role: 'candidate', tier: 1, onlyDay: 1,
     personality: 'Loud laugh, big heart, faints at the sight of needles.',
     appearance: { build: 'heavy', face: 2, skin: '#6e4128', hair: 'undercut', hairColor: '#141210', hairDye: '#2fa84f', outfit: { top: 'tshirt', topColor: '#1d1d1f', bottomColor: '#222224', shoes: 'boots', tattoos: ['armL', 'armR'] } },
     access: ['testing'],
     schedule: [
-      { t: '08:00', do: 'arrive', to: 'reception_q2' },
-      { t: '08:10', do: 'talk', to: 'hall_g2b', with: 'rook_delaney' },
+      { t: '08:00', do: 'arrive', to: 'reception_q1' },
+      { t: '08:10', do: 'talk', to: 'hall_g2b', with: 'nate_russo' },
       { t: '08:25', do: 'go', to: 'corr_tr5' },
       { t: '08:30', do: 'go', to: 'tr5_chair', act: 'recline' },
       { t: '09:10', do: 'go', to: 'inf_bed2', act: 'lie' },
@@ -531,22 +531,22 @@
       faction: 'Dauntless! Black clothes, big jumps, bad decisions. Best faction.',
       test: 'They inject you, you see stuff, you wake up. I\'m going to look away for the injecting part. And the stuff part. Maybe all the parts.',
       extra: [{ q: 'Are you afraid of needles?', a: 'I\'m not AFRAID. I\'m... respectfully cautious. Of the pointy end.' }],
-      rumor: 'Rook says if you can steal a cup of staff coffee without getting caught, you\'re basically initiated already. Rook says a lot of things.',
+      rumor: 'Nate says if you can steal a cup of staff coffee without getting caught, you\'re basically initiated already. Nate says a lot of things.',
       post: 'I fainted! Before the serum even worked! Then I had a whole dream about a wolf. The nurse was very nice about it.',
     },
   });
   add({
-    id: 'cordelia_wynn', name: 'Cordelia Wynn', age: 16, sex: 'f', faction: 'erudite', role: 'candidate', tier: 1, onlyDay: 1,
+    id: 'grace_chen', name: 'Grace Chen', age: 16, sex: 'f', faction: 'erudite', role: 'candidate', tier: 1, onlyDay: 1,
     personality: 'Studious, precise, quietly competitive. Brought flashcards to an aptitude test.',
     appearance: { build: 'average', face: 0, skin: '#d8a27c', hair: 'bun', hairColor: '#2e1f15', outfit: { top: 'cardigan', topColor: '#25497a', topColor2: '#8fb6e3', bottomColor: '#22385c', bottom: 'skirt', acc: ['glasses'] } },
     access: ['testing'],
     schedule: [
-      { t: '08:18', do: 'arrive', to: 'reception_q1' },
+      { t: '08:13', do: 'arrive', to: 'reception_q1' },
       { t: '08:24', do: 'go', to: 'hb_w0a_s0', act: 'sit' },
       { t: '09:15', do: 'go', to: 'corr_tr1' },
       { t: '09:20', do: 'go', to: 'tr1_chair', act: 'recline' },
       { t: '10:00', do: 'go', to: 'hb_e2a_s3', act: 'sit' },
-      { t: '10:30', do: 'talk', to: 'ct_picnic1_a1', act: 'sit', with: 'edmund_kell' },
+      { t: '10:30', do: 'talk', to: 'ct_picnic1_a1', act: 'sit', with: 'ben_fischer' },
       { t: '12:00', do: 'leave' },
     ],
     lines: {
@@ -555,18 +555,18 @@
       faction: 'Erudite. My family runs the third-floor library. I was raised in the stacks.',
       test: 'Nobody knows. That\'s what bothers me. Every other test I\'ve ever taken had a syllabus.',
       extra: [{ q: 'What are the flashcards for?', a: 'Faction histories, founding statutes, serum chemistry. Will any of it come up? Probably not. It\'s what I do with fear. Some people bite their nails.' }],
-      rumor: 'The archive has files going back to the founding. Including people who tested "irregular." Ruth Calloway keeps them. She\'s the only person here who frightens me.',
-      post: 'I can\'t stop shaking. Is that normal? Edmund says it\'s normal. Edmund also says the moon is "probably" made of rock.',
+      rumor: 'The archive has files going back to the founding. Including people who tested "irregular." Ruth Abbott keeps them. She\'s the only person here who frightens me.',
+      post: 'I can\'t stop shaking. Is that normal? Ben says it\'s normal. Ben also says the moon is "probably" made of rock.',
     },
   });
   add({
-    id: 'rafe_dorsey', name: 'Rafe Dorsey', age: 16, sex: 'm', faction: 'candor', role: 'candidate', tier: 1, onlyDay: 1,
+    id: 'josh_miller', name: 'Josh Miller', age: 16, sex: 'm', faction: 'candor', role: 'candidate', tier: 1, onlyDay: 1,
     personality: 'Big, booming, tactless, laughs at his own honesty.',
     appearance: { build: 'heavy', face: 1, skin: '#d8a27c', hair: 'short', hairColor: '#6d3f22', outfit: { top: 'shirt', topColor: '#f0efe9', bottomColor: '#151515', acc: ['tie'], tieColor: '#101010' } },
     access: ['testing'],
     schedule: [
-      { t: '08:22', do: 'arrive', to: 'reception_q1' },
-      { t: '08:28', do: 'talk', to: 'hall_g1a', with: 'nora_halloran' },
+      { t: '08:13', do: 'arrive', to: 'reception_q1' },
+      { t: '08:28', do: 'talk', to: 'hall_g1a', with: 'nora_kelly' },
       { t: '09:15', do: 'go', to: 'corr_tr2' },
       { t: '09:20', do: 'go', to: 'tr2_chair', act: 'recline' },
       { t: '10:00', do: 'go', to: 'hb_e1a_s0', act: 'sit' },
@@ -585,12 +585,12 @@
     },
   });
   add({
-    id: 'juniper_nash', name: 'Juniper Nash', age: 16, sex: 'f', faction: 'amity', role: 'candidate', tier: 1, onlyDay: 1,
+    id: 'abby_morgan', name: 'Abby Morgan', age: 16, sex: 'f', faction: 'amity', role: 'candidate', tier: 1, onlyDay: 1,
     personality: 'Sunny, sing-song, notices when people are sad.',
     appearance: { build: 'average', face: 2, skin: '#e9bf9b', hair: 'long', hairColor: '#c4a565', outfit: { top: 'tunic', topColor: '#d9822b', topColor2: '#f0d890', bottomColor: '#8c6a3f', bottom: 'longskirt', acc: ['flower'], flowerColor: '#e8c030' } },
     access: ['testing'],
     schedule: [
-      { t: '08:34', do: 'arrive', to: 'reception_q1' },
+      { t: '08:28', do: 'arrive', to: 'reception_q1' },
       { t: '08:40', do: 'go', to: 'hb_e0b_s1', act: 'sit' },
       { t: '10:05', do: 'go', to: 'corr_tr1' },
       { t: '10:10', do: 'go', to: 'tr1_chair', act: 'recline' },
@@ -602,18 +602,18 @@
       nervous: 'A little! But I hummed the harvest song in the bus and now I\'m only a little-little nervous.',
       faction: 'Amity! I\'m from the eastern orchards. We have a goat named Councilwoman.',
       test: 'I hope there\'s a garden in it. There probably isn\'t a garden in it.',
-      extra: [{ q: 'Is Pip all right?', a: 'Pip lost her bird. Her grandmother carved it. She\'s pretending she\'s fine, which is how you know she isn\'t. If you find it, you\'d make her whole year.' }],
-      rumor: 'The Candor girl with the black hair — Mara — has been asking the staff weird questions. Like a detective. It\'s a little scary. And a little cool.',
+      extra: [{ q: 'Is Lucy all right?', a: 'Lucy lost her bird. Her grandmother carved it. She\'s pretending she\'s fine, which is how you know she isn\'t. If you find it, you\'d make her whole year.' }],
+      rumor: 'The Candor girl with the black hair — Jenna — has been asking the staff weird questions. Like a detective. It\'s a little scary. And a little cool.',
       post: 'There wasn\'t a garden. There was water. Lots of water. I\'m okay! I\'m okay.',
     },
   });
   add({
-    id: 'samuel_penrose', name: 'Samuel Penrose', age: 16, sex: 'm', faction: 'abnegation', role: 'candidate', tier: 1, onlyDay: 1,
-    personality: 'Earnest, shy, endlessly helpful; worried about his friend Elias.',
+    id: 'samuel_ward', name: 'Samuel Ward', age: 16, sex: 'm', faction: 'abnegation', role: 'candidate', tier: 1, onlyDay: 1,
+    personality: 'Earnest, shy, endlessly helpful; worried about his friend Daniel.',
     appearance: { build: 'average', face: 0, skin: '#c48a62', hair: 'buzzed', hairColor: '#2e1f15', outfit: { top: 'robe', topColor: '#6c6c68', bottomColor: '#5f5f5b' } },
     access: ['testing'],
     schedule: [
-      { t: '08:26', do: 'arrive', to: 'reception_q1' },
+      { t: '08:14', do: 'arrive', to: 'reception_q1' },
       { t: '08:32', do: 'go', to: 'hb_w2b_s1', act: 'sit' },
       { t: '09:15', do: 'go', to: 'corr_tr5' },
       { t: '09:20', do: 'go', to: 'tr5_chair', act: 'recline' },
@@ -626,18 +626,18 @@
       nervous: 'I\'m all right. Is there anyone else who needs a seat? I can stand.',
       faction: 'Abnegation. My father repairs the water lines in the eastern sector.',
       test: 'I don\'t think it matters what I do in there, really. What matters is what I do after. That\'s what my mother says.',
-      extra: [{ q: 'Do you know Elias Thorne?', a: 'Elias is my friend. He\'s been strange all week. He thinks his father will be ashamed of whatever the test says. His father is on the Council. I don\'t know how to help him. I\'m not good with words. Maybe you are?' }],
-      rumor: 'Elias went into the washroom an hour ago and hasn\'t come out. I didn\'t want to embarrass him by knocking.',
+      extra: [{ q: 'Do you know Daniel Webb?', a: 'Daniel is my friend. He\'s been strange all week. He thinks his father will be ashamed of whatever the test says. His father is on the Council. I don\'t know how to help him. I\'m not good with words. Maybe you are?' }],
+      rumor: 'Daniel went into the washroom an hour ago and hasn\'t come out. I didn\'t want to embarrass him by knocking.',
       post: 'I\'m — yes. Fine. It asked me to choose who to save. I don\'t want to talk about it.',
     },
   });
   add({
-    id: 'hannah_merrick', name: 'Hannah Merrick', age: 16, sex: 'f', faction: 'abnegation', role: 'candidate', tier: 1, onlyDay: 1,
+    id: 'hannah_lewis', name: 'Hannah Lewis', age: 16, sex: 'f', faction: 'abnegation', role: 'candidate', tier: 1, onlyDay: 1,
     personality: 'Serene on the surface, rebellious underneath; dreams of Dauntless.',
     appearance: { build: 'slim', face: 4, skin: '#e9bf9b', hair: 'bun', hairColor: '#2e1f15', outfit: { top: 'shirt', topColor: '#96958e', bottom: 'longskirt', bottomColor: '#6a6a65' } },
     access: ['testing'],
     schedule: [
-      { t: '08:30', do: 'arrive', to: 'reception_q1' },
+      { t: '08:28', do: 'arrive', to: 'reception_q1' },
       { t: '08:36', do: 'go', to: 'hb_w2b_s2', act: 'sit' },
       { t: '10:55', do: 'go', to: 'corr_tr5' },
       { t: '11:00', do: 'go', to: 'tr5_chair', act: 'recline' },
@@ -655,13 +655,13 @@
     },
   });
   add({
-    id: 'nora_halloran', name: 'Nora Halloran', age: 16, sex: 'f', faction: 'candor', role: 'candidate', tier: 1, onlyDay: 1,
+    id: 'nora_kelly', name: 'Nora Kelly', age: 16, sex: 'f', faction: 'candor', role: 'candidate', tier: 1, onlyDay: 1,
     personality: 'Deadpan, quick, treats every conversation as a cross-examination.',
     appearance: { build: 'slim', face: 5, skin: '#e9bf9b', hair: 'long', hairColor: '#141210', outfit: { top: 'vest', topColor: '#141414', topColor2: '#f0efe9', bottomColor: '#151515', bottom: 'skirt' } },
     access: ['testing'],
     schedule: [
-      { t: '08:38', do: 'arrive', to: 'reception_q1' },
-      { t: '08:44', do: 'talk', to: 'hall_g1b', with: 'rafe_dorsey' },
+      { t: '08:29', do: 'arrive', to: 'reception_q1' },
+      { t: '08:44', do: 'talk', to: 'hall_g1b', with: 'josh_miller' },
       { t: '09:15', do: 'go', to: 'hb_e2a_s2', act: 'sit' },
       { t: '10:55', do: 'go', to: 'corr_tr2' },
       { t: '11:00', do: 'go', to: 'tr2_chair', act: 'recline' },

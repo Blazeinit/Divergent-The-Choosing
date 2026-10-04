@@ -1,6 +1,6 @@
 /* ==========================================================================
    DIVERGENT — Tier 2 staff dialogue trees
-   kade, rae, brann, marion, wren, ines, willow, gus, ruth
+   dean, jess, frank, martha, pierce, sarah, rose, gus, ruth
    ========================================================================== */
 (function () {
   'use strict';
@@ -17,10 +17,10 @@
     if (DV.Checkpoint) DV.Checkpoint.open(2.5);
     if (DV.Game.autosaveSoon) DV.Game.autosaveSoon();
   };
-  const badgeLook = (c) => '[He takes the badge, reads it, and runs a thumb down the list on his clipboard.] {NAME}. Room Four — Ashgrove. [He looks from the badge to your face and back.] ';
+  const badgeLook = (c) => '[He takes the badge, reads it, and runs a thumb down the list on his clipboard.] {NAME}. Room Four — Dawson. [He looks from the badge to your face and back.] ';
 
-  /* ------------------------------ KADE ------------------------------ */
-  T('kade', {
+  /* ------------------------------ DEAN ------------------------------ */
+  T('dean', {
     entry: [
       { if: (c) => !c.flag('security_cleared') && c.flag('caught_ducking') && !c.mem('duckScolded'), node: 'cp_caught' },
       { if: (c) => !c.flag('security_cleared') && !c.has('name_badge'), node: 'no_badge' },
@@ -31,7 +31,7 @@
     nodes: {
       no_badge: {
         text: (c) => (c.firstTime
-          ? 'Candidate. Stop there. Badge. [He looks at your empty chest.] ...No badge means you haven\'t checked in. Reception\'s behind you — the desk on the east side of the lobby. Marion. Come back wearing a badge.'
+          ? 'Candidate. Stop there. Badge. [He looks at your empty chest.] ...No badge means you haven\'t checked in. Reception\'s behind you — the desk on the east side of the lobby. Martha. Come back wearing a badge.'
           : 'Still no badge. Reception. East side of the lobby. I\'ll be right here.'),
         onEnter: (c) => { if (!c.mem('toldNoBadge')) { c.setMem('toldNoBadge', true); c.qlog('aptitude_day', 'The guard at the security arch won\'t let anyone through without a name badge from reception.'); } },
         choices: [
@@ -93,10 +93,10 @@
         text: (c) => c.greet({ first: 'Moving along?', again: 'Something you need, candidate?', friend: '{name}. Still upright. Good.', cold: 'Keep it short.' }),
         choices: [
           { text: 'What\'s it like guarding a testing center?', to: 'job' },
-          { text: 'You don\'t talk like Dauntless. You talk like Candor.', check: { attr: 'perception', dc: 6 }, to: 'past', once: 'kadepast' },
+          { text: 'You don\'t talk like Dauntless. You talk like Candor.', check: { attr: 'perception', dc: 6 }, to: 'past', once: 'deanpast' },
           { text: 'Any advice for the test?', to: 'advice', if: (c) => !c.aptDone() },
-          { text: 'Have you seen an Abnegation boy hiding somewhere?', to: 'elias', if: (c) => c.qActive('cold_feet') && !c.flag('elias_convinced') },
-          { text: 'Rook Delaney dared me to steal staff coffee.', to: 'coffee', if: (c) => c.qActive('initiation') && !c.has('coffee') },
+          { text: 'Have you seen an Abnegation boy hiding somewhere?', to: 'daniel', if: (c) => c.qActive('cold_feet') && !c.flag('daniel_convinced') },
+          { text: 'Nate Russo dared me to steal staff coffee.', to: 'coffee', if: (c) => c.qActive('initiation') && !c.has('coffee') },
           { text: 'I finished my test.', to: 'post', if: (c) => c.aptDone() && !c.mem('postTest') },
           bye,
         ],
@@ -111,8 +111,8 @@
         next: 'hub', nextText: 'Your secret\'s safe.',
       },
       advice: { text: 'Whatever they show you, it isn\'t real. Your body won\'t believe that. Tell it anyway. And breathe through your nose — the mouth-breathers always panic first.', next: 'hub', nextText: 'Noted.' },
-      elias: { text: 'Thorne kid? Went into the washroom by the checkpoint around quarter to nine. Didn\'t come out. Not my business unless he climbs into the vents.', onEnter: (c) => c.qlog('cold_feet', 'Kade saw Elias go into the washroom by the checkpoint.'), next: 'hub', nextText: 'Thanks.' },
-      coffee: { text: 'Ha! Brann will eat you alive. ...Do it anyway. Tip: Brann watches the door, not the machine. And he never sits facing the kitchenette.', onEnter: (c) => c.setFlag('coffee_tip'), next: 'hub', nextText: 'Good tip.' },
+      daniel: { text: 'Webb kid? Went into the washroom by the checkpoint around quarter to nine. Didn\'t come out. Not my business unless he climbs into the vents.', onEnter: (c) => c.qlog('cold_feet', 'Dean saw Daniel go into the washroom by the checkpoint.'), next: 'hub', nextText: 'Thanks.' },
+      coffee: { text: 'Ha! Frank will eat you alive. ...Do it anyway. Tip: Frank watches the door, not the machine. And he never sits facing the kitchenette.', onEnter: (c) => c.setFlag('coffee_tip'), next: 'hub', nextText: 'Good tip.' },
       post: {
         text: (c) => {
           c.setMem('postTest', true);
@@ -121,7 +121,7 @@
           if (c.divergent()) return 'You\'re walking straight. Good sign. You also look like someone who\'s been told a secret. Get some water.';
           return 'You\'re walking straight. Good sign. Most come out of there like they\'ve been hit by a train.';
         },
-        next: 'hub', nextText: 'Thanks, Kade.',
+        next: 'hub', nextText: 'Thanks, Dean.',
       },
     },
   });
@@ -183,9 +183,9 @@
     },
   });
 
-  /* ------------------------------ RAE ------------------------------ */
+  /* ------------------------------ JESS ------------------------------ */
   (function () {
-    const t = DV.AmbientDialogue.build(DV.NPCData.get('rae_dunmore'));
+    const t = DV.AmbientDialogue.build(DV.NPCData.get('jess_thompson'));
     const baseEntry = t.entry;
     const atArch = () => DV.U.dist(DV.Player.x, DV.Player.z, 40, 42) < 4;
     t.entry = (c) => (!c.flag('security_cleared') ? (!c.has('name_badge') ? 'nobadge' : atArch() ? 'clear' : 'toarch') : baseEntry(c));
@@ -198,15 +198,15 @@
       next: 'hub', nextText: 'Okay.',
     };
     t.nodes.clear = {
-      text: 'Kade\'s off the arch, so you get me. Badge? [She squints at it, then at you.] Fine. Arms out. [She pats the air around you without touching anything.] Done. You\'re clear.',
+      text: 'Dean\'s off the arch, so you get me. Badge? [She squints at it, then at you.] Fine. Arms out. [She pats the air around you without touching anything.] Done. You\'re clear.',
       onEnter: clearSecurity,
       next: 'hub', nextText: 'Thanks.',
     };
-    DV.DialogueDB.add('rae', t);
+    DV.DialogueDB.add('jess', t);
   })();
 
-  /* ------------------------------ BRANN ------------------------------ */
-  T('brann', {
+  /* ------------------------------ FRANK ------------------------------ */
+  T('frank', {
     entry: [
       { if: (c) => c.flag('coffee_caught') && !c.mem('scolded'), node: 'angry' },
       { node: 'start' },
@@ -227,21 +227,21 @@
       coffee: {
         text: 'It\'s MY coffee. Staff ration. Candidates get water. There\'s a cooler in the hall. Lovely cooler. Go visit it.',
         choices: [
-          { text: 'Rook Delaney dared me to steal a cup. I\'d rather just ask.', check: { attr: 'charisma', dc: 6 }, to: 'ask_ok', if: (c) => c.qActive('initiation') && !c.has('coffee') },
+          { text: 'Nate Russo dared me to steal a cup. I\'d rather just ask.', check: { attr: 'charisma', dc: 6 }, to: 'ask_ok', if: (c) => c.qActive('initiation') && !c.has('coffee') },
           { text: 'Could I have a little? Please?', to: 'ask_plain', if: (c) => !c.has('coffee') },
           { text: 'Never mind.', to: 'start' },
         ],
       },
       ask_ok: {
-        text: '...Delaney. Of course. [He snorts.] Fine. One cup. And you tell that loudmouth you ASKED. Honesty\'s braver than theft, whatever they teach in the Pit.',
+        text: '...Russo. Of course. [He snorts.] Fine. One cup. And you tell that loudmouth you ASKED. Honesty\'s braver than theft, whatever they teach in the Pit.',
         onEnter: (c) => {
           c.give('coffee');
           c.setFlag('coffee_asked');
-          c.setObj('initiation', 'coffee', 'done', 'Brann gave you a cup of coffee when you asked honestly.');
+          c.setObj('initiation', 'coffee', 'done', 'Frank gave you a cup of coffee when you asked honestly.');
           c.activate('initiation', 'return');
           c.addRel(6);
         },
-        next: 'start', nextText: 'Thanks, Brann.',
+        next: 'start', nextText: 'Thanks, Frank.',
       },
       ask_plain: {
         text: (c) => (c.rel() >= 10 ? '[He grumbles, pours half a cup, and slides it over.] Don\'t make it a habit.' : 'No.'),
@@ -266,12 +266,12 @@
           { text: 'Worth it.', end: true, effect: (c) => { c.addRel(-4); c.rep('dauntless', 1); } },
         ],
       },
-      angry_sorry: { text: '[He grunts.] Delaney. Figures. Get out of my break room.', onEnter: (c) => c.addRel(3), end: true },
+      angry_sorry: { text: '[He grunts.] Russo. Figures. Get out of my break room.', onEnter: (c) => c.addRel(3), end: true },
     },
   });
 
-  /* ------------------------------ MARION ------------------------------ */
-  T('marion', {
+  /* ------------------------------ MARTHA ------------------------------ */
+  T('martha', {
     entry: [
       { if: (c) => !c.flag('checked_in'), node: 'checkin' },
       { if: (c) => c.qActive('paper_trail') && c.has('signed_form'), node: 'pt_return' },
@@ -292,13 +292,13 @@
         next: 'ci_name', nextText: 'I\'m {name}.',
       },
       ci_name: {
-        text: '{name}... yes. Here you are. Room Four — technician Ashgrove. [She feeds a card into a little press. It comes out warm, with your name on it.] Your name badge. Clip it on and keep it where people can see it. Show it to the Dauntless at the security arch, then wait in the hall — you\'ll be called over the speakers when Room Four is ready. Delia has a lovely clear voice; you can\'t miss it.',
+        text: '{name}... yes. Here you are. Room Four — technician Dawson. [She feeds a card into a little press. It comes out warm, with your name on it.] Your name badge. Clip it on and keep it where people can see it. Show it to the Dauntless at the security arch, then wait in the hall — you\'ll be called over the speakers when Room Four is ready. Denise has a lovely clear voice; you can\'t miss it.',
         onEnter: (c) => {
           if (c.flag('checked_in')) return;
           c.setFlag('checked_in');
           c.setFlag('checkin_time', c.time());
           c.give('name_badge');
-          c.setObj('aptitude_day', 'checkin', 'done', 'Checked in with Marion and got your name badge: Candidate 4-17, Testing Room 4, technician J. Ashgrove.');
+          c.setObj('aptitude_day', 'checkin', 'done', 'Checked in with Martha and got your name badge: Candidate 4-17, Testing Room 4, technician C. Dawson.');
           c.xp(10);
           if (DV.Game.autosaveSoon) DV.Game.autosaveSoon();
         },
@@ -317,7 +317,7 @@
           { text: 'Where is Testing Room 4?', to: 'where', if: (c) => !c.aptDone() },
           { text: 'Can I go in now?', to: 'cango', if: (c) => !c.flag('tr4_open') && !c.aptDone() },
           { text: 'What\'s in the envelope?', to: 'pt_what', if: (c) => c.qActive('paper_trail') && c.has('sealed_envelope') },
-          { text: 'Have you seen Elias Thorne?', to: 'elias', if: (c) => c.qActive('cold_feet') },
+          { text: 'Have you seen Daniel Webb?', to: 'daniel', if: (c) => c.qActive('cold_feet') },
           { text: 'Has anyone turned in a little wooden bird?', to: 'bird', if: (c) => c.qActive('lost_bird') && !c.has('wooden_bird') },
           { text: 'Do you know anything about "Protocol D"?', to: 'pd', if: (c) => c.qActive('protocol_d') },
           bye,
@@ -326,14 +326,14 @@
       where: { text: (c) => (c.flag('security_cleared') ? 'Across' : 'Through security first — show the guard your badge. Then across') + ' the waiting hall and north through the double doors, into the testing wing — fourth door on the left. It stays locked until you\'re called.', next: 'hub', nextText: 'Thanks.' },
       cango: { text: 'Not until you\'re called, dear. Room Four is being prepared. If the wait is too much, sit on a bench and rest your eyes.', next: 'hub', nextText: 'All right.' },
       pt_offer: {
-        text: 'Help? [She hesitates, then lowers her voice.] Actually — I can\'t leave the desk, and this needs to reach Director Wren. Administration wing — through security, west across the hall, end of the corridor. It\'s sealed. It should stay sealed.',
+        text: 'Help? [She hesitates, then lowers her voice.] Actually — I can\'t leave the desk, and this needs to reach Director Pierce. Administration wing — through security, west across the hall, end of the corridor. It\'s sealed. It should stay sealed.',
         choices: [
           { text: 'I\'ll take it.', to: 'pt_take' },
-          { text: 'Why can\'t Delia take it?', to: 'pt_nadia' },
+          { text: 'Why can\'t Denise take it?', to: 'pt_nadia' },
           { text: 'Not right now.', to: 'hub' },
         ],
       },
-      pt_nadia: { text: 'Delia reads things. She can\'t help it — she\'s Candor; to her, a sealed envelope is a lie waiting to be exposed. [A tired smile.] I trust you more than Delia\'s curiosity.', next: 'pt_offer', nextText: 'I see.' },
+      pt_nadia: { text: 'Denise reads things. She can\'t help it — she\'s Candor; to her, a sealed envelope is a lie waiting to be exposed. [A tired smile.] I trust you more than Denise\'s curiosity.', next: 'pt_offer', nextText: 'I see.' },
       pt_take: {
         text: 'Thank you, {name}. Straight to the Director, please. Into his hand.',
         onEnter: (c) => { c.startQuest('paper_trail'); c.give('sealed_envelope'); },
@@ -362,11 +362,11 @@
       pt_done: {
         text: 'Here — a ration bar. Abnegation don\'t give rewards, so consider it lunch.',
         onEnter: (c) => { c.give('ration_bar'); c.completeQuest('paper_trail', c.flag('read_envelope') ? 'read' : 'sealed'); c.helped(); c.addRel(8, true); },
-        next: 'hub', nextText: 'Thank you, Marion.',
+        next: 'hub', nextText: 'Thank you, Martha.',
       },
-      elias: { text: 'Thorne. Room Four, eleven-thirty — after you. He checked in very pale. If he isn\'t ready by noon he\'ll be marked absent, and then Oversight decides when and how he\'s tested. Nobody wants that. Especially not his father.', onEnter: (c) => c.qlog('cold_feet', 'Marion: Elias must be ready by noon or he\'ll be marked absent.'), next: 'hub', nextText: 'I understand.' },
-      bird: { text: 'Lost things go to Gus — the custodian. He keeps them in a bin in the storage room. He doesn\'t like being asked. Ask nicely.', onEnter: (c) => { c.activate('lost_bird', 'storage', 'Marion says lost items go to Gus the custodian, who keeps them in the storage room.'); }, next: 'hub', nextText: 'Thanks.' },
-      pd: { text: '[Her pen stops.] I file what I\'m given, dear. And I was never given that. [Quietly.] Ruth might have been. Ruth has been here longer than the paint.', onEnter: (c) => c.qlog('protocol_d', 'Marion suggested Ruth Calloway, the records keeper, might know about Protocol D.'), next: 'hub', nextText: 'Thank you.' },
+      daniel: { text: 'Webb. Room Four, eleven-thirty — after you. He checked in very pale. If he isn\'t ready by noon he\'ll be marked absent, and then Oversight decides when and how he\'s tested. Nobody wants that. Especially not his father.', onEnter: (c) => c.qlog('cold_feet', 'Martha: Daniel must be ready by noon or he\'ll be marked absent.'), next: 'hub', nextText: 'I understand.' },
+      bird: { text: 'Lost things go to Gus — the custodian. He keeps them in a bin in the storage room. He doesn\'t like being asked. Ask nicely.', onEnter: (c) => { c.activate('lost_bird', 'storage', 'Martha says lost items go to Gus the custodian, who keeps them in the storage room.'); }, next: 'hub', nextText: 'Thanks.' },
+      pd: { text: '[Her pen stops.] I file what I\'m given, dear. And I was never given that. [Quietly.] Ruth might have been. Ruth has been here longer than the paint.', onEnter: (c) => c.qlog('protocol_d', 'Martha suggested Ruth Abbott, the records keeper, might know about Protocol D.'), next: 'hub', nextText: 'Thank you.' },
       post: {
         text: 'You\'re through. Sit somewhere quiet for a bit — the courtyard is open to you now, east wing. And {name}? Whatever they told you in there, tomorrow is still yours.',
         onEnter: (c) => c.setMem('postTest', true),
@@ -375,8 +375,8 @@
     },
   });
 
-  /* ------------------------------ WREN ------------------------------ */
-  T('wren', {
+  /* ------------------------------ PIERCE ------------------------------ */
+  T('pierce', {
     entry: [
       { if: (c) => c.qActive('paper_trail') && c.has('sealed_envelope'), node: 'pt_deliver' },
       { if: (c) => c.aptDone() && !c.mem('postTest'), node: 'post' },
@@ -413,7 +413,7 @@
       },
       irr_per: {
         text: 'Did I? [A thin smile.] You notice things. That is either an asset or a problem, candidate. Which would you like it to be?',
-        onEnter: (c) => { c.setFlag('wren_watching'); c.xp(10); },
+        onEnter: (c) => { c.setFlag('pierce_watching'); c.xp(10); },
         choices: [
           { text: 'An asset.', to: 'hub', effect: (c) => c.addRel(2) },
           { text: 'That depends on who I\'m an asset to.', to: 'hub', effect: (c) => { c.addRel(-3); c.setMem('defiant', true); } },
@@ -421,20 +421,20 @@
       },
       pd: {
         text: '[A very small pause.] Where did you hear that? ...No matter. It is an administrative procedure for data integrity. Dull. Exceedingly dull. Don\'t let anyone make it sound otherwise.',
-        onEnter: (c) => { c.setMem('askedPD', true); c.setFlag('asked_wren_pd'); c.addRel(-3, true); c.qlog('protocol_d', 'Dr. Wren called Protocol D "an administrative procedure for data integrity." He did not like being asked.'); },
+        onEnter: (c) => { c.setMem('askedPD', true); c.setFlag('asked_pierce_pd'); c.addRel(-3, true); c.qlog('protocol_d', 'Dr. Pierce called Protocol D "an administrative procedure for data integrity." He did not like being asked.'); },
         next: 'hub', nextText: 'Of course.',
       },
-      records: { text: 'Ruth Calloway keeps the archive. She keeps it very well. [He glances, briefly, at his own desk drawer.] Is there something else?', onEnter: (c) => c.setFlag('wren_drawer_hint'), next: 'hub', nextText: 'No, Director.' },
+      records: { text: 'Ruth Abbott keeps the archive. She keeps it very well. [He glances, briefly, at his own desk drawer.] Is there something else?', onEnter: (c) => c.setFlag('pierce_drawer_hint'), next: 'hub', nextText: 'No, Director.' },
       pt_deliver: {
         text: (c) => (c.flag('read_envelope')
-          ? 'From Marion? [He turns the envelope over. His thumb finds the lifted seal. He looks at you for a long, quiet moment — and says nothing.] Take this back to her.'
-          : 'From Marion? Thank you. [He breaks the seal, reads, signs something with a looping flourish.] Take this back to her, would you?'),
+          ? 'From Martha? [He turns the envelope over. His thumb finds the lifted seal. He looks at you for a long, quiet moment — and says nothing.] Take this back to her.'
+          : 'From Martha? Thank you. [He breaks the seal, reads, signs something with a looping flourish.] Take this back to her, would you?'),
         onEnter: (c) => {
           c.take('sealed_envelope');
           c.give('signed_form');
-          c.setObj('paper_trail', 'deliver', 'done', 'Delivered the envelope to Dr. Wren.');
+          c.setObj('paper_trail', 'deliver', 'done', 'Delivered the envelope to Dr. Pierce.');
           c.activate('paper_trail', 'return');
-          if (c.flag('read_envelope')) c.setFlag('wren_watching');
+          if (c.flag('read_envelope')) c.setFlag('pierce_watching');
         },
         choices: [
           { text: 'What\'s in it?', to: 'pt_what' },
@@ -447,7 +447,7 @@
       post: {
         text: (c) => {
           c.setMem('postTest', true);
-          if (c.divergent()) return 'Ah. Candidate {name}. Room Four. Ashgrove recorded your result as {recorded}. [He studies your face for a long moment.] Clean. Unremarkable. Congratulations.';
+          if (c.divergent()) return 'Ah. Candidate {name}. Room Four. Dawson recorded your result as {recorded}. [He studies your face for a long moment.] Clean. Unremarkable. Congratulations.';
           return 'Candidate {name}. Your result is filed — {recorded}. A sensible outcome. Good day.';
         },
         choices: (c) => (c.divergent()
@@ -459,12 +459,12 @@
           : [bye]),
       },
       post_res: { text: 'Not at all. [He smiles.] You\'re very calm for someone who has just been inside their own head. Most candidates aren\'t. Good day.', onEnter: (c) => c.practice('composure', 2), end: true },
-      post_fail: { text: '[You feel his eyes on you all the way to the door.] ...Good day, candidate.', onEnter: (c) => c.setFlag('wren_suspicious'), end: true },
+      post_fail: { text: '[You feel his eyes on you all the way to the door.] ...Good day, candidate.', onEnter: (c) => c.setFlag('pierce_suspicious'), end: true },
     },
   });
 
-  /* ------------------------------ INES ------------------------------ */
-  T('ines', {
+  /* ------------------------------ SARAH ------------------------------ */
+  T('sarah', {
     entry: [
       { if: (c) => c.has('staff_keycard'), node: 'keycard' },
       { if: (c) => c.firstTime, node: 'intro' },
@@ -472,8 +472,8 @@
     ],
     nodes: {
       intro: {
-        text: 'Not now — sorry — are you a candidate? You shouldn\'t be back here. Unless — have you seen a keycard? White. Blue lanyard. CALDER.',
-        onEnter: (c) => c.setFlag('ines_lost_card'),
+        text: 'Not now — sorry — are you a candidate? You shouldn\'t be back here. Unless — have you seen a keycard? White. Blue lanyard. LIN.',
+        onEnter: (c) => c.setFlag('sarah_lost_card'),
         choices: [
           { text: 'I\'ll keep an eye out.', to: 'eye' },
           { text: 'What does it open?', to: 'opens' },
@@ -489,14 +489,14 @@
         choices: [
           { text: 'What does a proctor do?', to: 'job' },
           { text: 'Why watch the tests from behind a mirror?', to: 'mirror' },
-          { text: 'Did you find your keycard?', to: 'card', if: (c) => c.flag('ines_lost_card') && !c.qDone('finders_keepers') },
-          { text: 'You warned me about Room Four. Why?', to: 'why_warn', if: (c) => c.flag('ines_warned') && !c.mem('explainedWarn') },
+          { text: 'Did you find your keycard?', to: 'card', if: (c) => c.flag('sarah_lost_card') && !c.qDone('finders_keepers') },
+          { text: 'You warned me about Room Four. Why?', to: 'why_warn', if: (c) => c.flag('sarah_warned') && !c.mem('explainedWarn') },
           bye,
         ],
       },
       job: { text: 'Schedules. Observation. Reports. I watch the tests from the gallery and write down what the technicians say they see. Then I watch the technicians.', next: 'hub', nextText: 'Watch the technicians?' },
       mirror: { text: 'So candidates behave as if no one is watching. Which I suppose makes it a test of the test. [She frowns.] I\'ve never liked that.', next: 'hub', nextText: 'I see.' },
-      card: { text: 'No. I\'m using the spare from the security office, which means Brann knows, which means everyone will know by lunch.', next: 'hub', nextText: 'Bad luck.' },
+      card: { text: 'No. I\'m using the spare from the security office, which means Frank knows, which means everyone will know by lunch.', next: 'hub', nextText: 'Bad luck.' },
       why_warn: { text: '[She lowers her voice.] Because the Director doesn\'t watch empty rooms for fun. Whatever Room Four is for this week, it isn\'t only testing. That\'s all I know. That\'s more than I should.', onEnter: (c) => c.setMem('explainedWarn', true), next: 'hub', nextText: 'Thank you.' },
       keycard: {
         text: 'That\'s — that\'s my keycard! Where did you —',
@@ -513,7 +513,7 @@
           c.completeQuest('finders_keepers', 'returned');
           c.addRel(15);
           c.helped();
-          c.setFlag('ines_warned');
+          c.setFlag('sarah_warned');
           c.give('peppermint', 2);
         },
         next: 'hub', nextText: 'I will.',
@@ -526,20 +526,20 @@
           c.addRel(6);
           c.addTrust(8);
           c.rep('candor', 2);
-          c.setFlag('ines_warned');
+          c.setFlag('sarah_warned');
         },
         next: 'hub', nextText: 'Sorry.',
       },
       kc_keep: {
         text: '[Her face goes cold.] I\'ll be reporting it stolen, then. Good luck explaining that to security.',
-        onEnter: (c) => { c.addRel(-12); c.insulted(); c.setFlag('kept_keycard'); c.failQuest('finders_keepers', 'You kept the keycard. Ines will report it stolen.'); },
+        onEnter: (c) => { c.addRel(-12); c.insulted(); c.setFlag('kept_keycard'); c.failQuest('finders_keepers', 'You kept the keycard. Sarah will report it stolen.'); },
         end: true,
       },
     },
   });
 
-  /* ------------------------------ WILLOW ------------------------------ */
-  T('willow', {
+  /* ------------------------------ ROSE ------------------------------ */
+  T('rose', {
     entry: [
       { if: (c) => c.aptDone() && !c.mem('postTest'), node: 'post' },
       { if: (c) => c.firstTime, node: 'intro' },
@@ -552,8 +552,8 @@
         choices: [
           { text: 'I\'m nervous about the test.', to: 'nervous', if: (c) => !c.aptDone() },
           { text: 'Do many candidates end up in here?', to: 'many' },
-          { text: 'Do you know Elias Thorne?', to: 'elias', if: (c) => c.qActive('cold_feet') && !c.flag('elias_convinced') },
-          { text: 'Pip Hollis lost something precious.', to: 'pip', if: (c) => c.qActive('lost_bird') && !c.has('wooden_bird') },
+          { text: 'Do you know Daniel Webb?', to: 'daniel', if: (c) => c.qActive('cold_feet') && !c.flag('daniel_convinced') },
+          { text: 'Lucy Barnes lost something precious.', to: 'lucy', if: (c) => c.qActive('lost_bird') && !c.has('wooden_bird') },
           { text: 'Tell me about Amity.', to: 'amity' },
           bye,
         ],
@@ -564,12 +564,12 @@
         next: 'hub', nextText: 'Thank you.',
       },
       many: { text: 'One in five. Fainting, crying, shaking. A Dauntless boy this morning fainted before the serum was even in. One girl wouldn\'t stop laughing. All normal. The simulation goes deep.', next: 'hub', nextText: 'That\'s reassuring. Sort of.' },
-      elias: {
-        text: 'The Thorne boy. He came in at eight asking if a person could be "disqualified for being wrong." I told him there\'s no wrong. He didn\'t believe me. His father sits on the Council — leaders\' children carry the whole sector on their backs. If you find him, don\'t push. Ask him what HE wants. I\'d bet nobody has.',
-        onEnter: (c) => { c.setFlag('willow_hint'); c.qlog('cold_feet', 'Willow: Elias asked whether a person could be "disqualified for being wrong." Don\'t push him — ask what he wants.'); },
+      daniel: {
+        text: 'The Webb boy. He came in at eight asking if a person could be "disqualified for being wrong." I told him there\'s no wrong. He didn\'t believe me. His father sits on the Council — leaders\' children carry the whole sector on their backs. If you find him, don\'t push. Ask him what HE wants. I\'d bet nobody has.',
+        onEnter: (c) => { c.setFlag('rose_hint'); c.qlog('cold_feet', 'Rose: Daniel asked whether a person could be "disqualified for being wrong." Don\'t push him — ask what he wants.'); },
         next: 'hub', nextText: 'I\'ll remember that.',
       },
-      pip: { text: 'The bird! Her grandmother carved it. Anything dropped in this building ends up with Gus eventually — he keeps a bin in the storage room. He\'s gruff, but he\'s soft on the young ones.', onEnter: (c) => c.activate('lost_bird', 'storage', 'Willow says lost things end up with Gus, in the storage room.'), next: 'hub', nextText: 'Thanks.' },
+      lucy: { text: 'The bird! Her grandmother carved it. Anything dropped in this building ends up with Gus eventually — he keeps a bin in the storage room. He\'s gruff, but he\'s soft on the young ones.', onEnter: (c) => c.activate('lost_bird', 'storage', 'Rose says lost things end up with Gus, in the storage room.'), next: 'hub', nextText: 'Thanks.' },
       amity: { text: 'Orchards and long tables and arguments settled by singing. We\'re not soft, whatever the Dauntless say. It takes a great deal of strength to choose peace every single day.', next: 'hub', nextText: 'I believe that.' },
       post: {
         text: 'There you are. How do you feel?',
@@ -603,7 +603,7 @@
           { text: 'Here\'s your storage key back.', to: 'key_back', if: (c) => c.has('storage_key') },
           { text: 'I found a note in your closet.', to: 'note', if: (c) => c.has('gus_note') },
           { text: 'Have you always been factionless?', to: 'past', check: { attr: 'perception', dc: 6 }, if: (c) => !c.mem('toldPast') },
-          { text: 'Have you seen an Abnegation boy hiding?', to: 'elias', if: (c) => c.qActive('cold_feet') && !c.flag('elias_convinced') },
+          { text: 'Have you seen an Abnegation boy hiding?', to: 'daniel', if: (c) => c.qActive('cold_feet') && !c.flag('daniel_convinced') },
           bye,
         ],
       },
@@ -653,7 +653,7 @@
         next: 'past2', nextText: 'What was the question?',
       },
       past2: { text: '"What happens to the ones who fit more than one box?" [He goes back to mopping.] Don\'t ask it loudly, kid. Don\'t ask it at all.', next: 'hub', nextText: '...' },
-      elias: { text: 'Washroom by the checkpoint. Third time today I\'ve mopped around his shoes.', onEnter: (c) => c.qlog('cold_feet', 'Gus: Elias is in the washroom by the checkpoint.'), next: 'hub', nextText: 'Thanks.' },
+      daniel: { text: 'Washroom by the checkpoint. Third time today I\'ve mopped around his shoes.', onEnter: (c) => c.qlog('cold_feet', 'Gus: Daniel is in the washroom by the checkpoint.'), next: 'hub', nextText: 'Thanks.' },
     },
   });
 
@@ -666,7 +666,7 @@
     nodes: {
       intro: { text: 'Good morning, child. You\'re a long way from the waiting hall.', next: 'hub', nextText: 'Just exploring.' },
       hub: {
-        text: (c) => c.greet({ first: 'Yes?', again: 'Yes, child?', friend: '{name}. Sit a moment.', helped: '{name}. Marion speaks well of you.' }),
+        text: (c) => c.greet({ first: 'Yes?', again: 'Yes, child?', friend: '{name}. Sit a moment.', helped: '{name}. Martha speaks well of you.' }),
         choices: [
           { text: 'What do you keep in the archive?', to: 'archive' },
           { text: 'Could I see the archive?', to: 'see', if: (c) => !c.has('records_key') && !c.flag('ruth_gave_key') },
@@ -680,13 +680,13 @@
         choices: [
           { text: 'Someone I care about might be on a list in there. I need to know.', check: { attr: 'charisma', dc: 7 }, to: 'give' },
           { text: 'I was raised Abnegation, like you. The truth belongs to everyone.', to: 'give', if: (c) => c.upbringing() === 'abnegation' },
-          { text: 'I helped Marion today. She\'ll vouch for me.', to: 'give', if: (c) => c.qDone('paper_trail') },
+          { text: 'I helped Martha today. She\'ll vouch for me.', to: 'give', if: (c) => c.qDone('paper_trail') },
           { text: 'All right.', to: 'hub' },
         ],
       },
       give: {
         text: '[She studies you for a long, long time.] ...Abnegation says the truth belongs to everyone. The Erudite say it belongs to whoever can use it. [She slides a small steel key across the desk, and does not look at it.] I didn\'t give you this. I\'m an old woman who drops things.',
-        onEnter: (c) => { c.give('records_key'); c.setFlag('ruth_gave_key'); c.addRel(5); c.activate('protocol_d', 'archive', 'Ruth Calloway quietly gave you the Records Archive key.'); },
+        onEnter: (c) => { c.give('records_key'); c.setFlag('ruth_gave_key'); c.addRel(5); c.activate('protocol_d', 'archive', 'Ruth Abbott quietly gave you the Records Archive key.'); },
         next: 'hub', nextText: 'Thank you, Ruth.',
       },
       pd: {

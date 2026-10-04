@@ -748,7 +748,7 @@
       const set = (bone, x, y, z) => { const i = BI[bone] * 3; P[i] = x; P[i + 1] = y || 0; P[i + 2] = z || 0; };
       const add = (bone, x, y, z) => { const i = BI[bone] * 3; P[i] += x; P[i + 1] += y || 0; P[i + 2] += z || 0; };
       const it = this.idleT;
-      if (speed > 0.05 && (act === 'idle' || act === 'walk' || act === 'run' || act === 'talk')) {
+      if (speed > 0.05 && (act === 'idle' || act === 'walk' || act === 'run' || act === 'talk' || act === 'sneak')) {
         const run = U.clamp((speed - 2.6) / 2.0, 0, 1);
         const rate = U.lerp(4.6, 3.0, run);
         this.phase += speed * rate * dt;
@@ -771,6 +771,17 @@
         set('hips', 0, sn * 0.08, 0);
         hipY = -Math.abs(cs) * U.lerp(0.025, 0.05, run) + 0.01;
         set('head', -U.lerp(0.02, 0.12, run), 0, 0);
+        if (act === 'sneak') {
+          // crouch-walk: knees bent, hips low, leaning in, arms tucked forward
+          hipY -= 0.3 * this.scaleY();
+          add('uLegL', -0.85, 0, 0); add('uLegR', -0.85, 0, 0);
+          add('lLegL', 1.2, 0, 0); add('lLegR', 1.2, 0, 0);
+          add('footL', -0.35, 0, 0); add('footR', -0.35, 0, 0);
+          set('spine', 0.38, 0, 0);
+          set('uArmL', -0.45 - sn * 0.15, 0, 0.12); set('uArmR', -0.45 + sn * 0.15, 0, -0.12);
+          set('lArmL', -0.9, 0, 0); set('lArmR', -0.9, 0, 0);
+          set('head', -0.25, 0, 0);
+        }
       } else {
         // idle family
         const br = Math.sin(it * 1.7) * 0.02;
@@ -813,6 +824,24 @@
         } else if (act === 'lie') {
           rootRx = -Math.PI / 2;
           set('uArmL', 0, 0, 0.12); set('uArmR', 0, 0, -0.12);
+        } else if (act === 'sneak') {
+          // crouched, still
+          hipY = -0.34 * this.scaleY();
+          set('uLegL', -1.05, 0, 0.12); set('uLegR', -1.05, 0, -0.12);
+          set('lLegL', 1.55, 0, 0); set('lLegR', 1.55, 0, 0);
+          set('footL', -0.5, 0, 0); set('footR', -0.5, 0, 0);
+          set('spine', 0.4, 0, 0);
+          set('uArmL', -0.55, 0, 0.15); set('uArmR', -0.55, 0, -0.15);
+          set('lArmL', -0.9, 0, 0); set('lArmR', -0.9, 0, 0);
+          set('head', -0.3, 0, 0);
+        } else if (act === 'jump') {
+          // airborne: knees tucked, arms out for balance
+          set('uLegL', -0.75, 0, 0.06); set('uLegR', -0.35, 0, -0.06);
+          set('lLegL', 1.15, 0, 0); set('lLegR', 0.8, 0, 0);
+          set('footL', -0.3, 0, 0); set('footR', 0.1, 0, 0);
+          set('uArmL', -0.55, 0, 0.45); set('uArmR', -0.55, 0, -0.45);
+          set('lArmL', -0.5, 0, 0); set('lArmR', -0.5, 0, 0);
+          set('spine', 0.08, 0, 0);
         } else if (act === 'crouch' || act === 'kneel' || act === 'cower') {
           hipY = -0.42;
           set('uLegL', -1.3, 0, 0.1); set('uLegR', -0.4, 0, -0.1);

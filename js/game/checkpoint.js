@@ -44,11 +44,11 @@
       return !!DV.State.flag('security_cleared');
     },
 
-    // the guard at the arch: Kade, or whoever covers his post
+    // the guard at the arch: Dean, or whoever covers his post
     guard() {
       const post = this.zone && this.zone.spot('guard_post');
       if (!post) return null;
-      for (const id of ['kade_mercer', 'rae_dunmore']) {
+      for (const id of ['dean_walsh', 'jess_thompson']) {
         const n = DV.NPCs.get(id);
         if (n && n.present && n.mode !== 'walking' && U.dist(n.x, n.z, post.x, post.z) < 2.2) return n;
       }

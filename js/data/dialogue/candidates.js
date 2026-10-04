@@ -1,6 +1,6 @@
 /* ==========================================================================
    DIVERGENT — candidate dialogue trees
-   mara (Tier 3), elias (Tier 3), pip (Tier 2), rook (Tier 2)
+   jenna (Tier 3), daniel (Tier 3), lucy (Tier 2), nate (Tier 2)
    ========================================================================== */
 (function () {
   'use strict';
@@ -8,8 +8,8 @@
   const T = (id, tree) => DV.DialogueDB.add(id, tree);
   const bye = { text: 'Goodbye.', end: true };
 
-  /* ============================== MARA VOSS ============================== */
-  T('mara', {
+  /* ============================== JENNA MORALES ============================== */
+  T('jenna', {
     entry: [
       { if: (c) => c.qActive('protocol_d') && c.has('protocol_file') && c.qObj('protocol_d', 'report') !== 'done', node: 'pd_report' },
       { if: (c) => c.aptDone() && !c.mem('discussedResult') && c.after('10:52'), node: 'post' },
@@ -32,7 +32,7 @@
         ],
       },
       inside: { text: 'Nobody knows. That\'s the point — and the problem. They inject you, you dream, and a stranger decides what kind of person you are. Then they tell you you\'re free to ignore it. Which is either generous or a lie.', next: 'hub', nextText: 'Which do you think?' },
-      notnervous: { text: 'I am. I just don\'t decorate it. [A beat.] Mara. Mara Voss.', onEnter: (c) => { c.addRel(3); c.setMem('gaveName', true); }, next: 'hub', nextText: '{name}.' },
+      notnervous: { text: 'I am. I just don\'t decorate it. [A beat.] Jenna. Jenna Morales.', onEnter: (c) => { c.addRel(3); c.setMem('gaveName', true); }, next: 'hub', nextText: '{name}.' },
       candor: { text: 'We say what\'s true. People think that makes us cruel. Mostly it makes us tired. Do you know how much effort everyone else spends lying? It\'s exhausting just to watch.', next: 'hub', nextText: 'I can imagine.' },
       rude: { text: 'Wow. Okay. [She turns back to the status board.] Noted.', onEnter: (c) => { c.addRel(-8); c.insulted(); }, end: true },
       hiding: {
@@ -70,32 +70,32 @@
           { text: 'What do you think of the test?', to: 'think', if: (c) => !c.aptDone() },
           { text: 'You seemed to be listening for something earlier.', check: { attr: 'charisma', dc: 5 }, to: 'hiding', if: (c) => !c.qStarted('protocol_d') },
           { text: 'Any leads on Protocol D?', to: 'pd_leads', if: (c) => c.qActive('protocol_d') && !c.has('protocol_file') },
-          { text: 'Wren called it "data integrity."', to: 'pd_wren', if: (c) => c.qActive('protocol_d') && c.flag('asked_wren_pd') && !c.mem('heardWren') },
-          { text: 'I read something I shouldn\'t have. A list.', to: 'envelope', if: (c) => c.flag('read_envelope') && !c.flag('told_mara_envelope') },
+          { text: 'Pierce called it "data integrity."', to: 'pd_pierce', if: (c) => c.qActive('protocol_d') && c.flag('asked_pierce_pd') && !c.mem('heardPierce') },
+          { text: 'I read something I shouldn\'t have. A list.', to: 'envelope', if: (c) => c.flag('read_envelope') && !c.flag('told_jenna_envelope') },
           { text: 'What will you choose tomorrow?', to: 'choose' },
-          { text: 'Do you know Elias Thorne?', to: 'elias', if: (c) => c.qActive('cold_feet') },
+          { text: 'Do you know Daniel Webb?', to: 'daniel', if: (c) => c.qActive('cold_feet') },
           { text: 'I\'m sorry about earlier.', to: 'apology', if: (c) => c.mem('insulted') },
           bye,
         ],
       },
       think: { text: 'I think it measures what you do when you think nobody\'s judging. Which is funny, because everybody in here is being judged. Including the people doing the judging.', next: 'hub', nextText: 'Cynical.' },
-      pd_leads: { text: 'Gus the custodian hears everything. Ruth Calloway runs the archive and she flinched when I said "Protocol." The Director lowered his voice. Start there. If it\'s written down, it\'s in that archive.', next: 'hub', nextText: 'I\'ll keep looking.' },
-      pd_wren: { text: '"Data integrity." [She laughs, once, without humor.] That\'s what people say when they mean "people." Keep going.', onEnter: (c) => { c.setMem('heardWren', true); c.addRel(2); }, next: 'hub', nextText: 'I will.' },
+      pd_leads: { text: 'Gus the custodian hears everything. Ruth Abbott runs the archive and she flinched when I said "Protocol." The Director lowered his voice. Start there. If it\'s written down, it\'s in that archive.', next: 'hub', nextText: 'I\'ll keep looking.' },
+      pd_pierce: { text: '"Data integrity." [She laughs, once, without humor.] That\'s what people say when they mean "people." Keep going.', onEnter: (c) => { c.setMem('heardPierce', true); c.addRel(2); }, next: 'hub', nextText: 'I will.' },
       envelope: {
         text: 'Tell me. Exactly. Don\'t soften it.',
         choices: [
-          { text: 'A list of candidates for "additional review under Protocol D." Elias Thorne was on it.', to: 'envelope_truth', tag: 'Truth' },
+          { text: 'A list of candidates for "additional review under Protocol D." Daniel Webb was on it.', to: 'envelope_truth', tag: 'Truth' },
           { text: 'Actually — never mind. It wasn\'t important.', to: 'envelope_back' },
         ],
       },
       envelope_truth: {
-        text: '...Thorne. The Council\'s son. [She goes quiet.] Then it isn\'t about data at all. It\'s about people — and it starts before the test. They expect some of us to come out "irregular." Thank you. For not softening it.',
+        text: '...Webb. The Council\'s son. [She goes quiet.] Then it isn\'t about data at all. It\'s about people — and it starts before the test. They expect some of us to come out "irregular." Thank you. For not softening it.',
         onEnter: (c) => {
-          c.setFlag('told_mara_envelope');
+          c.setFlag('told_jenna_envelope');
           c.addRel(8);
           c.addTrust(8);
           c.rep('candor', 2);
-          if (c.qActive('protocol_d')) c.activate('protocol_d', 'archive', 'You told Mara about the list. She thinks the answer is in the Records Archive.');
+          if (c.qActive('protocol_d')) c.activate('protocol_d', 'archive', 'You told Jenna about the list. She thinks the answer is in the Records Archive.');
         },
         next: 'hub', nextText: '...',
       },
@@ -106,7 +106,7 @@
           : 'Candor, probably. I like knowing where I stand. ...Ask me again after my test.'),
         next: 'hub', nextText: 'I will.',
       },
-      elias: { text: 'Council son. Quiet. Treats every word like it costs money. If he\'s scared, it isn\'t of the test — it\'s of disappointing someone. Find out who.', next: 'hub', nextText: 'Good advice.' },
+      daniel: { text: 'Council son. Quiet. Treats every word like it costs money. If he\'s scared, it isn\'t of the test — it\'s of disappointing someone. Find out who.', next: 'hub', nextText: 'Good advice.' },
       apology: { text: '[She weighs it.] Accepted. Probationally.', onEnter: (c) => { c.addRel(7); c.setMem('insulted', false); }, next: 'hub', nextText: 'Fair.' },
       cold: {
         text: 'What.',
@@ -126,13 +126,13 @@
       pd_read: {
         text: '[She reads it twice. Her jaw tightens on "monitored."] They\'re not measuring us. They\'re sorting us — and some of us get a shadow that follows us into initiation. [She hands it back.] Keep it hidden. And {name}? Thank you for not lying to me. I\'d have known.',
         onEnter: (c) => {
-          c.setObj('protocol_d', 'report', 'done', 'You showed Mara the Protocol D file.');
+          c.setObj('protocol_d', 'report', 'done', 'You showed Jenna the Protocol D file.');
           c.completeQuest('protocol_d', 'shared');
           c.addRel(15);
           c.addTrust(12);
           c.helped();
-          c.setFlag('mara_knows_pd');
-          c.note('Mara Voss and I found Protocol D: candidates with irregular results are "monitored through initiation."');
+          c.setFlag('jenna_knows_pd');
+          c.note('Jenna Morales and I found Protocol D: candidates with irregular results are "monitored through initiation."');
         },
         next: 'hub', nextText: 'We\'re in this together now.',
       },
@@ -142,14 +142,14 @@
           c.addRel(-12);
           c.setMem('caughtLie', true);
           c.practice('deception', 1);
-          c.failQuest('protocol_d', 'You lied to Mara about the file. She saw through it.');
+          c.failQuest('protocol_d', 'You lied to Jenna about the file. She saw through it.');
         },
         end: true,
       },
       pd_withhold: {
         text: '[A long breath through her nose.] ...Fine. But you owe me the truth someday. I\'m writing that down. Literally — I have a list.',
         onEnter: (c) => {
-          c.setObj('protocol_d', 'report', 'done', 'You told Mara you found it, but kept the contents to yourself.');
+          c.setObj('protocol_d', 'report', 'done', 'You told Jenna you found it, but kept the contents to yourself.');
           c.completeQuest('protocol_d', 'withheld');
           c.addRel(2);
           c.setMem('owedTruth', true);
@@ -182,7 +182,7 @@
       },
       post_div: {
         text: '[She goes very still.] ...Inconclusive. Like "irregular." [She glances around the room before she speaks again, low and fast.] Don\'t say that word to anyone else. Not even to me, next time. I mean it, {name}.',
-        onEnter: (c) => { c.setFlag('mara_knows_divergent'); c.addTrust(12); c.addRel(5); c.note('I told Mara my result was inconclusive.'); },
+        onEnter: (c) => { c.setFlag('jenna_knows_divergent'); c.addTrust(12); c.addRel(5); c.note('I told Jenna my result was inconclusive.'); },
         next: 'hub', nextText: 'I won\'t.',
       },
       post_lie: {
@@ -199,27 +199,27 @@
     },
   });
 
-  /* ============================== ELIAS THORNE ============================== */
-  const eliasConvinced = (style) => (c) => {
-    c.setFlag('elias_convinced');
-    c.setFlag('elias_style', style);
+  /* ============================== DANIEL WEBB ============================== */
+  const danielConvinced = (style) => (c) => {
+    c.setFlag('daniel_convinced');
+    c.setFlag('daniel_style', style);
     c.setObj('cold_feet', 'convince', 'done', {
-      gentle: 'You told Elias his father would rather have an honest son than a perfect one. He agreed to test.',
-      logic: 'You reasoned with Elias: skipping the test invites exactly the review he fears. He agreed to test.',
-      courage: 'You admitted you were scared too. Elias agreed to face the test with you in mind.',
-      truth: 'You told Elias his name is on a review list. He decided he would rather be seen walking in.',
-      pushed: 'You pushed Elias into going. He went — stiffly.',
+      gentle: 'You told Daniel his father would rather have an honest son than a perfect one. He agreed to test.',
+      logic: 'You reasoned with Daniel: skipping the test invites exactly the review he fears. He agreed to test.',
+      courage: 'You admitted you were scared too. Daniel agreed to face the test with you in mind.',
+      truth: 'You told Daniel his name is on a review list. He decided he would rather be seen walking in.',
+      pushed: 'You pushed Daniel into going. He went — stiffly.',
     }[style]);
     c.activate('cold_feet', 'after');
     if (style === 'pushed') { c.addRel(-10); c.setMem('pushed', true); c.practice('intimidation', 1); } else { c.addRel(12); c.helped(); c.practice('empathy', 1); }
     if (c.npc) DV.NPCAI.refresh(c.npc, false);
   };
-  T('elias', {
+  T('daniel', {
     entry: [
-      { if: (c) => c.flag('elias_tested') && !c.mem('thanked'), node: 'after' },
-      { if: (c) => c.flag('elias_tested'), node: 'after_hub' },
-      { if: (c) => c.flag('elias_missed'), node: 'missed' },
-      { if: (c) => c.flag('elias_convinced'), node: 'waiting' },
+      { if: (c) => c.flag('daniel_tested') && !c.mem('thanked'), node: 'after' },
+      { if: (c) => c.flag('daniel_tested'), node: 'after_hub' },
+      { if: (c) => c.flag('daniel_missed'), node: 'missed' },
+      { if: (c) => c.flag('daniel_convinced'), node: 'waiting' },
       { if: (c) => c.before('08:45') && !c.qStarted('cold_feet'), node: 'bench' },
       { if: (c) => !c.qStarted('cold_feet'), node: 'found' },
       { node: 'hub' },
@@ -234,7 +234,7 @@
         ],
       },
       bench_nerv: { text: 'No. Yes. Abnegation don\'t — it\'s fine. Thank you for asking. Truly.', next: 'bench', nextText: '...' },
-      bench_name: { text: 'Elias. Thorne. It\'s — nice to meet you. [He says it like a rule he was taught.]', onEnter: (c) => c.setMem('gaveName', true), next: 'bench', nextText: 'Nice to meet you too.' },
+      bench_name: { text: 'Daniel. Webb. It\'s — nice to meet you. [He says it like a rule he was taught.]', onEnter: (c) => c.setMem('gaveName', true), next: 'bench', nextText: 'Nice to meet you too.' },
       found: {
         text: '[He\'s crouched in the corner by the stalls, knees drawn up. He startles.] Please — I\'m fine. I\'m just... waiting. Here.',
         onEnter: (c) => { c.startQuest('cold_feet'); },
@@ -248,16 +248,16 @@
       notfine: { text: 'Abnegation are always fine. That\'s practically the motto. "Service before self, and also, always fine."', next: 'hub', nextText: '...' },
       time: { text: '[Quietly.] I know when it is. I\'ve known for a week. I\'ve known for sixteen years, really.', next: 'hub', nextText: 'Then why are you here?' },
       hub: {
-        text: (c) => (c.flag('elias_reason') ? '[He looks up.] You came back.' : '[He hugs his knees tighter.] ...Yes?'),
+        text: (c) => (c.flag('daniel_reason') ? '[He looks up.] You came back.' : '[He hugs his knees tighter.] ...Yes?'),
         choices: [
-          { text: 'Why are you hiding?', to: 'why', if: (c) => !c.flag('elias_reason') },
-          { text: 'Willow said you asked if someone could be "disqualified for being wrong."', to: 'reason', if: (c) => c.flag('willow_hint') && !c.flag('elias_reason') },
-          { text: 'Your father would rather have an honest son than a perfect one.', check: { attr: 'charisma', dc: 6 }, to: 'conv_gentle', if: (c) => c.flag('elias_reason') },
-          { text: 'The test reads tendencies, not loyalty. And skipping it gets you "reviewed" anyway — you\'d be giving them exactly what you fear.', check: { attr: 'intelligence', dc: 6 }, to: 'conv_logic', if: (c) => c.flag('elias_reason') },
-          { text: 'I\'m scared too. Everyone goes in scared. That\'s the only way anyone goes in.', check: { attr: 'resolve', dc: 6 }, to: 'conv_courage', if: (c) => c.flag('elias_reason') },
-          { text: 'I\'ve seen a list. Your name is on it — "additional review." Hiding won\'t protect you.', to: 'conv_truth', if: (c) => c.flag('elias_reason') && c.flag('read_envelope'), tag: 'Truth' },
-          { text: 'Get up. You\'re Abnegation — think of the people waiting on you.', to: 'conv_push', if: (c) => c.flag('elias_reason'), tag: 'Intimidate' },
-          { text: 'Then don\'t go. Choose tomorrow without the test.', to: 'dontgo', if: (c) => c.flag('elias_reason') && !c.mem('toldDontGo') },
+          { text: 'Why are you hiding?', to: 'why', if: (c) => !c.flag('daniel_reason') },
+          { text: 'Rose said you asked if someone could be "disqualified for being wrong."', to: 'reason', if: (c) => c.flag('rose_hint') && !c.flag('daniel_reason') },
+          { text: 'Your father would rather have an honest son than a perfect one.', check: { attr: 'charisma', dc: 6 }, to: 'conv_gentle', if: (c) => c.flag('daniel_reason') },
+          { text: 'The test reads tendencies, not loyalty. And skipping it gets you "reviewed" anyway — you\'d be giving them exactly what you fear.', check: { attr: 'intelligence', dc: 6 }, to: 'conv_logic', if: (c) => c.flag('daniel_reason') },
+          { text: 'I\'m scared too. Everyone goes in scared. That\'s the only way anyone goes in.', check: { attr: 'resolve', dc: 6 }, to: 'conv_courage', if: (c) => c.flag('daniel_reason') },
+          { text: 'I\'ve seen a list. Your name is on it — "additional review." Hiding won\'t protect you.', to: 'conv_truth', if: (c) => c.flag('daniel_reason') && c.flag('read_envelope'), tag: 'Truth' },
+          { text: 'Get up. You\'re Abnegation — think of the people waiting on you.', to: 'conv_push', if: (c) => c.flag('daniel_reason'), tag: 'Intimidate' },
+          { text: 'Then don\'t go. Choose tomorrow without the test.', to: 'dontgo', if: (c) => c.flag('daniel_reason') && !c.mem('toldDontGo') },
           { text: 'I\'ll come back.', end: true },
         ],
       },
@@ -274,19 +274,19 @@
       reason: {
         text: '[A long breath.] My father sits on the Council. Everyone knows what our family is supposed to be. If the test says I\'m not Abnegation — if it says anything else — everyone will know I never really was. [Smaller.] And there are rumors. Results that come back "wrong." Candidates who get "reviewed." Whose families stop saying their names.',
         onEnter: (c) => {
-          c.setFlag('elias_reason');
-          c.setObj('cold_feet', 'find', 'done', 'Elias is hiding because his father is on the Council, and he fears what the test might reveal — and what happens to "wrong" results.');
+          c.setFlag('daniel_reason');
+          c.setObj('cold_feet', 'find', 'done', 'Daniel is hiding because his father is on the Council, and he fears what the test might reveal — and what happens to "wrong" results.');
           c.setObj('cold_feet', 'learn', 'done');
           c.activate('cold_feet', 'convince');
           c.addTrust(5);
         },
         next: 'hub', nextText: '...',
       },
-      conv_gentle: { text: '[He is quiet for a long time.] ...He would. He would, wouldn\'t he. He\'d hate that I doubted it. [He wipes his face with his sleeve.] All right. Room Four, eleven-thirty. I\'ll go sit in the hall like a normal person. Thank you, {name}. Truly.', onEnter: eliasConvinced('gentle'), end: true },
-      conv_logic: { text: '[He blinks.] ...That\'s — horribly true. If I hide, I\'m the irregular one before the test even starts. [He stands, unsteadily.] All right. Eleven-thirty. Thank you. I think.', onEnter: eliasConvinced('logic'), end: true },
-      conv_courage: { text: '[He looks at you as if you\'ve handed him something heavy and warm.] You too? ...All right. If you can, I can. Eleven-thirty. I\'ll be in the hall. Thank you, {name}.', onEnter: eliasConvinced('courage'), end: true },
-      conv_truth: { text: '[He goes white.] Then it doesn\'t matter what I do. [Long pause.] ...Or it matters more. If they\'re watching, I\'d rather they see me walk in than drag me out. [He gets up.] Thank you for telling me. Nobody tells me things.', onEnter: (c) => { eliasConvinced('truth')(c); c.addTrust(10); c.setFlag('elias_knows_list'); }, end: true },
-      conv_push: { text: '[He flinches like you struck him. Then he stands, very straight.] ...You\'re right. Of course you\'re right. I\'ll go. [He doesn\'t look at you as he passes.]', onEnter: eliasConvinced('pushed'), end: true },
+      conv_gentle: { text: '[He is quiet for a long time.] ...He would. He would, wouldn\'t he. He\'d hate that I doubted it. [He wipes his face with his sleeve.] All right. Room Four, eleven-thirty. I\'ll go sit in the hall like a normal person. Thank you, {name}. Truly.', onEnter: danielConvinced('gentle'), end: true },
+      conv_logic: { text: '[He blinks.] ...That\'s — horribly true. If I hide, I\'m the irregular one before the test even starts. [He stands, unsteadily.] All right. Eleven-thirty. Thank you. I think.', onEnter: danielConvinced('logic'), end: true },
+      conv_courage: { text: '[He looks at you as if you\'ve handed him something heavy and warm.] You too? ...All right. If you can, I can. Eleven-thirty. I\'ll be in the hall. Thank you, {name}.', onEnter: danielConvinced('courage'), end: true },
+      conv_truth: { text: '[He goes white.] Then it doesn\'t matter what I do. [Long pause.] ...Or it matters more. If they\'re watching, I\'d rather they see me walk in than drag me out. [He gets up.] Thank you for telling me. Nobody tells me things.', onEnter: (c) => { danielConvinced('truth')(c); c.addTrust(10); c.setFlag('daniel_knows_list'); }, end: true },
+      conv_push: { text: '[He flinches like you struck him. Then he stands, very straight.] ...You\'re right. Of course you\'re right. I\'ll go. [He doesn\'t look at you as he passes.]', onEnter: danielConvinced('pushed'), end: true },
       dontgo: {
         text: '[He stares at you.] ...You can\'t. It\'s mandatory. If I don\'t test, they test me anyway — somewhere worse, with people watching. [Quieter.] But thank you. Nobody\'s ever suggested I had a choice about anything.',
         onEnter: (c) => { c.setMem('toldDontGo', true); c.addRel(3); },
@@ -305,10 +305,10 @@
       after: {
         text: (c) => (c.mem('pushed')
           ? '[He looks dazed, but steadier.] I did it. You were right to push me. I didn\'t like it. I\'m glad you did. [Pause.] The technician said "Abnegation." Then she looked at me like she wanted to say more — and didn\'t.'
-          : '[He looks dazed, but steadier.] I did it. It was... a room full of people and only one door. I held it open. [Quietly.] The technician — Ashgrove — said "Abnegation." And then she looked at me like she wanted to say more. And didn\'t.'),
+          : '[He looks dazed, but steadier.] I did it. It was... a room full of people and only one door. I held it open. [Quietly.] The technician — Dawson — said "Abnegation." And then she looked at me like she wanted to say more. And didn\'t.'),
         onEnter: (c) => {
           c.setMem('thanked', true);
-          c.setObj('cold_feet', 'after', 'done', 'Elias took his test. The technician recorded Abnegation.');
+          c.setObj('cold_feet', 'after', 'done', 'Daniel took his test. The technician recorded Abnegation.');
           c.completeQuest('cold_feet', c.mem('pushed') ? 'pushed' : 'supported');
         },
         choices: [
@@ -316,7 +316,7 @@
           { text: 'She looked like she wanted to say more?', to: 'after_more' },
         ],
       },
-      after_more: { text: 'Like she was deciding something. Then she wrote on her clipboard for a long time. [He shakes his head.] I\'m probably imagining it. I imagine a lot of things.', onEnter: (c) => c.setFlag('elias_maybe_divergent'), next: 'after_hub', nextText: '...' },
+      after_more: { text: 'Like she was deciding something. Then she wrote on her clipboard for a long time. [He shakes his head.] I\'m probably imagining it. I imagine a lot of things.', onEnter: (c) => c.setFlag('daniel_maybe_divergent'), next: 'after_hub', nextText: '...' },
       after_hub: {
         text: 'Thank you for today, {name}. Whatever you choose tomorrow — I hope it\'s yours.',
         choices: [
@@ -329,8 +329,8 @@
     },
   });
 
-  /* ============================== PIP HOLLIS ============================== */
-  T('pip', {
+  /* ============================== LUCY BARNES ============================== */
+  T('lucy', {
     entry: [
       { if: (c) => c.flag('kept_bird'), node: 'kept' },
       { if: (c) => c.has('wooden_bird'), node: 'return' },
@@ -373,7 +373,7 @@
         ],
       },
       last: { text: 'In the lobby, by the kiosk. Then I checked in, and at security the guard made me empty my pockets into a tray — and I was so flustered getting my badge clipped back on that... I don\'t know.', onEnter: (c) => c.setMem('heardLast', true), next: 'hub', nextText: 'Hm.' },
-      insight: { text: 'Swept — the custodian! Gus! He sweeps up everything. Oh — I\'d never dare ask him. He looks like a bear that\'s tired of bees.', onEnter: (c) => { c.activate('lost_bird', 'storage', 'Pip emptied her pockets at security. The custodian, Gus, sweeps up everything — and keeps it in the storage room.'); c.xp(10); }, next: 'hub', nextText: 'I\'ll ask him.' },
+      insight: { text: 'Swept — the custodian! Gus! He sweeps up everything. Oh — I\'d never dare ask him. He looks like a bear that\'s tired of bees.', onEnter: (c) => { c.activate('lost_bird', 'storage', 'Lucy emptied her pockets at security. The custodian, Gus, sweeps up everything — and keeps it in the storage room.'); c.xp(10); }, next: 'hub', nextText: 'I\'ll ask him.' },
       nervous: { text: 'Terrified! But Amity say fear is just excitement that forgot to breathe. So I\'m breathing. Very loudly. Sorry.', next: 'hub', nextText: 'Keep breathing.' },
       amity: { text: 'Orchards and long tables and everyone talking at once. We settle arguments with songs. Well — we try. Sometimes the songs become arguments.', next: 'hub', nextText: 'Sounds nice.' },
       return: {
@@ -394,7 +394,7 @@
           c.addRel(20);
           c.helped();
         },
-        next: 'thanks', nextText: 'Good luck today, Pip.',
+        next: 'thanks', nextText: 'Good luck today, Lucy.',
       },
       bargain: {
         text: '...Oh. I — I have a peppermint? And tea? That\'s all I have.',
@@ -418,7 +418,7 @@
       },
       keep: {
         text: 'Oh. [Her face does something brave and small.] Thank you for trying. Really. Grandmother would say things go where they\'re needed.',
-        onEnter: (c) => { c.setFlag('kept_bird'); c.failQuest('lost_bird', 'You kept the carved bird and told Pip you hadn\'t found it.'); },
+        onEnter: (c) => { c.setFlag('kept_bird'); c.failQuest('lost_bird', 'You kept the carved bird and told Lucy you hadn\'t found it.'); },
         end: true,
       },
       thanks: {
@@ -440,8 +440,8 @@
     },
   });
 
-  /* ============================== ROOK DELANEY ============================== */
-  T('rook', {
+  /* ============================== NATE RUSSO ============================== */
+  T('nate', {
     entry: [
       { if: (c) => c.qActive('initiation') && c.has('coffee') && c.qObj('initiation', 'return') === 'active', node: 'coffee' },
       { if: (c) => c.flag('coffee_caught') && !c.mem('heardCaught'), node: 'caught' },
@@ -459,7 +459,7 @@
       },
       brave: { text: 'Prove it.', next: 'dare', nextText: 'How?' },
       lost: { text: 'Ha! Honest. Candor\'d like you. [He grins.] Still. Want to be brave for a minute?', next: 'dare', nextText: 'Depends.' },
-      who: { text: 'Rook Delaney. Future legend. Current candidate. You?', next: 'dare', nextText: '{name}.' },
+      who: { text: 'Nate Russo. Future legend. Current candidate. You?', next: 'dare', nextText: '{name}.' },
       dare: {
         text: 'Here\'s a dare. Staff break room, east wing. Coffee machine. STAFF coffee — the real stuff, not this water-cooler swill. Get me a cup without anyone catching you.',
         choices: [
@@ -469,7 +469,7 @@
         ],
       },
       why: { text: 'Because tomorrow you choose. And today\'s the last day nobody\'s watching. Supposedly. [He winks at the ceiling cameras.]', next: 'dare', nextText: 'Hm.' },
-      accept: { text: 'YES. Okay. Rules: nobody sees you take it. Brann\'s usually in there and he\'s the size of a train. If you get caught, I never met you.', onEnter: (c) => { c.startQuest('initiation'); c.addRel(5); }, next: 'hub', nextText: 'Got it.' },
+      accept: { text: 'YES. Okay. Rules: nobody sees you take it. Frank\'s usually in there and he\'s the size of a train. If you get caught, I never met you.', onEnter: (c) => { c.startQuest('initiation'); c.addRel(5); }, next: 'hub', nextText: 'Got it.' },
       refuse: { text: 'Your loss. Offer stands, though. I\'m a generous legend.', onEnter: (c) => c.addRel(-2, true), next: 'hub', nextText: '...' },
       hub: {
         text: (c) => c.greet({ first: 'What\'s up?', again: 'What\'s up, neutral?', friend: '{name}! My accomplice!', cold: 'Oh. You.' }),
@@ -482,7 +482,7 @@
           bye,
         ],
       },
-      where: { text: 'East passage, past the infirmary, into the staff corridor — door on the right that says STAFF ROOM. Machine\'s on the counter. Wait till nobody\'s looking. Or till Brann goes back to his monitors.', next: 'hub', nextText: 'Okay.' },
+      where: { text: 'East passage, past the infirmary, into the staff corridor — door on the right that says STAFF ROOM. Machine\'s on the counter. Wait till nobody\'s looking. Or till Frank goes back to his monitors.', next: 'hub', nextText: 'Okay.' },
       dauntless: { text: 'Loud. Fast. Honest about being scared — just loudly. You jump off the train because you\'re scared, not because you aren\'t. Nobody outside gets that.', next: 'hub', nextText: 'Huh.' },
       take: { text: 'Ha! [He sizes you up.] ...Maybe. Ask me after initiation. If you\'re in black, we\'ll find out.', onEnter: (c) => { c.addRel(6); c.rep('dauntless', 2); }, next: 'hub', nextText: 'Deal.' },
       nervous: { text: 'Nervous? Nah. Okay, my hands are doing a thing. Ignore my hands.', next: 'hub', nextText: 'Ignored.' },
@@ -490,7 +490,7 @@
         text: 'Is that —? Did you actually —?',
         choices: [
           { text: 'Swiped it right under their noses.', to: 'stole', if: (c) => c.flag('coffee_stolen') },
-          { text: 'I asked Brann. He gave it to me.', to: 'asked', if: (c) => c.flag('coffee_asked') },
+          { text: 'I asked Frank. He gave it to me.', to: 'asked', if: (c) => c.flag('coffee_asked') },
           { text: 'It\'s from the machine. Don\'t ask questions.', to: 'stole', if: (c) => !c.flag('coffee_stolen') && !c.flag('coffee_asked') },
         ],
       },
@@ -507,7 +507,7 @@
         next: 'hub', nextText: 'Told you.',
       },
       asked: {
-        text: 'You ASKED? [He stares.] ...That\'s either the most boring thing I\'ve ever heard, or the bravest. Brann once bit a guy. [He takes the cup.] Fine. Points for nerve.',
+        text: 'You ASKED? [He stares.] ...That\'s either the most boring thing I\'ve ever heard, or the bravest. Frank once bit a guy. [He takes the cup.] Fine. Points for nerve.',
         onEnter: (c) => {
           c.take('coffee');
           c.setObj('initiation', 'return', 'done');
@@ -518,7 +518,7 @@
         next: 'hub', nextText: 'Honesty\'s braver than theft.',
       },
       caught: {
-        text: 'HA! I heard Brann roar from the hall. Respect for trying. Most people don\'t even try.',
+        text: 'HA! I heard Frank roar from the hall. Respect for trying. Most people don\'t even try.',
         onEnter: (c) => { c.setMem('heardCaught', true); c.addRel(4); },
         next: 'hub', nextText: 'Thanks. I think.',
       },
