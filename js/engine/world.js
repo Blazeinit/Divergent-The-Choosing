@@ -498,6 +498,8 @@
 
       if (style === 'none') return 0;
       if (style === 'fence') {
+        // a gate in a fence: the door itself is the barrier (it has its own mesh and collider)
+        if (op && !op.isWindow) return Hh;
         this.buildFence(orient, s0, s1, c, Hh, ext);
         return Hh;
       }

@@ -9,6 +9,15 @@ L.run('Build 2: home & the Choosing', async (p, T, errs) => {
   const ev = (fn, a) => p.evaluate(fn, a);
   // step game time until a condition holds (or give up)
   await ev(() => { window.until = (cond, max) => { let n = 0; while (!cond() && n++ < (max || 4000)) QA.step(0.05); return cond(); }; });
+  // walk from the plaza straight at the front gate for four seconds; how far south do you get?
+  const walkOut = () => ev(() => {
+    QA.end(); DV.Player.place(40, 73.2, 0); DV.Game.rig.yaw = 0; DV.Game.rig.follow(true);
+    for (let n = 0; n < 80; n++) { DV.Input.keys.KeyW = true; QA.step(0.05); }
+    DV.Input.keys.KeyW = false;
+    return +DV.Player.z.toFixed(2);
+  });
+  const before = await walkOut();
+  T.ok(before < 76, 'before your results, the front gate holds you in (z ' + before + ')');
   // the results are in (as if Claire had just finished with you)
   await ev(() => {
     const a = DV.State.data.aptitude;
@@ -20,6 +29,8 @@ L.run('Build 2: home & the Choosing', async (p, T, errs) => {
   });
   const g = await ev(() => { QA.step(0.2); const z = DV.World.current; return { q: DV.Quests.obj('the_choosing', 'leave'), gate: z.gateBlock.enabled, bus: DV.Build2.canGoHome() }; });
   T.ok(g.q === 'active' && !g.gate && g.bus, 'after the results: "The Choosing" starts, the front gate opens and the bus waits', g);
+  const after = await walkOut();
+  T.ok(after > 77, 'and you can walk out through it to the street (z ' + after + ')');
   // ride home
   await ev(() => { const it = DV.World.current.interactables.find((i) => i.id === 'bus_home'); it.onUse(DV.Game, it); QA.pick('take me home'); });
   const home = await L.until(p, () => DV.Chapter.active && DV.Chapter.id === 'home' && DV.Game.state === 'playing');

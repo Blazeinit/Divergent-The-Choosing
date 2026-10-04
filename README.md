@@ -385,6 +385,7 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
 - **Persistence:** save → reload page → Continue restores state. Two playthroughs in one browser session also work.
 
 Bugs found and fixed during Build 3's QA:
+- **The front gate never let the player out.** Two things stopped you leaving the Testing Center after your results. The gate's lock only ever opened for NPCs. And the plaza's chain-link fence was built straight across the gate opening, so even an open gate had a fence behind it. NPCs walk on the nav grid, so they never noticed. The old test only checked that the barrier lifted and the bus was available. The new one walks the player out to the street.
 - **Fight balance.** Mashing jab always won: it stun-locked the opponent and ran the AI out of stamina. The fix:
   - Recovery can now cancel only into a different move.
   - Guarding costs less stamina, and the AI guards sooner and holds its guard.
