@@ -358,7 +358,6 @@
       // a save from after you chose: everyone's already in place, straight to the end
       if ((opts.step === 'after_player' || opts.step === 'exodus') && DV.Build2.chosen()) { this.resumeAfter(Ch, zone); return; }
       Ch.checkpoint('start');
-      DV.UI.notify('Hold Space to hurry the ceremony along.', 'info');
       this.run(Ch, zone);
     },
     resumeAfter(Ch, zone) {
@@ -593,8 +592,9 @@
 
     update(Ch, dt, zone) {
       // hurry the names along (not during your own turn)
-      if (!Ch.myTurn && !DV.Dialogue.isActive()) Ch.speed = DV.Input.down('Space') ? 3.5 : 1;
-      else Ch.speed = 1;
+      const canHurry = !Ch.myTurn && !DV.Dialogue.isActive() && !Ch.flag('finale') && !Ch.cutscene;
+      Ch.speed = canHurry && DV.Input.down('Space') ? 3.5 : 1;
+      Ch.hint = canHurry ? (Ch.speed > 1 ? 'Hurrying… (release Space)' : 'Hold Space to hurry the ceremony along') : null;
       // the finale runs once the last name is called and everyone has taken their place
       if (!Ch.flag('finale') && Ch.seqs.every((s) => s.name !== 'ceremony') && Ch.flag('placed')) {
         const walking = Ch.cands.some((a) => a.walk && a.moving);

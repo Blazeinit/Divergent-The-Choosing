@@ -654,6 +654,7 @@
         say('Initiation starts at dawn. Eat. Find a bunk. Sleep if you can.', 3.2),
         () => { DV.Audio.setMusic('dauntless'); },
         () => {
+          DV.Build2.dressFor('dauntless', 'Mark tosses you a bundle of black: a jacket, boots, a shirt that has clearly been somebody else\'s first.');
           DV.Quests.setObj('new_faction', 'arrive', 'done', 'You made it into the Dauntless compound.');
           DV.Quests.complete('new_faction', 'dauntless');
           Ch.checkpoint('done');

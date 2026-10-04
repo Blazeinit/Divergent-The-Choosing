@@ -187,6 +187,7 @@
       this.flags = {};
       this.t = 0;
       this.speed = 1;
+      this.hint = null; // a standing on-screen hint (e.g. "Hold Space to hurry the ceremony along")
       this.step = opts.step || null;
       this.opts = opts;
       DV.State.data.story = DV.State.data.story || {};

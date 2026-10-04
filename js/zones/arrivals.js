@@ -15,7 +15,14 @@
 
   const PL = () => DV.State.data.player;
   const adult = (f, sex, seed, age, h) => { const a = DV.Character.fromFaction(f, sex, seed, { age: age || 40 }); a.height = (a.height || 1) * (h || 1.05); return a; };
+  const DRESS = {
+    abnegation: 'Someone presses a folded set of greys into your hands. They fit. They always fit.',
+    erudite: 'A pressed blue jacket is waiting on your bunk, a pair of reading glasses in the pocket, just in case.',
+    candor: 'Black and white, crisp as a verdict. You change in a room with no mirrors to hide behind.',
+    amity: 'Someone hands you a soft red shirt and a yellow scarf that smells of woodsmoke and apples.',
+  };
   const welcomeBanner = (Ch, f, l2) => {
+    DV.Build2.dressFor(f, DRESS[f]);
     DV.Quests.setObj('new_faction', 'arrive', 'done', 'Your first hour as ' + DV.Factions.name(f) + '.');
     DV.Quests.complete('new_faction', f);
     Ch.checkpoint('done');

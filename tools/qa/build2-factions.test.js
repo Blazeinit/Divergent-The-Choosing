@@ -62,6 +62,7 @@ L.run('Build 2: getting into your faction', async (p, T, errs) => {
   await ev(() => { DV.Player.place(30, 9, 0.3); });
   T.ok(await L.until(p, () => !!document.getElementById('banner'), 60000), 'the Pit, the chasm, Mark\'s welcome — WELCOME TO DAUNTLESS');
   T.eq(await ev(() => DV.Quests.q('new_faction').state), 'complete', 'Build 2 complete (Dauntless)');
+  T.eq(await ev(() => DV.State.data.player.outfit), 'dauntless', 'and you\'re in Dauntless black');
 
   /* ---------- the other four ---------- */
   const tasks = {
@@ -76,7 +77,7 @@ L.run('Build 2: getting into your faction', async (p, T, errs) => {
     await ev((src) => (0, eval)('(' + src + ')')(), tasks[f].toString());
     const ok = await L.until(p, () => !!document.getElementById('banner') && DV.Quests.q('new_faction').state === 'complete', 60000);
     const step = await ev(() => DV.Chapter.step);
-    T.ok(ok && step === 'done', DV_name(f) + ': arrival, welcome, banner');
+    T.ok(ok && step === 'done' && (await ev(() => DV.State.data.player.outfit)) === f, DV_name(f) + ': arrival, welcome, new clothes, banner');
     // a save after the welcome loads as free roam
     await ev(() => { const b = DV.UI.root.querySelector('#banner'); if (b) b.remove(); DV.UI.modalOpen = null; DV.Game.state = 'playing'; DV.Save.write('4'); DV.Game.loadSlot('4'); });
     await L.until(p, () => DV.Chapter.active && DV.Game.state === 'playing');

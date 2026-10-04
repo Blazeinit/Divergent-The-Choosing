@@ -120,9 +120,10 @@
       if (this._subB !== subB) { this._subB = subB; this.subtitleEl.style.bottom = subB + 'px'; }
       // hint about mouse capture
       const hint = this.q('#hud-hint');
-      const needHint = game.state === 'playing' && !DV.Input.locked && !DV.Input.dragging && game.hintTimer > 0;
+      const chHint = DV.Chapter && DV.Chapter.active && DV.Chapter.hint && (game.state === 'playing' || game.state === 'cutscene') ? DV.Chapter.hint : null;
+      const needHint = chHint || (game.state === 'playing' && !DV.Input.locked && !DV.Input.dragging && game.hintTimer > 0);
       hint.classList.toggle('hidden', !needHint);
-      if (needHint) hint.textContent = 'Click to look around (or hold any mouse button and drag)';
+      if (needHint) { const t = chHint || 'Click to look around (or hold any mouse button and drag)'; if (hint.textContent !== t) hint.textContent = t; }
       // fps
       const fpsEl = this.q('#hud-fps');
       fpsEl.classList.toggle('hidden', !DV.Settings.get('showFps'));

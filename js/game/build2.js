@@ -53,6 +53,14 @@
     chosen() {
       return DV.State.data.story && DV.State.data.story.chosen;
     },
+    // your new faction hands you its clothes, and you put them on
+    dressFor(f, how) {
+      const id = 'clothes_' + f;
+      if (!DV.Items.get(id)) return;
+      if (!DV.Inventory.has(id)) DV.Inventory.add(id, 1, true);
+      if (DV.State.data.player.outfit !== f) DV.Inventory.use(id);
+      DV.UI.notify(how || 'You change into ' + DV.Items.get(id).name + '.', 'info');
+    },
     // your parents look the same at dinner and at the ceremony
     parentApp(which) {
       const pl = DV.State.data.player, f = pl.upbringing;
