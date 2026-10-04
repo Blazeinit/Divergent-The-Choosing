@@ -199,7 +199,35 @@
         e.style.top = ((1 - v.y) / 2) * h + 'px';
         e.style.opacity = U.clamp((n.bark.until - now) / 600, 0, 1) * U.clamp((16 - n.dist) / 4, 0.3, 1);
       }
+      // chapter actors (ceremony speakers, family, initiates)
+      if (DV.Chapter && DV.Chapter.active) {
+        for (const a of DV.Chapter.barkSources()) {
+          const d = Math.hypot(a.x - cam.position.x, a.z - cam.position.z);
+          if (d > 22 || !a.name) continue;
+          v.set(a.x, a.headY() + 0.35, a.z).project(cam);
+          if (v.z > 1 || v.z < -1) continue;
+          const key = 'ch:' + a.id;
+          live.add(key);
+          let e = this.barksEl.querySelector('[data-id="' + key + '"]');
+          if (!e) { e = el('div', 'bark', null, this.barksEl); e.dataset.id = key; }
+          const txt = '<span class="bn">' + U.esc(a.name) + '</span>' + U.esc(a.bark.text);
+          if (e._t !== txt) { e._t = txt; e.innerHTML = txt; }
+          e.style.left = ((v.x + 1) / 2) * w + 'px';
+          e.style.top = ((1 - v.y) / 2) * h + 'px';
+          e.style.opacity = U.clamp((a.bark.until - now) / 600, 0, 1) * U.clamp((22 - d) / 5, 0.3, 1);
+        }
+      }
       for (const e of Array.from(this.barksEl.children)) if (!live.has(e.dataset.id)) e.remove();
+    },
+    // cinematic bars for cutscenes
+    letterbox(on) {
+      let lb = document.getElementById('letterbox');
+      if (!lb) {
+        lb = el('div', null, '<i></i><i></i>', this.root);
+        lb.id = 'letterbox';
+      }
+      lb.classList.toggle('on', !!on);
+      document.body.classList.toggle('cutscene', !!on);
     },
     clearBarks() {
       this.barksEl.innerHTML = '';

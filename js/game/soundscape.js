@@ -164,7 +164,9 @@
         this.timers.bird = U.rand(7, 18);
         A.play(Math.random() < 0.65 ? 'caw' : 'gull', { bus: 'outdoor', volume: U.rand(0.5, 1) });
       }
-      if (this.timers.train <= 0) {
+      // (a zone with a visible L train plays that one as it passes instead)
+      const zn = DV.World.current;
+      if (this.timers.train <= 0 && !(zn && zn.city && zn.city.train)) {
         this.timers.train = U.rand(70, 150);
         A.play('train', { bus: 'outdoor', volume: U.rand(0.6, 1) });
         if (Math.random() < 0.45) setTimeout(() => A.play('horn', { bus: 'outdoor', volume: 0.8 }), 2500);

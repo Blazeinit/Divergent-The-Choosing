@@ -347,3 +347,11 @@ html.vcur, html.vcur * { cursor: none !important; }
 #vcursor.down svg { transform: scale(0.92) translate(1px, 1px); }
 #vcursor-tip { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 10001; display: none; padding: 2px 8px; font-family: var(--serif); font-size: 12px; letter-spacing: 0.08em; color: var(--text); background: rgba(14,13,11,0.92); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(216,162,74,0.35); white-space: nowrap; }
 #vcursor-tip.on { display: block; }
+
+/* cutscene letterbox (chapters) */
+#letterbox { position: absolute; inset: 0; pointer-events: none; z-index: 8; }
+#letterbox i { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.7s ease; }
+#letterbox i:first-child { top: 0; }
+#letterbox i:last-child { bottom: 0; }
+#letterbox.on i { height: 9vh; }
+body.cutscene #hud-prompt, body.cutscene #hud-quest, body.cutscene #hud-compass, body.cutscene #hud-stamina, body.cutscene #hud-hint { opacity: 0; transition: opacity 0.4s; }

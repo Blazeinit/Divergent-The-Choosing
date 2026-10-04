@@ -951,6 +951,14 @@
       const i = U.clamp(Math.floor((x - this.bx0) / g.S), 0, g.w - 1), j = U.clamp(Math.floor((z - this.bz0) / g.S), 0, g.h - 1);
       const k = (j * g.w + i) * 3;
       out[0] = g.data[k]; out[1] = g.data[k + 1]; out[2] = g.data[k + 2];
+      // outdoors, people darken a little as a cloud shadow passes over them
+      if (this.city) {
+        const room = this.roomAt(x, z);
+        if (room && room.exterior) {
+          const s = 1 - 0.24 * this.city.cloudShadeAt(x, z);
+          out[0] *= s; out[1] *= s; out[2] *= s;
+        }
+      }
       return out;
     }
 
@@ -1085,6 +1093,9 @@
       const dd = DV.Settings.get('drawDistance');
       const mul = dd === 'near' ? 0.7 : dd === 'far' ? 1.5 : 1;
       if (!this.scene.fog) this.scene.fog = new THREE.Fog(fog.color, fog.near * mul, fog.far * mul);
+      // zones with an outdoor haze blend between the two as you go in and out (see update)
+      const fo = d.fogOutdoor;
+      this.fogBlend = fo ? { a: { c: new THREE.Color(fog.color), near: fog.near * mul, far: fog.far * mul }, b: { c: new THREE.Color(fo.color), near: fo.near * mul, far: fo.far * mul }, k: -1 } : null;
       this.scene.fog.color.setHex(fog.color);
       this.scene.fog.near = fog.near * mul;
       this.scene.fog.far = fog.far * mul;
@@ -1114,6 +1125,17 @@
     },
     update(dt, camera) {
       if (this.sky && camera) this.sky.position.set(camera.position.x, 0, camera.position.z);
+      const fb = this.fogBlend;
+      if (fb && camera && this.current) {
+        const room = this.current.roomAt(camera.position.x, camera.position.z);
+        const want = !room || room.exterior ? 1 : 0;
+        fb.k = fb.k < 0 ? want : U.damp(fb.k, want, 2.2, dt);
+        const f = this.scene.fog;
+        f.color.copy(fb.a.c).lerp(fb.b.c, fb.k);
+        f.near = U.lerp(fb.a.near, fb.b.near, fb.k);
+        f.far = U.lerp(fb.a.far, fb.b.far, fb.k);
+        this.scene.background.copy(f.color);
+      }
       if (this.current) {
         this.current.update(dt);
         if (camera) this.current.cullDetails(camera.position);

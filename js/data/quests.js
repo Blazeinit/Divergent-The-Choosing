@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DIVERGENT — quest definitions (Build 1)
+   DIVERGENT — quest definitions (Builds 1 & 2)
    Objectives are revealed in order unless `hidden` (revealed by scripts)
    or `parallel` (active immediately). `target` drives the compass marker:
    { npc: id } | { spot: id } | { room: id } | { door: id } | { x, z }
@@ -94,5 +94,30 @@
     ],
     rewards: { xp: 40, rep: { erudite: 5 } },
     completeText: 'You returned the keycard to Sarah Lin.',
+  });
+  /* ------------------------------ Build 2 ------------------------------ */
+  Q({
+    id: 'the_choosing', title: 'The Choosing', type: 'main', giver: null,
+    summary: 'The test is over. Tonight you go home to your family. Tomorrow, at the Choosing Ceremony in the Hub, you cut your palm and let your blood fall into one of five bowls — and that faction is yours for the rest of your life.',
+    startText: 'Candidates who have finished testing may go home. Buses leave from the street outside the front gate.',
+    objectives: [
+      { id: 'leave', text: 'Go home — the bus waits outside the front gate', target: { x: 47, z: 78.6 } },
+      { id: 'dinner', text: 'Have dinner with your family', hidden: true, target: { x: 4, z: 3 } },
+      { id: 'sleep', text: 'Get some sleep — your room is at the back', hidden: true, target: { x: 10.4, z: 9.4 } },
+      { id: 'ceremony', text: 'The Choosing Ceremony: wait for your name', hidden: true, target: { x: 22, z: 14 } },
+      { id: 'choose', text: 'Cut your palm and choose a faction', hidden: true, target: { x: 22, z: 14 } },
+      { id: 'follow', text: 'Follow your new faction', hidden: true },
+    ],
+    rewards: { xp: 200 },
+    completeText: 'You chose. Faction before blood.',
+  });
+  Q({
+    id: 'new_faction', title: 'Initiate', type: 'main', giver: null,
+    summary: 'Your first day in your new faction.',
+    objectives: [
+      { id: 'arrive', text: 'Arrive with your new faction', target: null },
+    ],
+    rewards: { xp: 100 },
+    completeText: 'You made it in. What happens next is up to you.',
   });
 })();

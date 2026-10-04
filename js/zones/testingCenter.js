@@ -311,13 +311,23 @@
   add('rubble', 16, 82, { n: 8 });
   add('rubble', 65, 78, { n: 6 });
   add('lamp_post', 30, 77.5, {});
-  // painted backdrops beyond the playable area
-  add('backdrop', 40, 97, { rotDeg: 180, w: 90, h: 22 });
-  add('backdrop', 4, 90, { rotDeg: 135, w: 30, h: 18, mat: 'brick' });
-  add('backdrop', 76, 90, { rotDeg: -135, w: 30, h: 18 });
-  add('backdrop', 10, 68, { rotDeg: 90, w: 30, h: 16 });
-  add('backdrop', -16, 26, { rotDeg: 90, w: 40, h: 20 });
-  add('backdrop', 94, 30, { rotDeg: -90, w: 50, h: 20, mat: 'brick' });
+  // beyond the street: under the L tracks, a vacant lot behind a sagging fence (the city
+  // itself — blocks, towers, the Hub, the L — is built by DV.City in build() below)
+  add('chainlink_fence', 8, 93.4, { len: 26, lean: true });
+  add('chainlink_fence', 40, 93.4, { len: 30 });
+  add('chainlink_fence', 74, 93.4, { len: 24, lean: true });
+  add('chainlink_fence', -7.4, 118, { len: 48, rotDeg: 90 });
+  add('rubble', 20, 98, { n: 14 });
+  add('rubble', 47, 104, { n: 18 });
+  add('rubble', 63, 97.5, { n: 9 });
+  add('rubble', 30, 112, { n: 16 });
+  add('car', 12, 101, { rotDeg: 30 });
+  add('car', 70, 108, { rotDeg: -70 });
+  add('jersey_barrier', 56, 95.5, { len: 3, rotDeg: 12 });
+  add('jersey_barrier', 4, 96, { len: 3, rotDeg: -20 });
+  add('billboard', 42, 99, { rotDeg: 180, w: 9, h: 3.4, y: 4.6, text: 'FACTION BEFORE BLOOD', bg: '#3b3430', color: '#d9cbb0' });
+  add('lamp_post', 70, 85.4, { rotDeg: 180 });
+  add('lamp_post', 8, 85.4, { rotDeg: 180 });
 
   /* ---------------- administration ---------------- */
   add('copier', 17.5, 20.45, {});
@@ -544,8 +554,10 @@
     bounds: { x0: -2, z0: 0, x1: 82, z1: 86 },
     buildingHeight: 9,
     facade: 'facade',
-    fog: { color: 0x5f666d, near: 24, far: 78 },
-    sky: { top: 0x55616e, horizon: 0xa9aeb0, ground: 0x46484a },
+    // indoors a short grey fog; outside it opens up into a light haze that matches the city's
+    fog: { color: 0x5a6067, near: 24, far: 95 },
+    fogOutdoor: { color: 0x98a0a6, near: 45, far: 320 },
+    sky: { top: 0x5b6773, horizon: 0x9ca3a9, ground: 0x585b5d, skyline: false },
     exterior: { sunDir: [0.35, 0.85, 0.4], sunColor: [0.42, 0.41, 0.38], ambient: [0.5, 0.52, 0.56] },
     charLight: { ambient: 0.5, hemi: 0.45, dir: 0.45 },
     rooms,
@@ -591,6 +603,57 @@
       ctx.interact({ id: 'tr3_look', kind: 'examine', x: 41.5, y: 1.2, z: 16.4, radius: 1.0, label: 'Peer through', name: 'Room 3 Door', title: 'Testing Room 3', text: 'Through the narrow window you can see the chair under a dust sheet, and a crate stenciled SIM-A LOT 33 — RECALLED.' });
       DV.Reception.attach(zone);
       ctx.update((dt) => { DV.Checkpoint.update(dt); DV.Reception.update(dt); });
+
+      // the city around the Testing Center: Sector 4 is on the quiet north-west edge of the
+      // city; downtown and the Hub are to the south, the dried-up marsh and the old Ferris
+      // wheel to the east at the far end of the street, the L right across the street
+      const city = DV.City.build({
+        seed: 1871,
+        campus: [-8, -6, 88, 75],
+        gridX: [-546, -470, -394, -318, -242, -166, -90, -14, 94, 170, 246, 322, 398],
+        gridZ: [-524, -460, -396, -332, -268, -204, -140, -76, -12, [83.5, 17], 150, 214, 278, 342, 406, 470, 534],
+        radius: 580,
+        hub: [96, 360],
+        marshX: 420,
+        ferris: [458, 84],
+        track: { x0: -720, x1: 720, z0: 86.6, z1: 91.2, y: 7.4, span: 15 },
+        keepClear: [[-8, 92, 88, 144]],
+        extras: [
+          { x: 9, z: 68, w: 20, d: 13, h: 9.6, style: 'brick', tint: [0.95, 0.92, 0.9], seed: 11 },
+          { x: 73, z: 69, w: 26, d: 11, h: 12.8, style: 'brick', tint: [1.0, 0.95, 0.9], seed: 12, waterTower: [7, 0] },
+          { x: -5, z: 30, w: 5, d: 50, h: 4, style: 'derelict', seed: 13 },
+        ],
+        haze: 0x98a0a6,
+        exterior: zone.def.rooms.filter((r) => r.exterior).map((r) => [r.x0, r.z0, r.x1, r.z1]),
+      });
+      ctx.add(city.group);
+      zone.city = city;
+      ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
+
+      // pigeons on the plaza, street and courtyard; crows and gulls over the city; litter
+      DV.Wildlife.attach(zone, {
+        seed: 4,
+        flocks: [
+          { x0: 23, z0: 63, x1: 37, z1: 74.5, n: 8 },
+          { x0: 43, z0: 63, x1: 57, z1: 74.5, n: 6 },
+          { x0: 15, z0: 77, x1: 65, z1: 83.5, n: 6 },
+          { x0: 59, z0: 49, x1: 79, z1: 61, n: 5 },
+        ],
+        perches: [
+          [23.4, 4.52, 64], [23.4, 4.52, 72], [56.6, 4.52, 64], [56.6, 4.52, 70], [30, 4.52, 77.5],
+          [50.2, 2.6, 73.3], [51.8, 2.6, 73.3], [29.4, 2.22, 68.5], [30.6, 2.22, 68.5],
+          [26, 3.22, 76], [54, 3.22, 76], [25, 7.04, 62.6], [52.5, 7.04, 62.6],
+          [28, 8.32, 86.75], [41, 8.32, 86.75], [57, 8.32, 86.75],
+          [33, 9.02, 59.9], [47, 9.02, 59.9],
+          [66, 4.22, 62], [74, 4.22, 62], [80, 4.22, 54],
+        ],
+        circlers: { n: 7, centre: [40, 130], r: 70, y: 34 },
+        litter: { rect: [23, 61, 57, 75.4], n: 8 },
+      });
+    },
+    onExit(zone) {
+      // e.g. into a simulation: the train's sound must not keep running in there
+      if (zone.city && zone.city.train && zone.city.train.sound) { zone.city.train.sound.stop(); zone.city.train.sound = null; }
     },
   });
 })();

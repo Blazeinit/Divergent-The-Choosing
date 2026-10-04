@@ -239,6 +239,66 @@
       return f;
     },
 
+    /* --------------------------- moving sources --------------------------- */
+    // a sound that travels: returns { update(x, z, speed), stop() }. It goes through the
+    // outdoor bed, so it's muffled and quieter when you're indoors.
+    mover(kind) {
+      if (!this.ready) return null;
+      if (!this.beds) this.buildBeds();
+      const A = this, c = this.ctx;
+      const g = c.createGain();
+      g.gain.value = 0;
+      const pan = c.createStereoPanner ? c.createStereoPanner() : null;
+      if (pan) { g.connect(pan); pan.connect(this.beds.outIn); } else g.connect(this.beds.outIn);
+      const srcs = [];
+      // kind === 'train': rumble of the cars, hiss of steel on steel, traction motor whine, wheel clacks
+      const rumble = this.noiseSrc(this.brown, true);
+      const rf = c.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 240;
+      rumble.connect(rf); rf.connect(g); rumble.start(); srcs.push(rumble);
+      const hiss = this.noiseSrc(this.white, true);
+      const hf = c.createBiquadFilter(); hf.type = 'bandpass'; hf.frequency.value = 2700; hf.Q.value = 0.9;
+      const hg = c.createGain(); hg.gain.value = 0.035;
+      hiss.connect(hf); hf.connect(hg); hg.connect(g); hiss.start(); srcs.push(hiss);
+      const motor = c.createOscillator(); motor.type = 'sawtooth'; motor.frequency.value = 150;
+      const mf = c.createBiquadFilter(); mf.type = 'bandpass'; mf.frequency.value = 460; mf.Q.value = 5;
+      const mg = c.createGain(); mg.gain.value = 0.02;
+      motor.connect(mf); mf.connect(mg); mg.connect(g); motor.start(); srcs.push(motor);
+      let nextClack = 0, dead = false;
+      return {
+        kind,
+        update(x, z, speed) {
+          const cam = DV.Game && DV.Game.camera;
+          if (dead || !cam) return;
+          const dx = x - cam.position.x, dz = z - cam.position.z, d = Math.hypot(dx, dz);
+          const t = c.currentTime;
+          g.gain.setTargetAtTime(0.95 / (1 + Math.pow(d / 30, 1.5)), t, 0.12);
+          rf.frequency.setTargetAtTime(150 + 300 / (1 + d / 35), t, 0.2); // closer is brighter
+          hg.gain.setTargetAtTime(0.06 / (1 + d / 25), t, 0.2);
+          motor.frequency.setTargetAtTime(110 + speed * 6, t, 0.4);
+          if (pan) {
+            cam.getWorldDirection(A._v);
+            const fx = A._v.x, fz = A._v.z, fl = Math.hypot(fx, fz) || 1;
+            const r = (dx * -fz + dz * fx) / (fl * Math.max(d, 0.001));
+            pan.pan.setTargetAtTime(U.clamp(r, -1, 1) * Math.min(1, d / 6) * 0.8, t, 0.08);
+          }
+          // clack-clack as each truck crosses a rail joint
+          if (t >= nextClack) {
+            nextClack = t + 13 / Math.max(4, speed) / 2;
+            const f0 = 850 + Math.random() * 300;
+            A.burst('bandpass', f0, 2.5, 0.05, 0.5, 0, g);
+            A.burst('bandpass', f0 * 0.92, 2.5, 0.05, 0.42, 0.11, g);
+          }
+        },
+        stop() {
+          if (dead) return;
+          dead = true;
+          const t = c.currentTime;
+          g.gain.setTargetAtTime(0.0001, t, 0.4);
+          for (const s of srcs) { try { s.stop(t + 2); } catch (e) { /* already stopped */ } }
+        },
+      };
+    },
+
     /* ------------------------------ sfx ------------------------------ */
     play(name, opts) {
       if (!this.ready) return;
@@ -317,6 +377,24 @@
             const f = this.burst('bandpass', 280, 0.6, 1.1, 0.22 * v);
             f.frequency.exponentialRampToValueAtTime(1400, this.ctx.currentTime + 0.5);
             this.burst('lowpass', 160, 0.5, 0.9, 0.2 * v);
+            break;
+          }
+          case 'flap': { // a flock taking off: a clatter of wingbeats that thins out
+            const n = 10 + Math.floor(Math.random() * 8);
+            for (let i = 0; i < n; i++) {
+              const t = i * 0.045 + Math.random() * 0.03 + (i > n / 2 ? (i - n / 2) * 0.03 : 0);
+              this.burst('bandpass', 900 + Math.random() * 1400, 1.4, 0.035, (0.05 + 0.05 * (1 - i / n)) * v, t);
+            }
+            break;
+          }
+          case 'coo': { // pigeon: a soft rising-falling "hoo-oo"
+            const t = this.ctx.currentTime;
+            const o = this.tone(300, 0.55, 'sine', 0.022 * v);
+            o.frequency.setValueAtTime(285, t);
+            o.frequency.linearRampToValueAtTime(330, t + 0.18);
+            o.frequency.linearRampToValueAtTime(270, t + 0.5);
+            const o2 = this.tone(600, 0.4, 'sine', 0.006 * v, 0.05);
+            o2.frequency.linearRampToValueAtTime(540, t + 0.45);
             break;
           }
           case 'caw': { // crow

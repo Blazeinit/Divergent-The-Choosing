@@ -34,7 +34,8 @@
       this.renderer.setPixelRatio(1);
       this.renderer.outputEncoding = THREE.LinearEncoding;
       this.scene = new THREE.Scene();
-      this.camera = new THREE.PerspectiveCamera(DV.Config.CAMERA.fov, 16 / 9, 0.08, 420);
+      // far plane reaches the hazy city edge, the marsh and the Ferris wheel
+      this.camera = new THREE.PerspectiveCamera(DV.Config.CAMERA.fov, 16 / 9, 0.08, 1100);
       this.rig = new DV.CameraRig(this.camera);
       DV.World.init(this.scene);
       DV.NPCs.init(this.scene);
@@ -82,6 +83,15 @@
     },
     inSimulation() {
       return !!(DV.World.current && DV.World.current.def.simulation);
+    },
+    inChapter() {
+      return !!(DV.World.current && DV.World.current.def.chapter && DV.Chapter && DV.Chapter.active);
+    },
+    // whoever is scripting the current zone: a simulation, a story chapter, or nobody (the Testing Center day)
+    ctrl() {
+      if (this.inSimulation()) return DV.Sim || null;
+      if (this.inChapter()) return DV.Chapter;
+      return null;
     },
     testingGroups() {
       return DV.Story.testingGroups();
@@ -221,6 +231,22 @@
       setTimeout(() => {
         try {
           this.hideMenuFigures();
+          const st0 = DV.State.data;
+          const chap = fromLoad && st0.story && st0.story.chapter && DV.Chapter.get(st0.story.chapter.id);
+          if (chap) {
+            // a save made during Build 2's story: back to the start of that beat
+            if (!st0.player.appearance) st0.player.appearance = DV.Character.fromFaction('neutral', st0.player.sex, 'player');
+            this.refreshPlayerAppearance(true);
+            this.scene.add(DV.Player.model.root);
+            DV.Player.stamina = st0.player.stamina || 100;
+            DV.Quests.tracked = st0.questsTracked || DV.Quests.firstActive();
+            DV.UI.loading(false);
+            DV.UI.showHUD(true);
+            DV.UI.fade(1, 1);
+            DV.Audio.setMusic('none');
+            DV.Chapter.start(st0.story.chapter.id, { step: st0.story.chapter.step, instant: true, fromLoad: true });
+            return;
+          }
           const zone = DV.World.activate(HOME);
           DV.NPCs.attach(HOME);
           const st = DV.State.data;
@@ -261,6 +287,13 @@
           DV.UI.showError((e && e.stack) || String(e));
         }
       }, 60);
+    },
+    // tear down a running chapter (quit / load): its zone is rebuilt next time
+    leaveChapter() {
+      if (!DV.Chapter || !DV.Chapter.active) return;
+      const z = DV.World.current;
+      DV.Chapter.cleanup();
+      if (z && z.def.chapter) DV.World.dispose(z.id);
     },
     restoreNPCs(fromLoad) {
       const rt = DV.State.data.npcRuntime;
@@ -343,6 +376,15 @@
         if (this.inSimulation() && DV.Sim) DV.Sim.update(dt, true);
         // keep the seated/standing player animated while talking
         DV.Player.model.animate(dt, { speed: 0, action: DV.Player.action, seatY: DV.Player.seat ? DV.Player.seat.seatY : 0.45 });
+        if (this.inChapter()) DV.Chapter.update(dt);
+      } else if (this.state === 'cutscene') {
+        // a chapter is driving: the world and the actors carry on, the player is a puppet
+        if (input.consume('Escape')) { this.pause(); return; }
+        input.takeMouse(); input.takeWheel();
+        this.updateWorldSystems(dt, zone, false);
+        if (this.inChapter()) DV.Chapter.update(dt);
+        const P = DV.Player;
+        P.model.animate(dt, { speed: P.cineSpeed || 0, action: P.cineAction || P.action, seatY: P.seat ? P.seat.seatY : 0.45 });
       } else if (this.state === 'menu') {
         if (input.consume('Tab') || input.consume('Escape')) this.closeOverlay();
         else if (input.consume('KeyM') && DV.RPGMenu.tab !== 'map') DV.RPGMenu.show('map');
@@ -354,6 +396,7 @@
       } else if (this.state === 'transition' || this.state === 'banner') {
         // simulation transitions keep the world animating
         if (this.inSimulation() && DV.Sim) DV.Sim.update(dt, true);
+        if (this.inChapter()) DV.Chapter.update(dt);
       }
       this.rig.update(dt, DV.Player, zone);
       DV.UI.updateHUD(this);
@@ -370,7 +413,7 @@
       if (input.consume('KeyM')) { this.openRPGMenu('map'); return; }
       if (input.consume('KeyJ')) { this.openRPGMenu('quests'); return; }
       if (input.consume('KeyI')) { this.openRPGMenu('inventory'); return; }
-      if (input.consume('KeyT') && DV.Player.state === 'sitting' && !this.inSimulation()) { this.openWait(); return; }
+      if (input.consume('KeyT') && DV.Player.state === 'sitting' && !this.ctrl()) { this.openWait(); return; }
       if (input.consume('KeyE')) DV.Interaction.use(this);
       if (this.state !== 'playing') return;
       // camera
@@ -380,14 +423,16 @@
       if (w) this.rig.zoom(w);
       this.hintTimer -= dt;
       // clock & player
-      if (!this.inSimulation()) DV.Clock.update(dt);
+      if (!this.ctrl()) DV.Clock.update(dt); // simulations and chapters keep their own (story) time
       const bodies = DV.NPCs.bodies(DV.Player.x, DV.Player.z, 2);
-      if (this.inSimulation() && DV.Sim) for (const b of DV.Sim.bodies()) bodies.push(b);
+      const ctl = this.ctrl();
+      if (ctl) for (const b of ctl.bodies()) if (Math.abs(b.x - DV.Player.x) < 2 && Math.abs(b.z - DV.Player.z) < 2) bodies.push(b);
       DV.Player.update(dt, { input, rig: this.rig, zone, npcs: bodies, enabled: true, lookYaw: 0 });
       this.updateWorldSystems(dt, zone, true);
       DV.Interaction.update(zone, DV.Player);
       this.checkRoomAndTriggers(zone);
       if (this.inSimulation() && DV.Sim) DV.Sim.update(dt, false);
+      if (this.inChapter() && this.state !== 'cutscene') DV.Chapter.update(dt);
       // autosave
       if (this.autosaveTimer > 0) {
         this.autosaveTimer -= dt;
@@ -400,9 +445,10 @@
       // doors: player + NPC agents
       const agents = DV.NPCs.agents();
       agents.push({ x: DV.Player.x, z: DV.Player.z, access: (lock, door) => DV.Story.playerCanPass(lock, door) });
-      if (this.inSimulation() && DV.Sim) for (const a of DV.Sim.agents()) agents.push(a);
+      const ctl = this.ctrl();
+      if (ctl) for (const a of ctl.agents()) agents.push(a);
       zone.updateDoors(dt, agents);
-      if (!this.inSimulation()) DV.NPCAI.update(dt, DV.Player);
+      if (!ctl) DV.NPCAI.update(dt, DV.Player);
       // player tint from baked light
       const L = zone.lightAt(DV.Player.x, DV.Player.z);
       this.ptint = this.ptint || [1, 1, 1];
@@ -444,7 +490,7 @@
       const room = zone.roomAt(p.x, p.z);
       if (room !== this.lastRoom) {
         this.lastRoom = room;
-        if (room && !this.inSimulation()) {
+        if (room && !this.inSimulation() && !zone.def.noDiscover) {
           const zs = DV.State.zoneState(zone.id);
           if (!zs.visited[room.id]) {
             zs.visited[room.id] = true;
@@ -461,7 +507,8 @@
         const inside = !!t.rect && U.inRect(p.x, p.z, t.rect);
         if (inside !== !!this.triggerState[t.id]) {
           this.triggerState[t.id] = inside;
-          if (this.inSimulation() && DV.Sim) DV.Sim.onTrigger(t.id, inside);
+          const ctl = this.ctrl();
+          if (ctl) ctl.onTrigger(t.id, inside);
           else DV.Story.onTrigger(t.id, inside);
         }
       }
@@ -512,6 +559,7 @@
         DV.Input.requestLock();
       }
       if (DV.Sim && this.inSimulation()) DV.Sim.onDialogueEnd(e);
+      else if (this.inChapter()) DV.Chapter.onDialogueEnd(e);
     },
     sitOn(spot, forced) {
       if (!spot) return;
@@ -719,6 +767,7 @@
       if (!st) { DV.UI.notify('Could not load that save.', 'quest_fail'); return; }
       if (DV.Dialogue.isActive()) DV.Dialogue.end(true);
       if (DV.Sim && DV.Sim.active) DV.Sim.cleanup();
+      this.leaveChapter();
       DV.RPGMenu.close && DV.RPGMenu.isOpen() && DV.RPGMenu.close();
       DV.DialogueUI.hide();
       DV.State.data = st;
@@ -733,6 +782,7 @@
     quitToMenu() {
       if (DV.Dialogue.isActive()) DV.Dialogue.end(true);
       if (DV.Sim && DV.Sim.active) DV.Sim.cleanup();
+      this.leaveChapter();
       DV.DialogueUI.hide();
       if (DV.RPGMenu.isOpen()) DV.RPGMenu.close();
       DV.Creator.close();

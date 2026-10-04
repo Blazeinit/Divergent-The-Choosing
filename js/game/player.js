@@ -141,6 +141,8 @@
           mx /= l; mz /= l;
         }
       }
+      // a chapter can pin you in place (seated through the ceremony until you're called)
+      if (this.pinned) { mx = mz = 0; }
       if (this.state === 'sitting') {
         if (mx || mz) this.standUp();
         else {

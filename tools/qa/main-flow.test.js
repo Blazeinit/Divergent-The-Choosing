@@ -24,7 +24,8 @@ L.run('main quest: Aptitude Day', async (p, T, errs) => {
   await ev(() => QA.step(14));
   await ev(() => { const c = DV.Sim.child; if (c) { QA.tp(c.x + 1.2, c.z); DV.Sim.scene('sim1_child'); QA.pick('behind me'); } const d = DV.Sim.dog; QA.tp(d.x + 2, d.z); DV.Sim.scene('sim1_dog'); QA.pick('strike'); });
   await ev(() => QA.step(7)); // run the scenario's game-time timers (software GL can be slow)
-  await p.waitForFunction(() => DV.World.current.id === 'sim_flood' && DV.Game.state === 'playing', null, { timeout: 30000 });
+  // advance game time while polling, so a slow (software-GL, loaded) frame rate can't stall it
+  await p.waitForFunction(() => { const ok = DV.World.current.id === 'sim_flood' && DV.Game.state === 'playing'; if (!ok) QA.step(0.25); return ok; }, null, { timeout: 30000, polling: 100 });
   T.ok(true, 'simulation II loads');
   // II — clipboard, crowbar, free Hester, close the valve, calm Corwin, code 53, out
   await ev(() => {
@@ -37,7 +38,8 @@ L.run('main quest: Aptitude Day', async (p, T, errs) => {
   });
   T.ok(await ev(() => DV.Sim.flag('doorOpen') && DV.Sim.flag('hesterFree')), 'woman freed and the keypad opens with 53');
   await ev(() => { QA.tp(16, 5); QA.step(4); });
-  await p.waitForFunction(() => DV.World.current.id === 'sim_tribunal' && DV.Game.state === 'playing', null, { timeout: 30000 });
+  // advance game time while polling, so a slow (software-GL, loaded) frame rate can't stall it
+  await p.waitForFunction(() => { const ok = DV.World.current.id === 'sim_tribunal' && DV.Game.state === 'playing'; if (!ok) QA.step(0.25); return ok; }, null, { timeout: 30000, polling: 100 });
   T.ok(true, 'simulation III loads');
   // III — sit, answer the tribunal
   await ev(() => { QA.tp(10, 12); DV.Sim.scene('sim3_chair'); QA.pick('sit'); });

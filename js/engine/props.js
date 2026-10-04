@@ -837,10 +837,9 @@
     B.cyl(ctx.M('metal'), 0, 0, 0, 0.04, 0.06, 7, 6);
     B.box(ctx.M('concrete'), 0, 0, 0, 0.6, 0.3, 0.6);
     const tex = DV.Tex.banner(p.faction || 'abnegation');
-    const m = DV.Mat.fromTexture('flag|' + p.faction, tex, { alphaTest: 0.5, doubleSide: true });
-    // flag flies sideways from the pole; the tall banner texture is laid on its side
-    const fy0 = 5.95, fy1 = 6.85, fl = 1.5;
-    B.quad(m, [0.05, fy1, 0], [0.05, fy0, 0], [0.05 + fl, fy0 + 0.05, 0.08], [0.05 + fl, fy1 + 0.05, 0.08], [0, 1], [1, 1], [1, 0], [0, 0]);
+    // a cloth flag that flies in the wind (DV.Wildlife animates it); the tall banner texture is laid on its side
+    DV.Wildlife.flag(ctx, ctx.prop, tex, ctx.light(p.x, p.z));
+    B.box(ctx.M('metal'), 0, 7, 0, 0.12, 0.08, 0.12); // finial
     ctx.collide(-0.3, -0.3, 0.3, 0.3, { y1: 2, camera: false });
   });
   def('bollard', (ctx, p, B) => {
@@ -945,6 +944,29 @@
     }
     if (p.collide) ctx.collide(-0.9, -0.9, 0.9, 0.9, { y1: 0.6, camera: false });
   });
+  // a run of chain-link fence (outside the playable area: no collider unless asked)
+  def('chainlink_fence', (ctx, p, B) => {
+    const len = p.len || 10, h = p.h || 2.6;
+    const post = ctx.M('metal_dark'), mesh = ctx.M('chainlink:alpha');
+    const n = Math.max(1, Math.round(len / 2.5));
+    for (let k = 0; k <= n; k++) B.box(post, -len / 2 + (len * k) / n, 0, 0, 0.08, h + (p.lean && k % 3 === 1 ? -0.6 : 0), 0.08);
+    const w = 0.5, x0 = -len / 2, x1 = len / 2;
+    B.quad(mesh, [x0, 0, 0], [x1, 0, 0], [x1, h, 0], [x0, h, 0], [x0 / w, 0], [x1 / w, 0], [x1 / w, h / w], [x0 / w, h / w]);
+    B.box(post, 0, h - 0.05, 0, len, 0.05, 0.06);
+    if (p.collide) ctx.collide(x0, -0.08, x1, 0.08, { y1: h });
+  });
+  // a big roadside billboard on two steel legs
+  def('billboard', (ctx, p, B) => {
+    const w = p.w || 8, h = p.h || 3.2, y = p.y || 4.2;
+    const tex = DV.Tex.sign(p.text, { w: 512, h: 200, bg: p.bg || '#3a3430', color: p.color || '#d8cdb4', size: p.size || 64, border: true });
+    const m = DV.Mat.fromTexture('billboard|' + p.text, tex, {});
+    const steel = ctx.M('metal_dark');
+    for (const x of [-w / 3, w / 3]) B.box(steel, x, 0, -0.2, 0.3, y, 0.3);
+    B.box(steel, 0, y - 0.15, -0.15, w + 0.3, 0.15, 0.4);
+    B.box(ctx.M('metal'), 0, y, -0.12, w + 0.2, h + 0.2, 0.1);
+    B.panel(m, 0, y + h / 2, -0.06, w, h);
+  });
+
   def('backdrop', (ctx, p, B) => {
     // flat painted building facade seen through windows / beyond fences
     const w = p.w || 20, h = p.h || 14;

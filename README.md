@@ -42,7 +42,8 @@ Saves, settings and autosaves live in the browser's `localStorage` under the `di
 | **Tab** | RPG menu: Character · Skills · Inventory · Quests · Reputation · Map |
 | **M / J / I** | Open the RPG menu on Map / Quests / Inventory |
 | **T** | Wait (while seated): pass time in 1–12 hour steps, or "Until called" |
-| **In dialogue** | Move the mouse up/down or scroll to highlight a response, then click (or E/Enter) to confirm. 1–9 and ↑/↓ also work. The mouse stays captured, so you never need to click back into the game |
+| **In dialogue** | Point at a response with the in-game cursor and click (or scroll / ↑↓ and press E or Enter). 1–9 also work. The mouse stays captured, so you never need to click back into the game |
+| **Menus** | The Tab menu, waiting, reading and banners keep the mouse captured and show the game's own cursor. Turn **Settings → In-game cursor** off to use the system cursor instead |
 | **Esc** | Pause menu (Resume, Save, Load, Settings, Controls, Quit) and close windows |
 
 All of these are also listed in-game under **Pause → Controls**.
@@ -80,7 +81,10 @@ js/
     collision.js           AABB spatial hash, circle push-out, camera raycasts
     navigation.js          Grid A* with door/lock edges, wall-proximity cost, path smoothing
     props.js               ~70 parametric prop builders (desks, lockers, vending, consoles, trees, buses…)
-    world.js               Zone definition → rooms, walls, doors, windows, lights, colliders, nav, spots
+    world.js               Zone definition → rooms, walls, doors, windows, lights, colliders, nav, spots;
+                           indoor/outdoor fog blending
+    city.js                The procedural city around a zone: street grid, towers, the Hub, the L and its
+                           train, the marsh and Ferris wheel, aerial haze, cloud deck and cloud shadows
     character.js           Procedural low-poly humans: skinned mesh, faces, hair, outfits, pose animation
     input.js               Keyboard/mouse, pointer lock with drag fallback
     audio.js               WebAudio procedural SFX, per-room convolution reverb, positional sounds,
@@ -100,6 +104,7 @@ js/
     story.js               Day script: PA calls, triggers, world actions (vending, coffee, lockpicks…)
     checkpoint.js          The security arch: badge checks, the barrier arm, NPCs queueing to show badges
     soundscape.js          What you hear where you stand: reverb, indoor/outdoor layers, accents, one-shots
+    wildlife.js            Pigeon flocks, crows and gulls, blowing litter, flags flying in the wind
     save.js                localStorage save slots (autosave + 6 manual)
     game.js                State machine and main loop; glues everything together
   zones/
@@ -111,6 +116,7 @@ js/
     dialogueUI.js          Old-school dialogue window (typewriter text, numbered choices, check labels)
     rpgMenu.js             Tab menu: Character / Skills / Inventory / Quests / Reputation / Map
     menus.js               Main menu, pause, save/load, settings, controls, credits, wait
+    cursor.js              The in-game cursor (hover, click, wheel, sliders and dropdowns under pointer lock)
     creator.js             Character creation (appearance, upbringing, attributes, confirm)
 assets/                    Empty in Build 1 (everything is procedural); reserved for authored assets
 tools/qa/                  Headless end-to-end test suite (dev only; see tools/qa/README.md)
@@ -142,6 +148,12 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 **Presentation**
 - PS1-style procedural humans. Each one is a single skinned mesh with head, torso, arms, hands, legs and feet, plus face textures (eyes, brows, mouth, nose), 8 face presets, a dozen hairstyles, body types, height variation, glasses/tattoos/piercings/scarves, and faction-coded outfits (Abnegation grey, Dauntless black, Erudite blue, Candor black and white, Amity red/yellow, Factionless mismatched).
 - Optional vertex-snap "wobble", 480p "retro" render scale, nearest-filtered low-res textures, fog, and baked per-vertex lighting from ceiling fixtures and windows.
+- **The city beyond the fence.** The flat painted backdrops are gone. Around the Testing Center there is now a whole procedural city: brick walk-ups and concrete offices on the nearby blocks, a vacant lot across the street, glass towers downtown around the Hub (a bundle of black tubes with twin antennas), ruins and skeleton frames, the dried-up marsh to the east with the old Ferris wheel at the end of the street, and the elevated L on steel bents just past the curb.
+  - Distant buildings fade into an aerial haze instead of disappearing into fog, so the skyline reads as layered silhouettes. The fog opens up outdoors and closes in again indoors.
+  - An overcast deck drifts overhead and low clouds slide between the towers, partly hiding the Hub. Their shadows move across the rooftops, the plaza and the street, and dim people standing in them.
+  - Every few minutes an L train runs the length of the line, right past the plaza. Its rumble, motor whine and rail clatter travel with it and come through the walls muffled when you're inside.
+  - The whole city costs about six draw calls. The main menu rooftop looks out over the same city at dusk, with lit windows.
+- **Wildlife and small motion.** Pigeons peck and hop about the plaza, the street and the courtyard. Run at them (or walk right through) and the whole flock scatters with a clatter of wings, waits on a lamp post, the bus shelter or the L, and drifts back down later. Crows and gulls circle over the city and call from where they are. Litter blows across the plaza in the gusts, and the faction flags fly in the wind. All birds are a single instanced draw call.
 - The Testing Center is a real building: street, plaza, lobby with the reception desk, a security arch with a barrier arm and scanner lamps, waiting hall, corridors, admin offices, director's office, conference room, records archive, copy room, infirmary, storage, break room, lockers, maintenance, courtyard garden, washrooms, six testing rooms (two sealed), a proctor station and a one-way-glass observation gallery. It has signage, notice boards, posters, clutter and a skyline outside the windows.
 - Procedural animation: walk, run, idle, sit, work, type, recline, lie, crouch, cower, guard, arms crossed, clipboard, wave, mop, garden, pace and talk, plus head look-at.
 
@@ -176,7 +188,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 13 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 19 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:** every schedule spot exists and can be reached on the nav grid, every dialogue target node exists, all quest references are valid, every interactable can be reached, and all four zones build.
@@ -186,7 +198,12 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
 - **Mouse capture:** the mouse stays locked through dialogue (mouse, wheel and click choose), and is re-captured after clicking a choice with a free cursor or closing the Tab menu.
 - **Audio:** per-room reverb and layers from the street to the lobby, hall, washroom, maintenance and courtyard; open-door bleed; the simulation beds; the reverb setting.
 - **Save migration:** a v1 save with the old NPC ids loads with relationships, memory, flags and the badge intact.
-- **Render budget:** the busiest view (the lobby) went from about 280 to about 190 draw calls.
+- **Render budget:** the busiest view (the lobby) went from about 280 to about 190 draw calls, and the front plaza looking out at the city stays well inside the budget.
+- **City:** the city builds in a fraction of a second and never pokes into a playable room. The fog opens up outdoors, cloud shadows move and darken people standing in them, and a train runs the whole line with its sound, then stops cleanly (also when you leave the zone mid-pass).
+- **Wildlife:** flocks stay on their patch until you run at them, scatter together, perch, and come back down. Walking calmly past doesn't spook them. Crows circle, flags fly, and litter blows about but stays in the plaza.
+- **In-game cursor:** menus keep the mouse captured. Hover, clicks, wheel scrolling, slider drags and dropdowns all work through the in-game cursor. With the mouse free it replaces the system cursor, and turning the setting off restores the old behaviour.
+- **Crouch & jump:** stamina cost, no jumping when winded, the crouch camera, slow sneaking, sneaking past staff unheard, and no jumping over the security arm.
+- **Reception line:** arriving candidates queue, are served in order, get their badge and move on.
 - **Divergent path:** awareness choices in all three sims give INCONCLUSIVE. Claire's warning, the manual "record it as…" choice, the result slip and the character sheet all reflect it.
 - **Passive path:** a player who does nothing still gets through. The dog lunges, the drowning scene plays, and refusing to sit still starts the trial.
 - **Side quests:** every one, including the Lucy → Gus → storage → return chain, the lockpick check, the coffee heist, Ruth's archive key and Daniel's full arc.

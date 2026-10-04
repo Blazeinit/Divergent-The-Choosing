@@ -794,7 +794,7 @@
         set('spine', 0, 0, -Math.sin(it * 0.35) * 0.025);
         set('uLegL', 0, 0, 0.02);
         set('uLegR', 0, 0, -0.02);
-        if (act === 'sit' || act === 'work' || act === 'recline') {
+        if (act === 'sit' || act === 'work' || act === 'recline' || act === 'sit_clap' || act === 'sit_cheer') {
           const sy = s.seatY || 0.45;
           hipY = sy + 0.08 - 0.95 * this.scaleY();
           hipZ = -0.06;
@@ -816,11 +816,52 @@
             set('uArmL', -0.25, 0, 0.18); set('uArmR', -0.25, 0, -0.18);
             set('lArmL', -0.6, 0, 0); set('lArmR', -0.6, 0, 0);
             set('head', 0.25, 0, 0);
+          } else if (act === 'sit_clap') {
+            const k = Math.sin(it * 13 + this.seedPhase()) * 0.18;
+            set('uArmL', -0.75, 0, 0.12 + k); set('uArmR', -0.75, 0, -0.12 - k);
+            set('lArmL', -1.0, -0.5, 0); set('lArmR', -1.0, 0.5, 0);
+          } else if (act === 'sit_cheer') {
+            const k = Math.max(0, Math.sin(it * 7 + this.seedPhase())) * 0.4;
+            set('uArmL', -2.7 + k, 0, 0.35); set('uArmR', -2.7 + k, 0, -0.35);
+            set('lArmL', -0.3, 0, 0); set('lArmR', -0.3, 0, 0);
+            set('spine', -0.1, 0, 0);
           } else {
             set('uArmL', -0.4, 0, 0.1); set('uArmR', -0.4, 0, -0.1);
             set('lArmL', -0.8, 0, 0); set('lArmR', -0.8, 0, 0);
             set('spine', 0.06, 0, 0);
           }
+        } else if (act === 'clap') {
+          const k = Math.sin(it * 13 + this.seedPhase()) * 0.18;
+          set('uArmL', -0.75, 0, 0.12 + k); set('uArmR', -0.75, 0, -0.12 - k);
+          set('lArmL', -1.0, -0.5, 0); set('lArmR', -1.0, 0.5, 0);
+        } else if (act === 'cheer') {
+          // fists up, pumping (Dauntless)
+          const k = Math.max(0, Math.sin(it * 7 + this.seedPhase())) * 0.45;
+          set('uArmL', -2.75 + k, 0, 0.35); set('uArmR', -2.75 + k, 0, -0.35);
+          set('lArmL', -0.25, 0, 0); set('lArmR', -0.25, 0, 0);
+          set('spine', -0.12, 0, 0); set('head', -0.25, 0, 0);
+          hipY = Math.max(0, Math.sin(it * 7 + this.seedPhase())) * 0.05;
+        } else if (act === 'cut') {
+          // left palm up, the right hand drawing the knife across it
+          set('uArmL', -0.95, 0, 0.1); set('lArmL', -0.6, 0.9, 0);
+          set('uArmR', -0.9, 0, -0.2); set('lArmR', -1.0 + Math.sin(it * 2.2) * 0.25, -0.6, 0);
+          set('head', 0.45, 0, 0); set('spine', 0.12, 0, 0);
+        } else if (act === 'bowl') {
+          // a hand held out over a bowl
+          set('uArmL', -1.2, 0, 0.05); set('lArmL', -0.35, 0.6, 0);
+          set('head', 0.4, 0, 0); set('spine', 0.18, 0, 0);
+        } else if (act === 'fall') {
+          // arms and legs flung out
+          set('uArmL', -2.2 + Math.sin(it * 9) * 0.3, 0, 0.9); set('uArmR', -2.2 - Math.sin(it * 9) * 0.3, 0, -0.9);
+          set('lArmL', -0.3, 0, 0); set('lArmR', -0.3, 0, 0);
+          set('uLegL', -0.5 + Math.sin(it * 7) * 0.3, 0, 0.25); set('uLegR', -0.3 - Math.sin(it * 7) * 0.3, 0, -0.25);
+          set('lLegL', 0.8, 0, 0); set('lLegR', 0.6, 0, 0);
+          set('spine', -0.2, 0, 0); set('head', -0.3, 0, 0);
+        } else if (act === 'hang') {
+          // one hand up on a strap / handle, swaying with the train
+          set('uArmR', -2.9, 0, -0.15); set('lArmR', -0.2, 0, 0);
+          set('uArmL', 0.1, 0, 0.12);
+          set('spine', Math.sin(it * 1.7) * 0.04, 0, Math.sin(it * 1.3) * 0.05);
         } else if (act === 'lie') {
           rootRx = -Math.PI / 2;
           set('uArmL', 0, 0, 0.12); set('uArmR', 0, 0, -0.12);
@@ -919,6 +960,11 @@
       this.mesh.position.y += ((lying ? (s.seatY || 0.6) + 0.12 : 0) - this.mesh.position.y) * k;
       this.mesh.position.z += ((lying ? 0.85 * this.scale : 0) - this.mesh.position.z) * k;
       this.shadow.visible = !lying && !this.shadowFar;
+    }
+    // a fixed per-character phase so a crowd doesn't clap or cheer in unison
+    seedPhase() {
+      if (this._ph === undefined) this._ph = Math.random() * Math.PI * 2;
+      return this._ph;
     }
     scaleY() {
       return this.mesh ? this.mesh.scale.y : 1;

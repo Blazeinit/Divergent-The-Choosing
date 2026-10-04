@@ -22,15 +22,15 @@ L.run('mouse capture & dialogue input', async (p, T, errs) => {
   await p.waitForTimeout(200);
   const s0 = await ev(() => DV.DialogueUI.sel);
   await ev(() => { DV.Input.mouseDY += 140; });
-  await p.waitForTimeout(250);
+  await p.waitForFunction((s0) => DV.DialogueUI.sel !== s0, s0, { timeout: 5000 }).catch(() => {});
   const s1 = await ev(() => DV.DialogueUI.sel);
   T.ok(s1 !== s0, 'moving the mouse moves the highlight (' + s0 + ' → ' + s1 + ')');
   await ev(() => { DV.Input.wheel -= 1; });
-  await p.waitForTimeout(250);
+  await p.waitForFunction((s0) => DV.DialogueUI.sel === s0, s0, { timeout: 5000 }).catch(() => {});
   T.eq(await ev(() => DV.DialogueUI.sel), s0, 'scrolling moves it back');
   const before = await ev(() => QA.node());
   await ev(() => { DV.Input.pressed.MouseLeft = true; });
-  await p.waitForTimeout(250);
+  await p.waitForFunction((b) => QA.node() !== b, before, { timeout: 5000 }).catch(() => {});
   const after = await ev(() => QA.node());
   T.ok(after !== before, 'a click confirms the highlighted response (' + before + ' → ' + after + ')');
   await ev(() => { for (let i = 0; i < 6 && DV.Dialogue.active; i++) { const v = DV.Dialogue.active.view; const en = v.choices.filter((c) => c.enabled); DV.DialogueUI.sel = en[en.length - 1].index; DV.Input.pressed.MouseLeft = true; DV.Game.update(0.016); } });
@@ -46,9 +46,11 @@ L.run('mouse capture & dialogue input', async (p, T, errs) => {
   }
   const fr = await ev(() => [DV.Game.state, DV.Input.locked, QA.node()]);
   T.ok(fr[0] === 'playing' && fr[1], 'clicking a choice with a free cursor re-captures the mouse when the dialogue ends', fr);
-  await p.keyboard.press('Tab'); await p.waitForTimeout(250);
+  await p.keyboard.press('Tab');
+  await p.waitForFunction(() => DV.Game.state === 'menu', null, { timeout: 5000 }).catch(() => {});
   T.ok(await ev(() => DV.Game.state === 'menu' && !DV.Input.locked), 'Tab frees the cursor for the menu');
-  await p.keyboard.press('Tab'); await p.waitForTimeout(250);
+  await p.keyboard.press('Tab');
+  await p.waitForFunction(() => DV.Game.state === 'playing', null, { timeout: 5000 }).catch(() => {});
   T.ok(await ev(() => DV.Game.state === 'playing' && DV.Input.locked), 'closing the menu captures it again');
   T.noErrors(errs);
 });
