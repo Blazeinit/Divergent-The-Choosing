@@ -140,6 +140,7 @@
           { text: 'Josh Miller is bullying people.', to: 'josh', if: () => DV.Quests.isActive('bad_blood'), once: 'josh' },
           { text: 'Mark says you were Erudite.', to: 'eru', once: 'eru' },
           { text: 'How am I doing?', to: 'doing', if: () => c.day() >= 4 },
+          { text: () => DV.Campaign.mentorLine(), if: () => DV.Campaign.available(), end: true, effect: () => DV.Campaign.takeNextSoon() },
           { text: 'Nothing. Sorry.', end: true },
         ],
       },

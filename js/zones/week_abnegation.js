@@ -498,6 +498,7 @@
         text: () => (DV.Chapter.step === 'end' ? 'Go on. There\'s work. There\'s always work.' : FW().was('run_done') ? 'Dinner\'s at half past six. Fourth door on the south side. Don\'t bring anything — that\'s not how it works.' : 'Ask before you give. Not everyone will tell you the truth, and not because they\'re lying.'),
         choices: [
           { text: 'How do I choose, when there isn\'t enough?', to: 'choose', if: () => !FW().was('run_done') },
+          { text: () => DV.Campaign.mentorLine(), if: () => DV.Campaign.available(), end: true, effect: () => DV.Campaign.takeNextSoon() },
           { text: 'Nothing. Sorry.', end: true },
         ],
       }),

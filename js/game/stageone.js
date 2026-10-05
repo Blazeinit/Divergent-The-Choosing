@@ -660,12 +660,13 @@
       G.state = 'banner';
       if (!DV.Cursor.enabled()) DV.Input.exitLock();
       const r = I().rankOf('player'), n = I().st().posted ? I().st().posted.rows.length : I().rankings().length;
-      DV.UI.banner('STAGE ONE COMPLETE', 'RANKED ' + I().ordinal(r).toUpperCase() + ' OF ' + n + ' · FACE YOUR FEARS.', 'Click or press any key to keep exploring the compound · Build 3 complete', () => {
+      DV.UI.banner('STAGE ONE COMPLETE', 'RANKED ' + I().ordinal(r).toUpperCase() + ' OF ' + n + ' · FACE YOUR FEARS.', 'Click or press any key to carry on', () => {
         DV.UI.modalOpen = null;
         G.state = 'playing';
         DV.Input.requestLock();
+        DV.Campaign.afterBanner('dauntless');
         DV.Save.write('auto');
-        DV.UI.notify('Autosaved. Build 3 is complete — the compound is yours. Stage Two continues in Build 4.', 'info');
+        DV.UI.notify('Autosaved. The compound is yours.', 'info');
       });
     },
   };

@@ -181,8 +181,10 @@
       const w = DV.State.data.world;
       const day = typeof s.day === 'function' ? s.day(opts) : s.day;
       const time = typeof s.time === 'function' ? s.time(opts) : s.time;
-      if (day) w.day = day;
-      if (time) w.time = U.parseTime(time);
+      if (!(opts.keepClock || (opts.step === 'end' && DV.Campaign && DV.Campaign.started()))) { // (the headquarters' free-roam step once the campaign has begun keeps the story's own clock)
+        if (day) w.day = day;
+        if (time) w.time = U.parseTime(time);
+      }
       DV.Clock.lastMinute = Math.floor(w.time);
       this.active = true;
       this.id = id;

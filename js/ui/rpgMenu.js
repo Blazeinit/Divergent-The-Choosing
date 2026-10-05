@@ -15,6 +15,7 @@
     ['quests', 'Quests'],
     ['reputation', 'Reputation'],
     ['map', 'Map'],
+    ['case', 'Case'], // (once The Chalk Year has begun)
   ];
 
   function itemIcon(def, size) {
@@ -76,6 +77,10 @@
       g.beginPath(); g.moveTo(20, 4); g.lineTo(34, 9); g.quadraticCurveTo(34, 28, 20, 37); g.quadraticCurveTo(6, 28, 6, 9); g.closePath(); g.fill();
       g.fillStyle = 'rgba(40, 24, 8, 0.85)'; g.shadowColor = 'transparent';
       for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + (k * Math.PI * 2) / 5; g.beginPath(); g.arc(20 + Math.cos(a) * 6.5, 19 + Math.sin(a) * 6.5, 2.2, 0, Math.PI * 2); g.fill(); }
+    } else if (id === 'case') {
+      g.beginPath(); g.arc(17, 17, 10, 0, Math.PI * 2); g.stroke();
+      g.lineWidth = 5; g.beginPath(); g.moveTo(25, 25); g.lineTo(34, 34); g.stroke();
+      g.fillStyle = 'rgba(240, 220, 170, 0.35)'; g.shadowColor = 'transparent'; g.beginPath(); g.arc(14, 14, 3, 0, Math.PI * 2); g.fill();
     } else if (id === 'map') {
       P([[5, 9], [14, 5], [26, 9], [35, 5], [35, 31], [26, 35], [14, 31], [5, 35]]); g.fill();
       g.strokeStyle = 'rgba(40, 24, 8, 0.85)'; g.lineWidth = 1.6; g.shadowColor = 'transparent';
@@ -137,7 +142,7 @@
       p.id = 'rpgmenu';
       p.innerHTML = '<div class="rm-head"><div class="rm-em"><canvas width="96" height="96"></canvas></div><div class="rm-id"><div class="nm"></div><div class="sub"></div></div>' +
         '<div class="rm-xp"><div class="k">Experience <span class="xv"></span></div><div class="bar xp"><i></i></div></div><div class="rm-where"><div class="pl"></div><div class="tm"></div></div></div>' +
-        '<div class="tabs"></div><div class="content"></div><div class="foot"><span><span class="kc">Tab</span>Close<span class="kc">1</span>\u2013<span class="kc">6</span>Pages' +
+        '<div class="tabs"></div><div class="content"></div><div class="foot"><span><span class="kc">Tab</span>Close<span class="kc">1</span>\u2013<span class="kc np">6</span>Pages' +
         '<span class="kc">I</span>Inventory<span class="kc">J</span>Journal<span class="kc">M</span>Map</span><span class="ft"></span></div>';
       DV.UI.ornate(p);
       this.el = p;
@@ -173,6 +178,10 @@
       this.render();
     },
     refreshTabDots() {
+      const camp = !!(DV.Campaign && DV.Campaign.started());
+      this.el.querySelector('.tab[data-id=case]').style.display = camp ? '' : 'none';
+      this.el.querySelector('.kc.np').textContent = camp ? '7' : '6';
+      this.el.querySelector('.tab[data-id=case]').classList.toggle('new', camp && DV.Campaign.available() && this.tab !== 'case');
       const unread = DV.Quests.all().some((x) => x.q.unread);
       this.el.querySelector('.tab[data-id=quests]').classList.toggle('new', unread);
       this.el.querySelector('.tab[data-id=character]').classList.toggle('new', DV.State.data.player.unspent > 0);
@@ -417,6 +426,44 @@
       }
     },
 
+    /* ------------------------------ CASE ------------------------------ */
+    // The Chalk Year: what you know, what you hold, who stands with you, and what you've noted
+    render_case(c) {
+      const K = DV.Campaign, st = K.st();
+      const cols = el('div', 'cols', null, c);
+      const a = el('div', 'col', null, cols);
+      a.style.width = '52%';
+      el('div', 'h', 'The Case', a);
+      for (const line of K.summary()) el('div', 'faint', line, a).style.cssText = 'margin:0 0 6px;font-size:13px;color:var(--text)';
+      const nx = K.next();
+      const nxl = el('div', 'faint', nx ? 'Next: ' + nx.title + ' (Day ' + nx.day + ')' : st.ending ? 'The Chalk Year is over: ' + K.ENDINGS[st.ending].name + '.' : 'Nothing on the board.', a);
+      nxl.style.cssText = 'margin:8px 0 2px;color:var(--accent-2)';
+      el('div', 'sep', null, a);
+      el('div', 'h', 'Proof', a);
+      for (const id of Object.keys(K.PIECES)) {
+        const d = K.PIECES[id], got = st.pieces[id];
+        if (!got && !d.hard) continue; // (the optional pieces appear once you hold them)
+        const row = el('div', 'kv', null, a);
+        row.innerHTML = '<span class="k" style="' + (got ? '' : 'opacity:.45') + '">' + (got ? '\u25c6 ' : '\u25c7 ') + U.esc(got ? d.name : 'Not yet found \u00b7 ' + (d.faction ? DV.Factions.name(d.faction) : '')) + '</span><span class="v" style="color:' + (got ? (got.how === 'handed' ? 'var(--dim)' : 'var(--good)') : 'var(--dim)') + '">' + (got ? (got.how === 'handed' ? 'testimony' : 'in hand') : '') + '</span>';
+        if (got) row.title = d.text;
+      }
+      const b = el('div', 'col', null, cols);
+      b.style.flex = '1';
+      el('div', 'h', 'People', b);
+      const met = Object.keys(K.ALLIES).filter((id) => K.isDead(id) || (st.trust[id] !== undefined && (K.ALLIES[id].faction === K.faction() || (DV.State.data.npcs[id] && DV.State.data.npcs[id].mem && DV.State.data.npcs[id].mem.met) || st.act >= 3)));
+      for (const id of met) {
+        const d = K.ALLIES[id], dead = K.isDead(id), v = K.trustOf(id);
+        const row = el('div', 'kv', null, b);
+        row.innerHTML = '<span class="k">' + U.esc(d.name) + ' <span class="faint">\u00b7 ' + (d.faction === 'factionless' ? 'Factionless' : DV.Factions.name(d.faction)) + '</span></span><span class="v" style="letter-spacing:2px;color:' + (dead ? 'var(--danger)' : v >= 3 ? 'var(--good)' : 'var(--dim)') + '">' + (dead ? 'dead' : '\u25cf'.repeat(v) + '\u25cb'.repeat(5 - v)) + '</span>';
+      }
+      if (!met.length) el('div', 'faint', 'Nobody yet.', b);
+      el('div', 'sep', null, b);
+      el('div', 'h', 'Notes', b);
+      const notes = st.clues.filter((x) => x.kind !== 'trust').slice(-7).reverse();
+      if (!notes.length) el('div', 'faint', 'Nothing written down.', b);
+      for (const n of notes) { const r = el('div', 'faint', 'Day ' + n.day + ' \u2014 ' + n.text, b); r.style.cssText = 'margin:0 0 5px;font-size:12px;color:var(--text)'; }
+    },
+
     /* ------------------------------ MAP ------------------------------ */
     // two maps: the place you're in (its rooms), and the whole city (DV.WorldMap)
     render_map(c) {
@@ -532,7 +579,7 @@
     },
 
     update(input) {
-      for (let k = 1; k <= TABS.length; k++) if (input.consume('Digit' + k)) this.show(TABS[k - 1][0]);
+      for (let k = 1; k <= TABS.length; k++) if (input.consume('Digit' + k) && (TABS[k - 1][0] !== 'case' || (DV.Campaign && DV.Campaign.started()))) this.show(TABS[k - 1][0]);
       // the city map: + and − zoom, and the "you" ring pulses
       if (this.tab === 'map' && this._redrawCity) {
         const cv = document.getElementById('map-canvas');

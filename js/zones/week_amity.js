@@ -334,6 +334,7 @@
         text: () => (DV.Chapter.step === 'end' ? 'You did well. Whatever the hands said — you did well.' : !md().heard.ruth || !md().heard.tom ? 'Ruth\'s down by the bottom trees. Tom\'s at the seedbeds by the sluice. Both of them, mind — not just the one you like better.' : 'Have you been down to the water yet? Walk the whole channel. People only ever look at the end they\'re standing at.'),
         choices: [
           { text: 'What happens if they can\'t agree?', to: 'nope', if: () => DV.Chapter.step !== 'end' },
+          { text: () => DV.Campaign.mentorLine(), if: () => DV.Campaign.available(), end: true, effect: () => DV.Campaign.takeNextSoon() },
           { text: 'Thanks, Mary.', end: true },
         ],
       },

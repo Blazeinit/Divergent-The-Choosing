@@ -633,6 +633,7 @@
         choices: [
           { text: 'How do I know when he\'s lying?', to: 'how', if: () => !FW().was('verdict') },
           { text: 'What happens to him?', to: 'happens', if: () => !FW().was('verdict') },
+          { text: () => DV.Campaign.mentorLine(), if: () => DV.Campaign.available(), end: true, effect: () => DV.Campaign.takeNextSoon() },
           { text: 'Nothing. Sorry.', end: true },
         ],
       }),

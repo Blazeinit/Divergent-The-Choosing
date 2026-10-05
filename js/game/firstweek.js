@@ -132,9 +132,10 @@
       DV.Quests.complete('week_' + f, outcome || null);
       Ch.checkpoint('end');
       DV.State.note('The end of your first week as ' + DV.Factions.name(f) + ': ' + l2.toLowerCase() + '.');
-      Ch.banner('FIRST WEEK COMPLETE', l2, 'Click or press any key to keep exploring · Build 3 complete', () => {
+      Ch.banner('FIRST WEEK COMPLETE', l2, 'Click or press any key to carry on', () => {
+        DV.Campaign.afterBanner(f);
         DV.Save.write('auto');
-        DV.UI.notify('Autosaved. Build 3 is complete — your first week as ' + DV.Factions.name(f) + ' is behind you.', 'info');
+        DV.UI.notify('Autosaved. Your first week as ' + DV.Factions.name(f) + ' is behind you.', 'info');
       });
     },
 
