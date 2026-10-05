@@ -426,6 +426,22 @@
             this.burst('lowpass', 160, 0.5, 0.9, 0.2 * v);
             break;
           }
+          case 'windgust': { // the wind getting up for a few seconds: a swell of air that rises in pitch and falls away
+            const c = this.ctx, t = c.currentTime, d = opts.dur || 5;
+            const s = this.noiseSrc(this.pink || this.brown, true);
+            const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.7;
+            f.frequency.setValueAtTime(260, t);
+            f.frequency.linearRampToValueAtTime(620, t + d * 0.4);
+            f.frequency.linearRampToValueAtTime(300, t + d);
+            const g = c.createGain();
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.linearRampToValueAtTime(0.32 * v, t + d * 0.35);
+            g.gain.linearRampToValueAtTime(0.22 * v, t + d * 0.6);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+            s.connect(f); f.connect(g); g.connect(this._dest);
+            s.start(t, Math.random() * 2); s.stop(t + d + 0.1);
+            break;
+          }
           case 'applause': { // a section of the crowd clapping
             const n = Math.round(60 * (opts.size || 1));
             for (let i = 0; i < n; i++) this.burst('bandpass', 1400 + Math.random() * 1800, 1.1, 0.025, (0.015 + Math.random() * 0.02) * v, Math.random() * (opts.secs || 2.4) * (0.4 + 0.6 * Math.random()));
@@ -646,6 +662,25 @@
       noise(this.brown, 'lowpass', 110, 0.4, 0.3, ofilt);
       B.ofilt = ofilt;
       B.outIn = ofilt;
+      // night: crickets in the verges, two of them out of step (a high tone chopped into pulses, the
+      // pulses into chirps), through the same outdoor filter
+      const night = layer('night', ofilt);
+      for (const [f, pulse, chirp, vol] of [[4450, 31, 0.93, 0.014], [5150, 37, 1.31, 0.009], [3900, 27, 0.71, 0.006]]) {
+        const o = c.createOscillator(); o.frequency.value = f;
+        const a = c.createGain(); a.gain.value = 0.5;
+        const b = c.createGain(); b.gain.value = 0.5;
+        const g = c.createGain(); g.gain.value = vol;
+        const p1 = c.createOscillator(); p1.type = 'square'; p1.frequency.value = pulse;
+        const p2 = c.createOscillator(); p2.type = 'square'; p2.frequency.value = chirp;
+        const k1 = c.createGain(); k1.gain.value = 0.5; const k2 = c.createGain(); k2.gain.value = 0.5;
+        p1.connect(k1); k1.connect(a.gain); p2.connect(k2); k2.connect(b.gain);
+        o.connect(a); a.connect(b); b.connect(g); g.connect(night);
+        o.start(); p1.start(); p2.start(); B.srcs.push(o, p1, p2);
+      }
+      // the city's traffic: a low roll of tyres and engines, a few streets off and going by
+      const traffic = layer('traffic', ofilt);
+      noise(this.brown, 'lowpass', 150, 0.5, 0.55, traffic, 0.05, 0.2);
+      noise(this.white, 'bandpass', 1100, 0.6, 0.018, traffic, 0.09, 0.008);
       // accents
       osc(120, 'sawtooth', 0.02, layer('buzz'), ['bandpass', 2400, 3]); // fluorescent tubes
       const hum = layer('hum'); osc(110, 'sine', 0.03, hum); osc(220.5, 'sine', 0.01, hum); noise(this.brown, 'lowpass', 70, 0.4, 0.2, hum); // simulation core

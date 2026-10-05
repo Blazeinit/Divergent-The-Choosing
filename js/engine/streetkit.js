@@ -150,6 +150,59 @@
     return atlas;
   }
 
+  /* ---------------- the lamps at night ---------------- */
+  // Each lit lamp gets a halo round its head (a point sprite) and a warm pool on the ground
+  // under it (a flat additive quad). One shared pair of materials: the hour turns them all up
+  // or down together (DV.StreetKit.lampsOn, from World.timeOfDay).
+  let glowMats = null;
+  function glowTex(soft) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const c = cv.getContext('2d');
+    const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+    if (soft) { g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(0.35, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); }
+    else { g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.12, 'rgba(255,255,255,0.85)'); g.addColorStop(0.4, 'rgba(255,255,255,0.18)'); g.addColorStop(1, 'rgba(255,255,255,0)'); }
+    c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+    const t = new THREE.CanvasTexture(cv);
+    t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; t.generateMipmaps = false;
+    return t;
+  }
+  function mats() {
+    if (glowMats) return glowMats;
+    const add = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 };
+    glowMats = {
+      halo: new THREE.PointsMaterial(Object.assign({ size: 2.4, map: glowTex(false), color: 0xffd7a0, sizeAttenuation: true, fog: true }, add)),
+      pool: new THREE.MeshBasicMaterial(Object.assign({ map: glowTex(true), color: 0x9a7448, fog: true, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }, add)),
+      on: 0,
+    };
+    return glowMats;
+  }
+  // heads: [[x, y, z], …] → a THREE.Group of the halos and the pools under them
+  function glowGroup(heads) {
+    const M = mats(), pos = [], q = [], uv = [];
+    for (const [x, y, z] of heads) {
+      pos.push(x, y - 0.12, z);
+      const R = 4.6, Y = 0.07;
+      q.push(x - R, Y, z - R, x - R, Y, z + R, x + R, Y, z + R, x - R, Y, z - R, x + R, Y, z + R, x + R, Y, z - R);
+      uv.push(0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0);
+    }
+    const g = new THREE.Group();
+    g.name = 'lamp_glow';
+    const pg = new THREE.BufferGeometry();
+    pg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    const halo = new THREE.Points(pg, M.halo);
+    halo.renderOrder = 3;
+    const qg = new THREE.BufferGeometry();
+    qg.setAttribute('position', new THREE.Float32BufferAttribute(q, 3));
+    qg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    const pool = new THREE.Mesh(qg, M.pool);
+    pool.renderOrder = 2;
+    g.add(pool, halo);
+    g.visible = M.on > 0;
+    g.userData.glow = true;
+    return g;
+  }
+
   /* ---------------- placing everything (data only) ---------------- */
   class Kit {
     constructor(zone, city, opts) {
@@ -304,6 +357,9 @@
         c.mesh.name = 'street_chunk';
         zone.group.add(c.mesh);
       }
+      // the working lamps: the head is 1.5 m out along the arm, over the road
+      const heads = c.items.filter((it) => it.name === 'lamp').map((it) => [it.x + Math.sin(it.rot) * 1.5, 5.91, it.z + Math.cos(it.rot) * 1.5]);
+      if (heads.length) { c.glow = glowGroup(heads); zone.group.add(c.glow); }
       if (c.blades.length) {
         const A = signAtlas(), pos = [], uv = [];
         for (const b of c.blades) {
@@ -348,6 +404,7 @@
         const vis = d < SHOW_R && !this.hidden;
         if (c.mesh) c.mesh.visible = vis;
         if (c.signs) c.signs.visible = vis;
+        if (c.glow) c.glow.visible = vis && !!glowMats && glowMats.on > 0;
       }
       if (want) this.buildChunk(want);
     }
@@ -360,6 +417,7 @@
       for (const c of this.chunks.values()) {
         if (c.mesh) { c.mesh.geometry.dispose(); if (c.mesh.parent) c.mesh.parent.remove(c.mesh); }
         if (c.signs) { c.signs.geometry.dispose(); if (c.signs.parent) c.signs.parent.remove(c.signs); }
+        if (c.glow) { c.glow.children.forEach((o) => o.geometry.dispose()); if (c.glow.parent) c.glow.parent.remove(c.glow); }
       }
       this.mat.dispose();
       this.signMat.dispose();
@@ -376,6 +434,23 @@
       const kit = new Kit(zone, city, opts);
       zone.streetKit = kit;
       return kit;
+    },
+    // halos and pools for lamps a zone placed itself (heads: [[x, y, z], …])
+    glow(zone, heads) {
+      const g = glowGroup(heads);
+      zone.group.add(g);
+      return g;
+    },
+    // 0 (day) … 1 (night): every lamp in the zone, all at once
+    lampsOn(k, zone) {
+      const M = mats();
+      k = Math.round(U.clamp(k, 0, 1) * 100) / 100;
+      if (M.on === k) return;
+      M.on = k;
+      M.halo.opacity = 0.9 * k;
+      M.pool.opacity = 0.8 * k;
+      // (the kit's chunks follow on its next update)
+      if (zone && zone.lampGlow) zone.lampGlow.visible = k > 0;
     },
   };
 })();

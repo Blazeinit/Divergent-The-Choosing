@@ -4,8 +4,10 @@
    to DV.Audio: the room's reverb, indoor room tone vs. outdoor air (muffled
    through walls, bleeding in through open doors and windows), room accents
    (tube buzz, the simulation core's hum, the boiler, vending compressors,
-   clock ticks, washroom drips), and outdoor one-shots (crows, gulls, a
-   distant elevated train, flag ropes clinking against their poles).
+   clock ticks, washroom drips), the hour (crickets from dusk to first
+   light), the city's traffic, and outdoor one-shots (crows and gulls by day,
+   the wind getting up, a distant elevated train, flag ropes clinking against
+   their poles, horns and dogs out in the streets).
    ========================================================================== */
 (function () {
   'use strict';
@@ -26,7 +28,7 @@
   const S = {
     zone: null,
     acc: 0,
-    timers: { bird: 5, train: 50, flag: 2, drip: 1.5, tick: 1, cityHorn: 12, dog: 30 },
+    timers: { bird: 5, train: 50, flag: 2, drip: 1.5, tick: 1, cityHorn: 12, dog: 30, wind: 9 },
 
     reverbFor(room) {
       if (!room) return 'exterior';
@@ -147,12 +149,20 @@
           L.boiler = U.clamp(1 - d / 34, 0, 1) * (inPit ? 1 : 0.25) * 0.9;
         }
       }
+      // the hour, out of doors: crickets from dusk to first light (zones on the clock)
+      const m = DV.Clock.minutes();
+      const nightK = zone.def.timeOfDay ? U.clamp(Math.min((m - 1200) / 60, (330 - m + (m < 720 ? 0 : 1440)) / 50), 0, 1) : 0;
+      if (nightK > 0 && !zone.def.underground) L.night = nightK * (outside ? 0.9 : 0.5);
       // out in the streets: people about make a murmur, louder where it's busy
       const life = zone.streetLife;
       if (life && outside && life.shown !== false) {
         let near = 0;
         for (const q of life.peds) if (Math.abs(q.x - p.x) < 14 && Math.abs(q.z - p.z) < 14) near++;
         L.crowd = Math.max(L.crowd, Math.min(0.07, near * 0.008));
+        // traffic: a few streets off all day (quieter at night), and the cars going by you
+        let cd = 1e9;
+        for (const c of life.cars) { const d = Math.hypot(c.x - p.x, c.z - p.z); if (d < cd) cd = d; }
+        L.traffic = (0.32 - 0.2 * nightK) + 0.55 * U.clamp(1 - cd / 36, 0, 1);
       }
       const hum = this.nearest(this._hummers, p.x, p.z);
       if (hum && hum.d < 3.5) L.vend = (1 - hum.d / 3.5) * (outside ? 0.3 : 1);
@@ -185,10 +195,15 @@
         if (this.timers.cityHorn <= 0) { this.timers.cityHorn = U.rand(14, 40); A.play('carhorn', { bus: 'outdoor', volume: U.rand(0.18, 0.4), big: Math.random() < 0.3 }); }
         if (this.timers.dog <= 0) { this.timers.dog = U.rand(25, 70); A.play('bark', { bus: 'outdoor', volume: U.rand(0.15, 0.35) }); }
       }
-      // the city beyond the fence (muffled indoors by the outdoor layer's filter)
+      // the wind gets up now and then (you hear it best out in it)
+      if (this.timers.wind <= 0) {
+        this.timers.wind = U.rand(14, 38);
+        if (outside || bleed > 0.2) A.play('windgust', { bus: 'outdoor', volume: U.rand(0.5, 1), dur: U.rand(3.5, 6.5) });
+      }
+      // the city beyond the fence (muffled indoors by the outdoor layer's filter): birds by day
       if (this.timers.bird <= 0) {
         this.timers.bird = U.rand(7, 18);
-        A.play(Math.random() < 0.65 ? 'caw' : 'gull', { bus: 'outdoor', volume: U.rand(0.5, 1) });
+        if (nightK < 0.5) A.play(Math.random() < 0.65 ? 'caw' : 'gull', { bus: 'outdoor', volume: U.rand(0.5, 1) });
       }
       // (a zone with a visible L train plays that one as it passes instead)
       const zn = DV.World.current;

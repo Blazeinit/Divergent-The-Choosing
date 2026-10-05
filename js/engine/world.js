@@ -1240,6 +1240,9 @@
         city.shared.litAmt.value = T.lit;
       }
       if (zone.streetKit) zone.streetKit.dim(0.4 + 0.6 * T.sky);
+      // the lamps come on at dusk (and go off once it's light)
+      if (zone.lamps && !zone.lampGlow) zone.lampGlow = DV.StreetKit.glow(zone, zone.lamps);
+      DV.StreetKit.lampsOn((T.lit - 0.28) / 0.42, zone);
       if (city) {
         // the streets themselves, the signs, and the clouds overhead
         const k = 0.35 + 0.65 * T.sky;

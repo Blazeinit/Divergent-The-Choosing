@@ -143,7 +143,8 @@
         const cx = U.lerp(f.x0, f.x1, 0.2 + r() * 0.6), cz = U.lerp(f.z0, f.z1, 0.2 + r() * 0.6);
         for (let i = 0; i < f.n; i++) {
           birds.push({
-            kind: 'pigeon', flock, x: cx + (r() - 0.5) * 2.4, z: cz + (r() - 0.5) * 2.4, y: 0, rot: r() * 6.28,
+            // (on their patch: a strip of pavement is narrower than the scatter)
+            kind: 'pigeon', flock, x: U.clamp(cx + (r() - 0.5) * 2.4, f.x0 + 0.2, f.x1 - 0.2), z: U.clamp(cz + (r() - 0.5) * 2.4, f.z0 + 0.2, f.z1 - 0.2), y: 0, rot: r() * 6.28,
             state: 'ground', t: r() * 2, act: null, actT: 0, flap: 0, spread: 0, peck: 0, scale: 1.1 + r() * 0.18,
             tint: r() < 0.12 ? [0.95, 0.78, 0.66] : r() < 0.2 ? [1.45, 1.45, 1.4] : r() < 0.35 ? [0.7, 0.7, 0.72] : [1, 1, 1],
           });

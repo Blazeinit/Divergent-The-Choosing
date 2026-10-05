@@ -23,9 +23,14 @@
     str() {
       return U.formatTime(this.minutes());
     },
+    // how fast the day goes by (Settings → Clock speed): 1 real second = scale() game seconds
+    SPEEDS: { slow: 5, normal: 10, fast: 20 },
+    scale() {
+      return this.SPEEDS[DV.Settings.get('clockSpeed')] || DV.Config.TIME_SCALE;
+    },
     update(dt) {
       if (this.paused) return;
-      this.advance((dt * DV.Config.TIME_SCALE) / 60);
+      this.advance((dt * this.scale()) / 60);
     },
     advance(mins) {
       if (!isFinite(mins) || mins <= 0) return;

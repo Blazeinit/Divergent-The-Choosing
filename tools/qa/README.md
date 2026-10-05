@@ -13,7 +13,7 @@ You need Node 18+ and the `playwright` package with a Chromium build:
 
 ```bash
 npm i -g playwright && npx playwright install chromium   # once
-NODE_PATH="$(npm root -g)" node tools/qa/run.js           # all tests (~18 min)
+NODE_PATH="$(npm root -g)" node tools/qa/run.js           # all tests (~30 min)
 NODE_PATH="$(npm root -g)" node tools/qa/run.js checkpoint audio   # just some
 ```
 
@@ -30,7 +30,7 @@ To use a Chromium you already have, set `CHROMIUM_PATH=/path/to/chrome`. Screens
 | `checkpoint` | Reception → name badge → Dean → the arm. Covers blocking, NPCs showing badges at the arm, ducking under (caught, unseen, low Agility) and showing the badge from the inventory |
 | `main-flow` | The whole main quest through all three simulations to the completion banner and a save |
 | `divergent` | Awareness choices → INCONCLUSIVE → Claire's warning and manual record → the character sheet |
-| `side-quests` | All six side quests, lockpicking, the coffee theft (seen and unseen), Tab menu, pause, waiting, and save → reload → Continue |
+| `side-quests` | All six side quests, lockpicking, the coffee theft (seen and unseen), Tab menu, pause, waiting on a bench (through the wait panel and its time-lapse), and save → reload → Continue |
 | `sims-idle` | Doing nothing in each simulation still progresses: the dog lunge, drowning, refusing to sit |
 | `reception` | Arriving candidates queue at the desk, are served in order, get their badge and move on |
 | `movement` | Jump (stamina, exhaustion, height), crouch (camera, speed), sneaking past staff, no jumping the security arm |
@@ -41,9 +41,12 @@ To use a Chromium you already have, set `CHROMIUM_PATH=/path/to/chrome`. Screens
 | `build2-story` | The bus home, dinner choices, a save at bedtime resuming at bedtime, the night before, the ceremony (order, consequences, knife, bowl, faction), the exodus |
 | `build2-factions` | The Dauntless train (missing it, catching it), the roof jump (too early, right), first jumper, the net and the Pit; each other faction's arrival, a save after it, and "Begin your first week" |
 | `build3-combat` | A fight as an activity; guarding and punishing beats a novice; turtling loses; holding Q yields; the range, bags and knives each score and hand the controls back |
-| `build3-dauntless` | The compound on Day 2; sleeping; Day 3's range, bags and spar; a mid-afternoon save loading back to the same day, time, place and points; Daniel; Day 4's knives, range and fight; the board; the zip line |
+| `build3-dauntless` | The compound on Day 2; sleeping; Day 3's range, bags and spar (and the camera handed back after each); a mid-afternoon save loading back to the same day, time, place and points; Daniel; Day 4's knives, range and fight; the board; the zip line |
 | `build3-stageone` | The knife lesson and the scar; the fight against Josh; the ambush (struggle, fight, infirmary, expulsion); the cut; the fear simulation; STAGE ONE COMPLETE |
 | `build3-weeks` | Candor, Erudite, Abnegation and Amity: each first week played start to finish by a bot, to its banner, and a save after it |
+| `build4-city` | Out through the gate on foot and along the streets; buildings, the Testing Center, the shore and the Fence keep you in; street and sector names; furniture clear of buildings and lanes, and solid; people by sector on the pavements, talking, solid; one-way traffic on Lake Street that stops and honks for you; nothing drawn deep indoors; the world map; a save in the streets; walking home to your own door |
+| `build4-wait` | The clock speed setting; T standing up; the wait panel's keys and quick choices; the time-lapse, Esc, midnight; Dauntless: stopping at the call, the warning for a block that's on, the 17:00 board while you wait, a conversation taking over, the bunk rest; no waiting in a chapter |
+| `playthrough` | Played like a person (movement keys along nav paths, E, dialogue read at a human pace): Claire's results and the camera after; out through the gate to the bus; the ceremony for all five factions |
 | `audio` | Per-room reverb, indoor vs. outdoor layers, open-door bleed, accents, the simulation beds, and the reverb setting |
 | `save-migration` | A v1 save with old NPC ids and names loads into the current version with everything intact |
 | `npc-day` | A full day of schedules from two vantage points: nobody stuck, teleported, path-less or double-seated |

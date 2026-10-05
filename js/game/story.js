@@ -31,7 +31,9 @@
       opts = opts || {};
       DV.Audio.play('chime');
       const t = DV.Dialogue.fill(text, {});
+      const zone = DV.World.current;
       setTimeout(() => {
+        if (DV.World.current !== zone) return; // (you've gone: the speakers are somewhere else now)
         DV.UI.subtitle('PA', t, opts.secs || 7);
         DV.Audio.speak(t);
       }, 1300);

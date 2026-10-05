@@ -832,6 +832,9 @@
     B.box(m, 0.8, 4.25, 0, 0.4, 0.15, 0.25);
     B.quad(ctx.M('light_panel:emit'), [0.62, 4.24, -0.1], [0.98, 4.24, -0.1], [0.98, 4.24, 0.1], [0.62, 4.24, 0.1], [0, 0], [1, 0], [1, 1], [0, 1]);
     ctx.collide(-0.12, -0.12, 0.12, 0.12, { y1: 4.5, camera: false });
+    // (where the light comes from, for the glow at night)
+    const h = ctx.toWorld(0.8, 0);
+    (ctx.zone.lamps || (ctx.zone.lamps = [])).push([h[0], 4.24, h[1]]);
   });
   def('flagpole', (ctx, p, B) => {
     B.cyl(ctx.M('metal'), 0, 0, 0, 0.04, 0.06, 7, 6);

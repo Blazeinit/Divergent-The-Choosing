@@ -6,11 +6,12 @@
   const DV = window.DV;
 
   DV.Config = {
-    VERSION: 'Build 3 — v0.3.0',
+    VERSION: 'Build 4 — v0.4.0',
     DEBUG: /[?&]debug=1/.test(location.search),
 
-    // 1 real second = TIME_SCALE game seconds.
-    TIME_SCALE: 5,
+    // 1 real second = TIME_SCALE game seconds (the fallback: the player picks the
+    // clock speed in Settings, see DV.Clock.SPEEDS)
+    TIME_SCALE: 10,
     START_TIME: '08:00',
 
     GRID: 0.5, // navigation / collision raster size (meters)
@@ -72,6 +73,7 @@
     ambienceDetail: 'high', // 'high' | 'low' (fewer ambient one-shots and accents)
     questMarkers: true,
     textSpeed: 'normal', // 'slow' | 'normal' | 'fast' | 'instant'
+    clockSpeed: 'normal', // 'slow' (an hour every 12 minutes) | 'normal' (6) | 'fast' (3)
     showFps: false,
     drawDistance: 'normal', // 'near' | 'normal' | 'far'
   };

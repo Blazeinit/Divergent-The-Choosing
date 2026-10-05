@@ -319,7 +319,23 @@ button { font-family: inherit; }
 #errbox { position: absolute; left: 12px; bottom: 12px; max-width: 60%; background: rgba(60,0,0,0.85); color: #ffd0c8; font-family: var(--mono); font-size: 12px; padding: 8px 10px; z-index: 99; white-space: pre-wrap; border: 1px solid #000; }
 #waitmenu { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 360px; }
 #waitmenu .body { padding: 12px 16px; text-align: center; }
-#waitmenu .hrs { font-family: var(--serif); font-size: 28px; color: var(--accent-2); margin: 6px 0; }
+#waitmenu .hrs { display: inline-block; min-width: 150px; font-family: var(--serif); font-size: 28px; color: var(--accent-2); margin: 6px 0; vertical-align: middle; }
+#waitmenu .ctr { margin-top: 4px; }
+#waitmenu .ctr .btn { vertical-align: middle; min-width: 22px; }
+#waitmenu .until { font-size: 12px; margin-bottom: 6px; }
+#waitmenu .warn { color: var(--danger); font-size: 12px; line-height: 1.35; }
+#waitmenu .warn div { margin: 3px 0; }
+#waitmenu .quick { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin: 10px 0 2px; }
+#waitmenu .quick .btn .faint { color: inherit; opacity: 0.6; margin-left: 4px; }
+#waitmenu .note { font-size: 11px; margin-top: 8px; color: var(--faint); }
+/* the time-lapse (js/game/wait.js) */
+#waitlapse { position: absolute; left: 50%; top: 21%; transform: translate(-50%, -50%); z-index: 55; text-align: center; pointer-events: none; text-shadow: 0 2px 6px #000; }
+#waitlapse .wl-k { font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim); }
+#waitlapse .wl-t { font-family: var(--serif); font-size: 46px; color: var(--accent-2); line-height: 1.1; }
+#waitlapse .wl-bar { width: 220px; height: 4px; margin: 8px auto 6px; background: rgba(0, 0, 0, 0.6); border: 1px solid var(--line); }
+#waitlapse .wl-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-dim), var(--accent-2)); }
+#waitlapse .wl-u { font-size: 12px; color: var(--text); }
+#waitlapse .wl-h { font-size: 10.5px; letter-spacing: 0.08em; color: var(--faint); margin-top: 4px; }
 #pause { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); }
 #pause .panel { width: 320px; }
 #pause .items { padding: 10px 0 14px; display: flex; flex-direction: column; align-items: center; }

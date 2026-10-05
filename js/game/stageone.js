@@ -124,6 +124,39 @@
       if (lock === 'members') return false;
       return undefined;
     },
+    /* ---------------- waiting (T) ---------------- */
+    // a wait stops for the calls to training, and for Bo at the zip line
+    waitStops(now) {
+      const I_ = I(), out = [];
+      if (!I_.active()) return out;
+      for (const b of I_.blocks()) {
+        if (I_.status(b)) continue;
+        if (T(b.t0) - 10 > now) out.push({ t: T(b.t0) - 10, why: b.title + ' in ten minutes, at ' + b.where + '.' });
+        else if (T(b.t0) > now) out.push({ t: T(b.t0), why: b.title + ' is starting, at ' + b.where + '.' });
+      }
+      if (DV.Quests.obj('zip_line', 'meet') === 'active') out.push({ t: T('21:20'), why: 'Bo will be at the zip line by now.' });
+      return out;
+    },
+    waitTargets(now) {
+      const I_ = I(), out = [];
+      if (!I_.active()) return out;
+      const b = I_.pending();
+      if (b && T(b.t0) - 10 > now) out.push({ t: T(b.t0) - 10, label: 'Until the call · ' + b.title });
+      const meal = I_.MEALS.map((m, k) => ({ t: T(m[0]), label: 'Until ' + ['breakfast', 'lunch', 'dinner'][k] })).find((m) => m.t > now + 5);
+      if (meal) out.push(meal);
+      if (now < T('20:30')) out.push({ t: T('20:30'), label: 'Until lights out' });
+      return out;
+    },
+    // what you'd miss: a block that's on right now and you haven't done
+    waitWarnings(from, to) {
+      const I_ = I(), out = [];
+      if (!I_.active()) return out;
+      for (const b of I_.blocks()) {
+        if (I_.status(b) || b.kind === 'cut' || b.kind === 'fear') continue;
+        if (from >= T(b.t0) && from < T(b.t1) && to > from) out.push(b.title + ' is on now, at ' + b.where + (to >= T(b.t1) ? '. Wait that long and you\'ve missed it.' : '. You\'ll be late.'));
+      }
+      return out;
+    },
     beforeSleep() {
       // (nothing stops you sleeping — but on the night of the ambush, getting to bed means crossing the Pit)
       return false;

@@ -70,7 +70,7 @@
   const FIRST = 3, LAST = 6, CUT = 2;
 
   const I = {
-    CLASS, PLAN, STAT, FIRST, LAST, CUT, FREE,
+    CLASS, PLAN, STAT, FIRST, LAST, CUT, FREE, MEALS,
 
     /* ---------------- state ---------------- */
     st() {
@@ -489,7 +489,7 @@
       if (DV.StageOne && DV.StageOne.beforeSleep && DV.StageOne.beforeSleep()) return null;
       if (!I.canSleep()) {
         // a rest instead: an hour or two on your bunk
-        DV.Game.doWait(() => DV.Clock.skip(60));
+        if (!DV.Wait.start(60, { quiet: true })) return null;
         return { message: 'You lie on your bunk and stare at the rock ceiling for an hour. It doesn\'t get any lower.' };
       }
       DV.District.sleep({});

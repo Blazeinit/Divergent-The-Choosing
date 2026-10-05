@@ -60,7 +60,8 @@
       });
       DV.Events.on('clock:minute', (m) => {
         if (!DV.World.current || DV.World.current.id !== this.homeZoneId() || this.state === 'mainmenu') return;
-        DV.NPCAI.onMinute();
+        // (while you wait the crowd catches up in jumps instead: see DV.Wait)
+        if (!DV.Wait.running) DV.NPCAI.onMinute();
         DV.District.onMinute(m);
       });
       document.addEventListener('visibilitychange', () => { if (document.hidden && (this.state === 'playing' || this.state === 'activity')) this.pause(); });
@@ -375,6 +376,8 @@
           return;
       }
       const zone = this.zone();
+      // a wait that something else took over (a scene, a voice from the PA, trouble) is over
+      if (DV.Wait.running && this.state !== 'waiting') DV.Wait.abort();
       // global modal keys
       if (DV.UI.modalOpen === 'reading') {
         if (input.consume('KeyE') || input.consume('Escape') || input.consume('Enter') || input.consume('Space')) DV.UI.closeReading();
@@ -412,7 +415,21 @@
       } else if (this.state === 'paused') {
         if (input.consume('Escape')) { if (!DV.Menus.closeSide()) this.resume(); }
       } else if (this.state === 'wait') {
-        if (input.consume('Escape')) { DV.Menus.closeSide(); this.closeOverlay(); }
+        // the wait panel: ← → to choose how long, Enter to wait
+        const W = DV.Menus;
+        if (input.consume('Escape') || input.consume('KeyT')) { W.closeSide(); this.closeOverlay(); }
+        else {
+          const l = input.consume('ArrowLeft') | input.consume('KeyA') | input.consume('Minus');
+          const r = input.consume('ArrowRight') | input.consume('KeyD') | input.consume('Equal');
+          if (l && W.waitStep) W.waitStep(-1);
+          if (r && W.waitStep) W.waitStep(1);
+          if ((input.consume('Enter') | input.consume('Space')) && W.waitGo) W.waitGo();
+        }
+        this.updateWorldSystems(dt, zone, false);
+        DV.Player.model.animate(dt, { speed: 0, action: DV.Player.action, seatY: DV.Player.seat ? DV.Player.seat.seatY : 0.45 });
+      } else if (this.state === 'waiting') {
+        // the time-lapse (js/game/wait.js)
+        DV.Wait.update(dt, input);
       } else if (this.state === 'transition' || this.state === 'banner') {
         // simulation transitions keep the world animating
         if (this.inSimulation() && DV.Sim) DV.Sim.update(dt, true);
@@ -435,7 +452,10 @@
       if (input.consume('KeyM')) { this.openRPGMenu('map'); return; }
       if (input.consume('KeyJ')) { this.openRPGMenu('quests'); return; }
       if (input.consume('KeyI')) { this.openRPGMenu('inventory'); return; }
-      if (input.consume('KeyT') && DV.Player.state === 'sitting' && !this.ctrl()) { this.openWait(); return; }
+      if (input.consume('KeyT') && !this.inSimulation()) {
+        const why = DV.Wait.can();
+        if (why) DV.UI.notify(why); else { this.openWait(); return; }
+      }
       if (input.consume('KeyE')) DV.Interaction.use(this);
       if (this.state !== 'playing') return;
       // camera
@@ -677,6 +697,7 @@
     },
     openWait() {
       this.state = 'wait';
+      DV.Input.clearMovement();
       if (!DV.Cursor.enabled()) DV.Input.exitLock();
       DV.Menus.showWait();
     },
@@ -712,28 +733,9 @@
     },
 
     /* ------------------------------ waiting ------------------------------ */
-    waitMinutes(mins) {
-      this.doWait(() => DV.Clock.skip(mins));
-    },
-    waitUntil(t) {
-      this.doWait(() => {
-        const now = DV.Clock.minutes();
-        if (t > now) DV.Clock.skipTo(t);
-      });
-    },
-    doWait(fn) {
-      this.state = 'transition';
-      DV.UI.fade(1, 600).then(() => {
-        fn();
-        DV.NPCAI.syncAll();
-        // the player's seat may have been "taken" by a snapping NPC — keep the player's claim
-        if (DV.Player.seat) DV.Player.seat.occupant = 'player';
-        this.state = 'playing';
-        DV.Input.requestLock();
-        DV.UI.notify('You wait. It is now ' + DV.Clock.str() + '.');
-        DV.UI.fade(0, 700);
-      });
-    },
+    // (the time-lapse itself lives in js/game/wait.js)
+    waitMinutes(mins) { return DV.Wait.start(mins); },
+    waitUntil(t) { return DV.Wait.start(0, { until: t }); },
 
     /* ------------------------------ aptitude test hand-off ------------------------------ */
     beginAptitudeTest() {

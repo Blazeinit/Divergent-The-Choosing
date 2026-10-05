@@ -83,6 +83,7 @@
       for (const z of [zone]) for (const sid in z.spots) z.spots[sid].occupant = null;
       DV.NPCAI.syncAll();
       DV.UI.simMode(false);
+      DV.UI.hush();
       DV.UI.showHUD(true);
       DV.UI.letterbox(false);
       G.state = 'playing';

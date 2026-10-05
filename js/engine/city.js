@@ -235,19 +235,22 @@
     'varying vec2 vUv; varying vec3 vCol; varying vec3 vWP; varying float vSeed;',
     'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
     'void main() {',
+    // (the seed is a whole number per building, but interpolating it across a face can leave it a
+    // hair off, which the hash turns into a different window on every pixel: round it)
+    '  float sd = floor(vSeed + 0.5);',
     '  vec3 c = vCol * ambient;',
     '  if (useMap > 0.5) {',
     '    vec2 cell = floor(vUv); vec2 f = fract(vUv);',
     '    if (street > 0.5 && cell.y < 0.5 && vWP.y > -0.2) {',
     // the ground floor, seen from the pavement: a stone plinth, shop windows or boarded-up
     // ones, a door every few bays, a fascia over them; some shops lit at dusk
-    '      float hb = hash(vec2(cell.x, vSeed)); float hs = hash(vec2(floor(cell.x / 3.0), vSeed + 7.0));',
+    '      float hb = hash(vec2(cell.x, sd)); float hs = hash(vec2(floor(cell.x / 3.0), sd + 7.0));',
     '      vec3 stone = vCol * ambient * 0.62;',
     '      vec3 fascia = mix(vec3(0.22, 0.2, 0.18), vec3(0.42, 0.16, 0.12), step(0.7, hs)) * mix(1.0, 0.6, step(0.4, hs) * step(hs, 0.55));',
     '      fascia = mix(fascia, vec3(0.15, 0.24, 0.3), step(0.85, hs));',
     '      float glassA = step(0.14, f.y) * step(f.y, 0.74) * step(0.07, f.x) * step(f.x, 0.93);',
     '      float doorA = step(hb, 0.22) * step(0.32, f.x) * step(f.x, 0.68) * step(f.y, 0.74);',
-    '      float boarded = step(1.0 - shabby, hash(vec2(cell.x * 1.7, vSeed + 3.0)));',
+    '      float boarded = step(1.0 - shabby, hash(vec2(cell.x * 1.7, sd + 3.0)));',
     '      vec3 glass = mix(vec3(0.09, 0.11, 0.12), vec3(0.2, 0.24, 0.26), smoothstep(0.4, 0.74, f.y));',
     '      vec3 board = vec3(0.4, 0.33, 0.24) * (0.85 + 0.15 * step(0.5, fract(f.x * 6.0)));',
     '      vec3 shut = vec3(0.32, 0.32, 0.31) * (0.8 + 0.2 * step(0.5, fract(f.y * 22.0)));',
@@ -262,7 +265,7 @@
     '    } else {',
     '    c *= texture2D(map, vUv * 0.25).rgb;',
     '    float win = step(winRect.x, f.x) * step(f.x, winRect.z) * step(winRect.y, f.y) * step(f.y, winRect.w);',
-    '    float on = step(1.0 - litChance * (1.0 + litAmt * 2.0), hash(cell + vSeed));',
+    '    float on = step(1.0 - litChance * (1.0 + litAmt * 2.0), hash(cell + sd));',
     '    c = mix(c, vec3(1.0, 0.8, 0.5), win * on * (0.25 + 0.75 * litAmt));',
     '    }',
     '  }',

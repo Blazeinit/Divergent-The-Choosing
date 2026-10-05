@@ -13,7 +13,7 @@
       this.hideAll();
       const m = el('div', null, null, DV.UI.root);
       m.id = 'mainmenu';
-      m.innerHTML = '<div class="title">DIVERGENT</div><div class="subtitle">Initiation</div><div class="sigils"></div><div class="items"></div><div class="foot"></div>';
+      m.innerHTML = '<div class="title">DIVERGENT</div><div class="subtitle">The City</div><div class="sigils"></div><div class="items"></div><div class="foot"></div>';
       const sig = m.querySelector('.sigils');
       for (const f of DV.Factions.testable) {
         const c = document.createElement('canvas');
@@ -150,6 +150,7 @@
       el('div', 'h', 'Gameplay', body);
       toggle('Quest markers on compass', 'questMarkers');
       select('Dialogue text speed', 'textSpeed', [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']]);
+      select('Clock speed (an in-game hour takes…)', 'clockSpeed', [['slow', '12 minutes (slow)'], ['normal', '6 minutes — default'], ['fast', '3 minutes (fast)']]);
       const reset = el('span', 'btn', 'Reset to defaults', p.querySelector('.foot'));
       reset.onclick = () => DV.UI.confirm('Reset', 'Reset all settings to defaults?', () => { S.reset(); this.showSettings(); });
       p.querySelector('.foot').insertBefore(reset, p.querySelector('.foot').firstChild);
@@ -160,7 +161,7 @@
       p.querySelector('.body').innerHTML = [
         ['W A S D / Arrows', 'Move'], ['Mouse', 'Look / orbit camera (click to capture; or hold a button and drag)'], ['Mouse wheel', 'Zoom camera'],
         ['Shift', 'Run (uses stamina)'], ['Space', 'Jump (uses stamina)'], ['C', 'Crouch / sneak (quieter; Shift or C to stand)'], ['E', 'Interact · talk · take · sit'], ['Tab', 'RPG menu (Character, Skills, Inventory, Quests, Reputation, Map)'],
-        ['M', 'Map'], ['J', 'Quests'], ['I', 'Inventory'], ['T', 'Wait (while seated)'], ['Dialogue', 'Move the mouse or scroll to choose, click / E / Enter to confirm (or 1-9)'], ['Esc', 'Pause / close windows'],
+        ['M', 'Map'], ['J', 'Quests'], ['I', 'Inventory'], ['T', 'Wait (anywhere you\'re free to: pick how long, or until something)'], ['Dialogue', 'Move the mouse or scroll to choose, click / E / Enter to confirm (or 1-9)'], ['Esc', 'Pause / close windows'],
         ['Fights', 'LMB / J jab · RMB / K cross · F / L kick · hold Shift block · Space + direction dodge · hold Q yield'],
         ['Range', 'Mouse aim · LMB fire · hold RMB sights · hold Shift hold your breath'], ['Knives', 'Hold LMB to wind up, release to throw'],
         ['Activities', 'Each one shows its keys along the bottom of the screen'],
@@ -172,7 +173,7 @@
       this.closeSide();
       const p = this.side('Credits');
       p.querySelector('.body').innerHTML = '<div class="credits">' +
-        '<p><b class="accent">DIVERGENT — Build 3: Initiation</b></p>' +
+        '<p><b class="accent">DIVERGENT — Build 4: The City</b></p>' +
         '<p>A private, non-commercial fan-game prototype inspired by the <i>Divergent</i> series by Veronica Roth. Not affiliated with or endorsed by the author, publishers or film studios. All characters, locations and story in this prototype are original.</p>' +
         '<div class="sep"></div>' +
         '<p><span class="accent">Design, code, writing & procedural art</span><br>Built with HTML, CSS, JavaScript and Three.js (r149, MIT License).</p>' +
@@ -184,29 +185,44 @@
     /* ------------------------------ wait menu ------------------------------ */
     showWait() {
       this.closeSide();
+      const Wt = DV.Wait, plan = Wt.plan();
       const p = el('div', 'panel', '<div class="panel-title">Rest & Wait</div><div class="body"></div><div class="foot"></div>', DV.UI.root);
       p.id = 'waitmenu';
       const body = p.querySelector('.body');
-      let hrs = 1;
-      const canUntilCalled = isFinite(DV.Story.callTime()) && !DV.State.flag('tr4_open');
-      body.innerHTML = '<div class="dim">It is ' + DV.Clock.str() + '. How long will you wait?</div><div class="hrs"></div><div></div>';
-      const hrsEl = body.querySelector('.hrs');
-      const upd = () => { hrsEl.textContent = hrs + (hrs === 1 ? ' hour' : ' hours'); };
+      // whole hours, or (late in the day) whatever's left before midnight
+      const steps = [];
+      for (let h = 1; h * 60 <= plan.max; h++) steps.push(h * 60);
+      if (!steps.length || plan.max - steps[steps.length - 1] >= 15) steps.push(Math.floor(plan.max));
+      let k = 0;
+      body.innerHTML = '<div class="dim">Day ' + DV.Clock.day() + ' · ' + DV.Clock.str() + '. How long will you wait?</div>' +
+        '<div class="ctr"><span class="btn small minus">−</span><span class="hrs"></span><span class="btn small plus">+</span></div>' +
+        '<div class="until dim"></div><div class="warn"></div><div class="quick"></div>' +
+        (plan.max < 12 * 60 ? '<div class="note faint">The night is for sleeping: find your bed.</div>' : '');
+      const hrsEl = body.querySelector('.hrs'), untilEl = body.querySelector('.until'), warnEl = body.querySelector('.warn');
+      const upd = () => {
+        const m = steps[k];
+        hrsEl.textContent = DV.Wait.span(m);
+        untilEl.textContent = 'until ' + DV.U.formatTime(plan.now + m) + (plan.stops.some((s) => s.t <= plan.now + m) ? ' (or until you\'re needed)' : '');
+        const w = Wt.warnings(m);
+        warnEl.innerHTML = w.map((x) => '<div>' + DV.U.esc(x) + '</div>').join('');
+      };
       upd();
-      const ctr = body.lastChild;
-      const minus = el('span', 'btn small', '−', ctr);
-      const plus = el('span', 'btn small', '+', ctr);
-      minus.onclick = () => { hrs = Math.max(1, hrs - 1); upd(); };
-      plus.onclick = () => { hrs = Math.min(12, hrs + 1); upd(); };
-      const foot = p.querySelector('.foot');
-      if (canUntilCalled) {
-        const uc = el('span', 'btn', 'Until called', foot);
-        uc.onclick = () => { p.remove(); DV.Game.waitUntil(DV.Story.callTime()); };
+      this.waitStep = (d) => { k = Math.max(0, Math.min(steps.length - 1, k + d)); upd(); DV.Audio.play('click'); };
+      body.querySelector('.minus').onclick = () => this.waitStep(-1);
+      body.querySelector('.plus').onclick = () => this.waitStep(1);
+      const go = (mins, opts) => { p.remove(); this.waitEl = null; this.waitGo = null; DV.Wait.start(mins, opts); };
+      // until something: the call, a meal, the evening
+      const quick = body.querySelector('.quick');
+      for (const t of plan.targets) {
+        const b = el('span', 'btn small', DV.U.esc(t.label) + ' <span class="faint">' + DV.U.formatTime(t.t) + '</span>', quick);
+        b.onclick = () => go(0, { until: t.t });
       }
+      const foot = p.querySelector('.foot');
       const w = el('span', 'btn', 'Wait', foot);
-      w.onclick = () => { p.remove(); DV.Game.waitMinutes(hrs * 60); };
+      w.onclick = () => go(steps[k]);
+      this.waitGo = () => go(steps[k]);
       const c = el('span', 'btn', 'Cancel', foot);
-      c.onclick = () => { p.remove(); DV.Game.closeOverlay(); };
+      c.onclick = () => { p.remove(); this.waitEl = null; this.waitGo = null; DV.Game.closeOverlay(); };
       this.waitEl = p;
     },
 

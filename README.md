@@ -1,4 +1,4 @@
-# DIVERGENT — Build 3: Initiation
+# DIVERGENT — Build 4: The City
 
 A browser-based, offline, single-player third-person 3D RPG prototype set in the world of *Divergent*, from Aptitude Test day to the end of your first week of initiation. It is a private, non-commercial fan project and is not affiliated with Veronica Roth, her publishers or the film studios. All characters, locations and dialogue are original.
 
@@ -13,6 +13,8 @@ A browser-based, offline, single-player third-person 3D RPG prototype set in the
 - **Amity:** a water dispute to mediate, a culvert to dig out, and the bread at supper.
 
 In every faction, what your aptitude test really said catches up with you.
+
+**Build 4** opens the city. Once your results are in, the Testing Center's gate lets you out onto Lake Street, and from there you can walk the whole city on foot, all the way to the Fence. The streets have their real names and the HUD tells you which one you're on and which sector you're in. Each sector looks like the faction that lives there: the grey Abnegation rows, Erudite glass, Candor's offices, the Dauntless warehouses and the factionless ruins. People walk the pavements and traffic keeps to its lanes, stopping and honking when you step out in front of it. You can walk home to your own front door instead of taking the bus. The Map tab now has a **City** view. The day goes by outside: the sun crosses the sky, dusk lights the windows and the street lamps, and the crickets start up. **T** lets you wait anywhere you're free to: the day passes in a time-lapse and stops when someone needs you. The Dauntless compound is busy at every hour, and the weapons are proper models.
 
 Everything is built from HTML, CSS, JavaScript and Three.js. There is no build step, no npm, and no framework. All textures, characters, sounds and music are generated procedurally at runtime.
 
@@ -51,9 +53,11 @@ Saves, settings and autosaves live in the browser's `localStorage` under the `di
 | **E** | Interact: talk, take, sit, open, examine. Also advances dialogue |
 | **Tab** | RPG menu: Character · Skills · Inventory · Quests · Reputation · Map |
 | **M / J / I** | Open the RPG menu on Map / Quests / Inventory |
-| **T** | Wait (while seated): pass time in 1–12 hour steps, or "Until called" |
+| **T** | Wait, anywhere you're free to (not in a story scene). Pick how long (← →), or a time ("until the call", "until lunch", "until the evening"), and press Enter. The day goes by in a time-lapse; Esc stops it. A call to training, the PA calling your name, or anyone who needs you stops it early. Waiting won't take you past midnight: for the night, go to bed |
+| **Map (Tab → Map)** | **Local** for the building you're in, **City** for the whole city. Wheel or **+ / −** to zoom, drag to pan, **Fit** to see it all, hover for names |
 | **In dialogue** | Point at a response with the in-game cursor and click (or scroll / ↑↓ and press E or Enter). 1–9 also work. The mouse stays captured, so you never need to click back into the game |
 | **Menus** | The Tab menu, waiting, reading and banners keep the mouse captured and show the game's own cursor. Turn **Settings → In-game cursor** off to use the system cursor instead |
+| **Clock speed** | **Settings → Clock speed**: an in-game hour takes 6 real minutes by default, 12 on slow or 3 on fast |
 | **Space (held)** | At the Choosing Ceremony: hurry the names along |
 | **Esc** | Pause menu (Resume, Save, Load, Settings, Controls, Quit) and close windows |
 
@@ -92,11 +96,13 @@ js/
   lib/three.min.js         Three.js r149 (MIT, see THREE_LICENSE.txt)
   core/
     utils.js               DV.U math/time/DOM helpers, seeded RNG, DV.Events bus
-    config.js              Tunables (time scale, speeds, camera, LOD, save slots) + persisted DV.Settings
+    config.js              Tunables (speeds, camera, LOD, save slots) + persisted DV.Settings (incl. clock speed)
   data/                    Pure data, no engine code
     factions.js            Six factions: descriptions, colours, clothing palettes; skin/hair/eye palettes
     rpg.js                 Attributes (STR AGI INT PER CHA RES), skills, XP curve, upbringings
     items.js               Item database (clothing, consumables, quest, misc)
+    citymap.js             Build 4: the city's one shared map (avenues and streets by name, the sectors,
+                           landmarks, every family's home, the Fence) — the city, the HUD and the map read it
     npcs.js                30 NPC definitions: identity, look, personality, access, schedules, dialogue id
     npcs_dauntless.js      Build 3: the Dauntless compound's 19 people, with schedules per day
     quests.js              Quest definitions (main + 6 side quests), objectives, rewards
@@ -115,17 +121,26 @@ js/
     collision.js           AABB spatial hash, circle push-out, camera raycasts
     navigation.js          Grid A* with door/lock edges, wall-proximity cost, path smoothing
     props.js               ~70 parametric prop builders (desks, lockers, vending, consoles, trees, buses…)
+    vehicles.js            Build 4: low-poly vehicles (bus, saloon, hatchback, van, pickup, jeep), one draw
+                           call each, and the vertex-coloured mesh builder they share
+    arms.js                Build 4: the pistol, the carbine and the throwing knife, built the same way
+    props_street.js        Build 4: the bus shelter, stop and street signs, hydrants, news boxes, kerbs, road paint
+    streetkit.js           Build 4: street furniture along every kerb in 96 m chunks near you (lamps, trees,
+                           benches, signs at the corners, parked cars), solid, darkening with the hour; the
+                           lamps' glow at night
     world.js               Zone definition → rooms, walls, doors, windows, lights, colliders, nav, spots;
                            indoor/outdoor fog blending
     city.js                The procedural city around a zone: street grid, towers, the Hub, the L and its
-                           train, the marsh and Ferris wheel, aerial haze, cloud deck and cloud shadows
+                           train, the marsh and Ferris wheel, aerial haze, cloud deck and cloud shadows.
+                           Build 4's walk mode: pavements, kerbs and shopfronts, each sector built its own way,
+                           the landmarks, the Fence and its gate, solid buildings
     character.js           Procedural low-poly humans: skinned mesh, faces, hair, outfits, pose animation
     input.js               Keyboard/mouse, pointer lock with drag fallback
     audio.js               WebAudio procedural SFX, per-room convolution reverb, positional sounds,
                            soundscape layers, music, optional speech-synth PA
   game/                    Game systems
     state.js               The single serialisable save state (DV.State.data)
-    clock.js               In-game clock (1 real second = 5 game seconds, day starts 08:00)
+    clock.js               In-game clock (an hour every 6 real minutes by default; Settings → Clock speed)
     stats.js               Attributes, skills (practice-based), XP/levels, checks, buffs
     inventory.js           Add/remove/use/equip
     reputation.js          Faction reputation + per-NPC relationship and disposition
@@ -139,12 +154,17 @@ js/
     checkpoint.js          The security arch: badge checks, the barrier arm, NPCs queueing to show badges
     soundscape.js          What you hear where you stand: reverb, indoor/outdoor layers, accents, one-shots
     wildlife.js            Pigeon flocks, crows and gulls, blowing litter, flags flying in the wind
+    streetlife.js          Build 4: pedestrians by sector on the pavements and crossings, and traffic that
+                           keeps right, queues, stops for you and honks
+    extras.js              Build 4: the people a place is full of (the compound's members): sets by the hour,
+                           standing, sitting, talking, walking their loop; solid, and they answer you
     chapter.js             Build 2 story chapters: scripted zones with actors, crowds, beat sequences,
                            cutscenes (letterbox, camera shots, the player as a puppet) and checkpoints;
                            a chapter can span several days (Build 3's faction weeks)
     build2.js              The bridge from Aptitude Day: the bus home, your faction choice, your parents
     district.js            Build 3: a living zone you stay in for days (the Dauntless compound): the
                            day's script, NPC schedules per day, sleeping, entering and leaving
+    wait.js                Build 4: waiting (T) — the time-lapse, what stops it, what you'd miss
     activity.js            Build 3: hands-on play that takes over controls, camera and HUD for a while
                            and hands back a result (fights, training, the serum, the lab benches…)
     combat.js              Hand to hand: moves with tells, block, dodge, stamina, poise, stagger,
@@ -177,6 +197,7 @@ js/
     ui.js                  HUD, compass, quest tracker, notifications, subtitles, barks, banners, fades
     dialogueUI.js          Old-school dialogue window (typewriter text, numbered choices, check labels)
     rpgMenu.js             Tab menu: Character / Skills / Inventory / Quests / Reputation / Map
+    worldMap.js            Build 4: the City map (sectors, streets by name, landmarks, the Fence, you, home)
     menus.js               Main menu, pause, save/load, settings, controls, credits, wait
     cursor.js              The in-game cursor (hover, click, wheel, sliders and dropdowns under pointer lock)
     creator.js             Character creation (appearance, upbringing, attributes, confirm)
@@ -200,7 +221,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 3. **Reception** (Martha, at the east desk in the lobby) checks you in and prints your **name badge**, which then shows on your chest. At the **security arch**, Dean won't lift the barrier arm until you show him the badge. You can also try to **duck under the arm** [AGILITY 7], which only works while he's busy checking someone else's badge. Then you wait in the hall. About 30–60 game minutes after you clear security, the PA calls you to **Testing Room 4**. Use that time to explore, eavesdrop, talk and start side quests.
 4. **Claire** briefs you and gives you the serum. Then come three simulations: **I. The Platform** (a rod or a flare, a starving dog, a lost child), **II. The Flood** (rising water, a trapped woman, a panicking man, a keypad code) and **III. The Tribunal** (an interrogation, a confession, a button). Each one can be approached by fighting, reasoning, protecting, deceiving, defying or mediating, or by noticing that none of it is real.
 5. You wake up and Claire gives you your result. If your profile is **inconclusive** (Divergent), she reacts, warns you, and lets you choose what gets *recorded*. The result never decides your faction, and the character sheet still shows **CURRENT FACTION: UNDECIDED**.
-6. **The bus home.** After your results the front gate opens. Take the bus at the curb when you're ready.
+6. **The bus home.** After your results the front gate opens. Take the bus at the curb when you're ready, or walk: the city is yours to cross, and your family's door is in your sector (for Amity, a truck waits at the Fence gate).
 7. **Home.** It's your family's house, the way your faction lives: Abnegation's bare grey rooms and the mirror behind a panel, Erudite's books, Candor's black and white, Amity's warm wood, a Dauntless flat in the compound. At dinner, what you say matters. You can keep the test to yourself, tell them your result, or (if you're Divergent) start to say the word before your mother stops you. You can also ask how they chose at their own Choosing (one of them transferred) and what would happen if you left. Lying awake afterwards, you keep coming back to one of the five bowls.
 8. **The Choosing Ceremony.** It's held high in the Hub, with the city below the windows. The factions sit in five sections, with your parents among them. After the speech, names are called in reverse alphabetical order, yours included. Each candidate cuts a palm and lets the blood fall on stones, water, glass, earth or coals, and their new faction applauds (the Dauntless roar). Some of the Aptitude Day candidates choose differently depending on you:
    - Daniel takes the coals if you got him to his test.
@@ -235,6 +256,29 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 ---
 
 ## Implemented features
+
+**Build 4: The City**
+- **A walkable city.** The Testing Center's front gate opens once your results are in, and the city outside is solid ground all the way to the Fence. It's laid out from one shared map (`DV.CityMap`): avenues and streets with their real names, the faction sectors, landmarks and every family's home. The HUD names the street and sector you're in, and so do save summaries.
+  - **Each sector is built its own way:** rows of identical grey Abnegation houses with their yards, Erudite glass, Candor's offices, the Dauntless warehouses, the factionless ruins. Ground floors have shopfronts (boarded up where it's poor), and some shops are lit after dark.
+  - **Landmarks:** the Merciless Mart, Erudite headquarters, the Abnegation council hall, the Dauntless compound, the Hancock, the Hub, the marsh and its Ferris wheel. The Fence rings the city with watchtowers and a gate to Amity's farmland.
+  - **Streets** have pavements, kerbs, lanes and crossings. Street furniture is laid along every kerb, in chunks near you: lamps, trees, hydrants, benches, bins, news boxes, dead traffic signals, name signs at the corners and parked cars. Buildings, furniture and cars are solid.
+  - **The Testing Center from outside** has a proper concrete exterior, and outer walls no longer show interior paint.
+- **Street life.** Pedestrians dressed for their sector walk the pavements and cross at corners when it's clear. Speak to one and they answer, and brush past a group and someone says something. Traffic keeps right (Lake Street is one-way under the L), queues, stops for you or for people crossing, and honks. Engines are positional sounds.
+- **Vehicles** are low-poly models in the game's style (a bus, saloons, hatchbacks, vans, pickups, Dauntless jeeps): wheels and arches, glass and pillars, lights, doors on the kerb side, one draw call each. Lake Street has a proper bus stop: shelter, lit advert, timetable, pole, street sign, crossing and road paint.
+- **Walking home.** Instead of taking the bus you can walk to your family's front door in your sector (for Amity, a truck at the Fence gate). The objective marker points there once it's the nearer way.
+- **The world map.** The Map tab has a **City** view beside the local one: the Fence and its gate, the farmland, the marsh, every block tinted by sector, the main streets by name (all of them when zoomed in), the L, the landmarks, your home and the objective. You show as an arrow in the streets, or as a marker on the place you're in. Zoom, pan and hover for names. Sectors you've walked through are named brighter.
+- **The sky and the hour.** The sky is a shader dome. It keeps each zone's colours and adds a haze band on the horizon, a glow where the sun is behind the overcast, and stars after dark. Outside the Testing Center the hour shows: the sun crosses from east to west, the late afternoon warms, sunset glows, and at dusk the windows light up across the city and the street lamps come on, each with a halo and a pool of light on the road. Streets, clouds, furniture and people darken with the light.
+- **Ambience.** Crickets from dusk to first light, the wind getting up now and then, traffic a few streets off (louder as cars pass you), horns and dogs in the streets, a murmur where it's busy, and birds only by day.
+- **Waiting (T).** You can wait anywhere you're free to, not only on a bench. Pick how long, or pick a time: the next call to training, a meal, lights out, noon, the evening, or "until you're called" on Aptitude Day. The panel warns you if a training block is on right now. The day goes by in a time-lapse: the light moves, the clock spins, and people come and go. Every minute still happens on the way, so the rankings go up at 17:00 if you wait through it, and a call to training, the PA calling your name, or anyone who needs you stops the wait right there. Esc stops it early. Waiting won't take you past midnight. A rest on your bunk before lights out is a time-lapse too.
+- **Clock speed.** An in-game hour now takes 6 real minutes (it was 12). **Settings → Clock speed** offers 12, 6 or 3.
+- **The Dauntless compound, busy.** The Pit is full of members, by the hour:
+  - **Evenings:** groups round four fire barrels, people leaning on the railing or sitting on it over the chasm, walkers on the floor and up on the paths, someone on a ledge with their legs over the edge, customers at the stalls, and a drum circle after dinner that you can hear.
+  - **Daytime:** fewer and busier. Members watch the initiates at the ring.
+  - **Mealtimes:** the members' tables full and a queue at the counter.
+  - **Night:** the watch walking the railing.
+
+  They stand, sit, talk among themselves or walk their loop, answer when spoken to, and are solid. The place looks lived in too: the flame and DAUNTLESS sprayed huge on the north wall, slogans between the paths, initiates' names and tallies at eye level, banners hanging from the paths, strings of bulbs across the Pit, and stalls selling cake and coffee, clothes, and boots and knives. The dormitory's washroom door is no longer behind a bunk.
+- **Weapons in the game's style.** A service pistol (slide, serrations, sights with dots, trigger guard, grip panels), a carbine, and a throwing knife with a diamond-section blade and cord-wrapped handle. The range pistol sits in your hands and comes up to your eye when you aim down the sights. The armoury rack holds real carbines and pistols.
 
 **Build 3: Initiation**
 - **Activities** (`DV.Activity`). These are hands-on stretches of play that take over the controls, camera and HUD, then hand back a result. They run on game time, so pausing freezes them and the QA bots can step them frame by frame. There are eleven:
@@ -320,14 +364,14 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
   - Each simulation has its own bed and space.
 - PA announcements: group calls, your own call, reminders, and Daniel's final calls. Speech synthesis is optional.
 - Save/Load/Continue with an autosave and six manual slots. A save stores everything: world time, flags, doors, taken items, visited rooms, NPC memory, relationships, positions, quests, inventory and aptitude.
-- Main menu, settings (sensitivity, invert Y, render scale, filtering, wobble, draw distance, FPS counter, volumes, PA voice, room reverb, ambience detail, quest markers, text speed), credits, pause menu, wait menu, and a canvas map of visited rooms. The character sheet shows your candidate number.
+- Main menu, settings (sensitivity, invert Y, render scale, filtering, wobble, draw distance, FPS counter, volumes, PA voice, room reverb, ambience detail, quest markers, text speed, clock speed), credits, pause menu, wait menu, and a canvas map of visited rooms. The character sheet shows your candidate number.
 - Saves are versioned. Build 1 saves migrate automatically: renamed NPCs keep their relationships and memory, and the old candidate card becomes the name badge.
 
 ---
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 24 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 27 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**
@@ -349,6 +393,19 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - The ambush: the struggle, the fight, the infirmary, and Josh expelled.
   - The cut on Day 6, then the fear simulation through to STAGE ONE COMPLETE.
 - **Build 3, the first week:** each of the four faction weeks is played start to finish, down to its banner, and a save made after it loads as free roam.
+- **Build 4, the city** (36 checks):
+  - Out through the gate on foot and along the streets. Buildings, the Testing Center's walls, the shore and the Fence keep you in.
+  - The HUD names the street and the sector. Street furniture stands clear of buildings and traffic lanes, and is solid.
+  - People walk the pavements, dressed for their sector. They talk when spoken to and you can't walk through them.
+  - One-way traffic on Lake Street keeps to its lanes and stops (and honks) for you. Nothing is drawn deep indoors.
+  - The world map draws the city and where you are. A save made out in the streets loads back there, and the walk home ends at your own door.
+- **Build 4, waiting and the clock** (31 checks):
+  - The clock speed setting.
+  - T opens the wait standing up. The keys work on the panel, and the time-lapse runs and ends by itself. Esc stops it early.
+  - It won't cross midnight. In Dauntless it stops at the call to training (nothing missed), and it warns about a block that's on now.
+  - The rankings go up at 17:00 while you wait through it. A conversation that takes over mid-wait gets the screen back.
+  - The bunk rest is a time-lapse, and T does nothing in a chapter.
+- **Playthrough at a human pace:** walking with the movement keys and reading dialogue at reading speed. It covers Claire's results and the camera afterwards, out through the gate to the bus, and the ceremony for all five factions. The Dauntless suite also checks the camera after the range and the bags.
   - Candor: the evidence, the interview (five lies caught, one truth miscalled), the verdict, the truth game, Rosa's warning, and holding one answer in under the serum.
   - Erudite: both benches in the fewest moves, the office key, the red folder, getting caught by the archivist, and the exam.
   - Abnegation: asking all seven, a fair run, dinner, being stopped by the patrol, the envelope to Ezra, and Joan.
@@ -384,6 +441,19 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
 - **Doors:** locked doors block both ways and open with a key.
 - **Persistence:** save → reload page → Continue restores state. Two playthroughs in one browser session also work.
 
+Bugs found and fixed during Build 4:
+- **The camera locked after the aptitude test.** Claire's results talk asked for the completion banner on a real-time timer. A player still reading her last lines got the banner on top of the conversation, and when the talk ended the camera was never handed back. Talking to her again was the only way out.
+- **Nothing happened after choosing a faction.** The ceremony waited for you to stand within 1.1 m of your place among the initiates. They stand shoulder to shoulder and you collide with them, so you could stop just short and wait forever, with the clock stopped. Getting close or pressing E now takes you the last step.
+- **The camera froze after the range.** The range finishes itself from inside its own update. The hand-back put the camera behind you, then the rest of that update put the aiming camera back. The activity framework now holds a finish requested mid-update until the update returns. That covers the bags, the knives, fights and the faction-week puzzles too.
+- **The dormitory washroom door** was behind a bunk.
+- **Lit shop windows looked like TV static.** The building seed was interpolated across each face, and the window hash turned the rounding error into noise on every pixel.
+- **The PA followed you.** A Testing Center announcement could still appear after you'd arrived somewhere else.
+- **Pedestrians walked under the Hub**, where it stands across two streets. The pedestrian pool also ran dry after a long trip across the city.
+- **From outside, the Testing Center's walls showed interior paint**, and walking into them stopped you dead instead of sliding you along.
+- **Abnegation roofs looked white.** The gable ends were drawn in raw wall colour. A neighbour's house also stood in the road beside yours.
+- **A pigeon spawned in the road**, off a pavement that was narrower than its flock's scatter.
+- **Waiting dragged at a low frame rate.** The time-lapse ran on capped frame time, so it now follows the wall clock when frames are slow. The side-quests suite found it.
+
 Bugs found and fixed during Build 3's QA:
 - **The front gate never let the player out.** Two things stopped you leaving the Testing Center after your results. The gate's lock only ever opened for NPCs. And the plaza's chain-link fence was built straight across the gate opening, so even an open gate had a fence behind it. NPCs walk on the nav grid, so they never noticed. The old test only checked that the barrier lifted and the bus was available. The new one walks the player out to the street.
 - **Fight balance.** Mashing jab always won: it stun-locked the opponent and ran the AI out of stamina. The fix:
@@ -415,7 +485,10 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 
 ## Known limitations
 
-- **Free roam.** The Testing Center and the Dauntless compound are the two places you live in. The other four factions' weeks are scripted chapters: you can walk around afterwards, but their headquarters aren't yet full districts with schedules.
+- **Free roam.** The Testing Center (with the city outside it) and the Dauntless compound are the two places you live in. The other four factions' weeks are scripted chapters: you can walk around afterwards, but their headquarters aren't yet full districts with schedules.
+- **The city's buildings are outsides only.** Apart from the Testing Center you can't go into them, and the landmarks are exteriors for now. Traffic runs along each street's lanes and doesn't turn at junctions. People in the street have a line each, not conversations.
+- **The hour only shows outside the Testing Center.** The compound is underground, and the story scenes keep the time of day they were made for.
+- **Waiting stops at midnight.** For the night, sleep. During a time-lapse the crowd catches up in jumps rather than walking.
 - **The ceremony is long.** The ceremony takes a few minutes if you let every name play. Hold Space to hurry it.
 - **The story ends at week one.** Each faction now has its first week, and the choices along the way set flags for what comes next, but nothing happens after the end-of-week banner yet.
 - **Fights are one-on-one** and only in the Dauntless compound (and on the street outside the Testing Center, for testing).
@@ -431,7 +504,7 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 
 ---
 
-## Build 4 recommendations
+## Build 5 recommendations
 
 1. **Stage Two in full.** Turn the Dauntless fear landscape into a run of simulations, one fear per day, each with its own way out, and show your fears in the Pit's ranking. Make Divergent awareness a skill that risks discovery the more you use it.
 2. **The other four headquarters as districts.** Give the Merciless Mart, Erudite headquarters, the Abnegation sector and the Amity farm the same treatment as the compound: schedules, sleeping, daily routines, and a second and third week each.
@@ -445,4 +518,5 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 7. **Animation.** Layered upper and lower body, IK feet, facial visemes during speech, and more idle variety.
 8. **Audio pass.** Voiced key lines (or better speech synthesis), recorded ambience and adaptive music stems.
 9. **Accessibility.** Rebindable keys, gamepad support, a subtitle size option, a colour-blind-safe UI and reduced-motion settings.
-10. **Engineering.** Run `tools/qa` in CI on every push, and split the Build 3 suites so they run in parallel.
+10. **Engineering.** Run `tools/qa` in CI on every push, and split the longer suites so they run in parallel.
+11. **The city, inside and out.** Enterable shops and stairwells, traffic that turns at junctions and stops at the Fence gate, and the city on the clock for every faction once their headquarters are districts.

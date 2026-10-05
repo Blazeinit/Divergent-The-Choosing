@@ -254,6 +254,12 @@
       clearTimeout(this._subT);
       this._subT = setTimeout(() => s.classList.add('hidden'), (secs || 5) * 1000);
     },
+    // a new place: what was being said (and the old place's title) doesn't follow you
+    hush() {
+      clearTimeout(this._subT); clearTimeout(this._narT);
+      this.subtitleEl.classList.add('hidden');
+      this.narrEl.classList.remove('on');
+    },
     narrate(text, secs) {
       const n = this.narrEl;
       n.textContent = text;
