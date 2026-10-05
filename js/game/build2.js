@@ -35,7 +35,7 @@
     rideHome() {
       DV.Dialogue.startScene('ride_home');
     },
-    // walked all the way to your own front door (or, from Amity, to the truck at the Fence gate)
+    // walked all the way to your own front door (or, from Amity, to the truck where the city ends and the farms begin)
     walkHome() {
       DV.Dialogue.startScene(DV.State.data.player.upbringing === 'amity' ? 'truck_home' : 'walk_home');
     },
@@ -123,7 +123,7 @@
     nodes: {
       start: {
         speaker: 'Amity Driver', faction: 'amity',
-        text: '[An Amity truck idles inside the Fence gate, its bed half full of empty apple crates. The driver waves you over with a smile.]\n\nHeading back to the farms? Climb up — there\'s room on the crates.',
+        text: '[An Amity truck idles where Madison Street gives out into the fields, its bed half full of empty apple crates. The driver waves you over with a smile.]\n\nHeading back to the farms? Climb up — there\'s room on the crates.',
         choices: [
           { text: 'Climb up. Take me home.', end: true, effect: () => { DV.Chapter.start('home', { walked: true }); } },
           { text: 'Not yet.', end: true },

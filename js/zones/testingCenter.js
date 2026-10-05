@@ -711,7 +711,7 @@
         exterior: zone.def.rooms.filter((r) => r.exterior).map((r) => [r.x0, r.z0, r.x1, r.z1]),
         districts: CM.districts,
         walk: {
-          fence: CM.fence, wall: CM.wall, gate: [CM.fenceGate.x, CM.fenceGate.z], sidewalk: CM.sidewalk, landmarks: CM.landmarks, homes: CM.homes,
+          fence: CM.fence, wall: CM.wall, edge: CM.edge, gate: [CM.fenceGate.x, CM.fenceGate.z], sidewalk: CM.sidewalk, landmarks: CM.landmarks, homes: CM.homes,
           light: zone.lighting.sample(-60, 0.5, -60, 0, 1, 0, null, true),
           // the building's name on its street sides
           signs: [
@@ -728,7 +728,7 @@
       for (const q of city.walk.solids) zone.colliders.add(q[0], q[1], q[2], q[3], { y1: q[4], tag: 'city' });
       // the Fence's floodlights and red lamps come on at dusk with the street lamps
       zone.lamps = (zone.lamps || []).concat(city.walk.lamps);
-      // the walk home: your own front door, out in your sector (for Amity: the truck at the Fence gate)
+      // the walk home: your own front door, out in your sector (for Amity: the truck out to the farms, at the city's edge)
       for (const f in CM.homes) {
         const h = CM.homes[f];
         ctx.interact({

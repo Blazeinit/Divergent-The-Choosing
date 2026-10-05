@@ -540,7 +540,8 @@
     // ground: asphalt, block pads, marsh beyond the city (a walkable city lays its own,
     // textured, ground in build(): see walkGround)
     if (!walk) B.flat(-R - 400, -R - 400, marshX, R + 400, -0.08, o.ground || [0.27, 0.27, 0.27]);
-    B.flat(marshX, -R - 400, marshX + 1400, R + 400, -0.08, [0.33, 0.32, 0.25]);
+    const MZ = walk ? Math.max(R + 400, walk.fence + 260) : R + 400; // (the marsh runs on to the Fence)
+    B.flat(marshX, -MZ, marshX + 1400, MZ, -0.08, [0.33, 0.32, 0.25]);
     for (let i = 0; i < 40; i++) {
       const x = marshX + 30 + r() * 900, z = -R + r() * R * 2, w = 20 + r() * 120, d = 10 + r() * 50;
       B.flat(x, z, x + w, z + d, -0.06, [0.24, 0.27, 0.27]); // standing water
@@ -612,6 +613,7 @@
       for (const l of walk.landmarks || []) if (LANDMARKS[l.id]) LANDMARKS[l.id](B, l);
       for (const f in walk.homes || {}) homeFor(B, f, walk.homes[f]);
       theFence(B, centre, walk, walk.gate, marshX);
+      if (walk.edge) farmland(B, centre);
       for (const sg of walk.signs || []) sign(B, sg.x, sg.y, sg.z, sg.rot, sg.w, sg.h, sg.tex);
     }
     return B;
@@ -1029,6 +1031,27 @@
   //   at: centre [x, y, z]; rot: facing (+z local); w, h; tex: () => THREE.Texture
   function sign(B, x, y, z, rot, w, h, tex, emit) { B.signs.push({ x, y, z, rot, w, h, tex, emit: !!emit }); }
   const LANDMARKS = {
+    // Amity's headquarters out on the farms: a long meeting hall of warm timber, the great
+    // greenhouse, cabins round a green with an old oak in the middle, and an arch over the road in
+    // with its name on (it faces the city)
+    amity(B, l) {
+      const { x, z, w, d } = l, wood = [0.64, 0.47, 0.31], rot = Math.PI / 2; // (the front: +x)
+      house(B, x - 14, z, 30, 13, 6.5, rot, wood, 811);
+      house(B, x - 16, z + d / 2 - 10, 34, 13, 5, rot, [0.7, 0.8, 0.76], 812); // the greenhouse
+      house(B, x - 16, z - d / 2 + 10, 26, 11, 4.6, rot, mul(wood, 0.92), 813);
+      for (let i = 0; i < 6; i++) {
+        const a = -1.1 + (i / 5) * 2.2, cx = x + 12 + Math.cos(a) * 15, cz = z + Math.sin(a) * 20;
+        house(B, cx, cz, 6, 5.4, 3, Math.atan2(x + 12 - cx, z - cz), mul(wood, 0.9 + (i % 3) * 0.05), 820 + i);
+      }
+      // the oak on the green, where they meet
+      B.box(x + 12, z, 1.1, 1.1, 0, 7, 0, null, [0.3, 0.22, 0.15], 0, {});
+      B.prism(x + 12, z, 7.5, 5.5, 11.5, 9, [0.3, 0.44, 0.2], 3.4);
+      // the arch over the road in
+      for (const sd of [-1, 1]) B.box(x + w / 2 + 2, z + sd * 4.2, 0.5, 0.5, 0, 5.4, 0, null, wood, 0, {});
+      B.box(x + w / 2 + 2, z, 0.6, 9.4, 5.4, 6.2, 0, null, mul(wood, 0.8), 0, {});
+      sign(B, x + w / 2 + 2.32, 4.6, z, Math.PI / 2, 4.4, 1.0, () => DV.Tex.sign('AMITY', { w: 256, h: 64, bg: '#5a3e24', color: '#f0e0b0', size: 34 }));
+      sign(B, x - 14 + 6.6, 4.4, z, Math.PI / 2, 3, 3, () => DV.Tex.emblem('amity', '#f0d890', '#4a3a24', 256));
+    },
     // Merciless Mart: Candor's headquarters, a dark block with the scales over the doors
     merciless_mart(B, l) {
       const { x, z, w, d } = l;
@@ -1143,7 +1166,7 @@
       g.quad(q, null, col, [nx, 0, nz], 0);
       g.quad(q, null, mul(col, 0.8), [-nx, 0, -nz], 0);
     };
-    const n = Math.round((Math.PI * 2 * R) / 24);
+    const n = Math.round((Math.PI * 2 * R) / 30);
     B.part = 'the Fence';
     for (let k = 0; k < n; k++) {
       const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2, mid = (a0 + a1) / 2;
@@ -1226,7 +1249,7 @@
     // the cordon: a security fence nobody crosses (signs on it every so often), a concrete strip
     // inside it and an apron at the foot of the wall, the patrol road between, floodlights
     B.part = 'the cordon';
-    const nc = Math.round((Math.PI * 2 * CR) / 8);
+    const nc = Math.round((Math.PI * 2 * CR) / 10);
     B.cordon = [];
     for (let k = 0; k < nc; k++) {
       const a0 = (k / nc) * Math.PI * 2, a1 = ((k + 1) / nc) * Math.PI * 2, mid = (a0 + a1) / 2;
@@ -1235,12 +1258,12 @@
       if (near(mid, ga, 9 * (R / CR))) continue; // the checkpoint
       B.box(x0, z0, 0.14, 0.14, 0, 3.7, -a0, null, steel, 0, { solid: false });
       const [ix, iz] = at(a0, CR - 0.3);
-      B.box(ix, iz, 0.7, 0.08, 3.6, 3.68, -a0, null, steel, 0, { solid: false, noTop: true }); // the outrigger, leaning in
+      if (k % 2 === 0) B.box(ix, iz, 0.7, 0.08, 3.6, 3.68, -a0, null, steel, 0, { solid: false, noTop: true }); // the outrigger, leaning in
       B.fence.push([x0, z0, x1, z1, 0.15, 3.5]);
       const [wx, wz] = at(mid, CR - 0.6);
-      B.box(wx, wz, 0.05, 8, 3.95, 4.0, -mid, null, dark, 0, { solid: false, noTop: true, noEnds: true }); // the barbed wire
+      B.box(wx, wz, 0.05, 10, 3.95, 4.0, -mid, null, dark, 0, { solid: false, noTop: true, noEnds: true }); // the barbed wire
       B.cordon.push([x0, z0, x1, z1]);
-      if (k % 18 === 9) sign(B, ...(([sx, sz]) => [sx, 1.9, sz])(at(mid, CR - 0.12)), Math.atan2(-Math.cos(mid), -Math.sin(mid)), 1.9, 1.2,
+      if (k % 30 === 15) sign(B, ...(([sx, sz]) => [sx, 1.9, sz])(at(mid, CR - 0.12)), Math.atan2(-Math.cos(mid), -Math.sin(mid)), 1.9, 1.2,
         () => DV.Tex.sign('RESTRICTED\nNO ENTRY BEYOND THIS FENCE\nDAUNTLESS PATROL ZONE', { w: 256, h: 160, bg: '#c8a020', color: '#141414', borderColor: '#141414', size: 22 }));
       // floodlights over the strip, every so often
       if (k % 8 === 4) {
@@ -1267,6 +1290,41 @@
     if (marshX < 1e8) {
       const zr = Math.sqrt(Math.max(0, CR * CR - (marshX - 3 - c[0]) * (marshX - 3 - c[0])));
       for (let z = c[1] - zr; z < c[1] + zr; z += 20) B.box(marshX - 3, z + 10, 0.6, 20, 0, 1.1, 0, null, conc, 0, {});
+    }
+    B.part = 'other';
+  }
+
+  // Amity's farmland between the city and the Fence (the layout is DV.CityMap.farms(), which the
+  // map draws too): dirt section roads, orchards in rows, farmsteads (a house, a barn, a silo,
+  // grain bins), hedgerows between the fields. The fields themselves are ground: walkMeshes.
+  function farmland(B, c) {
+    const F = DV.CityMap.farms(), r = U.rng(5150);
+    B.part = 'the farms';
+    const dirt = [0.4, 0.34, 0.26];
+    for (const [x0, z0, x1, z1] of F.roads) B.g.plain.quad([[x0, 0.16, z0], [x1, 0.16, z0], [x1, 0.16, z1], [x0, 0.16, z1]], null, mul(dirt, 0.92 + r() * 0.1), [0, 1, 0], 0);
+    for (const [x0, z0, x1, z1] of F.hedges) B.box((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, 1.3 + r() * 0.5, 0, null, [0.2, 0.27, 0.15], 0, { solid: false });
+    // orchards: rows of fruit trees (a trunk, a round crown), all kept
+    let trees = 0;
+    for (const o of F.orchards) {
+      const [x0, z0, x1, z1] = o.r;
+      for (let x = x0 + 3; x < x1 - 2 && trees < 1000; x += 8) for (let z = z0 + 3; z < z1 - 2 && trees < 1000; z += 7) {
+        const tx = x + (r() - 0.5) * 0.6, tz = z + (r() - 0.5) * 0.6, k = 0.85 + r() * 0.3;
+        B.box(tx, tz, 0.28, 0.28, 0, 1.7, 0, null, [0.3, 0.23, 0.16], 0, { noTop: true });
+        B.prism(tx, tz, 1.5 + r() * 0.5, 1.4, 3.1 + r() * 0.6, 5, [0.3 * k, 0.42 * k, 0.2 * k], 0.9);
+        trees++;
+      }
+    }
+    // the farms
+    for (const f of F.steads) {
+      const { x, z, rot, seed } = f, cs = Math.cos(rot), sn = Math.sin(rot);
+      const P = (lx, lz) => [x + lx * cs + lz * sn, z - lx * sn + lz * cs];
+      let [hx, hz] = P(-9, 2);
+      house(B, hx, hz, 8, 7, 3.4, rot, [0.74, 0.7, 0.62], seed);
+      [hx, hz] = P(5, -2);
+      house(B, hx, hz, 11, 16, 6.2, rot + Math.PI / 2, f.barn === 'red' ? [0.52, 0.2, 0.15] : [0.5, 0.49, 0.46], seed + 1);
+      [hx, hz] = P(13, 6);
+      B.prism(hx, hz, 2.4, 0, 13, 8, [0.62, 0.62, 0.64], 1.6);
+      for (const k of [0, 1]) { [hx, hz] = P(13 - k * 5.5, -6); B.prism(hx, hz, 2.1, 0, 4.2, 8, [0.56, 0.57, 0.6], 1.4); }
     }
     B.part = 'other';
   }
@@ -1398,9 +1456,9 @@
   function walkMeshes(B, o, group) {
     const W = o.walk, L = W.light || [0.9, 0.9, 0.9];
     const c = o.centre || [(o.campus[0] + o.campus[2]) / 2, (o.campus[1] + o.campus[3]) / 2];
-    const campus = o.campus, R = W.fence + 60, marshX = o.marshX || 1e9;
+    const campus = o.campus, R = (W.edge || W.fence) + 40, marshX = o.marshX || 1e9;
     const WL = W.wall || { cordon: W.fence, outer: W.fence };
-    const out = { open: [], pads: B.pads, solids: B.solids, campus, limit: WL.cordon - 1.4, shore: marshX - 3.6, fence: W.fence, wall: WL, lamps: B.lamps || [], signs: [], mats: [] };
+    const out = { open: [], pads: B.pads, solids: B.solids, campus, limit: WL.cordon - 1.4, edge: W.edge || WL.cordon, shore: marshX - 3.6, fence: W.fence, wall: WL, lamps: B.lamps || [], signs: [], mats: [], farm: [] };
     const mk = (g, key, opts) => {
       const base = DV.Mat.get(key);
       const m = new THREE.MeshBasicMaterial(Object.assign({ map: base.map, vertexColors: true, fog: true }, opts || {}));
@@ -1442,16 +1500,13 @@
       if (e[2]) kq(x1, z0, x1, z1, 1, 0);
     }
     mk(gp, 'pavement', { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
-    if (B.yards && B.yards.length) {
-      const gy = new Group(), wy = wOf('grass');
-      for (const [x, z, w, d, rot] of B.yards) {
-        const c2 = Math.cos(rot), s2 = Math.sin(rot);
-        const P = (lx, lz) => [x + lx * c2 + lz * s2, 0.024, z - lx * s2 + lz * c2];
-        const ps = [P(-w / 2, -d / 2), P(w / 2, -d / 2), P(w / 2, d / 2), P(-w / 2, d / 2)];
-        const k = 0.8 + r() * 0.15;
-        gy.quad(ps, ps.map((q) => [q[0] / wy, -q[2] / wy]), [L[0] * k * 0.95, L[1] * k * 0.92, L[2] * k * 0.8], [0, 1, 0], 0);
-      }
-      mk(gy, 'grass', { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+    // (the yards go in with the fields, below: one grass mesh)
+    const yardQ = [];
+    for (const [x, z, w, d, rot] of B.yards || []) {
+      const c2 = Math.cos(rot), s2 = Math.sin(rot);
+      const P = (lx, lz) => [x + lx * c2 + lz * s2, 0.05, z - lx * s2 + lz * c2];
+      const k = 0.8 + r() * 0.15;
+      yardQ.push([[P(-w / 2, -d / 2), P(w / 2, -d / 2), P(w / 2, d / 2), P(-w / 2, d / 2)], [L[0] * k * 0.95, L[1] * k * 0.92, L[2] * k * 0.8]]);
     }
     if (W.wall) {
       // the cordon's ground: a concrete strip inside its fence, the patrol road, an apron at the wall's foot
@@ -1469,18 +1524,48 @@
       ring(W.fence - 10, W.wall.inner, 0.72);
     }
     mk(gk, 'concrete', { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
-    // the farmland outside the Fence: rings of fields, ploughed and green, out to the haze
+    // the ground past the city's edge: grass in rings (cut off cleanly at the marsh's shore), green
+    // up to the Fence and dry beyond it; and on it Amity's fields, strip by strip
     const gf = new Group(), wg = wOf('grass');
     const fr = U.rng(9);
-    for (let ring = 0; ring < 6; ring++) {
-      const r0 = WL.outer + 2 + ring * 90, r1 = r0 + 90, n = 48 + ring * 8;
+    for (const [ps, col] of yardQ) gf.quad(ps, ps.map((q) => [q[0] / wg, -q[2] / wg]), col, [0, 1, 0], 0);
+    const clipX = (ps, xm) => {
+      const outp = [];
+      for (let i = 0; i < ps.length; i++) {
+        const A = ps[i], Bp = ps[(i + 1) % ps.length], ain = A[0] <= xm, bin = Bp[0] <= xm;
+        if (ain) outp.push(A);
+        if (ain !== bin) { const t = (xm - A[0]) / (Bp[0] - A[0]); outp.push([xm, A[1], A[2] + (Bp[2] - A[2]) * t]); }
+      }
+      return outp;
+    };
+    const ringIn = W.edge ? W.edge - 12 : WL.outer + 2, wallOut = WL.outer + 2;
+    const bands = [];
+    for (let r0 = ringIn; r0 < wallOut + 420; ) { const r1 = r0 < wallOut && r0 + 110 > wallOut ? wallOut : r0 + 110; bands.push([r0, r1]); r0 = r1; }
+    for (const [r0, r1] of bands) {
+      const n = Math.round((Math.PI * 2 * r1) / 60);
       for (let k = 0; k < n; k++) {
         const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
         const pt = (rr, a) => [c[0] + Math.cos(a) * rr, 0.12, c[1] + Math.sin(a) * rr];
-        const ps = [pt(r0, a0), pt(r0, a1), pt(r1, a1), pt(r1, a0)];
-        const hue = fr();
-        const col = hue < 0.45 ? [0.95, 1.02, 0.78] : hue < 0.7 ? [1.12, 0.95, 0.72] : hue < 0.85 ? [1.2, 1.12, 0.7] : [0.8, 0.86, 0.7];
-        gf.quad(ps, ps.map((q) => [q[0] / wg / 6, -q[2] / wg / 6]), mul(col, 0.8 * L[0]), [0, 1, 0], 0);
+        let ps = [pt(r0, a0), pt(r0, a1), pt(r1, a1), pt(r1, a0)];
+        // (inside the Fence the marsh takes over east of the shore; outside it, the ground runs on)
+        if (r1 <= wallOut) ps = clipX(ps, marshX);
+        if (ps.length < 3) continue;
+        const outside = r0 >= wallOut - 0.5, hue = fr();
+        const col = outside ? (hue < 0.5 ? [0.92, 0.84, 0.66] : [0.8, 0.74, 0.6]) : hue < 0.5 ? [0.86, 0.96, 0.72] : [0.8, 0.9, 0.7];
+        const uv = (q) => [q[0] / wg / 6, -q[2] / wg / 6];
+        const cc = mul(col, 0.8 * L[0]);
+        if (ps.length === 3) ps.push(ps[2]);
+        gf.quad(ps.slice(0, 4), ps.slice(0, 4).map(uv), cc, [0, 1, 0], 0);
+        if (ps.length === 5) gf.quad([ps[0], ps[3], ps[4], ps[4]], [ps[0], ps[3], ps[4], ps[4]].map(uv), cc, [0, 1, 0], 0);
+        if (r0 >= ringIn && r1 <= wallOut) out.farm.push([r0, r1, a0, a1]);
+      }
+    }
+    if (W.edge) {
+      const CROP = { wheat: [1.22, 1.08, 0.6], green: [0.8, 1.04, 0.56], plough: [0.96, 0.74, 0.52], pasture: [0.74, 0.92, 0.6], fallow: [1.02, 0.94, 0.7] };
+      for (const f of DV.CityMap.farms().fields) {
+        const [x0, z0, x1, z1] = f.r, y = 0.135, k = 0.9 + fr() * 0.15;
+        const ps = [[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]];
+        gf.quad(ps, ps.map((q) => [q[0] / wg / 3, -q[2] / wg / 3]), mul(CROP[f.crop], 0.8 * L[0] * k), [0, 1, 0], 0);
       }
     }
     // (the fields go under the marsh flats east of the shore; they're drawn first)
@@ -1590,12 +1675,17 @@
       deck.frustumCulled = false;
       group.add(deck);
 
-      // the same shadows sliding across the playable outdoor floors (and the streets, walking)
+      // the same shadows sliding across the playable outdoor floors (and the streets, walking, and
+      // the farmland, a little higher, over its fields)
       const shadeRects = (o.exterior || []).slice();
       if (walk) for (const q of walk.open) shadeRects.push(q);
       if (shadeRects.length) {
         const sg = new Group();
         for (const [x0, z0, x1, z1] of shadeRects) sg.quad([[x0, 0.02, z0], [x1, 0.02, z0], [x1, 0.02, z1], [x0, 0.02, z1]], null, [1, 1, 1], [0, 1, 0], 0);
+        if (walk) for (const [r0, r1, a0, a1] of walk.farm) {
+          const C2 = o.centre, P = (rr, a) => [C2[0] + Math.cos(a) * rr, 0.2, C2[1] + Math.sin(a) * rr];
+          sg.quad([P(r0, a0), P(r0, a1), P(r1, a1), P(r1, a0)], null, [1, 1, 1], [0, 1, 0], 0);
+        }
         const shade = new THREE.Mesh(sg.geometry(), new THREE.ShaderMaterial({
           uniforms: { noise: shared.noise, time: shared.time, wind: shared.wind, cloudScale: shared.cloudScale, shadowAmt: { value: (o.shadowAmt === undefined ? 0.34 : o.shadowAmt) * 0.8 } },
           vertexShader: VERT,
@@ -1709,6 +1799,15 @@
       if (camera) {
         inst.deck.position.x = camera.position.x;
         inst.deck.position.z = camera.position.z;
+        // signs are a mesh each: only the ones near enough to read are drawn
+        if (inst.walk && inst.walk.signs.length) {
+          inst.signT = (inst.signT || 0) - dt;
+          if (inst.signT <= 0) {
+            inst.signT = 0.25;
+            const cx = camera.position.x, cz = camera.position.z;
+            for (const m of inst.walk.signs) m.visible = Math.abs(m.position.x - cx) + Math.abs(m.position.z - cz) < 330;
+          }
+        }
       }
       // low clouds: drift with the wind, wrap around, keep facing the zone
       if (inst.scud) {

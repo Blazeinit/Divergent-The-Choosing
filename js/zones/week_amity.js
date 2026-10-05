@@ -31,7 +31,7 @@
     props.push({ type: 'crate', x: 38.6, z: 19.2, size: 0.7 }, { type: 'barrel', x: 32.4, z: 26.4 });
     DV.Zones.define('amity_day', Object.assign({}, base, {
       name: 'Amity Orchards',
-      region: 'Beyond the fence line',
+      region: 'The farmland, inside the Fence',
       fog: { color: 0xc8d0c0, near: 60, far: 420 },
       sky: { top: 0x5a7aa8, horizon: 0xd8e0d8, ground: 0x5a5a40, skyline: false },
       exterior: { sunDir: [0.45, 0.75, 0.35], sunColor: [0.95, 0.9, 0.78], ambient: [0.5, 0.52, 0.5] },

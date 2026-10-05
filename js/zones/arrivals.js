@@ -327,7 +327,7 @@
     add('barrel', 33, 23, {}); add('crate', 34, 22, { size: 0.8, stack: true });
     DV.Zones.define('amity_farm', {
       name: 'Amity Orchards',
-      region: 'Beyond the fence line',
+      region: 'The farmland, inside the Fence',
       chapter: true, noDiscover: true,
       bounds: { x0: -2, z0: -2, x1: 48, z1: 36 },
       buildingHeight: 1,

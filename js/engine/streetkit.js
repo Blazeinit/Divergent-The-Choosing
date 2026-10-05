@@ -522,16 +522,24 @@
             uv.push(u0, row[0], u1, row[0], u1, row[1], u0, row[0], u1, row[1], u0, row[1]);
           }
         }
-        if (pos.length) {
-          const g = new THREE.BufferGeometry();
-          g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-          g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-          c.signs = new THREE.Mesh(g, this.signMat);
-          c.signs.name = 'street_signs';
-          zone.group.add(c.signs);
-        }
+        // (all the chunks' blades are one mesh: see blades())
+        if (pos.length) { c.bladePos = pos; c.bladeUV = uv; this.bladesDirty = true; }
       }
       c.built = true;
+    }
+    // every built chunk's street-name blades in one mesh (one draw call, not one a chunk)
+    blades() {
+      this.bladesDirty = false;
+      const pos = [], uv = [];
+      for (const c of this.chunks.values()) if (c.bladePos) { pos.push(...c.bladePos); uv.push(...c.bladeUV); }
+      if (this.bladeMesh) { this.bladeMesh.geometry.dispose(); this.zone.group.remove(this.bladeMesh); this.bladeMesh = null; }
+      if (!pos.length) return;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      this.bladeMesh = new THREE.Mesh(g, this.signMat);
+      this.bladeMesh.name = 'street_signs';
+      this.zone.group.add(this.bladeMesh);
     }
     // the time of day: the furniture and parked cars darken with the light
     dim(k) {
@@ -549,10 +557,11 @@
         if (!c.built) { if (d < BUILD_R && d < wd) { wd = d; want = c; } continue; }
         const vis = d < SHOW_R && !this.hidden;
         if (c.mesh) c.mesh.visible = vis;
-        if (c.signs) c.signs.visible = vis;
         if (c.glow) c.glow.visible = vis && !!glowMats && glowMats.on > 0;
       }
       if (want) this.buildChunk(want);
+      if (this.bladesDirty) this.blades();
+      if (this.bladeMesh) this.bladeMesh.visible = !this.hidden;
       this.updateSignals(px, pz);
     }
     // the signals' lamps near you: one mesh (and a halo each), rebuilt as you move on, recoloured
@@ -585,7 +594,9 @@
     updateSignals(px, pz) {
       if (!this.sig || Math.hypot(px - this.sig.cx, pz - this.sig.cz) > 70) this.buildSignals(px, pz);
       const S = this.sig, R = this.roads;
-      S.mesh.visible = S.halo.visible = !this.hidden;
+      const night = glowMats ? glowMats.on : 0;
+      S.mesh.visible = !this.hidden;
+      S.halo.visible = !this.hidden && night > 0.02;
       if (this.hidden || !S.lamps.length) return;
       const col = S.mesh.geometry.attributes.color, hc = S.halo.geometry.attributes.color;
       let changed = false;
@@ -599,7 +610,7 @@
       }
       if (changed) { col.needsUpdate = true; hc.needsUpdate = true; }
       // brighter halos after dark
-      sigMaterials().halo.opacity = 0.35 + 0.55 * (glowMats ? glowMats.on : 0);
+      sigMaterials().halo.opacity = 0.35 + 0.55 * night;
     }
     // build everything within reach now (on arrival, so nothing pops in where you stand)
     warm(px, pz) {
@@ -610,6 +621,7 @@
       for (const c of this.chunks.values()) {
         if (c.mesh) { c.mesh.geometry.dispose(); if (c.mesh.parent) c.mesh.parent.remove(c.mesh); }
         if (c.signs) { c.signs.geometry.dispose(); if (c.signs.parent) c.signs.parent.remove(c.signs); }
+        if (this.bladeMesh) { this.bladeMesh.geometry.dispose(); if (this.bladeMesh.parent) this.bladeMesh.parent.remove(this.bladeMesh); this.bladeMesh = null; }
         if (c.glow) { c.glow.children.forEach((o) => o.geometry.dispose()); if (c.glow.parent) c.glow.parent.remove(c.glow); }
       }
       this.mat.dispose();

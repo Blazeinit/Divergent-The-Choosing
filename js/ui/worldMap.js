@@ -20,12 +20,12 @@
   const ICON = { seal: '◎', hub: '▲', candor: '⚖', erudite: '◉', abnegation: '✋', dauntless: '✦', wheel: '❂', tower: '▮', gate: '⛩', amity: '❀' };
 
   const WM = {
-    zoom: 1,
+    zoom: 1.7, // (it opens on the city; Fit shows everything to the Fence)
     cx: null,
     cz: null,
     T: null, // the last transform: { s, cx, cz, w, h }
 
-    reset() { this.zoom = 1; this.cx = null; this.cz = null; },
+    reset() { this.zoom = 1; this.cx = null; this.cz = null; }, // (Fit: everything, out to the Fence)
     // where you are on the map: [x, z, rot|null, label]
     you() {
       const zone = DV.World.current;
@@ -63,21 +63,25 @@
       const C = CM.centre, F = CM.fence;
       const visited = DV.State.data.world.visited || {};
 
-      // outside the Fence: Amity's fields, in rings and wedges
-      g.fillStyle = '#12140e'; g.fillRect(0, 0, w, h);
-      for (let ring = 0; ring < 5; ring++) for (let k = 0; k < 36; k++) {
-        const r0 = F + 8 + ring * 70, a0 = (k / 36) * Math.PI * 2, a1 = ((k + 1) / 36) * Math.PI * 2;
-        g.fillStyle = (k + ring) % 3 === 0 ? 'rgba(70,82,40,0.32)' : (k + ring) % 3 === 1 ? 'rgba(92,78,44,0.28)' : 'rgba(50,62,34,0.3)';
-        g.beginPath(); g.arc(X(C[0]), Y(C[1]), (r0 + 66) * s, a0, a1); g.arc(X(C[0]), Y(C[1]), r0 * s, a1, a0, true); g.closePath(); g.fill();
-      }
-      // inside: the city's ground
+      // outside the Fence: the waste nobody farms
+      g.fillStyle = '#121109'; g.fillRect(0, 0, w, h);
+      // inside it: Amity's farmland, then the city
       g.save();
       g.beginPath(); g.arc(X(C[0]), Y(C[1]), F * s, 0, Math.PI * 2); g.clip();
-      g.fillStyle = '#16171a'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#1b2114'; g.fillRect(0, 0, w, h);
+      const FM = CM.farms(), CROP = { wheat: '#5e5730', green: '#33461f', plough: '#4a3a26', pasture: '#3a4a26', fallow: '#4d4a34' };
+      const rect = (q, col) => { g.fillStyle = col; g.fillRect(X(q[0]), Y(q[1]), (q[2] - q[0]) * s, (q[3] - q[1]) * s); };
+      for (const f of FM.fields) rect(f.r, CROP[f.crop]);
+      for (const o of FM.orchards) { rect(o.r, '#24361a'); g.fillStyle = 'rgba(70,100,50,0.6)'; for (let x = o.r[0] + 4; x < o.r[2]; x += 16) for (let z = o.r[1] + 4; z < o.r[3]; z += 14) g.fillRect(X(x), Y(z), 1.4, 1.4); }
+      for (const q of FM.roads) rect(q, '#6a5c44');
+      g.fillStyle = '#8a7a5c';
+      for (const f of FM.steads) g.fillRect(X(f.x) - 2, Y(f.z) - 2, 4, 4);
+      // the city's ground, inside its edge
+      g.fillStyle = '#16171a'; g.beginPath(); g.arc(X(C[0]), Y(C[1]), CM.edge * s, 0, Math.PI * 2); g.fill();
       // the marsh, where the lake was
       g.fillStyle = '#10201f'; g.fillRect(X(CM.marshX), 0, w, h);
       g.fillStyle = 'rgba(120,150,140,0.12)';
-      for (let i = 0; i < 260; i++) { const x = CM.marshX + ((i * 37) % 240), z = C[1] - F + ((i * 211) % (2 * F)); g.fillRect(X(x), Y(z), 1.5, 1.5); }
+      for (let i = 0; i < 600; i++) { const x = CM.marshX + ((i * 37) % 760), z = C[1] - F + ((i * 211) % (2 * F)); g.fillRect(X(x), Y(z), 1.5, 1.5); }
       // the sectors, as a wash of colour
       for (const d of CM.districts) {
         const gr = g.createRadialGradient(X(d.c[0]), Y(d.c[1]), 0, X(d.c[0]), Y(d.c[1]), d.r * s);
@@ -228,7 +232,7 @@
       if (!T) return '';
       const x = T.cx + (mx - T.w / 2) / T.s, z = T.cz + (my - T.h / 2) / T.s;
       const CM = DV.CityMap;
-      if (Math.hypot(x - CM.centre[0], z - CM.centre[1]) > CM.fence) return 'Outside the Fence — Amity farmland';
+      if (Math.hypot(x - CM.centre[0], z - CM.centre[1]) > CM.fence) return 'Outside the Fence';
       const L = CM.locate(x, z);
       return L.name + (L.sub && L.sub !== L.name ? ' · ' + L.sub : '');
     },

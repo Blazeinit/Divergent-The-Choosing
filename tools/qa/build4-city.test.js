@@ -5,7 +5,7 @@
 // can't walk through a car; the walk home ends at your own door; the world map draws the city
 // and where you are; and a game saved out in the streets loads back there.
 const L = require('./lib.js');
-const DV_WALL = () => '612–620 m';
+const DV_WALL = () => '1128–1136 m';
 L.run('build 4: the walkable city', async (p, T, errs) => {
   await L.quickStart(p);
   const ev = (fn, a) => p.evaluate(fn, a);
@@ -61,8 +61,8 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
   });
   T.ok(walls.campus.at[1] < -0.2, 'the Testing Center\'s walls are solid from outside (stopped at z ' + walls.campus.at[1] + ')', walls.campus);
   T.ok(walls.house.at[0] < DV_HOUSE_FACE() && !walls.houseInside, 'houses are solid: you stop at the front wall', walls.house);
-  T.ok(walls.fenceDist < 596 && walls.fenceDist > 590, 'the Fence: you can walk up to its cordon, no further (' + walls.fenceDist + ' m out; the wall is at ' + DV_WALL() + ')', walls.fence);
-  T.ok(walls.gateDist < 596 && walls.gateDist > 590, 'not even at the gate: the checkpoint stops you (' + walls.gateDist + ' m out)', walls.gate);
+  T.ok(walls.fenceDist < 1110 && walls.fenceDist > 1104, 'the Fence, out past the farms: you can walk up to its cordon, no further (' + walls.fenceDist + ' m out; the wall is at ' + DV_WALL() + ')', walls.fence);
+  T.ok(walls.gateDist < 1110 && walls.gateDist > 1104, 'not even at the gate: the checkpoint stops you (' + walls.gateDist + ' m out)', walls.gate);
   T.ok(walls.marsh.at[0] < 417, 'the shore wall keeps you off the marsh (x ' + walls.marsh.at[0] + ')', walls.marsh);
   // the Fence: the wall, its towers, the gatehouse, the cordon, their lamps
   const wall = await ev(() => {
@@ -77,7 +77,22 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     return { pieces: wallBits.length, towers: tall.length, gapDeg: +(gap * 180 / Math.PI).toFixed(1), limit: +zone.city.walk.limit.toFixed(1), lamps: lamps.length, red: lamps.filter((l) => l[3] && l[3][1] < 0.3).length, truck: Math.hypot(CM.homes.amity.x - C[0], CM.homes.amity.z - C[1]) };
   });
   T.ok(wall.pieces > 300 && wall.towers >= 14 && wall.gapDeg < 6, 'the Fence: a wall right round the city (' + wall.pieces + ' pieces, no gap wider than ' + wall.gapDeg + '°), ' + wall.towers + ' towers over it (the gate\'s two among them)', wall);
-  T.ok(wall.lamps > 50 && wall.red > 20 && wall.limit < 596 && wall.truck < wall.limit, 'floodlights along the cordon and red lamps on the wall (' + wall.lamps + '); the Amity truck waits inside the cordon', wall);
+  T.ok(wall.lamps > 50 && wall.red > 20 && wall.limit < 1110 && wall.truck < wall.limit, 'floodlights along the cordon and red lamps on the wall (' + wall.lamps + '); the Amity truck waits at the city\'s edge', wall);
+  // Amity's farmland, between the city and the Fence: you can walk out into it
+  const farm = await ev(() => {
+    const zone = DV.World.current, CM = DV.CityMap, F = CM.farms(), C = CM.centre;
+    const out = { roads: F.roads.length, fields: F.fields.length, orchards: F.orchards.length, steads: F.steads.length };
+    // every field between the city's edge and the cordon, none in the marsh
+    out.badFields = F.fields.filter((f) => [[f.r[0], f.r[1]], [f.r[2], f.r[3]]].some(([x, z]) => { const d = Math.hypot(x - C[0], z - C[1]); return d < CM.edge || d > CM.wall.cordon || x > CM.marshX; })).length;
+    // walk out past the city's edge along Madison St, onto the farms
+    QA.tp(-470, 278.5, -Math.PI / 2); const w = walkLine(-700, 278.5, 120);
+    out.walked = w; out.place = zone.placeName(DV.Player.x, DV.Player.z);
+    out.amity = CM.landmark('amity');
+    out.amityInside = Math.hypot(out.amity.x - C[0], out.amity.z - C[1]) < CM.wall.cordon;
+    return out;
+  });
+  T.ok(farm.fields > 200 && farm.orchards > 10 && farm.steads > 10 && farm.badFields === 0, 'Amity\'s farmland inside the Fence: ' + farm.fields + ' fields, ' + farm.orchards + ' orchards, ' + farm.steads + ' farms, the section roads (' + farm.roads + ')', farm);
+  T.ok(farm.walked.d < 0.6 && /Amity Farmland/.test(farm.place.sub) && farm.amityInside, 'you can walk out of the city onto the farms (' + farm.place.name + ' · ' + farm.place.sub + '), and Amity\'s headquarters is inside the Fence', farm);
 
   // the L's columns stand on the pavement, never in a road (the deck spans each junction from its corners)
   const lcols = await ev(() => {
@@ -298,7 +313,7 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     DV.WorldMap.draw(cv);
     const W = DV.WorldMap, T0 = W.T;
     const tipAt = (x, z) => W.tip(T0.w / 2 + (x - T0.cx) * T0.s, T0.h / 2 + (z - T0.cz) * T0.s);
-    const r = { view: DV.RPGMenu.mapView, you: W.you(), hits: W._hits.map((h) => h.tip), tipHub: tipAt(96, 360), tipStreet: tipAt(-200, 150), tipOut: tipAt(-700, 35) };
+    const r = { view: DV.RPGMenu.mapView, you: W.you(), hits: W._hits.map((h) => h.tip), tipHub: tipAt(96, 360), tipStreet: tipAt(-200, 150), tipOut: tipAt(-1250, 35), tipFarm: tipAt(-700, 35) };
     const z0 = W.zoom;
     QA.click('#rpgmenu .btn', '+');
     r.zoomed = W.zoom > z0;
@@ -311,7 +326,7 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
   });
   T.ok(map.view === 'city' && map.you && map.you[0] === 150, 'out in the streets the map opens on the city, with you on it', map.you);
   T.ok(['Aptitude Testing Center', 'The Hub', 'Merciless Mart', 'Erudite Headquarters', 'The Dauntless Compound', 'The Fence Gate'].every((n) => map.hits.indexOf(n) >= 0), 'the landmarks are marked', map.hits);
-  T.ok(/Hub/.test(map.tipHub) && /&|Ave|St|Rd/.test(map.tipStreet) && /Fence/.test(map.tipOut), 'hovering names what\'s there: ' + [map.tipHub, map.tipStreet, map.tipOut].join(' | '));
+  T.ok(/Hub/.test(map.tipHub) && /&|Ave|St|Rd/.test(map.tipStreet) && /Amity Farmland/.test(map.tipFarm) && /Fence/.test(map.tipOut), 'hovering names what\'s there: ' + [map.tipHub, map.tipStreet, map.tipFarm, map.tipOut].join(' | '));
   T.ok(map.zoomed && map.fit && map.local === 'local', 'zoom in, fit the city again, and switch back to the local map');
 
   /* ---------------- saved in the streets, loaded in the streets ---------------- */

@@ -33,10 +33,12 @@
     seed: 1871,
     centre: [40, 35],
     radius: 580, // where the blocks stop
-    // the Fence: a wall round the whole city (the centre line of it), and the cordon in front of it
-    // that nobody goes past (a security fence, a patrol road, floodlights)
-    fence: 616,
-    wall: { inner: 612, outer: 620, height: 18, top: 34.5, towers: 12, cordon: 596 },
+    // where the city's streets end and Amity's farmland begins
+    edge: 640,
+    // the Fence: a wall round the city and its farmland (the centre line of it), and the cordon in
+    // front of it that nobody goes past (a security fence, a patrol road, floodlights)
+    fence: 1132,
+    wall: { inner: 1128, outer: 1136, height: 18, top: 34.5, towers: 20, cordon: 1110 },
     marshX: 420, // the dried-up lake: the marsh
     hub: [96, 360],
     ferris: [458, 84],
@@ -79,8 +81,8 @@
       { id: 'dauntless_compound', name: 'The Dauntless Compound', x: 360, z: -108, w: 40, d: 30, icon: 'dauntless' },
       { id: 'ferris', name: 'The Old Pier', x: 458, z: 84, icon: 'wheel' },
       { id: 'hancock', name: 'The Hancock Building', x: 208, z: 246, w: 30, d: 30, icon: 'tower' },
-      { id: 'fence_gate', name: 'The Fence Gate', x: -526, z: 278, icon: 'gate' },
-      { id: 'amity', name: 'Amity Farms', x: -720, z: 420, icon: 'amity', outside: true },
+      { id: 'fence_gate', name: 'The Fence Gate', x: -1065.6, z: 278, icon: 'gate' },
+      { id: 'amity', name: 'Amity Headquarters', x: -720, z: 420, w: 84, d: 64, icon: 'amity', farm: true },
     ],
 
     // where each faction's families live: the point on the pavement outside the front door, and
@@ -90,7 +92,7 @@
       erudite: { x: 237.6, z: 252, face: 'e', kind: 'flats', street: 'Wells St' },
       candor: { x: -157.6, z: 256, face: 'w', kind: 'flats', street: 'Damen Ave' },
       dauntless: { x: 254.4, z: -118, face: 'w', kind: 'flats', street: 'Wells St' },
-      amity: { x: -497, z: 278, gate: true, street: 'Madison St' }, // the Amity truck waits inside the checkpoint before the Fence gate
+      amity: { x: -497, z: 278, gate: true, street: 'Madison St' }, // the Amity truck back to the farms waits where Madison Street leaves the city
     },
 
     // every zone's place on the map (zones not listed have none: simulations, the menu)
@@ -107,6 +109,8 @@
     /* ---------------- lookups ---------------- */
     // the district at (x, z): the one whose centre you're deepest inside, with how deep (0..1)
     district(x, z) {
+      // out past the city's edge: Amity's farmland
+      if (x < this.marshX - 4 && Math.hypot(x - this.centre[0], z - this.centre[1]) > this.edge) return { d: null, k: 0, farm: true };
       let best = null, bk = 0;
       for (const d of this.districts) {
         const k = 1 - Math.hypot(x - d.c[0], z - d.c[1]) / d.r;
@@ -132,9 +136,10 @@
       const lm = this.nearestLandmark(x, z, 34);
       const { ns, ew } = this.streetAt(x, z);
       const dd = this.district(x, z);
-      const sub = dd.marsh ? 'The Marsh' : dd.d && dd.k > 0.08 ? dd.d.name : 'The City';
+      const sub = dd.marsh ? 'The Marsh' : dd.farm ? 'Amity Farmland' : dd.d && dd.k > 0.08 ? dd.d.name : 'The City';
       let name;
       if (Math.hypot(x - this.centre[0], z - this.centre[1]) > this.wall.cordon - 26) name = 'The Fence';
+      else if (dd.farm) name = lm ? lm.name : 'The Farms';
       else if (lm && !lm.outside) name = lm.name;
       else if (ns && ew) name = ew.name + ' & ' + ns.name;
       else if (ns || ew) name = (ns || ew).name;
@@ -170,6 +175,60 @@
         out.push(Math.atan2(Math.sin(a), Math.cos(a)));
       }
       return out;
+    },
+    // Amity's farmland, between the city's edge and the Fence (worked out once, the same for the
+    // generator and the map): section roads carrying on every other line of the city's grid, the
+    // parcels between them in quarters, each one strips of crops, an orchard, or a farmstead
+    farms() {
+      if (this._farms) return this._farms;
+      const r = U.rng(4071), c = this.centre, E = this.edge + 3, O = this.wall.cordon - 4, mx = this.marshX - 4;
+      const rad = (x, z) => Math.hypot(x - c[0], z - c[1]);
+      const inRing = (q) => [[q[0], q[1]], [q[2], q[1]], [q[2], q[3]], [q[0], q[3]]].every(([x, z]) => rad(x, z) > E && rad(x, z) < O && x < mx);
+      const amity = this.landmark('amity'), keep = [amity.x - amity.w / 2 - 14, amity.z - amity.d / 2 - 14, amity.x + amity.w / 2 + 14, amity.z + amity.d / 2 + 14];
+      const hits = (q, k) => q[2] > k[0] && q[0] < k[2] && q[3] > k[1] && q[1] < k[3];
+      // the grid carried on past the city, every other line
+      const ext = (vals, step, lo, hi) => {
+        const out = vals.slice();
+        for (let v = vals[0] - step; v > lo; v -= step) out.unshift(v);
+        for (let v = vals[vals.length - 1] + step; v < hi; v += step) out.push(v);
+        return out.filter((_, i) => i % 2 === 0);
+      };
+      const gx = ext(this.avenues.map((a) => a.x), 76, c[0] - O - 80, c[0] + O + 80), gz = ext(this.streets.map((q) => q.z), 64, c[1] - O - 70, c[1] + O + 70);
+      // the roads: each line, where it runs through the farmland (out of the city, up to the cordon)
+      const roads = [];
+      const span = (d) => { const a = d < E ? Math.sqrt(E * E - d * d) : 0, b = Math.sqrt(Math.max(0, O * O - d * d)); return d >= O ? [] : a ? [[a, b], [-b, -a]] : [[-b, b]]; };
+      for (const x of gx) { if (x > mx - 3) continue; for (const [a, b] of span(Math.abs(x - c[0]))) roads.push([x - 3, c[1] + a, x + 3, c[1] + b]); }
+      for (const z of gz) for (const [a, b] of span(Math.abs(z - c[1]))) { const x0 = c[0] + a, x1 = Math.min(c[0] + b, mx); if (x1 - x0 > 4) roads.push([x0, z - 3, x1, z + 3]); }
+      // the parcels between them
+      const CROPS = [['wheat', 0.3], ['green', 0.25], ['plough', 0.2], ['pasture', 0.15], ['fallow', 0.1]];
+      const crop = () => { let q = r(); for (const [k, w] of CROPS) { q -= w; if (q <= 0) return k; } return 'green'; };
+      const fields = [], orchards = [], steads = [], hedges = [];
+      for (let i = 0; i + 1 < gx.length; i++) for (let j = 0; j + 1 < gz.length; j++) {
+        const P = [gx[i] + 4, gz[j] + 4, gx[i + 1] - 4, gz[j + 1] - 4];
+        const hx = (P[0] + P[2]) / 2, hz = (P[1] + P[3]) / 2;
+        let stead = r() < 0.32 ? Math.floor(r() * 4) : -1;
+        [[P[0], P[1], hx - 1, hz - 1], [hx + 1, P[1], P[2], hz - 1], [P[0], hz + 1, hx - 1, P[3]], [hx + 1, hz + 1, P[2], P[3]]].forEach((q, k) => {
+          if (!inRing(q) || hits(q, keep)) { if (k === stead) stead = -1; return; }
+          if (k === stead) {
+            // the farm: by the road, in the corner of its quarter nearest the parcel's
+            const cx = k % 2 ? q[2] - 16 : q[0] + 16, cz = k < 2 ? q[1] + 14 : q[3] - 14;
+            steads.push({ x: cx, z: cz, rot: k < 2 ? Math.PI : 0, seed: Math.floor(r() * 1000), barn: r() < 0.5 ? 'red' : 'grey' });
+            const along = q[2] - q[0] > q[3] - q[1];
+            // the rest of the quarter: one strip of crop
+            fields.push({ r: along ? [k % 2 ? q[0] : q[0] + 34, q[1], k % 2 ? q[2] - 34 : q[2], q[3]] : [q[0], k < 2 ? q[1] + 30 : q[1], q[2], k < 2 ? q[3] : q[3] - 30], crop: crop() });
+            return;
+          }
+          if (r() < 0.17) { orchards.push({ r: [q[0] + 6, q[1] + 6, q[2] - 6, q[3] - 6] }); return; }
+          // strips of crops along the longer side
+          const along = q[2] - q[0] > q[3] - q[1], n = 2 + Math.floor(r() * 2), L = along ? q[3] - q[1] : q[2] - q[0];
+          for (let m = 0; m < n; m++) {
+            const a = (L / n) * m + (m ? 0.6 : 0), b = (L / n) * (m + 1) - (m < n - 1 ? 0.6 : 0);
+            fields.push({ r: along ? [q[0], q[1] + a, q[2], q[1] + b] : [q[0] + a, q[1], q[0] + b, q[3]], crop: crop() });
+          }
+          if (r() < 0.4) hedges.push(along ? [q[0], q[3] + 0.5, q[2], q[3] + 1.1] : [q[2] + 0.5, q[1], q[2] + 1.1, q[3]]);
+        });
+      }
+      return (this._farms = { roads, fields, orchards, steads, hedges });
     },
     inside(x, z, pad) { return Math.hypot(x - this.centre[0], z - this.centre[1]) < this.fence - (pad || 0); },
   };

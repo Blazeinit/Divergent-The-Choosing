@@ -34,7 +34,7 @@
     abnegation: ['Is there anything you need?', 'Mind the kerb there.', 'We\'re handing out bread on Fulton Street, if anyone you know needs it.', 'The test is over now. Whatever it said — go home and rest.', 'Excuse me. I\'m expected at the council hall.', 'You\'ll be all right. Everyone is, in the end.'],
     erudite: ['The serum\'s only as reliable as its calibration. Remember that.', 'Pardon me, I\'m late for the lab.', 'Did you know the L was built more than a century before the Fence?', 'Your results are in the system already. Fascinating, isn\'t it?', 'If you\'re lost: the streets are a grid. Even you can manage a grid.', 'Read something tonight. It helps.'],
     candor: ['You look lost. Are you lost?', 'Tested today? How did it go — and don\'t lie to me.', 'Honestly? You look terrified.', 'The Mart\'s that way, if you\'re looking for the truth.', 'That\'s a terrible way to stand. Stand up straight.', 'You\'re staring. Just say what you\'re thinking.'],
-    amity: ['Lovely afternoon for it, isn\'t it?', 'Here — have an apple. Go on.', 'Peace be with you.', 'Whatever the test said, you\'ll find your place.', 'The truck back to the farms leaves from the Fence at sundown.', 'You look like you need a hug. No? All right.'],
+    amity: ['Lovely afternoon for it, isn\'t it?', 'Here — have an apple. Go on.', 'Peace be with you.', 'Whatever the test said, you\'ll find your place.', 'The truck back to the farms leaves from the end of Madison at sundown.', 'You look like you need a hug. No? All right.'],
     dauntless: ['Out of the way.', 'Train\'s due any minute. Gotta run.', 'What are you looking at?', 'Tomorrow\'s the Choosing. Don\'t be boring.', 'Jump on a moving train yet? You should.', 'Watch yourself out here after dark.'],
     factionless: ['Spare anything?', '…', 'Don\'t look at me like that.', 'They\'ll test you, and then they\'ll forget you.', 'Keep walking, kid.', 'Abnegation brings bread on Thursdays. The rest of them don\'t bother.'],
   };
@@ -148,7 +148,7 @@
 
   /* ---------------- the roads: lanes, cut where something stands on them ---------------- */
   function buildLanes(city, blocked) {
-    const CM = DV.CityMap, c = city.centre, lim = city.walk.limit - 18, shore = city.walk.shore - 6;
+    const CM = DV.CityMap, c = city.centre, lim = (city.walk.edge || city.walk.limit) - 18, shore = city.walk.shore - 6; // (traffic keeps to the city)
     const lanes = [];
     const add = (axis, line, k0, k1) => {
       const mid = (k0 + k1) / 2;
@@ -669,11 +669,11 @@
       this.barkT -= dt;
       // crossing into a sector: say so, and remember you've been (the world map shows where)
       const here = DV.CityMap.district(px, pz);
-      const did = here.marsh ? 'marsh' : here.d && here.k > 0.22 ? here.d.id : this.distId && here.d && here.d.id === this.distId && here.k > 0.1 ? this.distId : null;
+      const did = here.marsh ? 'marsh' : here.farm ? 'farm' : here.d && here.k > 0.22 ? here.d.id : this.distId && here.d && here.d.id === this.distId && here.k > 0.1 ? this.distId : null;
       if (did !== this.distId) {
         const was = this.distId;
         this.distId = did;
-        if (did && was !== undefined && this.exposed() && !this.zone.roomAt(px, pz)) DV.UI.notify(did === 'marsh' ? 'The Marsh' : here.d.name, 'info');
+        if (did && was !== undefined && this.exposed() && !this.zone.roomAt(px, pz)) DV.UI.notify(did === 'marsh' ? 'The Marsh' : did === 'farm' ? 'Amity Farmland' : here.d.name, 'info');
         if (did) { const w = DV.State.data.world; (w.visited || (w.visited = {}))[did] = true; }
       }
       const busy = this.busy(px, pz);

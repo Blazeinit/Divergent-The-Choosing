@@ -101,7 +101,7 @@
       if (stop) mins = stop.t - p.now;
       // roughly a second for an hour, never more than four
       const dur = U.clamp(mins / 70, 0.8, 4);
-      this.running = { left: mins, total: mins, rate: mins / dur, from: DV.Clock.minutes(), stop, sync: 0, then: opts.then, quiet: opts.quiet };
+      this.running = { left: mins, total: mins, end: DV.Clock.total() + mins, rate: mins / dur, from: DV.Clock.minutes(), stop, sync: 0, then: opts.then, quiet: opts.quiet };
       G.state = 'waiting';
       DV.Menus.closeSide();
       DV.Input.clearMovement();
@@ -128,7 +128,10 @@
       // every minute on the way happens, one at a time (calls, the missed, the PA)
       let step = r.rate * Math.max(dt, real);
       while (step > 1e-6 && r.left > 1e-6) {
-        const d = Math.min(1, step, r.left);
+        let d = Math.min(1, step, r.left);
+        // the last step lands on the minute itself: summed fractions can leave the clock a hair
+        // short of it (07:49.9999), and whatever was due on that minute would never come
+        if (r.left - d <= 1e-6) d = Math.max(d, r.end - DV.Clock.total() + 1e-7);
         DV.Clock.advance(d);
         step -= d; r.left -= d; r.sync += d;
         // something took over (a scene, a voice, trouble): it's theirs now

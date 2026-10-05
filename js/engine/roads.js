@@ -35,7 +35,7 @@
       this.t = opts.t0 || 0;
       this.junctions = [];
       this.byLine = new Map();
-      const lim = (city.walk ? city.walk.limit : CM.fence) - 14, shore = city.walk ? city.walk.shore : CM.marshX;
+      const lim = (city.walk ? city.walk.edge || city.walk.limit : CM.edge) - 14, shore = city.walk ? city.walk.shore : CM.marshX;
       const campus = city.walk ? city.walk.campus : CM.campus;
       const hash = (a, b) => { const s = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return s - Math.floor(s); };
       for (const av of CM.avenues) {
