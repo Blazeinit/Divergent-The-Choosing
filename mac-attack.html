@@ -6,7 +6,7 @@
 <title>Mac Attack</title>
 <style>
   html,body{margin:0;background:#0a0710;height:100%;display:flex;align-items:center;justify-content:center;font-family:monospace}
-  canvas{max-width:100vw;max-height:100vh;background:#1b0f0f;image-rendering:pixelated;cursor:pointer}
+  canvas{max-width:100vw;max-height:100vh;background:#1b0f0f;cursor:pointer}
 </style>
 </head>
 <body>
@@ -16,11 +16,11 @@
 // Pay quickly = admirers repay you more than the bill. Pay slowly = you lose money.
 // Go broke (or finish the night poorer) and security throws you out.
 const cv = document.getElementById('c'), g = cv.getContext('2d');
-const W = 900, H = 560, ROUNDS = 10, START_CASH = 10000, CUR = '฿';
+const SC = 2, W = 900, H = 560, ROUNDS = 10, START_CASH = 10000, CUR = '฿';
 
 let state = 'title';           // title | wait | tab | summary | kick | over
 let cash, round, combo, bills, floats, parts, bellAnim, t = 0, roundNet, best = 0, spawnQ;
-let endReason = 'win', kickT = 0, kickFlags = {}, coinAcc = 0, manPos = [426, 200];
+let shake = 0, dispCash = 10000, endReason = 'win', kickT = 0, kickFlags = {}, coinAcc = 0, manPos = [426, 200];
 try { best = +localStorage.getItem('macattack_best') || 0; } catch (e) {}
 
 // ---------- audio ----------
@@ -39,7 +39,7 @@ const ding = () => { beep(1568, .6, 'sine', .12); setTimeout(() => beep(2093, .5
 
 // ---------- game flow ----------
 function newGame() {
-  cash = START_CASH; round = 0; combo = 0; bills = []; floats = []; parts = []; spawnQ = [];
+  cash = START_CASH; dispCash = START_CASH; shake = 0; round = 0; combo = 0; bills = []; floats = []; parts = []; spawnQ = [];
   bellAnim = 0; roundNet = 0; state = 'wait';
 }
 function ringBell() {
@@ -47,17 +47,19 @@ function ringBell() {
   if (state === 'kick') { if (kickT > 2) state = 'over'; return; }
   if (state === 'summary') { state = 'wait'; return; }
   if (state !== 'wait') return;
-  round++; roundNet = 0; bellAnim = 1; ding();
+  round++; roundNet = 0; bellAnim = 1; shake = 6; ding();
   const n = Math.min(2 + round, 8), life = Math.max(3.2, 7.5 - round * .4);
+  const slots = [0, 1, 2, 3, 4, 5, 6, 7].sort(() => Math.random() - .5).slice(0, n);   // random tab positions
   for (let i = 0; i < n; i++) {
-    const amt = Math.round((300 + Math.random() * 900) * (1 + round * .18) / 50) * 50;
-    spawnQ.push({ at: t + i * .35, amt, life });
+    const amt = Math.round((200 + Math.random() * 1100) * (1 + round * .18) / 50) * 50;
+    spawnQ.push({ at: t + .1 + Math.random() * 1.8, amt, life: Math.max(2.8, life * (.7 + Math.random() * .75)), slot: slots[i] });
   }
+  spawnQ.sort((a, b) => a.at - b.at);
   state = 'tab';
   for (let i = 0; i < 25; i++) coin(450, 120);
 }
 function startKick(reason) {
-  endReason = reason; state = 'kick'; kickT = 0; kickFlags = {}; coinAcc = 0;
+  endReason = reason; state = 'kick'; kickT = 0; kickFlags = {}; coinAcc = 0; shake = 10;
   bills = []; spawnQ = []; combo = 0;
   [0, 160, 320, 480].forEach((d, i) => setTimeout(() => beep(i % 2 ? 700 : 950, .14, 'sawtooth', .07), d));
 }
@@ -72,7 +74,7 @@ function pay(i) {
   const back = Math.round(b.amt * mult * bonus);
   cash += back - b.amt; roundNet += back - b.amt;
   b.done = true; b.res = back - b.amt;
-  const x = billX(i) + 50;
+  const x = billX(b.slot) + 50;
   floatText(x, 360, (b.res >= 0 ? '+' : '-') + CUR + Math.abs(b.res), b.res >= 0 ? '#7CFF7C' : '#ff6b6b');
   if (combo > 1) floatText(x, 335, 'COMBO x' + combo, '#ffd54a');
   for (let k = 0; k < (b.res >= 0 ? 14 : 4); k++) coin(x, 420);
@@ -81,18 +83,18 @@ function pay(i) {
 }
 function expire(b) {
   const loss = Math.round(b.amt * 1.25);              // late fee
-  cash -= loss; roundNet -= loss; combo = 0; b.done = true; b.res = -loss; b.late = true;
-  floatText(billX(bills.indexOf(b)) + 50, 360, '-' + CUR + loss + ' LATE', '#ff4040');
+  cash -= loss; roundNet -= loss; combo = 0; shake = 8; b.done = true; b.res = -loss; b.late = true;
+  floatText(billX(b.slot) + 50, 360, '-' + CUR + loss + ' LATE', '#ff4040');
   beep(120, .3, 'sawtooth', .08, .5);
 }
 function billX(i) { return 22 + i * 108; }
 function floatText(x, y, s, c) { floats.push({ x, y, s, c, a: 1 }); }
-function coin(x, y) { parts.push({ x, y, vx: (Math.random() - .5) * 6, vy: -Math.random() * 7 - 2, life: 1 }); }
+function coin(x, y) { parts.push({ x, y, vx: (Math.random() - .5) * 6, vy: -Math.random() * 7 - 2, life: 1, rot: Math.random() * 6, vr: (Math.random() - .5) * .5, bill: Math.random() < .3 }); }
 
 function update(dt) {
-  t += dt; bellAnim = Math.max(0, bellAnim - dt * 1.5);
+  t += dt; bellAnim = Math.max(0, bellAnim - dt * 1.5); shake = Math.max(0, shake - dt * 25); dispCash += (cash - dispCash) * Math.min(1, dt * 8);
   while (spawnQ.length && spawnQ[0].at <= t) {
-    const s = spawnQ.shift(); bills.push({ amt: s.amt, life: s.life, left: s.life, done: false }); beep(900, .05, 'triangle', .05);
+    const s = spawnQ.shift(); bills.push({ amt: s.amt, life: s.life, left: s.life, slot: s.slot, done: false }); beep(900, .05, 'triangle', .05);
   }
   if (state === 'tab') {
     for (const b of bills) if (!b.done) { b.left -= dt; if (b.left <= 0) expire(b); }
@@ -110,208 +112,375 @@ function update(dt) {
   if (state === 'kick') {
     kickT += dt;
     if (kickT > 1.4 && kickT < 3.5) { coinAcc += dt; if (coinAcc > .08) { coinAcc = 0; coin(manPos[0], manPos[1] + 30); } }
-    if (kickT > 3.7 && !kickFlags.thud) { kickFlags.thud = true; beep(70, .5, 'sine', .3, .4); beep(55, .6, 'square', .1, .5); }
+    if (kickT > 3.7 && !kickFlags.thud) { kickFlags.thud = true; shake = 22; beep(70, .5, 'sine', .3, .4); beep(55, .6, 'square', .1, .5); }
     if (kickT > 4.9 && !kickFlags.sad) { kickFlags.sad = true; [330, 262, 196, 131].forEach((f, i) => setTimeout(() => beep(f, .35, 'triangle', .1), i * 250)); }
     if (kickT > 7.4) state = 'over';
   }
   for (const f of floats) { f.y -= 30 * dt; f.a -= dt * .7; }
   floats = floats.filter(f => f.a > 0);
-  for (const p of parts) { p.x += p.vx; p.y += p.vy; p.vy += .4; p.life -= dt * .8; }
+  for (const p of parts) { p.x += p.vx; p.y += p.vy; p.vy += .4; p.life -= dt * .8; p.rot += p.vr; }
   parts = parts.filter(p => p.life > 0);
 }
 
-// ---------- drawing ----------
-const px = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
-function txt(s, x, y, size = 16, c = '#fff', al = 'left') {
-  g.font = `bold ${size}px monospace`; g.textAlign = al; g.fillStyle = c; g.fillText(s, x, y);
+// ---------- drawing (smooth, lit, post-processed) ----------
+cv.width = W * SC; cv.height = H * SC;
+const bl1 = document.createElement('canvas'); bl1.width = W / 3; bl1.height = H / 3; const b1 = bl1.getContext('2d');
+const bl2 = document.createElement('canvas'); bl2.width = W / 8; bl2.height = H / 8; const b2 = bl2.getContext('2d');
+const TAU = Math.PI * 2, UI = '"Trebuchet MS","Segoe UI",system-ui,sans-serif', DISP = 'Impact,"Arial Black",sans-serif';
+function rr(x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); }
+function fillRR(x, y, w, h, r, f) { rr(x, y, w, h, r); g.fillStyle = f; g.fill(); }
+function lg(x0, y0, x1, y1, st) { const gr = g.createLinearGradient(x0, y0, x1, y1); st.forEach((s, i) => gr.addColorStop(i / (st.length - 1), s)); return gr; }
+function rg(x, y, r0, r1, st, x1 = x, y1 = y) { const gr = g.createRadialGradient(x, y, r0, x1, y1, r1); st.forEach((s, i) => gr.addColorStop(i / (st.length - 1), s)); return gr; }
+function glow(x, y, r, c, a = 1) {
+  g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = a;
+  const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); g.restore();
 }
-function person(x, y, shirt, skin, cheer) {
-  const bob = Math.sin(t * 6 + x) * (cheer ? 4 : 1);
-  px(x - 14, y + 20 + bob, 28, 34, shirt);
-  px(x - 11, y - 4 + bob, 22, 24, skin);
-  px(x - 12, y - 8 + bob, 24, 8, '#111');
-  px(x - 6, y + 4 + bob, 3, 3, '#000'); px(x + 4, y + 4 + bob, 3, 3, '#000');
-  px(x - 5, y + 12 + bob, 10, cheer ? 4 : 2, '#400');
-  if (cheer) { px(x - 22, y + 6 + bob, 8, 20, skin); px(x + 14, y + 6 + bob, 8, 20, skin); }
+function ell(x, y, rx, ry, f, rot = 0) { g.beginPath(); g.ellipse(x, y, Math.max(.01, rx), ry, rot, 0, TAU); g.fillStyle = f; g.fill(); }
+function limb(x0, y0, x1, y1, w, c) { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
+function txt(s, x, y, size = 16, c = '#fff', al = 'left', gl, font = UI) {
+  g.font = `bold ${size}px ${font}`; g.textAlign = al;
+  if (gl) { g.shadowColor = gl; g.shadowBlur = size * 1.1; }
+  g.fillStyle = c; g.fillText(s, x, y); g.shadowBlur = 0;
 }
-// Mac: spiky hair, shades, gold chain, loud floral shirt. mode: stand | carried
-function drawMan(cx, cy, mode) {
-  const sw = Math.sin(t * 14) * 6, scared = mode !== 'stand';
-  if (scared) {                                              // legs dangle
-    px(cx - 16, cy + 76, 14, 34, '#1b3a8a'); px(cx + 2, cy + 76 + sw, 14, 34, '#1b3a8a');
-    px(cx - 18, cy + 108, 18, 8, '#eee'); px(cx + 2, cy + 108 + sw, 18, 8, '#eee');
+function neon(s, x, y, size, col, al = 'center', font = DISP) {
+  g.font = `${size}px ${font}`; g.textAlign = al;
+  g.shadowColor = col; g.shadowBlur = size * 1.4; g.fillStyle = col; g.fillText(s, x, y); g.fillText(s, x, y);
+  g.shadowBlur = 0; g.fillStyle = 'rgba(255,255,255,.85)'; g.fillText(s, x, y);
+}
+function body(x, y, w, h, r, c) {
+  fillRR(x, y, w, h, r, c);
+  fillRR(x, y, w, h, r, lg(x, y, x + w, y + h, ['rgba(255,255,255,.18)', 'rgba(0,0,0,0)', 'rgba(0,0,0,.45)']));
+}
+function skinHead(x, y, rx, ry, skin) {
+  ell(x, y, rx, ry, rg(x - rx * .35, y - ry * .4, 1, rx * 1.4, [skin, 'rgba(0,0,0,.35)'].map((c, i) => i ? c : c)));
+  g.fillStyle = skin; ell(x, y, rx, ry, skin);
+  ell(x, y, rx, ry, rg(x - rx * .4, y - ry * .4, 1, rx * 1.5, ['rgba(255,255,255,.25)', 'rgba(0,0,0,.3)']));
+}
+function glassOfBeer(x, y, s = 1) {
+  g.save(); g.translate(x, y); g.scale(s, s);
+  fillRR(-6, -20, 12, 20, 2, lg(-6, 0, 6, 0, ['#ffb300', '#ffd54f', '#c77800']));
+  fillRR(-7, -24, 14, 6, 3, '#fff'); fillRR(-4, -17, 2, 13, 1, 'rgba(255,255,255,.5)'); g.restore();
+}
+function bottle(x, y, col, h) {
+  fillRR(x, y - h * .62, 14, h * .62, 3, col);
+  fillRR(x + 4, y - h, 6, h * .42, 2, col);
+  fillRR(x + 3, y - h - 3, 8, 4, 1, '#d4af37');
+  fillRR(x, y - h * .62, 14, h * .62, 3, lg(x, 0, x + 14, 0, ['rgba(255,255,255,.4)', 'rgba(255,255,255,0)', 'rgba(0,0,0,.45)']));
+  fillRR(x + 1, y - h * .42, 12, h * .22, 1, 'rgba(255,248,225,.85)');
+  fillRR(x + 2, y - h * .58, 2, h * .5, 1, 'rgba(255,255,255,.55)');
+}
+function patron(x, y, shirt, skin, hair, cheer, i) {
+  const bob = Math.sin(t * 5 + i * 2) * (cheer ? 4 : 1.2);
+  if (cheer) { limb(x - 15, y + 30 + bob, x - 26, y + 4 + bob, 8, skin); limb(x + 15, y + 30 + bob, x + 28, y + 2 + bob, 8, skin); glassOfBeer(x + 28, y + 2 + bob); }
+  body(x - 18, y + 22 + bob, 36, 50, 14, shirt);
+  skinHead(x, y + 6 + bob, 14, 16, skin);
+  ell(x, y - 4 + bob, 15, 9, hair); fillRR(x - 15, y - 4 + bob, 30, 6, 3, hair);
+  g.fillStyle = '#111'; ell(x - 5, y + 7 + bob, 2, 2.5, '#111'); ell(x + 5, y + 7 + bob, 2, 2.5, '#111');
+  g.strokeStyle = '#5a1a1a'; g.lineWidth = 1.6; g.beginPath(); g.arc(x, y + 11 + bob, cheer ? 5 : 3, .1, Math.PI - .1); g.stroke();
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(x - 20, y - 12 + bob, 40, 90);     // depth: patrons sit in shade
+}
+function cashFan(x, y, rot) {
+  for (let i = 0; i < 5; i++) {
+    g.save(); g.translate(x, y); g.rotate(rot + (i - 2) * .28);
+    fillRR(0, -7, 34, 14, 2, lg(0, -7, 34, 7, ['#3ddc6e', '#1c9c47', '#157a37']));
+    g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 1; rr(2, -5, 30, 10, 1); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.7)'; ell(17, 0, 4, 4, 'rgba(255,255,255,.55)');
+    g.restore();
   }
-  px(cx - 20, cy + 36, 40, 40, '#ff7a1a');
-  for (let i = 0; i < 6; i++) px(cx - 16 + (i % 3) * 13, cy + 42 + Math.floor(i / 3) * 16, 6, 6, '#fff');
-  px(cx - 9, cy + 36, 18, 3, '#ffd54a'); px(cx - 4, cy + 39, 8, 8, '#ffd54a');
-  const skin = '#e0ac69';
-  if (scared) { px(cx - 32, cy + 28, 12, 8, skin); px(cx + 20, cy + 28, 12, 8, skin); }
-  else { px(cx - 28, cy + 38, 8, 30, skin); px(cx + 20, cy + 38, 8, 22, skin); }
-  px(cx - 14, cy + 10, 28, 26, skin);
-  px(cx - 15, cy + 4, 30, 10, '#111');
-  for (let i = 0; i < 5; i++) px(cx - 14 + i * 6, cy - 4 + (i % 2) * 3, 4, 10, '#111');
-  px(cx - 13, cy + 18, 11, 7, '#000'); px(cx + 2, cy + 18, 11, 7, '#000'); px(cx - 2, cy + 20, 4, 2, '#000');
-  if (scared) { px(cx - 5, cy + 28, 10, 7, '#400'); px(cx - 3, cy + 29, 6, 2, '#fff'); }
-  else px(cx - 5, cy + 30, 10, 3, '#400');
+}
+// Mac: spiky hair, mirror shades, gold chain, loud floral shirt.  mode: stand | carried
+function drawMan(cx, cy, mode) {
+  const sw = Math.sin(t * 14) * 7, scared = mode !== 'stand', skin = '#e0ac69';
+  if (scared) {
+    limb(cx - 9, cy + 76, cx - 11, cy + 108, 13, '#1b3a8a'); limb(cx + 9, cy + 76, cx + 9 + sw * .5, cy + 108 + sw * .4, 13, '#1b3a8a');
+    fillRR(cx - 20, cy + 106, 18, 9, 4, '#f4f4f4'); fillRR(cx + 1 + sw * .5, cy + 106 + sw * .4, 18, 9, 4, '#f4f4f4');
+  }
+  body(cx - 22, cy + 36, 44, 42, 13, '#ff8a1f');
+  const fl = [[-12, 44, '#fff'], [10, 48, '#ff4fa3'], [-4, 62, '#ffe066'], [14, 66, '#fff'], [-15, 68, '#ff4fa3']];
+  fl.forEach(([dx, dy, c]) => { for (let k = 0; k < 5; k++) ell(cx + dx + Math.cos(k * 1.256) * 3.5, cy + dy + Math.sin(k * 1.256) * 3.5, 2.6, 2.6, c); ell(cx + dx, cy + dy, 2, 2, '#e8a000'); });
+  g.strokeStyle = '#ffd54a'; g.lineWidth = 2.4; g.beginPath(); g.arc(cx, cy + 36, 10, .2, Math.PI - .2); g.stroke();
+  ell(cx, cy + 47, 4, 4, '#ffd54a'); ell(cx - 1, cy + 46, 1.5, 1.5, '#fff');
+  if (scared) { limb(cx - 20, cy + 42, cx - 42, cy + 30, 9, skin); limb(cx + 20, cy + 42, cx + 42, cy + 30, 9, skin); }
+  else { limb(cx - 20, cy + 42, cx - 30, cy + 66, 9, skin); limb(cx + 20, cy + 42, cx + 36, cy + 34, 9, skin); ell(cx + 37, cy + 34, 5, 5, skin); }
+  skinHead(cx, cy + 20, 15, 17, skin);
+  g.fillStyle = '#0d0d0d'; g.beginPath();
+  g.moveTo(cx - 16, cy + 18); for (let i = 0; i < 6; i++) { g.lineTo(cx - 14 + i * 6, cy - 9 + (i % 2) * 5); g.lineTo(cx - 11 + i * 6, cy + 5); }
+  g.lineTo(cx + 16, cy + 18); g.lineTo(cx + 14, cy + 4); g.lineTo(cx - 14, cy + 4); g.closePath(); g.fill();
+  fillRR(cx - 15, cy + 15, 13, 8, 3, lg(cx - 15, cy + 15, cx - 2, cy + 23, ['#222', '#000']));
+  fillRR(cx + 2, cy + 15, 13, 8, 3, lg(cx + 2, cy + 15, cx + 15, cy + 23, ['#222', '#000']));
+  fillRR(cx - 2, cy + 17, 4, 2, 1, '#000');
+  g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx - 13, cy + 17); g.lineTo(cx - 8, cy + 17); g.moveTo(cx + 4, cy + 17); g.lineTo(cx + 9, cy + 17); g.stroke();
+  if (scared) { ell(cx, cy + 30, 5, 4, '#3a0000'); ell(cx, cy + 28.5, 3.5, 1.4, '#fff'); }
+  else { g.strokeStyle = '#4a1a10'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy + 27, 6, .15, Math.PI - .15); g.stroke(); ell(cx, cy + 29, 4, 1.4, '#fff'); }
+  ell(cx - 15.5, cy + 24, 1.6, 3, '#ffd54a');                                           // gold earring
 }
 function drawGuard(cx, y, facing) {
-  px(cx - 20, y + 30, 40, 52, '#111');                       // black tee
-  px(cx - 15, y + 40, 30, 8, '#ffd54a'); txt('SECURITY', cx, y + 47, 7, '#111', 'center');
-  px(cx - 15, y + 82, 14, 36, '#1d1d28'); px(cx + 1, y + 82, 14, 36, '#1d1d28');
-  px(cx - 16, y + 116, 16, 7, '#000'); px(cx, y + 116, 16, 7, '#000');
-  px(cx - 14, y + 6, 28, 26, '#c68642');
-  px(cx - 16, y - 2, 32, 10, '#111');                        // cap
-  px(cx - 12, y + 16, 24, 6, '#000');                        // shades
-  px(cx - 5, y + 28, 10, 2, '#300');
-  px(cx - 30, y + 32, 10, 28, '#c68642'); px(cx + 20, y + 32, 10, 28, '#c68642');
-  px(cx + facing * 22, y + 28, 12, 8, '#c68642');            // gripping hand
+  const sk = '#b5733a';
+  limb(cx - 22, y + 38, cx - 30, y + 70, 13, sk); limb(cx + 22, y + 38, cx + 30, y + 70, 13, sk);
+  limb(cx - 10, y + 82, cx - 11, y + 116, 15, '#15151f'); limb(cx + 10, y + 82, cx + 11, y + 116, 15, '#15151f');
+  fillRR(cx - 20, y + 114, 18, 9, 4, '#050505'); fillRR(cx + 2, y + 114, 18, 9, 4, '#050505');
+  body(cx - 26, y + 28, 52, 58, 16, '#161616');
+  fillRR(cx - 17, y + 40, 34, 11, 3, '#ffd54a'); txt('SECURITY', cx, y + 48, 6, '#111', 'center');
+  limb(cx + facing * 22, y + 36, cx + facing * 40, y + 20, 13, sk);                    // grabbing arm
+  skinHead(cx, y + 14, 15, 17, sk);
+  fillRR(cx - 17, y - 5, 34, 11, 5, '#111'); fillRR(cx - 12, y + 3, 24, 4, 2, '#000');
+  fillRR(cx - 13, y + 11, 26, 7, 3, lg(cx - 13, y + 11, cx + 13, y + 18, ['#333', '#000']));
+  g.strokeStyle = '#999'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(cx - facing * 15, y + 20); g.bezierCurveTo(cx - facing * 20, y + 30, cx - facing * 18, y + 34, cx - facing * 14, y + 40); g.stroke();
+  g.strokeStyle = '#2a0f0a'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx - 5, y + 26); g.lineTo(cx + 5, y + 26); g.stroke();
 }
 function drawBar() {
-  px(0, 0, W, 250, '#2a1512');
-  for (let i = 0; i < 18; i++) px(i * 50, 0, 2, 250, '#231110');
-  for (let i = 0; i < 30; i++) { px(i * 30 + 6, 6 + Math.sin(i) * 3, 8, 8, ['#ff5252', '#ffd54a', '#4fc3f7', '#69f0ae'][(i + Math.floor(t * 2)) % 4]); }
-  const cols = ['#2e7d32', '#c62828', '#f9a825', '#1565c0', '#6a1b9a'];
-  for (const sy of [80, 150]) {
-    px(40, sy, 820, 6, '#6b4226');
-    for (let i = 0; i < 17; i++) {
-      const bx = 60 + i * 47, col = cols[i % 5];
-      px(bx, sy - 38, 14, 38, col); px(bx + 4, sy - 50, 6, 12, col); px(bx + 3, sy - 24, 8, 8, '#fff8');
-    }
+  // wall
+  g.fillStyle = lg(0, 0, 0, 290, ['#4a1c2a', '#2a0f18', '#120609']); g.fillRect(0, 0, W, 290);
+  for (let i = 0; i < 24; i++) { g.fillStyle = i % 2 ? 'rgba(255,255,255,.025)' : 'rgba(0,0,0,.12)'; g.fillRect(i * 38, 0, 38, 290); }
+  // back-lit shelves
+  fillRR(40, 28, 820, 138, 8, lg(0, 28, 0, 166, ['rgba(255,170,60,.28)', 'rgba(255,120,40,.10)']));
+  const cols = ['#1f8f3a', '#c62828', '#f6a21a', '#1769c9', '#7a2bb5'];
+  for (const sy of [96, 160]) {
+    for (let i = 0; i < 17; i++) bottle(60 + i * 47, sy, cols[(i + (sy > 100 ? 2 : 0)) % 5], 46 + (i * 7) % 12);
+    fillRR(40, sy, 820, 8, 3, lg(0, sy, 0, sy + 8, ['#b07a45', '#5a361b']));
+    fillRR(40, sy + 8, 820, 6, 0, 'rgba(0,0,0,.35)');
   }
-  px(60, 168, 110, 32, '#1b5e20'); txt('CHANG', 115, 191, 18, '#fff', 'center');
-  px(700, 168, 120, 32, '#8e0000'); txt('SINGHA', 760, 191, 18, '#ffd54a', 'center');
-  px(300, 160, 300, 44, '#ffd54a'); px(304, 164, 292, 36, '#2a1512');
-  txt('SIAM NIGHTS BAR', 450, 189, 20, Math.floor(t * 3) % 2 ? '#ff4fa3' : '#ffd54a', 'center');
-  px(790, 170, 84, 115, '#4a2a12'); px(796, 176, 72, 109, '#2b170a'); px(850, 230, 6, 6, '#ffd54a');   // exit door
-  px(800, 150, 64, 16, '#0b5a1c'); txt('EXIT', 832, 163, 13, '#7CFF7C', 'center');
-  const shirts = ['#c0392b', '#2980b9', '#27ae60', '#8e44ad', '#e67e22'], xs = [80, 220, 330, 570, 700];
-  const cheer = state === 'tab' || bellAnim > 0;
-  xs.forEach((x, i) => person(x, 215, shirts[i], ['#f1c27d', '#e0ac69', '#c68642', '#8d5524'][i % 4], cheer));
-  px(0, 285, W, 30, '#8b5a2b'); px(0, 285, W, 6, '#c68b4d');
-  px(0, 315, W, 245, '#3b2314');
-  px(0, 315, W, 10, '#a51931'); px(0, 325, W, 5, '#fff'); px(0, 330, W, 12, '#2d2a6e'); px(0, 342, W, 5, '#fff'); px(0, 347, W, 10, '#a51931');
-  const bx = 640, by = 262, sw = Math.sin(bellAnim * 30) * bellAnim * .5;
-  g.save(); g.translate(bx, by); g.rotate(sw);
-  px(-16, -22, 32, 22, '#ffd54a'); px(-22, -2, 44, 6, '#ffb300'); px(-4, -28, 8, 6, '#ffb300'); g.restore();
-  px(bx - 28, by + 4, 56, 6, '#555');
+  // neon
+  const fl = .85 + .15 * Math.sin(t * 23) * (Math.sin(t * 3) > .9 ? 1 : 0);
+  g.globalAlpha = fl;
+  fillRR(54, 172, 122, 36, 6, '#0b2a12'); neon('CHANG', 115, 202, 26, '#39ff6a');
+  fillRR(704, 172, 130, 36, 6, '#2a0808'); neon('SINGHA', 769, 202, 26, '#ff5148');
+  fillRR(290, 166, 320, 48, 10, '#1c0714'); g.strokeStyle = '#ff4fa3'; g.shadowColor = '#ff4fa3'; g.shadowBlur = 16; g.lineWidth = 3; rr(292, 168, 316, 44, 9); g.stroke(); g.shadowBlur = 0;
+  neon('SIAM NIGHTS BAR', 450, 202, 30, Math.floor(t * 2.2) % 5 ? '#ff7ac6' : '#ffd54a');
+  g.globalAlpha = 1;
+  glow(115, 190, 100, '#1fa845', .35); glow(769, 190, 100, '#c0392b', .35); glow(450, 190, 190, '#ff2d95', .3);
+  // exit door
+  fillRR(790, 172, 86, 118, 4, '#2a1608'); fillRR(797, 179, 72, 111, 3, lg(797, 0, 869, 0, ['#6b3a18', '#4a2610']));
+  ell(851, 240, 4, 4, '#ffd54a'); fillRR(800, 150, 66, 18, 4, '#0b5a1c'); txt('EXIT', 833, 164, 13, '#8dff9d', 'center', '#2dff6a');
+  // pendant lamps + light cones
+  for (const lx of [180, 450, 720]) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const cone = lg(0, 50, 0, 290, ['rgba(255,190,100,.20)', 'rgba(255,190,100,0)']);
+    g.fillStyle = cone; g.beginPath(); g.moveTo(lx - 14, 48); g.lineTo(lx - 150, 290); g.lineTo(lx + 150, 290); g.lineTo(lx + 14, 48); g.fill(); g.restore();
+    g.strokeStyle = '#111'; g.lineWidth = 2; g.beginPath(); g.moveTo(lx, 0); g.lineTo(lx, 26); g.stroke();
+    g.beginPath(); g.moveTo(lx - 22, 50); g.quadraticCurveTo(lx, 14, lx + 22, 50); g.closePath(); g.fillStyle = lg(lx - 22, 0, lx + 22, 0, ['#e0b050', '#fff1b8', '#8a6420']); g.fill();
+    glow(lx, 52, 46, '#ffd9a0', .9);
+  }
+  // string lights
+  for (let i = 0; i < 30; i++) { const x = i * 31, y = 8 + Math.sin(i * .6) * 5, c = ['#ff5252', '#ffd54a', '#4fc3f7', '#69f0ae'][(i + Math.floor(t * 2)) % 4]; ell(x, y, 3.5, 3.5, c); glow(x, y, 16, c, .55); }
+  // patrons
+  const shirts = ['#c0392b', '#2980b9', '#27ae60', '#8e44ad', '#e67e22'], xs = [80, 220, 330, 570, 700], cheer = state === 'tab' || bellAnim > 0;
+  xs.forEach((x, i) => patron(x, 222, shirts[i], ['#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#f1c27d'][i], i % 2 ? '#2a1a10' : '#0d0d0d', cheer, i));
+}
+function drawCounter() {
+  // top + props
+  g.fillStyle = lg(0, 283, 0, 312, ['#e0a560', '#a86a30', '#6a3d1a']); g.fillRect(0, 283, W, 29);
+  g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(0, 285, W, 2);
+  for (const lx of [180, 450, 720]) glow(lx, 297, 120, '#ffd9a0', .25);
+  glassOfBeer(140, 297, 1.1); glassOfBeer(300, 297, 1.1); glassOfBeer(540, 300, 1.1); glassOfBeer(790, 297, 1.1);
+  fillRR(0, 312, W, 248, 0, lg(0, 312, 0, 560, ['#4a2a15', '#2a150a', '#150a05']));
+  for (let i = 0; i < 24; i++) { g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(i * 38, 312, 2, 248); }
+  g.fillStyle = '#a51931'; g.fillRect(0, 316, W, 7); g.fillStyle = '#f5f5f5'; g.fillRect(0, 323, W, 4);
+  g.fillStyle = '#2d2a6e'; g.fillRect(0, 327, W, 12); g.fillStyle = '#f5f5f5'; g.fillRect(0, 339, W, 4); g.fillStyle = '#a51931'; g.fillRect(0, 343, W, 7);
+  g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, 316, W, 2);
+  // bell
+  const bx = 640, by = 276, sw = Math.sin(bellAnim * 30) * bellAnim * .45;
+  fillRR(bx - 32, by + 4, 64, 9, 4, lg(0, by + 4, 0, by + 13, ['#bbb', '#555']));
+  if (bellAnim > 0) { for (let k = 0; k < 3; k++) { const r = (1 - bellAnim + k * .15) * 90; g.strokeStyle = `rgba(255,213,74,${Math.max(0, bellAnim - k * .2) * .6})`; g.lineWidth = 3; g.beginPath(); g.ellipse(bx, by - 8, r, r * .6, 0, 0, TAU); g.stroke(); } glow(bx, by - 10, 90, '#ffd54a', bellAnim); }
+  g.save(); g.translate(bx, by + 4); g.rotate(sw);
+  g.beginPath(); g.moveTo(-24, 0); g.bezierCurveTo(-24, -34, 24, -34, 24, 0); g.closePath(); g.fillStyle = lg(-24, 0, 24, 0, ['#a9780f', '#ffe27a', '#ffc72c', '#8a5f08']); g.fill();
+  fillRR(-27, -3, 54, 6, 3, '#d29a1a'); ell(0, -30, 4, 4, '#ffd54a'); fillRR(-14, -22, 4, 16, 2, 'rgba(255,255,255,.65)'); g.restore();
+}
+function drawParticle(p) {
+  g.save(); g.globalAlpha = Math.min(1, p.life * 1.6); g.translate(p.x, p.y);
+  if (p.bill) { g.rotate(p.rot); fillRR(-8, -4.5, 16, 9, 1.5, lg(-8, -4, 8, 5, ['#4be07f', '#1a8f42'])); ell(0, 0, 2.5, 2.5, 'rgba(255,255,255,.6)'); }
+  else { ell(0, 0, 3 + 4 * Math.abs(Math.cos(p.rot)), 7, rg(-1, -2, 1, 8, ['#fff3a0', '#f7b500', '#a86a00'])); }
+  g.restore(); glow(p.x, p.y, 14, '#ffc400', .35 * p.life);
 }
 function drawFX() {
-  for (const p of parts) { px(p.x, p.y, 8, 8, '#ffd54a'); px(p.x + 2, p.y + 2, 4, 4, '#ffb300'); }
-  for (const f of floats) { g.globalAlpha = Math.max(0, f.a); txt(f.s, f.x, f.y, 20, f.c, 'center'); g.globalAlpha = 1; }
+  for (const p of parts) drawParticle(p);
+  for (const f of floats) {
+    g.globalAlpha = Math.max(0, f.a); g.font = `bold 24px ${UI}`; g.textAlign = 'center';
+    g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,.75)'; g.strokeText(f.s, f.x, f.y);
+    txt(f.s, f.x, f.y, 24, f.c, 'center', f.c); g.globalAlpha = 1;
+  }
 }
 function bubble(x, y, s) {
-  g.font = 'bold 15px monospace'; const w = g.measureText(s).width + 20;
-  px(x - w / 2, y - 24, w, 28, '#fff'); px(x - 4, y + 4, 8, 8, '#fff'); txt(s, x, y - 5, 15, '#000', 'center');
+  g.font = `bold 16px ${UI}`; const w = g.measureText(s).width + 26;
+  g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 10;
+  fillRR(x - w / 2, y - 26, w, 30, 12, '#fff'); g.beginPath(); g.moveTo(x - 6, y + 3); g.lineTo(x, y + 14); g.lineTo(x + 6, y + 3); g.fill(); g.shadowBlur = 0;
+  txt(s, x, y - 5, 16, '#111', 'center');
+}
+function panel(x, y, w, h, r = 14) {
+  g.save(); g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 24; fillRR(x, y, w, h, r, 'rgba(14,8,18,.82)'); g.restore();
+  g.strokeStyle = 'rgba(255,213,74,.45)'; g.lineWidth = 1.5; rr(x + .5, y + .5, w - 1, h - 1, r); g.stroke();
+  fillRR(x, y, w, h * .45, r, lg(0, y, 0, y + h * .45, ['rgba(255,255,255,.10)', 'rgba(255,255,255,0)']));
+}
+function drawTab(b, i) {
+  const x = billX(b.slot), y = 400, frac = Math.max(0, b.left / b.life), w = 100, h = 132;
+  g.save();
+  if (b.done) g.globalAlpha = .4; else g.translate(0, Math.sin(t * 3 + i) * 1.5);
+  g.shadowColor = 'rgba(0,0,0,.65)'; g.shadowBlur = 16; g.shadowOffsetY = 6;
+  g.beginPath(); g.moveTo(x, y); g.lineTo(x + w, y); g.lineTo(x + w, y + h);
+  for (let k = 0; k < 10; k++) g.lineTo(x + w - (k + .5) * 10, y + h + (k % 2 ? -1 : 7)); g.lineTo(x, y + h); g.closePath();
+  g.fillStyle = lg(x, y, x + w, y + h, ['#fffaf0', '#efe4c8']); g.fill(); g.shadowColor = 'transparent'; g.shadowOffsetY = 0;
+  fillRR(x, y, w, 16, 0, '#2d2a6e'); txt('TAB ' + (b.slot + 1), x + w / 2, y + 12, 11, '#fff', 'center');
+  txt(CUR + b.amt, x + w / 2, y + 42, 26, '#1a1a1a', 'center');
+  for (let k = 0; k < 3; k++) fillRR(x + 12, y + 54 + k * 9, 76 - (k % 2) * 26, 3, 1.5, 'rgba(0,0,0,.2)');
+  if (!b.done) {
+    const mult = .6 + .9 * frac, c = frac > .45 ? '#2ecc71' : frac > .2 ? '#f39c12' : '#e74c3c';
+    fillRR(x + 8, y + 90, 84, 9, 4.5, 'rgba(0,0,0,.25)'); fillRR(x + 8, y + 90, Math.max(2, 84 * frac), 9, 4.5, c);
+    glow(x + 8 + 84 * frac, y + 94, 16, c, .6);
+    txt('PAYS ' + mult.toFixed(2) + 'x', x + w / 2, y + 122, 14, mult >= 1 ? '#157a37' : '#b03a2e', 'center');
+  } else txt(b.late ? 'LATE!' : 'PAID', x + w / 2, y + 122, 16, b.late ? '#c00' : '#157a37', 'center');
+  g.restore();
+}
+function hud() {
+  panel(10, 8, 220, 40); txt('CASH', 22, 24, 10, '#ffd54a'); 
+  txt(CUR + Math.round(dispCash).toLocaleString(), 22, 42, 20, dispCash < START_CASH * .4 ? '#ff6b6b' : '#7CFF7C', 'left', dispCash < START_CASH * .4 ? '#ff2020' : '#2dff6a');
+  panel(W / 2 - 110, 8, 220, 40); txt('ROUND', W / 2, 22, 10, '#ffd54a', 'center');
+  for (let i = 0; i < ROUNDS; i++) { const on = i < round; ell(W / 2 - 90 + i * 20, 34, 6, 6, on ? '#ffd54a' : 'rgba(255,255,255,.18)'); if (on) glow(W / 2 - 90 + i * 20, 34, 12, '#ffc400', .5); }
+  panel(W - 170, 8, 160, 40); txt('COMBO', W - 158, 24, 10, '#ffd54a');
+  txt('x' + combo, W - 158, 42, 20, combo > 1 ? '#ffd54a' : '#777', 'left', combo > 1 ? '#ff8a00' : null);
+  if (combo > 1) glow(W - 60, 30, 40 + combo * 6, '#ff7a00', .35);
 }
 function drawStreet(s) {
-  px(0, 0, W, H, '#0b1030');
-  for (let i = 0; i < 40; i++) px((i * 97) % W, (i * 53) % 220, 2, 2, '#fff8');
-  for (let i = 0; i < 8; i++) { const h = 120 + (i * 47) % 110; px(i * 120 + 160, 330 - h, 100, h, '#161a3a'); for (let k = 0; k < 6; k++) px(i * 120 + 175 + (k % 2) * 40, 345 - h + Math.floor(k / 2) * 40, 14, 18, k % 3 ? '#ffd54a55' : '#0008'); }
-  px(260, 120, 110, 36, '#c2185b'); txt('MASSAGE', 315, 145, 16, '#fff', 'center');
-  px(560, 100, 120, 36, '#00838f'); txt('PAD THAI', 620, 125, 16, '#fff', 'center');
-  px(0, 330, 200, 130, '#3a1d12'); px(20, 345, 160, 24, '#ffd54a'); txt('SIAM NIGHTS', 100, 363, 13, '#2a1512', 'center');
-  px(48, 250, 90, 150, '#4a2a12'); px(54, 256, 78, 144, '#c98a3a');
-  px(0, 400, W, 160, '#2a2a33'); px(0, 400, W, 6, '#555'); for (let i = 0; i < 9; i++) px(i * 110 + 20, 500, 60, 6, '#ddd');
-  px(660, 380, 130, 50, '#ffca28'); px(670, 340, 100, 42, '#1e8e3e'); px(730, 345, 36, 30, '#9fd8ff');
-  px(675, 425, 28, 28, '#111'); px(755, 425, 28, 28, '#111');
-  drawGuard(88, 262, 1); drawGuard(168, 262, -1);
-  const u = Math.min(1, s / .8), land = s > .8;
-  const x = 150 + 270 * u, y = 300 + 85 * u - Math.sin(Math.PI * u) * 110;
-  const bounce = land ? Math.max(0, Math.sin((s - .8) * 14)) * 14 * Math.exp(-(s - .8) * 3) : 0;
-  g.save(); g.translate(x, y + 40 - bounce); g.rotate(u * Math.PI * 2.5 + (land ? 0 : 0)); drawMan(0, -40, 'carried'); g.restore();
-  if (s > 1) { px(x - 30, y + 28, 10, 10, '#fff'); px(x + 30, y + 40, 10, 10, '#fff'); }   // empty pockets
-  if (s > .5 && s < 1.3) txt('OOF!', x, y - 60, 28, '#ffd54a', 'center');
-  if (s > 1.3) {
-    g.save(); g.translate(W / 2, 255); g.rotate(-.08);
-    px(-210, -42, 420, 70, '#0008'); txt('BANNED!', 0, 8, 56, '#ff3b3b', 'center'); g.restore();
-    txt('Mac is no longer welcome at Siam Nights.', W / 2, 330, 16, '#fff', 'center');
+  g.fillStyle = lg(0, 0, 0, 400, ['#05061a', '#14123a', '#3a1a4a']); g.fillRect(0, 0, W, 560);
+  for (let i = 0; i < 50; i++) ell((i * 97) % W, (i * 53) % 200, 1.1, 1.1, `rgba(255,255,255,${.3 + .5 * Math.abs(Math.sin(t + i))})`);
+  ell(760, 70, 26, 26, rg(755, 65, 2, 30, ['#fffbe8', '#f1e3a8'])); glow(760, 70, 110, '#a9b8ff', .4);
+  for (let i = 0; i < 9; i++) {
+    const h = 130 + (i * 47) % 120, bx = i * 118 + 150; g.fillStyle = lg(0, 330 - h, 0, 330, ['#1c1a44', '#0e0d26']); g.fillRect(bx, 330 - h, 104, h);
+    for (let k = 0; k < 8; k++) { const on = (i + k * 3) % 3; g.fillStyle = on ? 'rgba(255,214,120,.8)' : 'rgba(0,0,0,.4)'; g.fillRect(bx + 14 + (k % 2) * 46, 346 - h + Math.floor(k / 2) * 40, 18, 22); if (on) glow(bx + 23 + (k % 2) * 46, 357 - h + Math.floor(k / 2) * 40, 26, '#ffb84a', .25); }
   }
+  fillRR(250, 130, 130, 40, 6, '#1c0714'); neon('MASSAGE', 315, 160, 28, '#ff4fa3'); glow(315, 150, 120, '#ff2d95', .3);
+  fillRR(560, 100, 130, 40, 6, '#021c20'); neon('PAD THAI', 625, 130, 28, '#3df0ff'); glow(625, 120, 120, '#00bcd4', .3);
+  g.fillStyle = lg(0, 330, 0, 410, ['#4a2412', '#2a1409']); g.fillRect(0, 320, 220, 90);
+  fillRR(14, 332, 190, 30, 6, '#1c0a02'); neon('SIAM NIGHTS', 109, 356, 24, '#ffd54a'); glow(109, 345, 130, '#ffb300', .3);
+  fillRR(46, 236, 96, 178, 4, '#2a1608'); fillRR(54, 244, 80, 170, 3, lg(54, 0, 134, 0, ['#d99a46', '#8a5420'])); glow(94, 330, 120, '#ffc870', .35);
+  g.fillStyle = lg(0, 400, 0, 560, ['#2b2b38', '#0d0d14']); g.fillRect(0, 400, W, 160);
+  g.fillStyle = '#4a4a58'; g.fillRect(0, 400, W, 7);
+  for (const [lx, c] of [[110, '#ffb300'], [315, '#ff2d95'], [625, '#00bcd4'], [760, '#a9b8ff']]) { g.save(); g.translate(lx, 440); g.scale(.5, 3); glow(0, 0, 80, c, .3); g.restore(); }
+  for (let i = 0; i < 9; i++) fillRR(i * 110 + 20, 505, 62, 7, 2, 'rgba(255,255,255,.55)');
+  // tuk-tuk
+  g.save(); g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 14;
+  fillRR(650, 372, 150, 56, 14, lg(0, 372, 0, 428, ['#ffd84a', '#d99a00'])); g.restore();
+  fillRR(664, 334, 112, 44, 12, lg(0, 334, 0, 378, ['#2bbf5a', '#157a37'])); fillRR(728, 342, 40, 28, 6, lg(0, 342, 0, 370, ['#bfe8ff', '#5aa0cc']));
+  ell(682, 432, 17, 17, '#0a0a0a'); ell(682, 432, 8, 8, '#777'); ell(768, 432, 17, 17, '#0a0a0a'); ell(768, 432, 8, 8, '#777');
+  glow(802, 392, 60, '#fff3b0', .8);
+  drawGuard(88, 250, 1); drawGuard(168, 250, -1);
+  const u = Math.min(1, s / .8), land = s > .8;
+  const x = 150 + 270 * u, y = 290 + 100 * u - Math.sin(Math.PI * u) * 120;
+  const bounce = land ? Math.max(0, Math.sin((s - .8) * 14)) * 14 * Math.exp(-(s - .8) * 3) : 0;
+  if (!land) for (let k = 1; k < 5; k++) { g.globalAlpha = .12; g.save(); const uu = Math.max(0, u - k * .05); g.translate(150 + 270 * uu, 290 + 100 * uu - Math.sin(Math.PI * uu) * 120 + 40); g.rotate(uu * Math.PI * 2.5); drawMan(0, -40, 'carried'); g.restore(); }
+  g.globalAlpha = 1;
+  if (land) {                                                                   // scattered cash + dust
+    for (let k = 0; k < 7; k++) { g.save(); g.translate(x + Math.sin(k * 12.9) * 90, 440 + Math.sin(k * 7.3) * 20); g.rotate(k); g.globalAlpha = .9; fillRR(-9, -5, 18, 10, 2, '#2ecc71'); g.restore(); }
+    const d = s - .8; if (d < .9) { g.globalAlpha = (1 - d / .9) * .5; for (let k = 0; k < 5; k++) ell(x - 60 + k * 30, 448 - d * 20, 14 + d * 40, 8 + d * 14, '#bbb'); g.globalAlpha = 1; }
+    if (d < .12) glow(x, 440, 160, '#fff', 1);
+  }
+  g.save(); g.translate(x, y + 40 - bounce); g.rotate(u * Math.PI * 2.5); drawMan(0, -40, 'carried'); g.restore();
+  if (s > .5 && s < 1.3) txt('OOF!', x, y - 70, 34, '#ffd54a', 'center', '#ff8a00', DISP);
+  if (s > 1.3) {
+    g.save(); g.translate(W / 2, 250); g.rotate(-.07); g.globalAlpha = Math.min(1, (s - 1.3) * 3);
+    fillRR(-230, -58, 460, 86, 8, 'rgba(0,0,0,.6)'); txt('BANNED!', 0, 14, 70, '#ff3b3b', 'center', '#ff0000', DISP); g.restore();
+    txt('Mac is no longer welcome at Siam Nights.', W / 2, 330, 17, '#fff', 'center', '#000');
+  }
+  g.strokeStyle = 'rgba(180,200,255,.35)'; g.lineWidth = 1;                      // rain
+  g.beginPath(); for (let i = 0; i < 160; i++) { const rx = (i * 61) % W, ry = ((i * 37 + t * 600) % 580); g.moveTo(rx, ry); g.lineTo(rx - 3, ry + 14); } g.stroke();
 }
 function drawKick() {
   const k = kickT;
-  if (k >= 3.7) { drawStreet(k - 3.7); const a = Math.max(0, 1 - (k - 3.7) / .5); if (a) { g.globalAlpha = a; px(0, 0, W, H, '#000'); g.globalAlpha = 1; } return; }
-  drawBar();
-  const gl = (a) => -40 + (426 - 50 + 40) * a, gr = (a) => 940 + (426 + 50 - 940) * a;
-  let mx = 426, my = 200, mode = 'stand', lx, rx, gy = 215;
-  if (k < 1.4) { const a = k / 1.4; lx = gl(a); rx = gr(a); }
-  else {
-    const a = Math.min(1, (k - 1.4) / 2.1), e = a * a * (3 - 2 * a);
-    mx = 426 + (830 - 426) * e; my = 200 + 50 * Math.min(1, (k - 1.4) / .5); mode = 'carried';
-    lx = mx - 50; rx = mx + 50; gy = my + 15;
+  if (k >= 3.7) {
+    drawStreet(k - 3.7); const a = Math.max(0, 1 - (k - 3.7) / .5); if (a) { g.globalAlpha = a; g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
+  } else {
+    drawBar();
+    const gl = a => -40 + (426 - 50 + 40) * a, gr = a => 940 + (426 + 50 - 940) * a;
+    let mx = 426, my = 200, mode = 'stand', lx, rx, gy = 215;
+    if (k < 1.4) { const a = k / 1.4; lx = gl(a); rx = gr(a); }
+    else {
+      const a = Math.min(1, (k - 1.4) / 2.1), e = a * a * (3 - 2 * a);
+      mx = 426 + (830 - 426) * e; my = 200 + 50 * Math.min(1, (k - 1.4) / .5); mode = 'carried'; lx = mx - 50; rx = mx + 50; gy = my + 15;
+    }
+    manPos = [mx, my];
+    drawCounter();
+    drawMan(mx, my, mode);
+    if (mode === 'stand') cashFan(mx + 38, 232 + Math.sin(t * 5) * 6, -.5);
+    drawGuard(lx, gy, 1); drawGuard(rx, gy, -1);
+    if (k < 1.4) { if (Math.floor(k * 6) % 2) txt('SECURITY!!', W / 2, 120, 52, '#ff3b3b', 'center', '#ff0000', DISP); glow(W / 2, 200, 400, Math.floor(k * 6) % 2 ? '#ff0000' : '#0033ff', .12); bubble(mx, 180, 'Uh oh...'); }
+    else bubble(mx, my - 12, 'NOT MY MONEY!!');
+    drawFX();
+    if (k > 3.2) { g.globalAlpha = Math.min(1, (k - 3.2) / .5); g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
   }
-  manPos = [mx, my];
-  drawMan(mx, my, mode);
-  if (mode === 'stand') {
-    const fan = Math.sin(t * 5) * 6;
-    for (let i = 0; i < 4; i++) px(mx + 32 + i * 7, 236 + fan - i * 3, 24, 12, i % 2 ? '#2ecc71' : '#27ae60');
-  }
-  drawGuard(lx, gy, 1); drawGuard(rx, gy, -1);
-  if (k < 1.4) { if (Math.floor(k * 6) % 2) txt('SECURITY!!', W / 2, 120, 40, '#ff3b3b', 'center'); bubble(mx, 190, 'Uh oh...'); }
-  else bubble(mx, my - 8, 'NOT MY MONEY!!');
-  drawFX();
-  if (k > 3.2) { g.globalAlpha = Math.min(1, (k - 3.2) / .5); px(0, 0, W, H, '#000'); g.globalAlpha = 1; }
+  const bar = Math.min(34, kickT * 60); g.fillStyle = '#000'; g.fillRect(0, 0, W, bar); g.fillRect(0, H - bar, W, bar);   // cinematic bars
 }
 function draw() {
-  if (state === 'kick') { drawKick(); return; }
-  drawBar();
-  // Mac behind the counter, flaunting cash
-  drawMan(426, 200, 'stand');
-  const fan = Math.sin(t * 5) * 6;
-  for (let i = 0; i < 4; i++) px(458 + i * 7, 236 + fan - i * 3, 24, 12, i % 2 ? '#2ecc71' : '#27ae60');
-  txt(CUR, 478, 247 + fan, 11, '#fff');
-  if (state === 'wait') txt('RING THE BELL!  (click / SPACE)', 640, 220 + Math.sin(t * 5) * 3, 14, '#ffd54a', 'center');
-
-  px(0, 0, W, 34, '#000a');
-  txt('CASH ' + CUR + Math.round(cash), 14, 24, 20, cash < START_CASH * .4 ? '#ff6b6b' : '#7CFF7C');
-  txt('ROUND ' + Math.min(round, ROUNDS) + '/' + ROUNDS, W / 2, 24, 18, '#fff', 'center');
-  txt('COMBO x' + combo, W - 14, 24, 18, combo > 1 ? '#ffd54a' : '#888', 'right');
-
-  for (let i = 0; i < bills.length; i++) {
-    const b = bills[i], x = billX(i), y = 400, frac = Math.max(0, b.left / b.life);
-    if (b.done) g.globalAlpha = .35;
-    px(x, y, 100, 130, '#f4ecd8'); px(x, y, 100, 14, '#d9cba5');
-    for (let k = 0; k < 4; k++) px(x + 10, y + 50 + k * 10, 80 - (k % 2) * 25, 3, '#bbb');
-    txt('TAB ' + (i + 1), x + 50, y + 11, 11, '#555', 'center');
-    txt(CUR + b.amt, x + 50, y + 38, 22, '#222', 'center');
-    if (!b.done) {
-      const mult = .6 + .9 * frac;
-      px(x + 8, y + 100, 84, 8, '#999');
-      px(x + 8, y + 100, 84 * frac, 8, frac > .45 ? '#2ecc71' : frac > .2 ? '#f39c12' : '#e74c3c');
-      txt('PAYS ' + mult.toFixed(2) + 'x', x + 50, y + 124, 12, mult >= 1 ? '#1b8a3a' : '#b03a2e', 'center');
-    } else txt(b.late ? 'LATE!' : 'PAID', x + 50, y + 124, 13, b.late ? '#c00' : '#1b8a3a', 'center');
-    g.globalAlpha = 1;
+  g.setTransform(SC, 0, 0, SC, 0, 0);
+  g.save();
+  if (shake > 0) g.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
+  if (state === 'kick') drawKick();
+  else {
+    g.translate(W / 2, H / 2); const z = 1 + bellAnim * .025; g.scale(z, z); g.translate(-W / 2, -H / 2);
+    drawBar(); drawCounter();
+    drawMan(426, 200, 'stand'); cashFan(464, 234 + Math.sin(t * 5) * 6, -.5);
+    glow(470, 235, 70, '#3dff7a', .18);
+    if (state === 'wait') { txt('RING THE BELL!', 640, 224 + Math.sin(t * 5) * 3, 17, '#ffd54a', 'center', '#ff9a00'); txt('click it / press SPACE', 640, 242 + Math.sin(t * 5) * 3, 12, '#fff', 'center'); }
+    g.restore(); g.save();
+    if (shake > 0) g.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
+    hud();
+    for (let i = 0; i < bills.length; i++) drawTab(bills[i], i);
+    if (state === 'tab') txt('CLICK a tab (or press 1-8) — pay fast to earn more!  Hit ' + CUR + '0 and you\'re OUT.', W / 2, 388, 13, '#ffd54a', 'center', '#000');
+    drawFX();
+    if (state === 'title' || state === 'over' || state === 'summary') overlay();
   }
-  if (state === 'tab') txt('CLICK a tab (or press 1-8) — pay fast to earn more back! Hit ' + CUR + '0 and you\'re OUT.', W / 2, 390, 13, '#ffd54a', 'center');
-  drawFX();
-
-  if (state === 'title' || state === 'over' || state === 'summary') {
-    px(0, 0, W, H, '#000b');
-    if (state === 'title') {
-      txt('MAC ATTACK', W / 2, 170, 60, '#ffd54a', 'center');
-      txt('Bangkok, 2am. Mac is loaded and the whole bar knows it.', W / 2, 235, 17, '#fff', 'center');
-      txt('Ring the bell. Everyone drinks. You foot every tab.', W / 2, 270, 16, '#ddd', 'center');
-      txt('Pay FAST = admirers repay you MORE than the bill (up to 1.5x).', W / 2, 300, 16, '#7CFF7C', 'center');
-      txt('Pay slow = lose money. Let a tab expire = 25% late fee.', W / 2, 328, 16, '#ff6b6b', 'center');
-      txt('Go broke and security throws you out. Survive ' + ROUNDS + ' rounds in profit.', W / 2, 365, 16, '#fff', 'center');
-      txt('Best: ' + CUR + Math.round(best), W / 2, 400, 16, '#ffd54a', 'center');
-      txt('CLICK or SPACE to start', W / 2, 460, 22, '#ffd54a', 'center');
-    } else if (state === 'summary') {
-      txt('ROUND ' + round + ' SETTLED', W / 2, 220, 40, '#fff', 'center');
-      txt((roundNet >= 0 ? 'Net +' : 'Net -') + CUR + Math.abs(roundNet), W / 2, 280, 32, roundNet >= 0 ? '#7CFF7C' : '#ff6b6b', 'center');
-      txt('Cash: ' + CUR + Math.round(cash), W / 2, 325, 22, '#fff', 'center');
-      txt('CLICK or SPACE for the next round', W / 2, 400, 20, '#ffd54a', 'center');
-    }
-  }
-  if (state === 'over') drawOver();
+  g.restore();
+  // dust motes in the light
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 40; i++) { const x = (i * 131 + t * (6 + i % 7)) % W, y = 40 + ((i * 71 + Math.sin(t * .5 + i) * 30) % 260); ell(x, y, 1.3, 1.3, 'rgba(255,220,160,.45)'); }
+  g.restore();
+  post();
+}
+function overlay() {
+  g.fillStyle = 'rgba(6,3,10,.78)'; g.fillRect(0, 0, W, H); glow(W / 2, 230, 420, '#7a1f5a', .35);
+  if (state === 'title') {
+    g.save(); g.shadowColor = '#ff9a00'; g.shadowBlur = 40; g.font = `78px ${DISP}`; g.textAlign = 'center';
+    g.fillStyle = lg(0, 110, 0, 180, ['#fff6b0', '#ffc72c', '#c77700']); g.fillText('MAC ATTACK', W / 2, 175); g.restore();
+    txt('BANGKOK • 2 A.M. • ALL IN', W / 2, 205, 15, '#ff7ac6', 'center', '#ff2d95');
+    panel(150, 228, 600, 150);
+    txt('Ring the bell. Everyone drinks. You foot every tab.', W / 2, 262, 16, '#eee', 'center');
+    txt('Pay FAST = admirers repay you MORE than the bill (up to 1.5x).', W / 2, 292, 16, '#7CFF7C', 'center');
+    txt('Pay slow = lose money. Let a tab expire = 25% late fee.', W / 2, 320, 16, '#ff7b7b', 'center');
+    txt('Go broke and security throws you out. Survive ' + ROUNDS + ' rounds in profit.', W / 2, 352, 16, '#fff', 'center');
+    txt('BEST  ' + CUR + Math.round(best), W / 2, 408, 16, '#ffd54a', 'center');
+    txt('CLICK or SPACE to start', W / 2, 466, 24, '#ffd54a', 'center', '#ff9a00');
+  } else if (state === 'summary') {
+    txt('ROUND ' + round + ' SETTLED', W / 2, 200, 44, '#fff', 'center', '#ffd54a', DISP);
+    panel(250, 225, 400, 120);
+    txt((roundNet >= 0 ? '+' : '-') + CUR + Math.abs(roundNet), W / 2, 285, 44, roundNet >= 0 ? '#7CFF7C' : '#ff6b6b', 'center', roundNet >= 0 ? '#1aff5a' : '#ff1a1a', DISP);
+    txt('Cash  ' + CUR + Math.round(cash), W / 2, 325, 20, '#fff', 'center');
+    txt('CLICK or SPACE for the next round', W / 2, 410, 21, '#ffd54a', 'center', '#ff9a00');
+  } else drawOver();
 }
 function drawOver() {
   const win = endReason === 'win';
-  px(0, 0, W, H, win ? '#000b' : '#000d');
-  txt(win ? 'MAC ATTACK LEGEND!' : endReason === 'bankrupt' ? 'BANKRUPT!' : 'LAST CALL', W / 2, 200, 52, win ? '#ffd54a' : '#ff6b6b', 'center');
-  txt('Final cash: ' + CUR + Math.round(cash), W / 2, 260, 28, '#fff', 'center');
-  txt(win ? 'You flexed AND walked out ahead. Respect.' : endReason === 'bankrupt' ? 'Out of baht. Security tossed you on the street.' : 'You finished the night down. Security showed you the door.', W / 2, 300, 16, '#ddd', 'center');
-  txt('Best: ' + CUR + Math.round(best), W / 2, 335, 18, '#fff', 'center');
-  txt('CLICK or SPACE to play again', W / 2, 410, 22, '#ffd54a', 'center');
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 0, W, H);
+  g.save(); const c = win ? '#ffd54a' : '#ff4040'; g.shadowColor = c; g.shadowBlur = 36; g.font = `64px ${DISP}`; g.textAlign = 'center';
+  g.fillStyle = win ? lg(0, 150, 0, 200, ['#fff6b0', '#ffc72c']) : lg(0, 150, 0, 200, ['#ff9a9a', '#e02020']);
+  g.fillText(win ? 'MAC ATTACK LEGEND!' : endReason === 'bankrupt' ? 'BANKRUPT!' : 'LAST CALL', W / 2, 200); g.restore();
+  panel(220, 225, 460, 130);
+  txt('Final cash  ' + CUR + Math.round(cash), W / 2, 268, 28, '#fff', 'center');
+  txt(win ? 'You flexed AND walked out ahead. Respect.' : endReason === 'bankrupt' ? 'Out of baht. Security tossed you on the street.' : 'You finished the night down. Security showed you the door.', W / 2, 305, 15, '#ddd', 'center');
+  txt('BEST  ' + CUR + Math.round(best), W / 2, 338, 17, '#ffd54a', 'center');
+  txt('CLICK or SPACE to play again', W / 2, 415, 24, '#ffd54a', 'center', '#ff9a00');
+}
+function post() {
+  // bloom: downsample, square (threshold-ish), add back
+  b1.drawImage(cv, 0, 0, bl1.width, bl1.height);
+  b1.globalCompositeOperation = 'multiply'; b1.drawImage(bl1, 0, 0); b1.globalCompositeOperation = 'source-over';
+  b2.drawImage(bl1, 0, 0, bl2.width, bl2.height);
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = true; g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = .4; g.drawImage(bl2, 0, 0, cv.width, cv.height); g.globalAlpha = .22; g.drawImage(bl1, 0, 0, cv.width, cv.height); g.restore();
+  // warm grade + vignette
+  g.save(); g.setTransform(SC, 0, 0, SC, 0, 0);
+  g.fillStyle = rg(W / 2, H / 2, H * .35, H * .85, ['rgba(0,0,0,0)', 'rgba(0,0,0,.6)']); g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'overlay'; g.fillStyle = 'rgba(255,120,60,.10)'; g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(0,0,0,.06)'; for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
+  g.restore();
 }
 
 // ---------- input ----------
@@ -322,7 +491,7 @@ function canvasPos(e) {
 cv.addEventListener('pointerdown', e => {
   const [x, y] = canvasPos(e);
   if (state === 'tab') {
-    for (let i = 0; i < bills.length; i++) if (x >= billX(i) && x <= billX(i) + 100 && y >= 400 && y <= 530) { pay(i); return; }
+    for (let i = 0; i < bills.length; i++) if (x >= billX(bills[i].slot) && x <= billX(bills[i].slot) + 100 && y >= 400 && y <= 530) { pay(i); return; }
     return;
   }
   if (state === 'wait') { if (Math.hypot(x - 640, y - 262) < 70) ringBell(); return; }
@@ -330,13 +499,13 @@ cv.addEventListener('pointerdown', e => {
 });
 addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); ringBell(); }
-  const n = parseInt(e.key); if (state === 'tab' && n >= 1 && n <= 8) pay(n - 1);
+  const n = parseInt(e.key); if (state === 'tab' && n >= 1 && n <= 8) pay(bills.findIndex(b => b.slot === n - 1 && !b.done));
 });
 
 newGame(); state = 'title';
 let last = performance.now();
 (function loop(now) {
-  update(Math.min(.05, (now - last) / 1000)); last = now; draw(); requestAnimationFrame(loop);
+  update(Math.max(0, Math.min(.05, (now - last) / 1000))); last = now; draw(); requestAnimationFrame(loop);
 })(last);
 </script>
 </body>
