@@ -680,6 +680,7 @@
       noDiscover: true,
       bounds: { x0: -2, z0: -16, x1: 64, z1: 30 },
       buildingHeight: 18,
+      roof: { deck: 'rock', parapet: 0, kit: false }, // (underground: the rock over the rooms, round the Pit's glass roof)
       facade: 'rock',
       fog: { color: 0x1a212c, near: 45, far: 170 },
       sky: { visible: false, skyline: false, top: 0x000000, horizon: 0x000000, ground: 0x000000 },

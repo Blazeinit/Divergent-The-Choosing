@@ -118,6 +118,22 @@
     speckle(c, w, h, r, 700, ['#4f4c48', '#86827c', '#5d5a56', '#9a958e', '#3e3c39'], 2);
     blotches(c, w, h, r, 4, 'rgba(30,28,26,0.18)', 6, 16);
   });
+  // asphalt shingles on a house roof: staggered rows of tabs, each a shade apart, weathered
+  def('shingle', 64, 64, 1.6, (c, w, h, r) => {
+    c.fillStyle = '#3a3836'; c.fillRect(0, 0, w, h);
+    const th = 8, tw = 10;
+    for (let y = 0; y < h; y += th) {
+      const off = (y / th) % 2 ? tw / 2 : 0;
+      for (let x = -tw; x < w + tw; x += tw) {
+        const v = 0.8 + r() * 0.4;
+        c.fillStyle = U.rgbToCss(0.36 * v, 0.35 * v, 0.33 * v);
+        c.fillRect(x + off, y, tw - 1, th - 2);
+        c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x + off, y + th - 2, tw - 1, 1); // the tab's shadow line
+      }
+    }
+    speckle(c, w, h, r, 160, ['#2c2a28', '#55524e', '#4a4744'], 1);
+    blotches(c, w, h, r, 4, 'rgba(90,96,70,0.18)', 6, 14); // moss
+  });
   def('concrete_panel', 128, 128, 3.0, (c, w, h, r) => {
     c.fillStyle = '#9d9a92'; c.fillRect(0, 0, w, h);
     noise(c, w, h, r, 18);

@@ -52,10 +52,11 @@
     }
   }
   // Each facade tile is 4 bays × 4 floors (64 px per cell). WIN is the window rectangle of a
-  // cell in uv space (x0, y0, x1, y1), used by the shader for lit windows.
+  // cell in uv space (x0, y0, x1, y1), used by the shader for lit windows. BLANK is how a party wall
+  // with no windows in it looks: its colour, and its blocks (bricks) across a bay and up a floor.
   const STYLES = {
     office: {
-      bay: 3.4, floor: 3.5, lit: 0.07, win: [0, 0.28, 1, 0.69],
+      bay: 3.4, floor: 3.5, lit: 0.07, win: [0, 0.28, 1, 0.69], blank: [0.55, 0.55, 0.53, 1, 1],
       paint(g, r) {
         g.fillStyle = '#8b8b86'; g.fillRect(0, 0, 256, 256);
         speckle(g, 256, 256, r, 2200, 0.16);
@@ -71,7 +72,7 @@
       },
     },
     brick: {
-      bay: 3.2, floor: 3.2, lit: 0.09, win: [18 / 64, 18 / 64, 46 / 64, 50 / 64],
+      bay: 3.2, floor: 3.2, lit: 0.09, win: [18 / 64, 18 / 64, 46 / 64, 50 / 64], blank: [0.43, 0.26, 0.2, 16 / 3, 16],
       paint(g, r) {
         g.fillStyle = '#6e4234'; g.fillRect(0, 0, 256, 256);
         for (let y = 0; y < 256; y += 4) {
@@ -112,7 +113,7 @@
       },
     },
     derelict: {
-      bay: 3.3, floor: 3.4, lit: 0.015, win: [12 / 64, 20 / 64, 52 / 64, 48 / 64],
+      bay: 3.3, floor: 3.4, lit: 0.015, win: [12 / 64, 20 / 64, 52 / 64, 48 / 64], blank: [0.46, 0.45, 0.42, 1, 1],
       paint(g, r) {
         g.fillStyle = '#76726b'; g.fillRect(0, 0, 256, 256);
         speckle(g, 256, 256, r, 3000, 0.22);
@@ -149,7 +150,7 @@
   };
   // Chicago greystone: pale limestone, tall windows with heavy lintels and sills, rusticated joints
   STYLES.stone = {
-    bay: 3.0, floor: 3.4, lit: 0.08, win: [20 / 64, 12 / 64, 44 / 64, 50 / 64],
+    bay: 3.0, floor: 3.4, lit: 0.08, win: [20 / 64, 12 / 64, 44 / 64, 50 / 64], blank: [0.64, 0.62, 0.56, 2, 4],
     paint(g, r) {
       g.fillStyle = '#a49e90'; g.fillRect(0, 0, 256, 256);
       speckle(g, 256, 256, r, 2600, 0.12);
@@ -168,7 +169,7 @@
   };
   // an industrial loft: dark brick piers between wide steel windows of small panes
   STYLES.loft = {
-    bay: 4.2, floor: 4.0, lit: 0.05, win: [6 / 64, 10 / 64, 58 / 64, 48 / 64],
+    bay: 4.2, floor: 4.0, lit: 0.05, win: [6 / 64, 10 / 64, 58 / 64, 48 / 64], blank: [0.36, 0.23, 0.18, 7, 16],
     paint(g, r) {
       g.fillStyle = '#5c3a2e'; g.fillRect(0, 0, 256, 256);
       for (let y = 0; y < 256; y += 4) { g.fillStyle = 'rgba(30,18,14,0.45)'; g.fillRect(0, y, 256, 1); }
@@ -313,13 +314,13 @@
     'uniform sampler2D map; uniform sampler2D noise;',
     'uniform vec3 hazeColor; uniform float hazeK; uniform float time; uniform vec2 wind; uniform float cloudScale; uniform float shadowAmt;',
     'uniform vec4 winRect; uniform float litChance; uniform float litAmt; uniform float useMap; uniform vec3 ambient;',
-    'uniform float street; uniform float shabby;',
+    'uniform float street; uniform float shabby; uniform vec3 blankCol; uniform vec2 blankGrid;',
     'varying vec2 vUv; varying vec3 vCol; varying vec3 vWP; varying float vSeed;',
     'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
     'void main() {',
     // (the seed is a whole number per building, but interpolating it across a face can leave it a
     // hair off, which the hash turns into a different window on every pixel: round it)
-    '  float back = step(9999.5, vSeed);',
+    '  float back = step(9999.5, vSeed); float blank = step(19999.5, vSeed);',
     '  float sd = floor(mod(vSeed, 10000.0) + 0.5);',
     '  vec3 c = vCol * ambient;',
     '  if (useMap > 0.5) {',
@@ -345,6 +346,14 @@
     '      c = mix(c, win * ambient, glassA);',
     '      c = mix(c, vec3(0.17, 0.15, 0.13) * ambient, doorA);',
     '      c *= 0.9 + 0.1 * step(0.03, f.x) * step(f.x, 0.97);',
+    '    } else if (blank > 0.5) {',
+    // a party wall: courses of brick (or blocks of stone, panels of concrete) at the facade's own
+    // pixel size, each a shade apart, grime run down it in streaks, and no windows
+    '      vec2 q = floor(vUv * 64.0) / 64.0;',
+    '      float row = floor(q.y * blankGrid.y + 0.001); float u = q.x * blankGrid.x + 0.5 * mod(row, 2.0);',
+    '      float joint = max(step(0.99 - blankGrid.y / 64.0, fract(q.y * blankGrid.y + 0.001)), step(0.99 - blankGrid.x / 64.0, fract(u + 0.001)));',
+    '      float shade = 0.9 + 0.16 * hash(vec2(floor(u), row) + sd) - 0.1 * hash(vec2(floor(q.x * 64.0), sd + 5.0)) * step(0.6, hash(vec2(floor(q.x * 16.0), sd)));',
+    '      c *= blankCol * shade * (1.0 - 0.32 * joint);',
     '    } else {',
     '    c *= texture2D(map, vUv * 0.25).rgb;',
     '    float win = step(winRect.x, f.x) * step(f.x, winRect.z) * step(winRect.y, f.y) * step(f.y, winRect.w);',
@@ -460,13 +469,28 @@
       const c = Math.cos(rot || 0), s = Math.sin(rot || 0);
       const P = (lx, lz) => [cx + lx * c + lz * s, cz - lx * s + lz * c];
       const pts = [P(-w / 2, -d / 2), P(w / 2, -d / 2), P(w / 2, d / 2), P(-w / 2, d / 2)];
-      // (QA: everything placed, and by what)
-      if (this.audit) { const xs = pts.map((q) => q[0]), zs = pts.map((q) => q[1]); this.audit.push([Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), y0, y1, this.part, o.solid === false ? 0 : 1]); }
+      // (QA: everything placed, and by what; and its footprint's corners, for a turned one)
+      if (this.audit) { const xs = pts.map((q) => q[0]), zs = pts.map((q) => q[1]); this.audit.push([Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), y0, y1, this.part, o.solid === false ? 0 : 1, pts]); }
       // a walkable city keeps the footprint of everything standing on the ground: the zone
-      // turns them into colliders (rotated ones by their bounding box)
+      // turns them into colliders
       if (this.solids && o.solid !== false && y0 <= 0.3 && y1 - y0 > 0.8) {
         const xs = pts.map((q) => q[0]), zs = pts.map((q) => q[1]);
-        this.solids.push([Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), y1]);
+        // one turned at an angle would stand out past its bounding box's corners (an invisible wall
+        // a metre out round a slab of rubble or a cabin): it goes in as a grid of small boxes, each the
+        // square inside its cell (they overlap their neighbours, and stand out of it by a few
+        // centimetres at most). (The Fence is past the cordon: nobody gets that close.)
+        const src = this.audit ? this.audit.length - 1 : -1; // (QA: which box it's for)
+        if (Math.abs(s * c) < 0.01 || this.part === 'the Fence') this.solids.push([Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), y1, src]);
+        else {
+          let cell = 0.6;
+          while (Math.ceil(w / cell) * Math.ceil(d / cell) > 256) cell *= 1.2;
+          const nw = Math.ceil(w / cell), nd = Math.ceil(d / cell), hw = w / nw / 2, hd = d / nd / 2, ac = Math.abs(c), as = Math.abs(s);
+          const inset = Math.min(hw, hd) * (ac + as - 1), ex = hw * ac + hd * as - inset, ez = hw * as + hd * ac - inset;
+          for (let i = 0; i < nw; i++) for (let j = 0; j < nd; j++) {
+            const [qx, qz] = P(-w / 2 + (2 * i + 1) * hw, -d / 2 + (2 * j + 1) * hd);
+            this.solids.push([qx - ex, qz - ez, qx + ex, qz + ez, y1, src]);
+          }
+        }
       }
       const lens = [w, d, w, d];
       for (let k = 0; k < 4; k++) {
@@ -483,8 +507,9 @@
           const u1 = lens[k] / S.bay;
           uv = [[0, y0 / S.floor], [u1, y0 / S.floor], [u1, y1 / S.floor], [0, y1 / S.floor]];
         }
-        // (o.shops: the faces that front a street; the rest, backs and party walls, get none)
-        const fs = o.shops && !o.shops.some((q) => q[0] * nx + q[1] * nz > 0.7) ? seed + 10000 : seed;
+        // (o.shops: the faces that front a street; the rest, backs and party walls, get none;
+        // o.blank: the party walls, which get no windows either)
+        const fs = o.blank && o.blank.some((q) => q[0] * nx + q[1] * nz > 0.7) ? seed + 20000 : o.shops && !o.shops.some((q) => q[0] * nx + q[1] * nz > 0.7) ? seed + 10000 : seed;
         g.quad([[A[0], y0, A[1]], [B[0], y0, B[1]], [B[0], y1, B[1]], [A[0], y1, A[1]]], uv, [lo, lo, hi, hi], [nx, 0, nz], fs);
       }
       // seen from below (awnings, landings, bays, cornices): the underside
@@ -607,7 +632,7 @@
     B.part = 'extras';
     for (const e of o.extras || []) {
       const tint = e.tint || [1, 1, 1];
-      B.box(e.x, e.z, e.w, e.d, 0, e.h, e.rot || 0, e.style || null, tint, e.seed || 0, e.roof ? { roof: e.roof } : {});
+      B.box(e.x, e.z, e.w, e.d, 0, e.h, e.rot || 0, e.style || null, tint, e.seed || 0, { roof: e.roof, noTop: e.noTop });
       if (e.parapet !== false && e.style && e.style !== 'glass') B.box(e.x, e.z, e.w + 0.5, e.d + 0.5, e.h, e.h + 0.6, e.rot || 0, null, mul(tint, 0.5), 0, {});
       if (e.waterTower) waterTower(B, e.x + e.waterTower[0], e.z + e.waterTower[1], e.h + (e.parapet === false ? 0 : 0.6));
     }
@@ -780,27 +805,34 @@
       }
       return h;
     }
-    // shops on the street front (and round the corner on a corner lot); plain walls behind
-    let shops = null;
+    // shops on the street front (and round the corner on a corner lot); plain walls behind; and the
+    // side walls a neighbour stands against (or an empty lot shows) are blank: no windows in a party wall
+    let shops = null, blank = null, edges = null;
     if (info.face) {
       shops = [info.face];
       if (info.through) shops.push([-info.face[0], -info.face[1]]); // (a shallow block: a street on both sides)
       if (info.cornerSide) shops.push(info.axis === 'x' ? [info.cornerSide, 0] : [0, info.cornerSide]);
+      const has = (q) => shops.some((p) => p[0] === q[0] && p[1] === q[1]);
+      blank = (info.axis === 'x' ? [[-1, 0], [1, 0]] : [[0, -1], [0, 1]]).filter((q) => !has(q));
+      edges = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter((q) => !blank.some((p) => p[0] === q[0] && p[1] === q[1])); // (what the cornice runs along)
     }
-    B.box(x, z, bw, bd, 0, h, 0, style, tint, seed, { shops });
+    B.box(x, z, bw, bd, 0, h, 0, style, tint, seed, { shops, blank });
     const masonry = style === 'brick' || style === 'stone' || style === 'loft';
-    let top = h;
+    let top = h, crest = h;
     B.part = 'cornices';
     if (masonry || style === 'office') {
-      // a belt course over the shopfronts, the cornice (and on the old ones a deeper one over it)
-      if (h > S.floor * 2.5) B.box(x, z, bw + 0.24, bd + 0.24, S.floor - 0.05, S.floor + 0.28, 0, null, mul(tint, style === 'stone' ? 0.8 : 0.6), 0, { noTop: true });
-      B.box(x, z, bw + 0.3, bd + 0.3, h, h + 0.55, 0, null, mul(tint, style === 'brick' || style === 'loft' ? 0.5 : 0.62), 0, {});
-      top = h + 0.55;
-      if (masonry && r() < 0.5) { B.box(x, z, bw + 0.9, bd + 0.9, h + 0.55, h + 0.85, 0, null, mul(tint, 0.44), 0, { bottom: true }); top = h + 0.85; }
+      // a belt course over the shopfronts, the cornice (and on the old ones a deeper one over it).
+      // In a row they stand out along the fronts and stop at the party walls (the belt course only
+      // over the shops); a building standing on its own has them all the way round
+      if (h > S.floor * 2.5) band(B, x, z, bw, bd, S.floor - 0.05, S.floor + 0.28, 0.12, mul(tint, style === 'stone' ? 0.8 : 0.6), shops, { noTop: true });
+      band(B, x, z, bw, bd, h, h + 0.55, 0.15, mul(tint, style === 'brick' || style === 'loft' ? 0.5 : 0.62), edges, {});
+      crest = h + 0.55;
+      if (masonry && r() < 0.5) { band(B, x, z, bw, bd, h + 0.55, h + 0.85, 0.45, mul(tint, 0.44), edges, { bottom: true }); crest = h + 0.85; }
+      top = crest;
       // a loft's stepped parapet: the middle of the front stands up over the rest
       if (style === 'loft' && info.face && r() < 0.6) {
         const [fx, fz] = info.face, W = fx ? bd : bw;
-        B.box(x + fx * (bw / 2 - 0.25), z + fz * (bd / 2 - 0.25), fx ? 0.5 : W * 0.4, fx ? W * 0.4 : 0.5, top, top + 1.6, 0, null, mul(tint, 0.5), 0, {});
+        B.box(x + fx * (bw / 2 - 0.25), z + fz * (bd / 2 - 0.25), fx ? 0.5 : W * 0.4, fx ? W * 0.4 : 0.5, crest, crest + 1.6, 0, null, mul(tint, 0.5), 0, {});
       }
     }
     // the broken roofline of a derelict
@@ -808,6 +840,15 @@
     if (info.face) frontage(B, x, z, bw, bd, h, style, tint, seed, info);
     roofTop(B, x, z, bw, bd, top, h, style);
     return h;
+  }
+
+  // a band round a building (a belt course, a cornice) standing out from its walls by `out`: all the
+  // way round, or (faces: the outward normals) out past those faces only, and flush with the rest (the
+  // party walls a neighbour stands against: a hair inside them, so the two don't fight)
+  function band(B, x, z, bw, bd, y0, y1, out, col, faces, o) {
+    const e = (a, b) => (!faces || faces.some((q) => q[0] === a && q[1] === b) ? out : -0.01);
+    const x0 = x - bw / 2 - e(-1, 0), x1 = x + bw / 2 + e(1, 0), z0 = z - bd / 2 - e(0, -1), z1 = z + bd / 2 + e(0, 1);
+    B.box((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, y0, y1, 0, null, col, 0, o);
   }
 
   // the front (and the back, on an alley): bays up a greystone, awnings over the shops, a
@@ -898,7 +939,7 @@
     const along = A.axis, span = along === 'x' ? A.d : A.w;
     const sw = Math.min(span - 2, 12);
     if (sw < 5) return;
-    const y0 = nh + 1.2, y1 = Math.min(A.h - 1.2, y0 + sw * 0.5);
+    const y0 = Math.max(nh + 1.2, 4.4), y1 = Math.min(A.h - 1.2, y0 + sw * 0.5); // (painted up where it's seen over the roofs, not at the shop's height)
     if (y1 - y0 < 2.5) return;
     const t = Math.floor(r() * 8), col = t % 2, row = Math.floor(t / 2);
     const u0 = col * 0.5 * 4, u1 = (col * 0.5 + 0.5) * 4, v0 = (1 - (row + 1) * 0.25) * 4, v1 = (1 - row * 0.25) * 4;
@@ -1709,7 +1750,8 @@
     active: null,
     // o: { seed, campus:[x0,z0,x1,z1], gridX:[], gridZ:[], street, radius, hub:[x,z], marshX,
     //      ferris:[x,z], track:{x0,x1,z0,z1,y,span}, keepClear:[[x0,z0,x1,z1]],
-    //      extras:[{x,z,w,d,h,style,tint,parapet,waterTower}], boxes:[{x,z,w,d,y0,y1,...}], haze, sky... }
+    //      extras:[{x,z,w,d,h,style,tint,parapet,waterTower,noTop}], boxes:[{x,z,w,d,y0,y1,...}],
+    //      exterior:[[x0,z0,x1,z1,y]] (the zone's open floors and roofs, for the cloud shadows), haze, sky... }
     build(o) {
       const t0 = performance.now();
       // (QA: City.auditNext asks the next walkable city to list everything it places)
@@ -1748,6 +1790,8 @@
             litChance: { value: S ? S.lit : 0 },
             street: { value: o.walk && !(S && S.noShops) ? 1 : 0 },
             shabby: { value: k === 'derelict' ? 0.75 : k === 'brick' || k === 'loft' ? 0.3 : 0.12 },
+            blankCol: { value: new THREE.Vector3(...(S && S.blank ? S.blank.slice(0, 3) : [0.5, 0.5, 0.5])) },
+            blankGrid: { value: new THREE.Vector2(...(S && S.blank ? S.blank.slice(3) : [1, 1])) },
           }),
           vertexShader: VERT,
           fragmentShader: FRAG,
@@ -1794,7 +1838,7 @@
       if (walk) for (const q of walk.open) shadeRects.push(q);
       if (shadeRects.length) {
         const sg = new Group();
-        for (const [x0, z0, x1, z1] of shadeRects) sg.quad([[x0, 0.02, z0], [x1, 0.02, z0], [x1, 0.02, z1], [x0, 0.02, z1]], null, [1, 1, 1], [0, 1, 0], 0);
+        for (const [x0, z0, x1, z1, y = 0] of shadeRects) sg.quad([[x0, y + 0.02, z0], [x1, y + 0.02, z0], [x1, y + 0.02, z1], [x0, y + 0.02, z1]], null, [1, 1, 1], [0, 1, 0], 0);
         if (walk) for (const [r0, r1, a0, a1] of walk.farm) {
           const C2 = o.centre, P = (rr, a) => [C2[0] + Math.cos(a) * rr, 0.2, C2[1] + Math.sin(a) * rr];
           sg.quad([P(r0, a0), P(r0, a1), P(r1, a1), P(r1, a0)], null, [1, 1, 1], [0, 1, 0], 0);
@@ -1887,7 +1931,7 @@
           return !(x > q[0] && x < q[2] && z > q[1] && z < q[3]);
         },
         stats: { buildMs: Math.round(performance.now() - t0), tris: B ? Object.keys(B.g).reduce((s, k) => s + B.g[k].idx.length / 3, 0) : 0, parts: B ? B.parts : null },
-        audit: B && B.audit, // (o.audit: every box placed, [x0, z0, x1, z1, y0, y1, part, solid])
+        audit: B && B.audit, // (o.audit: every box placed, [x0, z0, x1, z1, y0, y1, part, solid, corners])
         update(dt, camera) { City.update(this, dt, camera); },
         // sample how shaded by clouds a point is right now (0 = clear .. 1 = full shadow)
         cloudShadeAt(x, z) { return City.cloudShadeAt(this, x, z); },
