@@ -822,13 +822,13 @@
     B.part = 'cornices';
     if (masonry || style === 'office') {
       // a belt course over the shopfronts, the cornice (and on the old ones a deeper one over it).
-      // In a row they run along the fronts and stop at the party walls; a building standing on its
-      // own has them all the way round
-      if (h > S.floor * 2.5) band(B, x, z, bw, bd, S.floor - 0.05, S.floor + 0.28, 0.12, mul(tint, style === 'stone' ? 0.8 : 0.6), shops, { bottom: true });
+      // In a row they stand out along the fronts and stop at the party walls (the belt course only
+      // over the shops); a building standing on its own has them all the way round
+      if (h > S.floor * 2.5) band(B, x, z, bw, bd, S.floor - 0.05, S.floor + 0.28, 0.12, mul(tint, style === 'stone' ? 0.8 : 0.6), shops, { noTop: true });
       band(B, x, z, bw, bd, h, h + 0.55, 0.15, mul(tint, style === 'brick' || style === 'loft' ? 0.5 : 0.62), edges, {});
       crest = h + 0.55;
       if (masonry && r() < 0.5) { band(B, x, z, bw, bd, h + 0.55, h + 0.85, 0.45, mul(tint, 0.44), edges, { bottom: true }); crest = h + 0.85; }
-      top = edges ? h : crest; // (a row building's roof is behind its parapet; the free-standing one's is the cornice's top)
+      top = crest;
       // a loft's stepped parapet: the middle of the front stands up over the rest
       if (style === 'loft' && info.face && r() < 0.6) {
         const [fx, fz] = info.face, W = fx ? bd : bw;
@@ -843,14 +843,12 @@
   }
 
   // a band round a building (a belt course, a cornice) standing out from its walls by `out`: all the
-  // way round, or (faces: the outward normals) along those faces only, turning the corners between them
+  // way round, or (faces: the outward normals) out past those faces only, and flush with the rest (the
+  // party walls a neighbour stands against: a hair inside them, so the two don't fight)
   function band(B, x, z, bw, bd, y0, y1, out, col, faces, o) {
-    if (!faces) { B.box(x, z, bw + out * 2, bd + out * 2, y0, y1, 0, null, col, 0, o); return; }
-    const has = (a, b) => faces.some((q) => q[0] === a && q[1] === b);
-    for (const [fx, fz] of faces) {
-      if (fz) { const e0 = has(-1, 0) ? out : 0, e1 = has(1, 0) ? out : 0; B.box(x + (e1 - e0) / 2, z + fz * (bd / 2), bw + e0 + e1, out * 2, y0, y1, 0, null, col, 0, o); }
-      else { const e0 = has(0, -1) ? out : 0, e1 = has(0, 1) ? out : 0; B.box(x + fx * (bw / 2), z + (e1 - e0) / 2, out * 2, bd + e0 + e1, y0, y1, 0, null, col, 0, o); }
-    }
+    const e = (a, b) => (!faces || faces.some((q) => q[0] === a && q[1] === b) ? out : -0.01);
+    const x0 = x - bw / 2 - e(-1, 0), x1 = x + bw / 2 + e(1, 0), z0 = z - bd / 2 - e(0, -1), z1 = z + bd / 2 + e(0, 1);
+    B.box((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, y0, y1, 0, null, col, 0, o);
   }
 
   // the front (and the back, on an alley): bays up a greystone, awnings over the shops, a
