@@ -40,7 +40,7 @@
     fence: 1132,
     wall: { inner: 1128, outer: 1136, height: 18, top: 34.5, towers: 20, cordon: 1110 },
     marshX: 420, // the dried-up lake: the marsh
-    hub: [96, 360],
+    hub: [132, 374], // (in the middle of its block, Halsted to Clinton, Monroe to Adams: not on a junction)
     ferris: [458, 84],
     street: 12, // default street width, kerb to kerb
     sidewalk: 3.2, // pavement between the kerb and the building fronts
@@ -74,11 +74,11 @@
     // places worth a name on the map (and a building to go with most of them)
     landmarks: [
       { id: 'testing_center', name: 'Aptitude Testing Center', x: 40, z: 35, icon: 'seal' },
-      { id: 'hub', name: 'The Hub', x: 96, z: 360, icon: 'hub' },
+      { id: 'hub', name: 'The Hub', x: 132, z: 374, icon: 'hub' },
       { id: 'merciless_mart', name: 'Merciless Mart', x: -128, z: 310, w: 50, d: 40, icon: 'candor' },
       { id: 'erudite_hq', name: 'Erudite Headquarters', x: 284, z: 310, w: 52, d: 40, icon: 'erudite' },
       { id: 'abnegation_hall', name: 'Abnegation Council Hall', x: -280, z: -108, w: 34, d: 26, icon: 'abnegation' },
-      { id: 'dauntless_compound', name: 'The Dauntless Compound', x: 360, z: -108, w: 40, d: 30, icon: 'dauntless' },
+      { id: 'dauntless_compound', name: 'The Dauntless Compound', x: 356, z: -108, w: 48, d: 30, icon: 'dauntless' }, // (with the roof they jump from on its west side)
       { id: 'ferris', name: 'The Old Pier', x: 458, z: 84, icon: 'wheel' },
       { id: 'hancock', name: 'The Hancock Building', x: 208, z: 246, w: 30, d: 30, icon: 'tower' },
       { id: 'fence_gate', name: 'The Fence Gate', x: -1065.6, z: 278, icon: 'gate' },
@@ -225,7 +225,8 @@
             const a = (L / n) * m + (m ? 0.6 : 0), b = (L / n) * (m + 1) - (m < n - 1 ? 0.6 : 0);
             fields.push({ r: along ? [q[0], q[1] + a, q[2], q[1] + b] : [q[0] + a, q[1], q[0] + b, q[3]], crop: crop() });
           }
-          if (r() < 0.4) hedges.push(along ? [q[0], q[3] + 0.5, q[2], q[3] + 1.1] : [q[2] + 0.5, q[1], q[2] + 1.1, q[3]]);
+          // (a hedge on the quarter's far side: on the verge, clear of any road by 20 cm)
+          if (r() < 0.4) hedges.push(along ? [q[0], q[3] + 0.2, q[2], q[3] + 0.8] : [q[2] + 0.2, q[1], q[2] + 0.8, q[3]]);
         });
       }
       return (this._farms = { roads, fields, orchards, steads, hedges });

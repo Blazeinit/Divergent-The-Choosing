@@ -103,7 +103,7 @@
       g.fillRect(X(cp[0]), Y(cp[1]), (cp[2] - cp[0]) * s, (cp[3] - cp[1]) * s);
       // the Hub's plaza and tower
       g.fillStyle = '#26282c'; g.beginPath(); g.arc(X(CM.hub[0]), Y(CM.hub[1]), 50 * s, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#0c0d0f'; g.fillRect(X(CM.hub[0] - 25.5), Y(CM.hub[1] - 25.5), 51 * s, 51 * s);
+      g.fillStyle = '#0c0d0f'; g.fillRect(X(CM.hub[0] - 21), Y(CM.hub[1] - 21), 42 * s, 42 * s);
       // landmark footprints
       g.fillStyle = '#1b1c1f';
       for (const l of CM.landmarks) if (l.w && !l.outside) g.fillRect(X(l.x - l.w / 2), Y(l.z - l.d / 2), l.w * s, l.d * s);

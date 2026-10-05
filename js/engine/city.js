@@ -460,6 +460,8 @@
       const c = Math.cos(rot || 0), s = Math.sin(rot || 0);
       const P = (lx, lz) => [cx + lx * c + lz * s, cz - lx * s + lz * c];
       const pts = [P(-w / 2, -d / 2), P(w / 2, -d / 2), P(w / 2, d / 2), P(-w / 2, d / 2)];
+      // (QA: everything placed, and by what)
+      if (this.audit) { const xs = pts.map((q) => q[0]), zs = pts.map((q) => q[1]); this.audit.push([Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), y0, y1, this.part, o.solid === false ? 0 : 1]); }
       // a walkable city keeps the footprint of everything standing on the ground: the zone
       // turns them into colliders (rotated ones by their bounding box)
       if (this.solids && o.solid !== false && y0 <= 0.3 && y1 - y0 > 0.8) {
@@ -500,6 +502,7 @@
     // an n-sided prism (water towers, tanks, pillars)
     prism(cx, cz, r, y0, y1, n, col, cap) {
       const g = this.g.plain;
+      if (this.audit) this.audit.push([cx - r, cz - r, cx + r, cz + r, y0, y1, this.part, 1]);
       for (let k = 0; k < n; k++) {
         const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
         const ax = cx + Math.cos(a0) * r, az = cz + Math.sin(a0) * r, bx = cx + Math.cos(a1) * r, bz = cz + Math.sin(a1) * r;
@@ -526,6 +529,7 @@
   /* ------------------------------ city layout ------------------------------ */
   function generate(o) {
     const B = new Builder(o.seed || 7);
+    if (o.audit) B.audit = [];
     const r = B.r;
     const [cx0, cz0, cx1, cz1] = o.campus;
     const centre = o.centre || [(cx0 + cx1) / 2, (cz0 + cz1) / 2];
@@ -600,6 +604,7 @@
     }
 
     // hand-placed buildings (filling the zone's own block around the playable area)
+    B.part = 'extras';
     for (const e of o.extras || []) {
       const tint = e.tint || [1, 1, 1];
       B.box(e.x, e.z, e.w, e.d, 0, e.h, e.rot || 0, e.style || null, tint, e.seed || 0, e.roof ? { roof: e.roof } : {});
@@ -608,12 +613,17 @@
     }
     // and anything else the zone wants standing up there (o.boxes: [{ x, z, w, d, y0, y1, rot, style, tint, roof }])
     for (const b of o.boxes || []) B.box(b.x, b.z, b.w, b.d, b.y0 || 0, b.y1, b.rot || 0, b.style || null, b.tint || [0.5, 0.5, 0.5], b.seed || 0, b.roof ? { roof: b.roof } : {});
+    B.part = 'the Hub';
     if (hub && !o.noHubTower) theHub(B, hub[0], hub[1]); // (not when you're standing inside it)
+    B.part = 'the Ferris wheel';
     if (o.ferris) ferrisWheel(B, o.ferris[0], o.ferris[1], centre);
+    B.part = 'the L';
     if (o.track) elevatedTrack(B, o.track, xs, walk ? walk.sidewalk || 3 : 0);
+    B.part = 'other';
     if (walk) {
-      for (const l of walk.landmarks || []) if (LANDMARKS[l.id]) LANDMARKS[l.id](B, l);
-      for (const f in walk.homes || {}) homeFor(B, f, walk.homes[f]);
+      for (const l of walk.landmarks || []) if (LANDMARKS[l.id]) { B.part = 'landmark:' + l.id; LANDMARKS[l.id](B, l); }
+      for (const f in walk.homes || {}) { B.part = 'home:' + f; homeFor(B, f, walk.homes[f]); }
+      B.part = 'other';
       theFence(B, centre, walk, walk.gate, marshX);
       if (walk.edge) farmland(B, centre);
       for (const sg of walk.signs || []) sign(B, sg.x, sg.y, sg.z, sg.rot, sg.w, sg.h, sg.tex);
@@ -1095,11 +1105,13 @@
     },
     // the Dauntless compound: a glass building over the Pit; a hole in a roof next door
     dauntless_compound(B, l) {
-      const { x, z, w, d } = l;
-      B.box(x, z, w, d, 0, 11.1, 0, 'glass', [0.55, 0.55, 0.58], 706, { roof: [0.12, 0.12, 0.13] });
-      B.box(x, z, w + 0.6, d + 0.6, 11.1, 11.8, 0, null, [0.14, 0.14, 0.15], 0, {});
-      B.box(x - w / 2 - 9, z, 14, d, 0, 18, 0, 'derelict', [0.6, 0.58, 0.56], 707); // the roof they jump from
-      sign(B, x, 8.5, z + d / 2 + 0.06, 0, 6, 6, () => DV.Tex.emblem('dauntless', '#e8502a', '#151515', 256));
+      // the glass front of the compound, and against its west wall the old block whose roof they
+      // jump from (inside the block: State Street runs past it, not under it)
+      const { x, z, w, d } = l, R = 8, gx = x + R / 2, gw = w - R;
+      B.box(gx, z, gw, d, 0, 11.1, 0, 'glass', [0.55, 0.55, 0.58], 706, { roof: [0.12, 0.12, 0.13] });
+      B.box(gx, z, gw + 0.6, d + 0.6, 11.1, 11.8, 0, null, [0.14, 0.14, 0.15], 0, {});
+      B.box(x - w / 2 + R / 2, z, R, d, 0, 18, 0, 'derelict', [0.6, 0.58, 0.56], 707);
+      sign(B, gx, 8.5, z + d / 2 + 0.06, 0, 6, 6, () => DV.Tex.emblem('dauntless', '#e8502a', '#151515', 256));
     },
     // the Hancock: a dark tapering tower with two antennas, the zip line's top
     hancock(B, l) {
@@ -1339,7 +1351,7 @@
 
   // the Hub: a bundle of nine black glass tubes stepping up to two antennas
   function theHub(B, x, z) {
-    const T = 17;
+    const T = 14; // (nine tubes, 42 m across: it fits its block)
     const H = [[118, 178, 118], [178, 236, 160], [96, 160, 96]];
     const tint = [0.7, 0.72, 0.76];
     for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
@@ -1604,6 +1616,8 @@
     //      extras:[{x,z,w,d,h,style,tint,parapet,waterTower}], boxes:[{x,z,w,d,y0,y1,...}], haze, sky... }
     build(o) {
       const t0 = performance.now();
+      // (QA: City.auditNext asks the next walkable city to list everything it places)
+      if (o.walk && this.auditNext) { o = Object.assign({ audit: true }, o); this.auditNext = false; }
       const B = generate(o);
       const group = new THREE.Group();
       group.name = 'city';
@@ -1777,6 +1791,7 @@
           return !(x > q[0] && x < q[2] && z > q[1] && z < q[3]);
         },
         stats: { buildMs: Math.round(performance.now() - t0), tris: B ? Object.keys(B.g).reduce((s, k) => s + B.g[k].idx.length / 3, 0) : 0, parts: B ? B.parts : null },
+        audit: B && B.audit, // (o.audit: every box placed, [x0, z0, x1, z1, y0, y1, part, solid])
         update(dt, camera) { City.update(this, dt, camera); },
         // sample how shaded by clouds a point is right now (0 = clear .. 1 = full shadow)
         cloudShadeAt(x, z) { return City.cloudShadeAt(this, x, z); },

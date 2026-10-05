@@ -7,6 +7,7 @@
 const L = require('./lib.js');
 const DV_WALL = () => '1128–1136 m';
 L.run('build 4: the walkable city', async (p, T, errs) => {
+  await p.evaluate(() => { DV.City.auditNext = true; }); // (the city lists everything it puts up)
   await L.quickStart(p);
   const ev = (fn, a) => p.evaluate(fn, a);
   await ev(() => {
@@ -106,6 +107,34 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
   });
   T.ok(lcols.n > 100 && lcols.inRoad === 0 && lcols.gap < 22, 'the L\'s columns all stand on the pavement, none in a road (longest span ' + lcols.gap + ' m)', lcols);
   function DV_HOUSE_FACE() { return -309.6 + 0.8 + 0.01; } // (the house's front wall, east of the pavement point)
+
+  /* ---------------- nothing in the road ---------------- */
+  const road = await ev(() => {
+    const CM = DV.CityMap, z = DV.World.current, city = z.city, c = city.centre, edge = city.walk.edge, end = CM.marshX - 4;
+    // every carriageway, kerb to kerb (the streets end at the marsh), and the farm roads
+    const roads = [];
+    for (const av of CM.avenues) { const [k0, k1] = CM.road(av); roads.push([av.name, k0, c[1] - edge, k1, c[1] + edge]); }
+    for (const st of CM.streets) { const [k0, k1] = CM.road(st); roads.push([st.name, c[0] - edge, k0, end, k1]); }
+    for (const q of CM.farms().roads) roads.push(['a farm road', q[0], q[1], q[2], q[3]]);
+    const cp = CM.campus, hits = [];
+    // (the city's own roads stop at its edge: past it, only the farm roads carry on)
+    const inCity = (x, z) => Math.hypot(x - c[0], z - c[1]) < edge;
+    const on = (x0, z0, x1, z1) => roads.find((q) => (q[0] === 'a farm road' || inCity((x0 + x1) / 2, (z0 + z1) / 2)) && Math.min(x1, q[3]) - Math.max(x0, q[1]) > 0.05 && Math.min(z1, q[4]) - Math.max(z0, q[2]) > 0.05);
+    for (const [x0, z0, x1, z1, y0, y1, part] of city.audit || []) {
+      if (y0 > 2.4 || y1 < 0.12) continue; // (overhead, or paint)
+      if (x0 > cp[0] - 1 && x1 < cp[2] + 1 && z0 > cp[1] - 1 && z1 < cp[3] + 1) continue; // (the Testing Center's own grounds)
+      if (x0 > end) continue; // (out in the marsh)
+      const q = on(x0, z0, x1, z1);
+      if (q) hits.push([part, q[0], +((x0 + x1) / 2).toFixed(1), +((z0 + z1) / 2).toFixed(1), +(x1 - x0).toFixed(1), +(z1 - z0).toFixed(1)]);
+    }
+    // and the street furniture (parked cars aside: they're in the parking lane)
+    const kitHits = [];
+    for (const ch of z.streetKit.chunks.values()) for (const it of ch.items) if (!it.car && it.x < end && on(it.x - 0.2, it.z - 0.2, it.x + 0.2, it.z + 0.2)) kitHits.push([it.name, +it.x.toFixed(1), +it.z.toFixed(1)]);
+    const hub = CM.landmark('hub'), comp = CM.landmark('dauntless_compound');
+    return { boxes: (city.audit || []).length, hits, kitHits, hub: [hub.x, hub.z], comp: [comp.x, comp.w] };
+  });
+  T.ok(road.boxes > 10000 && road.hits.length === 0, 'nothing the city puts up stands in a road or a farm road (' + road.boxes + ' pieces checked): not the Hub, not the Dauntless compound, not a hedge', road.hits.slice(0, 8));
+  T.ok(road.kitHits.length === 0, 'and none of the street furniture is off the pavement', road.kitHits.slice(0, 8));
 
   /* ---------------- the street furniture ---------------- */
   const kit = await ev(() => {
@@ -313,7 +342,7 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     DV.WorldMap.draw(cv);
     const W = DV.WorldMap, T0 = W.T;
     const tipAt = (x, z) => W.tip(T0.w / 2 + (x - T0.cx) * T0.s, T0.h / 2 + (z - T0.cz) * T0.s);
-    const r = { view: DV.RPGMenu.mapView, you: W.you(), hits: W._hits.map((h) => h.tip), tipHub: tipAt(96, 360), tipStreet: tipAt(-200, 150), tipOut: tipAt(-1250, 35), tipFarm: tipAt(-700, 35) };
+    const r = { view: DV.RPGMenu.mapView, you: W.you(), hits: W._hits.map((h) => h.tip), tipHub: tipAt(DV.CityMap.hub[0], DV.CityMap.hub[1]), tipStreet: tipAt(-200, 150), tipOut: tipAt(-1250, 35), tipFarm: tipAt(-700, 35) };
     const z0 = W.zoom;
     QA.click('#rpgmenu .btn', '+');
     r.zoomed = W.zoom > z0;
