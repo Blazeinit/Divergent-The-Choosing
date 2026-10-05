@@ -176,7 +176,7 @@
       el('div', 'h', 'Audio', body);
       range('Master volume', 'masterVolume', 0, 1, 0.05);
       range('Music volume', 'musicVolume', 0, 1, 0.05);
-      toggle('Main menu theme song (streams from YouTube)', 'menuTheme');
+      toggle('Main menu theme song (streams from SoundCloud / YouTube)', 'menuTheme');
       range('Effects & ambience', 'sfxVolume', 0, 1, 0.05);
       toggle('Spoken PA announcements (speech synthesis)', 'paVoice');
       toggle('Room reverb', 'reverb');
@@ -214,7 +214,8 @@
         '<div class="sep"></div>' +
         '<p><span class="accent">Design, code, writing & procedural art</span><br>Built with HTML, CSS, JavaScript and Three.js (r149, MIT License).</p>' +
         '<p><span class="accent">Inspirations</span><br>The Elder Scrolls III: Morrowind · early MMORPG world design · Dreamcast & PS2-era environments · PS1 character art.</p>' +
-        '<p><span class="accent">Technology notes</span><br>Every texture, character, sound and piece of music is generated procedurally at runtime — no external assets are required to play. The one exception is the main menu\'s theme song, which streams from YouTube in YouTube\'s own player when you\'re online (it isn\'t part of the game; with no connection the menu plays its own music).</p>' +
+        '<p><span class="accent">Technology notes</span><br>Every texture, character, sound and piece of music is generated procedurally at runtime — no external assets are required to play. The one exception is the main menu\'s theme song, which streams from SoundCloud (or YouTube) in the service\'s own player when you\'re online: it isn\'t part of the game, and with no connection the menu plays its own music.</p>' +
+        '<p><span class="accent">Main menu theme</span><br>' + U.esc(DV.Config.MENU_THEME.title || '') + ', streamed from SoundCloud: all rights remain with its artists and uploader.</p>' +
         '<div class="sep"></div><p class="dim">Faction before blood.</p></div>';
     },
 

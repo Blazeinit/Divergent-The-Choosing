@@ -8,8 +8,9 @@
 // place is swapped (and built, the first time); an orb cuts to its faction; the reel goes on by
 // itself; New Game from the middle of it puts you on the rooftop for the creator, with nothing of
 // the reel left behind; and quitting back to the menu starts it again. The theme song streams in
-// YouTube's own player, in view, muted until the first click, with the menu's music stepping aside,
-// the volume from Settings, its own music back if YouTube says no, and a fade on the way out.
+// SoundCloud's own player, in view, waiting for the first click, with the menu's music stepping
+// aside and the volume from Settings; YouTube's player takes over if SoundCloud says no, the menu's
+// own music if neither will; and it fades on the way out.
 const L = require('./lib.js');
 L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs) => {
   const ev = (fn, a) => p.evaluate(fn, a);
@@ -38,48 +39,76 @@ L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs)
   T.ok(ui.orbs === 6 && ui.dots === 6 && ui.ticker > 40 && /Build 4/.test(ui.foot), 'an orb for the city and each faction, the reel\'s progress, the ticker and the version line');
   T.ok(ui.cap === 'The City' && ui.capOn, 'the reel opens on the city: "' + ui.cap + '"');
 
-  // the theme song. Opened from disk, as here, YouTube won't play: the menu keeps its own music
-  const th0 = await ev(() => ({ st: DV.MenuTheme.state(), script: !!document.getElementById('yt-api'), win: !!document.querySelector('.mm-theme') }));
-  T.ok(!th0.st.on && !th0.script && !th0.win && /disk/.test(th0.st.error), 'the theme song: from disk it doesn\'t try YouTube (it needs the page served), and the menu plays its own music', th0.st);
-  // served, it streams in YouTube's own player (stood in for here: no YouTube from the test machine)
+  // the theme song. Opened from disk, as here, nothing streams: the menu keeps its own music
+  const th0 = await ev(() => ({ st: DV.MenuTheme.state(), scripts: !!document.getElementById('yt-api') || !!document.getElementById('sc-api'), win: !!document.querySelector('.mm-theme') }));
+  T.ok(!th0.st.on && !th0.scripts && !th0.win && /disk/.test(th0.st.error), 'the theme song: from disk it doesn\'t try to stream (it needs the page served), and the menu plays its own music', th0.st);
+  // served, it streams in SoundCloud's own player, YouTube's if SoundCloud won't (both stood in for
+  // here: neither is reachable from the test machine)
   await ev(() => {
     // (as if nobody's clicked anything yet: headless Chrome counts the page as already used)
     Object.defineProperty(navigator, 'userActivation', { value: { hasBeenActive: false, isActive: false }, configurable: true });
-    window.__yt = { calls: [] };
-    const log = (n, a) => window.__yt.calls.push([n, a]);
+    const th = window.__th = { calls: [] };
+    const log = (svc, n, a) => th.calls.push([svc, n, a]);
+    th.of = (svc, n) => th.calls.filter((c) => c[0] === svc && c[1] === n);
+    window.SC = { Widget(iframe) {
+      const binds = {}, fire = (e) => setTimeout(() => binds[e] && binds[e](), 0);
+      const w = { iframe, binds, bind: (e, f) => { binds[e] = f; },
+        play: () => { log('sc', 'play'); fire('play'); }, pause: () => { log('sc', 'pause'); fire('pause'); },
+        setVolume: (v) => log('sc', 'setVolume', v), seekTo: (v) => log('sc', 'seekTo', v),
+        getCurrentSound: (cb) => cb({ title: 'Nothing But You (Cirrus Mix)', user: { username: 'amaruprod' } }) };
+      th.sc = w; fire('ready');
+      return w;
+    } };
+    window.SC.Widget.Events = { READY: 'ready', PLAY: 'play', PAUSE: 'pause', FINISH: 'finish', ERROR: 'error' };
+    DV.MenuTheme.scSrc = (url) => 'about:blank#' + encodeURIComponent(url);
     window.YT = { Player: function (slot, o) {
       const f = document.createElement('iframe'); f.width = o.width; f.height = o.height; slot.replaceWith(f);
-      this.o = o; window.__yt.p = this;
-      this.getVideoData = () => ({ title: 'Theme Song', author: 'Someone' });
-      for (const n of ['setVolume', 'playVideo', 'unMute', 'mute', 'seekTo']) this[n] = (a) => log(n, a);
-      this.destroy = () => { log('destroy'); f.remove(); };
+      this.o = o; th.yt = this;
+      this.getVideoData = () => ({ title: 'Theme Video', author: 'Someone' });
+      for (const n of ['setVolume', 'playVideo', 'unMute', 'mute', 'seekTo']) this[n] = (a) => log('yt', n, a);
+      this.destroy = () => { log('yt', 'destroy'); f.remove(); };
       setTimeout(() => o.events.onReady({ target: this }), 0);
     } };
     DV.MenuTheme.start({ force: true });
   });
   await p.waitForTimeout(150);
   const th1 = await ev(() => {
-    const f = document.querySelector('.mm-theme iframe'), r = f.getBoundingClientRect(), P = window.__yt.p;
-    return { st: DV.MenuTheme.state(), w: r.width, h: r.height, id: P.o.videoId, vars: P.o.playerVars, title: document.querySelector('.mm-theme .mt-title').textContent, hint: getComputedStyle(document.querySelector('.mm-theme .mt-hint')).display };
+    const th = window.__th, f = document.querySelector('.mm-theme iframe'), r = f.getBoundingClientRect();
+    return { st: DV.MenuTheme.state(), w: r.width, h: r.height, allow: f.allow, track: decodeURIComponent(th.sc.iframe.src), played: th.of('sc', 'play').length,
+      title: document.querySelector('.mm-theme .mt-title').textContent, hint: getComputedStyle(document.querySelector('.mm-theme .mt-hint')).display };
   });
-  T.ok(th1.id === 'RmJCKRJx9Dc' && th1.vars.autoplay === 1 && th1.vars.mute === 1 && th1.vars.loop === 1 && th1.vars.playlist === th1.id, 'served, the theme plays in YouTube\'s player: starting muted (browsers want a click first), round and round', th1.vars);
-  T.ok(th1.w >= 200 && th1.h >= 200 && th1.title === 'Theme Song — Someone' && th1.hint === 'block' && th1.st.muted, 'in a Now Playing window: the player in full view (' + th1.w + '×' + th1.h + '), the song\'s title, "click anywhere for sound"', th1);
+  T.ok(th1.st.mode === 'soundcloud' && /amaruprod\/paul-van-dyk-nothing-but-you-cirrus-mix/.test(th1.track) && /autoplay/.test(th1.allow), 'served, the theme is the SoundCloud track, in SoundCloud\'s own player', th1.track);
+  T.ok(th1.w >= 200 && th1.h >= 200 && th1.title === 'Nothing But You (Cirrus Mix) — amaruprod', 'in a Now Playing window: the player in full view (' + th1.w + '×' + th1.h + '), with the track\'s title: "' + th1.title + '"');
+  T.ok(th1.st.muted && th1.played === 0 && th1.hint === 'block', 'it waits for a click before it plays (browsers want one): "click anywhere for sound"', th1);
   await p.mouse.click(700, 440); // (anywhere on the menu)
-  await ev(() => window.__yt.p.o.events.onStateChange({ data: 1 }));
-  const th2 = await ev(() => ({ st: DV.MenuTheme.state(), unmuted: window.__yt.calls.some((c) => c[0] === 'unMute'), vol: window.__yt.calls.filter((c) => c[0] === 'setVolume').pop(), synth: DV.Audio.ready ? DV.Audio.musicKind : DV.Audio.pendingMusic, hint: getComputedStyle(document.querySelector('.mm-theme .mt-hint')).display }));
-  T.ok(th2.unmuted && !th2.st.muted && th2.st.playing && th2.vol && th2.vol[1] === th2.st.volume && th2.hint === 'none', 'the first click turns it up (to ' + th2.st.volume + ', from the master and music volumes)', th2);
+  await p.waitForTimeout(100);
+  const th2 = await ev(() => ({ st: DV.MenuTheme.state(), played: window.__th.of('sc', 'play').length, vol: window.__th.of('sc', 'setVolume').pop(), synth: DV.Audio.ready ? DV.Audio.musicKind : DV.Audio.pendingMusic, hint: getComputedStyle(document.querySelector('.mm-theme .mt-hint')).display }));
+  T.ok(th2.played === 1 && !th2.st.muted && th2.st.playing && th2.vol && th2.vol[2] === th2.st.volume && th2.hint === 'none', 'the first click starts it (at ' + th2.st.volume + ', from the master and music volumes)', th2);
   T.eq(th2.synth, 'none', 'and while it plays the menu\'s own music steps aside');
-  const th3 = await ev(() => { DV.Settings.set('musicVolume', 0.25); const v = window.__yt.calls.filter((c) => c[0] === 'setVolume').pop()[1]; DV.Settings.set('musicVolume', 0.5); return { v, on: !!document.querySelector('.mm-theme') }; });
+  const th3 = await ev(() => { DV.Settings.set('musicVolume', 0.25); const v = window.__th.of('sc', 'setVolume').pop()[2]; DV.Settings.set('musicVolume', 0.5); return { v, on: !!document.querySelector('.mm-theme') }; });
   T.ok(th3.v === 28 && th3.on, 'turning the music down in Settings turns it down too (' + th3.v + '), and leaves it playing');
-  // YouTube says no (an embed it won't allow, say): the menu's own music again
-  const th4 = await ev(() => { window.__yt.p.o.events.onError({ data: 150 }); return { st: DV.MenuTheme.state(), win: !!document.querySelector('.mm-theme'), synth: DV.Audio.ready ? DV.Audio.musicKind : DV.Audio.pendingMusic }; });
-  T.ok(!th4.win && /150/.test(th4.st.error) && th4.synth === 'menu', 'if YouTube won\'t play it, the window goes and the menu\'s own music comes back', th4);
+  await p.click('.mm-theme .mt-mute');
+  await p.waitForTimeout(80);
+  const th3b = await ev(() => ({ st: DV.MenuTheme.state(), paused: window.__th.of('sc', 'pause').length, synth: DV.Audio.ready ? DV.Audio.musicKind : DV.Audio.pendingMusic }));
+  await p.click('.mm-theme .mt-mute');
+  await p.waitForTimeout(80);
+  const th3c = await ev(() => ({ st: DV.MenuTheme.state(), played: window.__th.of('sc', 'play').length }));
+  T.ok(th3b.st.muted && th3b.paused === 1 && !th3b.st.playing && th3b.synth === 'none' && !th3c.st.muted && th3c.played === 2 && th3c.st.playing, 'its ♪ stops it (and leaves the menu quiet) and starts it again');
+  // SoundCloud says no (a track that can't be embedded, say): YouTube's player takes over
+  await ev(() => window.__th.sc.binds.error());
+  await p.waitForTimeout(100);
+  const th4 = await ev(() => { const th = window.__th; return { st: DV.MenuTheme.state(), id: th.yt && th.yt.o.videoId, vars: th.yt && th.yt.o.playerVars, on: th.of('yt', 'unMute').length + th.of('yt', 'playVideo').length, scGone: !document.body.contains(th.sc.iframe), win: !!document.querySelector('.mm-theme') }; });
+  T.ok(th4.st.mode === 'youtube' && th4.id === 'RmJCKRJx9Dc' && th4.scGone && th4.win, 'if SoundCloud won\'t play it, the YouTube video takes over in the same window', th4);
+  T.ok(th4.vars.loop === 1 && th4.vars.playlist === th4.id && th4.on >= 2, 'round and round, with the sound already on (you\'d clicked)', th4.vars);
+  // and if YouTube won't either: the menu's own music again
+  const th5 = await ev(() => { window.__th.yt.o.events.onError({ data: 150 }); return { st: DV.MenuTheme.state(), win: !!document.querySelector('.mm-theme'), synth: DV.Audio.ready ? DV.Audio.musicKind : DV.Audio.pendingMusic }; });
+  T.ok(!th5.win && /SoundCloud/.test(th5.st.error) && /150/.test(th5.st.error) && th5.synth === 'menu', 'and if neither will, the window goes and the menu\'s own music comes back', th5.st.error);
   // the window's ✕: off (and Settings has it)
   await ev(() => DV.MenuTheme.start({ force: true }));
   await p.waitForTimeout(150);
   await p.click('.mm-theme .mt-close');
-  const th5 = await ev(() => ({ setting: DV.Settings.get('menuTheme'), win: !!document.querySelector('.mm-theme'), synth: DV.Audio.ready ? DV.Audio.musicKind : DV.Audio.pendingMusic }));
-  T.ok(th5.setting === false && !th5.win && th5.synth === 'menu', 'its ✕ turns the theme off (the setting goes off with it)', th5);
+  const th6 = await ev(() => ({ setting: DV.Settings.get('menuTheme'), win: !!document.querySelector('.mm-theme'), synth: DV.Audio.ready ? DV.Audio.musicKind : DV.Audio.pendingMusic }));
+  T.ok(th6.setting === false && !th6.win && th6.synth === 'menu', 'its ✕ turns the theme off (the setting goes off with it)', th6);
   await ev(() => DV.Settings.set('menuTheme', true));
   T.ok(await ev(() => !document.querySelector('.mm-theme') && DV.Settings.get('menuTheme')), 'and Settings turns it back on (here, from disk, that still means the menu\'s own music)');
 
@@ -193,9 +222,10 @@ L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs)
   // New Game from the middle of it, away from the rooftop
   await ev(() => DV.Reel.jump('erudite'));
   await settle();
-  await ev(() => { window.__yt.calls = []; DV.MenuTheme.start({ force: true }); });
+  await ev(() => { window.__th.calls = []; DV.MenuTheme.start({ force: true }); });
   await p.waitForTimeout(150);
-  await ev(() => { DV.MenuTheme.unmute(); window.__yt.p.o.events.onStateChange({ data: 1 }); });
+  await ev(() => DV.MenuTheme.unmute());
+  await p.waitForTimeout(80);
   const roots = await ev(() => { window.__reelRoots = DV.Reel.actors.map((a) => a.m.root); return window.__reelRoots.length; });
   await p.click('#mainmenu .mm-item:has-text("New Game")');
   await p.waitForTimeout(400);
@@ -203,8 +233,8 @@ L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs)
   T.ok(ng.state === 'creator' && ng.zone === 'menu_bg' && !ng.running, 'New Game from the reading hall: the creator, on the rooftop', ng);
   T.ok(roots > 0 && ng.left === 0 && !ng.wipe, 'and nothing of the reel left behind (' + roots + ' people gone, the menu gone)');
   await p.waitForTimeout(1500);
-  const fade = await ev(() => ({ vols: window.__yt.calls.filter((c) => c[0] === 'setVolume').map((c) => c[1]), destroyed: window.__yt.calls.some((c) => c[0] === 'destroy'), win: !!document.querySelector('.mm-theme') }));
-  T.ok(fade.vols.length > 3 && fade.vols[fade.vols.length - 1] < fade.vols[0] && fade.destroyed && !fade.win, 'the theme fades out as the menu goes, and its player is gone', fade.vols.join(' '));
+  const fade = await ev(() => ({ vols: window.__th.of('sc', 'setVolume').map((c) => c[2]), paused: window.__th.of('sc', 'pause').length, gone: !document.body.contains(window.__th.sc.iframe), win: !!document.querySelector('.mm-theme') }));
+  T.ok(fade.vols.length > 3 && fade.vols[fade.vols.length - 1] < fade.vols[0] && fade.paused && fade.gone && !fade.win, 'the theme fades out as the menu goes, and its player is gone', fade.vols.join(' '));
   // back to the menu: the reel starts again
   await ev(() => { DV.Creator.close(); DV.Game.showMainMenu(); });
   await p.waitForTimeout(300);

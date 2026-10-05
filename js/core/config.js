@@ -52,9 +52,15 @@
     },
 
     INTERACT_RANGE: 2.1,
-    // the main menu's theme song: a YouTube video, streamed in YouTube's own player (js/ui/menuTheme.js);
-    // or file: a copy of your own (e.g. 'assets/audio/menu_theme.mp3'), which plays offline and from disk
-    MENU_THEME: { youtube: 'RmJCKRJx9Dc', file: null },
+    // the main menu's theme song, streamed in the service's own player (js/ui/menuTheme.js). Tried in
+    // turn: file (a copy of your own, e.g. 'assets/audio/menu_theme.mp3': plays offline and from disk),
+    // then the SoundCloud track, then the YouTube video; the synth music if none will play
+    MENU_THEME: {
+      file: null,
+      soundcloud: 'https://soundcloud.com/amaruprod/paul-van-dyk-nothing-but-you-cirrus-mix-amaru-deconstruction',
+      youtube: 'RmJCKRJx9Dc',
+      title: 'Paul van Dyk \u2014 Nothing But You (Cirrus Mix, Amaru deconstruction)',
+    },
     SAVE_PREFIX: 'divergent_b1_',
     SAVE_SLOTS: 6,
   };
@@ -70,7 +76,7 @@
     textureFilter: 'retro', // 'retro' (nearest) | 'smooth'
     masterVolume: 0.8,
     musicVolume: 0.5,
-    menuTheme: true, // the main menu's theme song (streams from YouTube; the synth music otherwise)
+    menuTheme: true, // the main menu's theme song (streams from SoundCloud or YouTube; the synth music otherwise)
     sfxVolume: 0.8,
     paVoice: false, // speech synthesis for PA announcements
     reverb: true, // room reverb on world sounds

@@ -1,44 +1,50 @@
 /* ==========================================================================
    DIVERGENT — the main menu's theme song
-   The main menu plays a theme song streamed from YouTube, in YouTube's own
-   embedded player, which sits on the menu as a little "Now Playing" window
-   (YouTube's terms want the player seen, 200 × 200 or more, and the track
-   stays where it was published: none of it is copied into the game).
+   The main menu plays a theme song streamed from SoundCloud (or, failing
+   that, YouTube) in the service's own embedded player, which sits on the
+   menu as a little "Now Playing" window: the track stays where it was
+   published, none of it is copied into the game, and the player is there
+   to be seen (YouTube's terms ask for that, at 200 × 200 or more).
    Browsers won't play sound before you've clicked or pressed something, so
-   it starts muted and the first click or key turns it up. While it plays,
-   the built-in synth music steps aside; when it can't play (the setting is
-   off, you're offline, the page was opened straight from disk rather than
-   served, or YouTube says no) the synth carries on as before.
+   the first click or key starts it. While the theme is up the built-in
+   synth music keeps quiet; when it can't play (the setting is off, you're
+   offline, the page was opened straight from disk rather than served, or
+   neither service will play it here) the synth carries on as before.
 
-   A copy of your own works too, offline and from disk: put it in assets/audio/
-   and set DV.Config.MENU_THEME.file to its path.
+   The sources, tried in turn (DV.Config.MENU_THEME):
+     file        a copy of your own in assets/audio/ (plays offline, and from disk)
+     soundcloud  a track's page on SoundCloud
+     youtube     a video's id on YouTube
 
      DV.MenuTheme.start([{ force }])   the main menu opens (force: skip the checks; QA)
      DV.MenuTheme.stop([now])          it closes: fades out (now: at once)
-     DV.MenuTheme.state()              { mode, playing, muted, title, error, volume }
+     DV.MenuTheme.state()              { mode, playing, muted, title, error, volume, on }
    ========================================================================== */
 (function () {
   'use strict';
   const DV = window.DV;
   const U = DV.U;
-  const API = 'https://www.youtube.com/iframe_api';
-  const W = 356, H = 200; // (the embed's smallest allowed side is 200)
+  const YT_API = 'https://www.youtube.com/iframe_api';
+  const SC_API = 'https://w.soundcloud.com/player/api.js';
+  const W = 356, H = 200; // (the player's window: YouTube's smallest allowed side is 200)
+  const PATIENCE = 15000; // ms for a service to answer before the next is tried
 
   const T = {
-    mode: 'builtin', player: null, audio: null, el: null, playing: false, muted: true, title: '', error: null, tok: 0, queue: [],
+    mode: 'builtin', player: null, el: null, playing: false, muted: true, title: '', error: null, tok: 0, queues: {},
 
-    // why it can't stream here ('' if it can)
+    // why it can't play here ('' if it can)
     blocked() {
       const C = DV.Config.MENU_THEME || {};
       if (!DV.Settings.get('menuTheme')) return 'off';
       if (C.file) return '';
-      if (!C.youtube) return 'no theme set';
-      if (location.protocol === 'file:') return 'the page was opened from disk (YouTube needs it served: see the README)';
+      if (!C.soundcloud && !C.youtube) return 'no theme set';
+      if (location.protocol === 'file:') return 'the page was opened from disk (the theme streams, so it needs the page served: see the README)';
       if (navigator.onLine === false) return 'offline';
       return '';
     },
     volume() { const S = DV.Settings.data; return Math.round(100 * U.clamp(S.masterVolume * S.musicVolume * 1.4, 0, 1)); },
     state() { return { mode: this.mode, playing: this.playing, muted: this.muted, title: this.title, error: this.error, volume: this.volume(), on: !!this.el }; },
+    activated() { return !!(navigator.userActivation && navigator.userActivation.hasBeenActive); },
 
     start(o) {
       o = o || {};
@@ -47,136 +53,188 @@
       const why = o.force ? '' : this.blocked();
       this.error = why || null;
       if (why) { this.mode = 'builtin'; return false; }
-      const tok = ++this.tok, C = DV.Config.MENU_THEME || {};
-      this.playing = false; this.muted = true; this.title = '';
+      const C = DV.Config.MENU_THEME || {};
+      this.sources = [];
+      if (C.file) this.sources.push(['file', C.file]);
+      if (C.soundcloud) this.sources.push(['soundcloud', C.soundcloud]);
+      if (C.youtube) this.sources.push(['youtube', C.youtube]);
+      this.errors = [];
+      this.muted = true;
       this.window();
-      if (C.file) this.fromFile(C.file, tok);
-      else this.fromYouTube(C.youtube, tok);
-      // the first click or key anywhere turns it up
+      this.setTitle(C.title || 'Main theme');
+      this.sync();
+      // the first click or key anywhere starts it
       this.gesture = () => this.unmute();
       window.addEventListener('pointerdown', this.gesture, true);
       window.addEventListener('keydown', this.gesture, true);
+      this.next();
       return true;
     },
-
-    /* ---------------- YouTube's player ---------------- */
-    fromYouTube(id, tok) {
-      this.mode = 'youtube';
-      this.api(() => {
-        if (tok !== this.tok || !this.el) return; // (the menu's gone)
-        this.player = new window.YT.Player(this.el.querySelector('.mt-slot'), {
-          width: W, height: H, videoId: id,
-          playerVars: { autoplay: 1, mute: 1, loop: 1, playlist: id, controls: 1, playsinline: 1, rel: 0, fs: 0, iv_load_policy: 3 },
-          events: {
-            onReady: () => {
-              if (tok !== this.tok) return;
-              const d = this.player.getVideoData ? this.player.getVideoData() : null;
-              this.setTitle(d && d.title ? d.title + (d.author ? ' — ' + d.author : '') : 'Main theme');
-              this.player.setVolume(this.volume());
-              this.player.playVideo();
-              // (already clicked something on the way here: sound on straight away)
-              if (navigator.userActivation && navigator.userActivation.hasBeenActive) this.unmute();
-            },
-            onStateChange: (e) => {
-              if (tok !== this.tok) return;
-              this.playing = e.data === 1;
-              if (e.data === 0) { this.player.seekTo(0); this.player.playVideo(); } // (round again)
-              this.sync();
-            },
-            onError: (e) => { if (tok === this.tok) this.fail('YouTube wouldn\'t play it here (error ' + e.data + ')'); },
-          },
-        });
-      }, tok);
+    // the next source on the list (why: what went wrong with the last)
+    next(why) {
+      if (why) this.errors.push(why);
+      clearTimeout(this.watch);
+      this.kill(this.player);
+      this.player = null; this.playing = false; this.ready = false;
+      const s = this.sources.shift();
+      if (!s) {
+        const err = this.errors.join('; ');
+        this.stop(true);
+        this.error = err; this.mode = 'builtin';
+        if (DV.Game && DV.Game.state === 'mainmenu') DV.Audio.setMusic('menu');
+        return;
+      }
+      const tok = ++this.tok, [kind, v] = s;
+      this.mode = kind;
+      const scr = this.el.querySelector('.mt-screen');
+      scr.innerHTML = '<div class="mt-slot"></div>';
+      this.el.dataset.src = kind;
+      this['from_' + kind](v, tok, scr.firstChild);
+      this.watch = setTimeout(() => { if (tok === this.tok && !this.ready) this.next(kind + ' didn\'t answer'); }, PATIENCE);
     },
-    // the IFrame API, loaded once
-    api(cb, tok) {
-      if (window.YT && window.YT.Player) { cb(); return; }
-      this.queue.push(cb);
-      if (document.getElementById('yt-api')) return;
-      const prev = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => { if (prev) prev(); const q = this.queue; this.queue = []; q.forEach((f) => f()); };
+    // a player's ready: its title, its volume, and sound if you've already clicked
+    isReady(tok, title) {
+      if (tok !== this.tok) return;
+      this.ready = true;
+      clearTimeout(this.watch);
+      if (title) this.setTitle(title);
+      this.player.setVolume(this.volume());
+      if (!this.muted || this.activated()) this.unmute();
+    },
+    // (a service's script, loaded once)
+    load(id, src, ready, cb, tok) {
+      if (ready()) { cb(); return; }
+      (this.queues[id] = this.queues[id] || []).push(cb);
+      if (document.getElementById(id)) return;
+      const flush = () => { const q = this.queues[id] || []; this.queues[id] = []; q.forEach((f) => f()); };
+      if (id === 'yt-api') { const prev = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = () => { if (prev) prev(); flush(); }; }
       const s = document.createElement('script');
-      s.id = 'yt-api'; s.src = API; s.async = true;
-      s.onerror = () => { s.remove(); this.queue = []; if (tok === this.tok) this.fail('couldn\'t reach YouTube'); };
+      s.id = id; s.src = src; s.async = true;
+      if (id !== 'yt-api') s.onload = flush;
+      s.onerror = () => { s.remove(); this.queues[id] = []; if (tok === this.tok) this.next('couldn\'t reach ' + (id === 'yt-api' ? 'YouTube' : 'SoundCloud')); };
       document.head.appendChild(s);
     },
 
-    /* ---------------- or a copy of your own ---------------- */
-    fromFile(src, tok) {
-      this.mode = 'file';
-      const a = new Audio(src);
-      a.loop = true; a.muted = true; a.volume = this.volume() / 100;
-      a.onplaying = () => { if (tok === this.tok) { this.playing = true; this.sync(); } };
-      a.onpause = () => { if (tok === this.tok) { this.playing = false; this.sync(); } };
-      a.onerror = () => { if (tok === this.tok) this.fail('couldn\'t open ' + src); };
-      this.audio = a;
-      this.setTitle(String(src).split('/').pop().replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' '));
-      this.el.querySelector('.mt-slot').innerHTML = '<div class="mt-disc"></div>';
-      a.play().catch(() => {}); // (muted, so it may start; with sound it waits for a click)
+    /* ---------------- SoundCloud's player ---------------- */
+    scSrc(url) {
+      return 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(String(url).replace('//m.soundcloud.com/', '//soundcloud.com/')) +
+        '&auto_play=false&visual=true&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&sharing=false&download=false&buying=false';
+    },
+    from_soundcloud(url, tok, slot) {
+      const f = document.createElement('iframe');
+      f.width = W; f.height = H; f.title = 'SoundCloud'; f.allow = 'autoplay; encrypted-media';
+      f.setAttribute('frameborder', '0');
+      f.src = this.scSrc(url);
+      slot.replaceWith(f);
+      this.load('sc-api', SC_API, () => !!(window.SC && window.SC.Widget), () => {
+        if (tok !== this.tok) return;
+        const w = window.SC.Widget(f), E = window.SC.Widget.Events;
+        this.player = {
+          setVolume: (v) => w.setVolume(v),
+          on: () => { w.setVolume(this.volume()); w.play(); },
+          off: () => w.pause(),
+          destroy: () => { try { w.pause(); } catch (e) { /* (gone) */ } f.remove(); },
+        };
+        w.bind(E.READY, () => w.getCurrentSound((s) => this.isReady(tok, s && s.title ? s.title + (s.user && s.user.username ? ' — ' + s.user.username : '') : '')));
+        w.bind(E.PLAY, () => { if (tok === this.tok) { this.playing = true; this.sync(); } });
+        w.bind(E.PAUSE, () => { if (tok === this.tok) { this.playing = false; this.sync(); } });
+        w.bind(E.FINISH, () => { if (tok === this.tok && !this.muted) { w.seekTo(0); w.play(); } }); // (round again)
+        w.bind(E.ERROR, () => { if (tok === this.tok) this.next('SoundCloud wouldn\'t play it here'); });
+      }, tok);
     },
 
-    /* ---------------- sound on, and who has the music ---------------- */
+    /* ---------------- YouTube's player ---------------- */
+    from_youtube(id, tok, slot) {
+      this.load('yt-api', YT_API, () => !!(window.YT && window.YT.Player), () => {
+        if (tok !== this.tok) return;
+        let yt = null;
+        const ok = () => { const d = yt.getVideoData ? yt.getVideoData() : null; this.isReady(tok, d && d.title ? d.title + (d.author ? ' — ' + d.author : '') : ''); };
+        yt = new window.YT.Player(slot, {
+          width: W, height: H, videoId: id,
+          playerVars: { autoplay: 1, mute: 1, loop: 1, playlist: id, controls: 1, playsinline: 1, rel: 0, fs: 0, iv_load_policy: 3 },
+          events: {
+            onReady: ok,
+            onStateChange: (e) => {
+              if (tok !== this.tok) return;
+              this.playing = e.data === 1;
+              if (e.data === 0) { yt.seekTo(0); yt.playVideo(); } // (round again)
+              this.sync();
+            },
+            onError: (e) => { if (tok === this.tok) this.next('YouTube wouldn\'t play it here (error ' + e.data + ')'); },
+          },
+        });
+        this.player = {
+          setVolume: (v) => yt.setVolume(v),
+          on: () => { yt.unMute(); yt.setVolume(this.volume()); yt.playVideo(); },
+          off: () => yt.mute(),
+          destroy: () => yt.destroy(),
+        };
+      }, tok);
+    },
+
+    /* ---------------- or a copy of your own ---------------- */
+    from_file(src, tok, slot) {
+      const a = new Audio(src);
+      a.loop = true;
+      a.onplaying = () => { if (tok === this.tok) { this.playing = true; this.sync(); } };
+      a.onpause = () => { if (tok === this.tok) { this.playing = false; this.sync(); } };
+      a.onerror = () => { if (tok === this.tok) this.next('couldn\'t open ' + src); };
+      a.oncanplay = () => { a.oncanplay = null; this.isReady(tok, ''); };
+      slot.innerHTML = '<div class="mt-disc"></div>';
+      this.setTitle((DV.Config.MENU_THEME || {}).title || String(src).split('/').pop().replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' '));
+      this.player = {
+        setVolume: (v) => { a.volume = v / 100; },
+        on: () => { a.volume = this.volume() / 100; a.play().catch(() => {}); },
+        off: () => a.pause(),
+        destroy: () => { a.pause(); a.removeAttribute('src'); a.load(); },
+      };
+    },
+
+    /* ---------------- sound on and off ---------------- */
     unmute() {
       this.dropGesture();
-      if (this.mode === 'youtube' && this.player && this.player.unMute) {
-        this.player.unMute(); this.player.setVolume(this.volume());
-        if (!this.playing) this.player.playVideo();
-      } else if (this.mode === 'file' && this.audio) {
-        this.audio.muted = false; this.audio.volume = this.volume() / 100;
-        this.audio.play().catch(() => {});
-      } else return;
       this.muted = false;
       if (this.el) this.el.classList.remove('muted');
+      if (this.player && this.ready) this.player.on();
       this.sync();
     },
     toggleMute() {
       if (this.muted) { this.unmute(); return; }
       this.muted = true;
-      if (this.player && this.player.mute) this.player.mute();
-      if (this.audio) this.audio.muted = true;
+      if (this.player) this.player.off();
       if (this.el) this.el.classList.add('muted');
       this.sync();
     },
-    // while the theme is audible on the main menu, the synth keeps quiet
+    // while the theme's up (or getting there) the synth keeps quiet; you can mute it and have quiet
     sync() {
       if (!DV.Game || DV.Game.state !== 'mainmenu') return;
-      DV.Audio.setMusic(this.el && this.playing && !this.muted ? 'none' : 'menu');
+      DV.Audio.setMusic(this.el ? 'none' : 'menu');
     },
-    applyVolume() {
-      if (this.player && this.player.setVolume) this.player.setVolume(this.volume());
-      if (this.audio) this.audio.volume = this.volume() / 100;
-    },
-    fail(why) {
-      this.error = why;
-      this.mode = 'builtin';
-      this.stop(true);
-      this.error = why;
-      if (DV.Game && DV.Game.state === 'mainmenu') DV.Audio.setMusic('menu');
-    },
+    applyVolume() { if (this.player && this.ready && !this.muted) this.player.setVolume(this.volume()); },
     dropGesture() {
       if (!this.gesture) return;
       window.removeEventListener('pointerdown', this.gesture, true);
       window.removeEventListener('keydown', this.gesture, true);
       this.gesture = null;
     },
+    kill(p) { try { if (p) p.destroy(); } catch (e) { /* (already gone) */ } },
 
     stop(now) {
       this.dropGesture();
+      clearTimeout(this.watch);
       this.tok++;
-      const p = this.player, a = this.audio, el = this.el;
-      this.player = null; this.audio = null; this.el = null; this.playing = false;
-      if (!p && !a && !el) return;
-      const kill = () => { try { if (p && p.destroy) p.destroy(); } catch (e) { /* (already gone) */ } if (a) { a.pause(); a.src = ''; } if (el) el.remove(); };
-      if (now || this.muted) { kill(); return; }
+      const p = this.player, el = this.el, fade = !now && p && this.ready && !this.muted;
+      this.player = null; this.el = null; this.playing = false; this.ready = false; this.sources = [];
+      if (!p && !el) return;
+      if (!fade) { this.kill(p); if (el) el.remove(); return; }
       // a short fade, the window going with it (out of the menu, which is about to go)
       if (el) { (DV.UI.root || document.body).appendChild(el); el.classList.add('leaving'); }
       let v = this.volume();
       const step = Math.max(1, v / 10);
       const iv = setInterval(() => {
         v -= step;
-        if (v <= 0) { clearInterval(iv); kill(); return; }
-        if (p && p.setVolume) p.setVolume(v);
-        if (a) a.volume = v / 100;
+        if (v <= 0) { clearInterval(iv); this.kill(p); if (el) el.remove(); return; }
+        try { p.setVolume(v); } catch (e) { /* (gone) */ }
       }, 80);
     },
 
