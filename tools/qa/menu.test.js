@@ -1,18 +1,19 @@
-// The main menu: the Y2K front end and the factions' highlights reel behind it. The menu has its
-// chrome logo, gel buttons, an orb per faction and the reel's progress; the reel opens on the city
+// The main menu: the game's own bronze-and-serif front end and the factions' highlights reel behind
+// it. The menu has its logo and oath, a framed plate of buttons, the bowls of the Choosing (one for
+// the city and each faction, with the reel's progress) and the keys along the foot; the reel opens on the city
 // with the Dauntless coming out onto the roofs across the street; the free-running line keeps to
 // what's there (every step on a roof or an obstacle, nothing run through, everything cleared,
 // three lanes that never meet) and has every move in it (vault, leap, roll, kong, climb, flip),
 // and the flip turns the body right over; each faction's highlight plays in its own place, with
-// its people at their routine, inside the draw-call budget; the wipe covers the screen before a
-// place is swapped (and built, the first time); an orb cuts to its faction; the reel goes on by
+// its people at their routine, inside the draw-call budget; the dip to black covers the screen (with
+// the next faction's mark) before a place is swapped (and built, the first time); a bowl cuts to its faction; the reel goes on by
 // itself; New Game from the middle of it puts you on the rooftop for the creator, with nothing of
 // the reel left behind; and quitting back to the menu starts it again. The theme song streams in
 // SoundCloud's own player, in view, waiting for the first click, with the menu's music stepping
 // aside and the volume from Settings; YouTube's player takes over if SoundCloud says no, the menu's
 // own music if neither will; and it fades on the way out.
 const L = require('./lib.js');
-L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs) => {
+L.run('main menu: the front end and the highlights reel', async (p, T, errs) => {
   const ev = (fn, a) => p.evaluate(fn, a);
   // the reel, run on faster than real time (software GL is slow)
   const spin = (secs, until) => ev(([secs, until]) => {
@@ -26,17 +27,20 @@ L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs)
   const ui = await ev(() => {
     const m = document.getElementById('mainmenu');
     return {
-      y2k: m.classList.contains('y2k'), title: m.querySelector('.title').textContent,
+      title: m.querySelector('.title').textContent, motto: m.querySelector('.motto').textContent,
       items: [...m.querySelectorAll('.mm-item')].map((e) => e.textContent),
-      orbs: m.querySelectorAll('.sigils .orb').length, dots: m.querySelectorAll('.reel-dots .dot').length,
+      framed: m.querySelector('.items').classList.contains('ornate') && m.querySelectorAll('.items > .orn').length === 4 && m.querySelector('.reel-cap').classList.contains('ornate'),
+      serif: /Palatino|Georgia|serif/i.test(getComputedStyle(m.querySelector('.mm-item')).fontFamily),
+      bowls: [...m.querySelectorAll('.sigils .bowl')].map((b) => b.dataset.f || 'city').join(' '),
+      drawn: [...m.querySelectorAll('.sigils .bowl canvas')].every((c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++; return n > 400; }),
       cap: m.querySelector('.reel-cap .cap-name').textContent, capOn: m.querySelector('.reel-cap').classList.contains('show'),
-      foot: m.querySelector('.foot').textContent, ticker: m.querySelector('.tk').textContent.length,
-      chrome: getComputedStyle(m.querySelector('.title')).backgroundClip || getComputedStyle(m.querySelector('.title')).webkitBackgroundClip,
+      foot: m.querySelector('.foot').textContent, keys: m.querySelectorAll('.keys .kc').length,
+      leftovers: m.querySelectorAll('.orb, .reel-dots, .ticker, .scan, .y2k, .band').length,
     };
   });
-  T.ok(ui.y2k && ui.title === 'DIVERGENT' && ui.items.join('|') === 'New Game|Continue|Load Game|Settings|Credits', 'the menu: the logo and its five buttons', ui);
-  T.ok(ui.chrome === 'text', 'the logo is chrome (a gradient clipped to the letters)', ui.chrome);
-  T.ok(ui.orbs === 6 && ui.dots === 6 && ui.ticker > 40 && /Build 4/.test(ui.foot), 'an orb for the city and each faction, the reel\'s progress, the ticker and the version line');
+  T.ok(ui.title === 'DIVERGENT' && /faction before blood/i.test(ui.motto) && ui.items.join('|') === 'New Game|Continue|Load Game|Settings|Credits', 'the menu: the logo, the oath and its five buttons', ui);
+  T.ok(ui.framed && ui.serif && !ui.leftovers, 'in the game\'s own style: serif capitals on a bronze-framed plate, nothing left of the Y2K skin', ui);
+  T.ok(ui.bowls === 'city dauntless abnegation erudite candor amity' && ui.drawn && ui.keys === 3 && /Build 4/.test(ui.foot), 'the bowls of the Choosing (the city\'s mark and each faction\'s, drawn), the keys and the version line', ui);
   T.ok(ui.cap === 'The City' && ui.capOn, 'the reel opens on the city: "' + ui.cap + '"');
 
   // the theme song. Opened from disk, as here, nothing streams: the menu keeps its own music
@@ -179,14 +183,14 @@ L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs)
     const cover = await ev(() => {
       let n = 0, seen = null;
       while (n++ < 400 && DV.Reel.trans && DV.Reel.trans.phase === 'cover') DV.Reel.update(0.02);
-      const tr = DV.Reel.trans;
+      const tr = DV.Reel.trans, w = document.querySelector('#mainmenu .reel-wipe');
       if (tr) {
-        const bands = [...document.querySelectorAll('#mainmenu .reel-wipe .band')].map((b) => parseFloat(/translateX\(([-\d.]+)vw/.exec(b.style.transform)[1]));
-        seen = { phase: tr.phase, bands, zone: DV.World.current.id, loading: getComputedStyle(document.querySelector('#mainmenu .reel-wipe .loading')).display };
+        seen = { phase: tr.phase, black: +w.querySelector('.black').style.opacity, card: w.querySelector('.cn').textContent, shown: getComputedStyle(w).display,
+          zone: DV.World.current.id, loading: getComputedStyle(w.querySelector('.loading')).display };
       }
       return seen;
     });
-    T.ok(cover && cover.bands.every((x) => Math.abs(x) < 1), id + ': the wipe covers the screen before the cut (' + (cover ? cover.zone : '?') + ' still behind it)', cover);
+    T.ok(cover && cover.shown === 'block' && cover.black > 0.99 && cover.card.toLowerCase() === id, id + ': the screen is black, with ' + (cover ? cover.card : '?') + '\'s mark, before the cut (' + (cover ? cover.zone : '?') + ' still behind it)', cover);
     if (!built) T.ok(cover && cover.phase === 'load' && cover.loading === 'block', id + ': not built yet, so it says LOADING and builds behind the wipe', cover);
     const s = await settle();
     const seg = await ev(() => {
@@ -199,18 +203,18 @@ L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs)
         r, calls: DV.Game.renderer.info.render.calls, inScene,
         camIn: cam.position.x > b.x0 - 90 && cam.position.x < b.x1 + 90 && cam.position.z > b.z0 - 90 && cam.position.z < b.z1 + 90,
         cap: document.querySelector('#mainmenu .reel-cap .cap-name').textContent,
-        orb: (document.querySelector('#mainmenu .orb.on') || { dataset: {} }).dataset.f,
+        orb: (document.querySelector('#mainmenu .bowl.on') || { dataset: {} }).dataset.f,
         acts: [...new Set(DV.Reel.actors.map((a) => a.action))].join(' '),
       };
     });
     T.ok(seg.r.id === id && seg.r.zone === zone && !seg.r.wiping, id + ': in ' + zone, s);
     T.ok(seg.inScene >= minActors, id + ': ' + seg.inScene + ' people at it (' + seg.acts + ')');
     T.ok(seg.calls < budget, id + ': ' + seg.calls + ' draw calls');
-    T.ok(seg.cap.toLowerCase() === id && seg.orb === id && seg.camIn, id + ': the caption and the orb say so, and the camera\'s in the place', seg);
+    T.ok(seg.cap.toLowerCase() === id && seg.orb === id && seg.camIn, id + ': the caption and the bowl say so, and the camera\'s in the place', seg);
   }
-  // an orb, clicked
-  await p.click('#mainmenu .orb[data-f="candor"]');
-  T.ok(await ev(() => !!DV.Reel.trans && DV.Reel.trans.to === DV.Reel.SEGMENTS.findIndex((s) => s.id === 'candor')), 'clicking Candor\'s orb cuts to Candor');
+  // a bowl, clicked
+  await p.click('#mainmenu .bowl[data-f="candor"]');
+  T.ok(await ev(() => !!DV.Reel.trans && DV.Reel.trans.to === DV.Reel.SEGMENTS.findIndex((s) => s.id === 'candor')), 'clicking Candor\'s bowl (the glass) cuts to Candor');
   await settle();
   // and on by itself, round to the start
   const next = await ev(() => { DV.Reel.t = DV.Reel.SEGMENTS[DV.Reel.i].dur - 0.1; return DV.Reel.info().id; });
@@ -293,10 +297,10 @@ L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs)
     await p.waitForTimeout(250);
     lay.push(await ev(([w, h]) => {
       const R = (q) => { const e = document.querySelector(q); return e ? e.getBoundingClientRect() : null; };
-      const box = R('#mainmenu .items'), cap = R('#mainmenu .reel-cap'), orbs = R('#mainmenu .sigils'), logo = R('#mainmenu .title'), tick = R('#mainmenu .ticker');
+      const box = R('#mainmenu .items'), cap = R('#mainmenu .reel-cap'), orbs = R('#mainmenu .sigils'), logo = R('#mainmenu .logo'), tick = R('#mainmenu .mm-foot');
       const hit = (a, b) => a && b && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
       const inView = [box, cap, orbs, logo].every((r) => r.left >= 0 && r.top >= 0 && r.right <= w + 1 && r.bottom <= h + 1);
-      return { size: w + 'x' + h, overlaps: [['menu', 'caption', hit(box, cap)], ['menu', 'orbs', hit(box, orbs)], ['caption', 'orbs', hit(cap, orbs)], ['logo', 'menu', hit(logo, box)], ['orbs', 'ticker', hit(orbs, tick)]].filter((x) => x[2]).map((x) => x[0] + '/' + x[1]), inView };
+      return { size: w + 'x' + h, overlaps: [['menu', 'caption', hit(box, cap)], ['menu', 'bowls', hit(box, orbs)], ['caption', 'bowls', hit(cap, orbs)], ['logo', 'menu', hit(logo, box)], ['bowls', 'foot', hit(orbs, tick)]].filter((x) => x[2]).map((x) => x[0] + '/' + x[1]), inView };
     }, [w, h]));
   }
   T.ok(lay.every((l) => !l.overlaps.length && l.inView), 'at 1024×600, 1920×1080 and 1280×720 nothing on the menu overlaps anything else, and it\'s all on screen', lay);

@@ -246,6 +246,7 @@
       el.innerHTML = '<div class="mt-bar"><span class="mt-led"></span><span class="mt-k">NOW PLAYING</span><span class="mt-title">Main theme</span>' +
         '<span class="mt-btn mt-mute" title="Sound on / off">♪</span><span class="mt-btn mt-close" title="Turn the menu theme off (Settings brings it back)">✕</span></div>' +
         '<div class="mt-screen"><div class="mt-slot"></div></div><div class="mt-hint">Click anywhere for sound</div>';
+      DV.UI.ornate(el);
       el.querySelector('.mt-mute').onclick = (e) => { e.stopPropagation(); DV.Audio.play('click'); this.toggleMute(); };
       el.querySelector('.mt-close').onclick = (e) => { e.stopPropagation(); DV.Audio.play('click'); DV.Settings.set('menuTheme', false); };
       host.appendChild(el);

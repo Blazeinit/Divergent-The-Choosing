@@ -68,8 +68,12 @@ L.run('side quests, menus, save/load', async (p, T, errs) => {
   try { await p.waitForFunction(() => DV.RPGMenu.tab === 'map', null, { timeout: 2000 }); } catch (e) { /* asserted below */ }
   T.eq(await ev(() => DV.RPGMenu.tab), 'map', 'number keys switch tabs');
   await L.shot(p, 'side_map');
-  await p.keyboard.press('Escape'); await p.waitForTimeout(200);
-  await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+  // (one Esc closes the menu, the next pauses: waiting for each to land, since two presses inside one
+  // slow software-rendered frame are read as one)
+  await p.keyboard.press('Escape');
+  await p.waitForFunction(() => DV.Game.state === 'playing', null, { timeout: 5000 }).catch(() => {});
+  await p.keyboard.press('Escape');
+  await p.waitForFunction(() => DV.Game.state === 'paused', null, { timeout: 5000 }).catch(() => {});
   T.ok(await ev(() => DV.Game.state === 'paused' && !!document.getElementById('pause')), 'Esc pauses');
   await p.click('#pause .mm-item:has-text("Resume")'); await p.waitForTimeout(300);
   T.eq(await ev(() => DV.Game.state), 'playing', 'Resume returns to play');

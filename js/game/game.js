@@ -289,6 +289,9 @@
           DV.UI.loading(false);
           DV.UI.showHUD(true);
           DV.UI.simMode(false);
+          // (a key pressed on the menu or while loading isn't meant for the game: an Esc that closed
+          // Credits mustn't pause it on the first frame)
+          DV.Input.endFrame();
           this.state = 'playing';
           this.hintTimer = 12;
           DV.Audio.setMusic('none');

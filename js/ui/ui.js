@@ -48,6 +48,14 @@
       window.addEventListener('unhandledrejection', (e) => this.showError(String(e.reason)));
     },
 
+    // a window in a bronze frame with bracket corners (css: .ornate, .orn)
+    ornate(e) {
+      if (!e || e.querySelector(':scope > .orn')) return e;
+      e.classList.add('ornate');
+      for (const c of ['tl', 'tr', 'bl', 'br']) el('i', 'orn ' + c, null, e);
+      return e;
+    },
+
     showError(msg) {
       if (!DV.Config.DEBUG && /ResizeObserver|pointer lock|Pointer lock/i.test(msg)) return;
       let b = document.getElementById('errbox');
@@ -274,6 +282,7 @@
       const p = el('div', 'panel', null, this.root);
       p.id = 'reading';
       p.innerHTML = '<div class="panel-title"></div><div class="body"></div><div class="foot"><span class="btn">Close [E]</span></div>';
+      this.ornate(p);
       p.querySelector('.panel-title').textContent = title || '';
       p.querySelector('.body').textContent = text || '';
       p.querySelector('.btn').onclick = () => this.closeReading();
@@ -294,6 +303,7 @@
     confirm(title, text, yes, no, labels) {
       const m = el('div', 'panel modal', null, this.root);
       m.innerHTML = '<div class="panel-title"></div><div class="body"></div><div class="foot"><span class="btn b-no"></span><span class="btn b-yes"></span></div>';
+      this.ornate(m);
       m.querySelector('.panel-title').textContent = title;
       m.querySelector('.body').textContent = text;
       m.querySelector('.b-yes').textContent = (labels && labels[0]) || 'Yes';

@@ -45,6 +45,85 @@
     return c;
   }
 
+  // the tabs' icons, engraved in bronze: a bust, a star, a satchel, a scroll, the seal, a folded map
+  function tabIcon(id) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 40;
+    c.className = 'ti';
+    const g = c.getContext('2d');
+    const gold = g.createLinearGradient(0, 4, 0, 36);
+    gold.addColorStop(0, '#f7dc9c'); gold.addColorStop(0.5, '#c8954a'); gold.addColorStop(1, '#7a5426');
+    g.fillStyle = gold; g.strokeStyle = gold; g.lineWidth = 3; g.lineJoin = 'round'; g.lineCap = 'round';
+    g.shadowColor = 'rgba(0, 0, 0, 0.9)'; g.shadowOffsetY = 1.5;
+    const P = (pts) => { g.beginPath(); pts.forEach(([x, y]) => g.lineTo(x, y)); g.closePath(); };
+    if (id === 'character') {
+      g.beginPath(); g.arc(20, 13, 7, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(6, 36); g.quadraticCurveTo(7, 22, 20, 22); g.quadraticCurveTo(33, 22, 34, 36); g.closePath(); g.fill();
+    } else if (id === 'skills') {
+      g.beginPath();
+      for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 7 : 16; g.lineTo(20 + Math.cos(a) * r, 21 + Math.sin(a) * r); }
+      g.closePath(); g.fill();
+    } else if (id === 'inventory') {
+      g.beginPath(); g.moveTo(13, 14); g.quadraticCurveTo(13, 5, 20, 5); g.quadraticCurveTo(27, 5, 27, 14); g.stroke();
+      P([[7, 14], [33, 14], [31, 35], [9, 35]]); g.fill();
+      g.fillStyle = 'rgba(40, 24, 8, 0.8)'; g.shadowColor = 'transparent'; g.fillRect(10, 19, 20, 2); g.fillRect(18, 19, 4, 6);
+    } else if (id === 'quests') {
+      g.fillRect(10, 8, 20, 24);
+      g.beginPath(); g.arc(10, 10, 4, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(30, 30, 4, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(40, 24, 8, 0.8)'; g.shadowColor = 'transparent';
+      for (let y = 13; y < 28; y += 4) g.fillRect(14, y, 12, 1.6);
+    } else if (id === 'reputation') {
+      g.beginPath(); g.moveTo(20, 4); g.lineTo(34, 9); g.quadraticCurveTo(34, 28, 20, 37); g.quadraticCurveTo(6, 28, 6, 9); g.closePath(); g.fill();
+      g.fillStyle = 'rgba(40, 24, 8, 0.85)'; g.shadowColor = 'transparent';
+      for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + (k * Math.PI * 2) / 5; g.beginPath(); g.arc(20 + Math.cos(a) * 6.5, 19 + Math.sin(a) * 6.5, 2.2, 0, Math.PI * 2); g.fill(); }
+    } else if (id === 'map') {
+      P([[5, 9], [14, 5], [26, 9], [35, 5], [35, 31], [26, 35], [14, 31], [5, 35]]); g.fill();
+      g.strokeStyle = 'rgba(40, 24, 8, 0.85)'; g.lineWidth = 1.6; g.shadowColor = 'transparent';
+      g.beginPath(); g.moveTo(14, 5); g.lineTo(14, 31); g.moveTo(26, 9); g.lineTo(26, 35); g.stroke();
+    }
+    return c;
+  }
+
+  // you, as you stand: drawn by the game's own renderer into a small target and read back into a
+  // canvas (kept until what you look like changes)
+  let portraitOf = null, portraitImg = null;
+  function portrait(cv) {
+    const R = DV.Game.renderer, app = DV.Player.model && DV.Player.model.app, w = cv.width, h = cv.height;
+    if (!R || !app) return false;
+    const g = cv.getContext('2d');
+    if (portraitOf === app && portraitImg) { g.clearRect(0, 0, w, h); g.drawImage(portraitImg, 0, 0, w, h); return true; }
+    const m = DV.Character.create(app);
+    for (let i = 0; i < 30; i++) m.animate(0.05, { speed: 0, action: 'idle' });
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xfff0d8, 0x2a2420, 0.8));
+    const key = new THREE.DirectionalLight(0xffe0b0, 0.85); key.position.set(2, 2.8, 3); scene.add(key);
+    const rim = new THREE.DirectionalLight(0xa8c0ff, 0.5); rim.position.set(-2.5, 2, -2.5); scene.add(rim);
+    m.root.rotation.y = 0.38; // (a three-quarter turn)
+    scene.add(m.root);
+    m.root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(m.root), ht = Math.max(1.2, box.max.y - box.min.y);
+    const cam = new THREE.PerspectiveCamera(22, w / h, 0.1, 40);
+    const d = (ht * 1.0) / (2 * Math.tan((22 * Math.PI) / 360));
+    cam.position.set(0.3, box.min.y + ht * 0.6, d); cam.lookAt(0, box.min.y + ht * 0.53, 0);
+    const rt = new THREE.WebGLRenderTarget(w, h);
+    const was = R.getRenderTarget(), col = R.getClearColor(new THREE.Color()), alpha = R.getClearAlpha();
+    let ok = true;
+    try {
+      R.setRenderTarget(rt); R.setClearColor(0x000000, 0); R.clear(); R.render(scene, cam);
+      const px = new Uint8Array(w * h * 4);
+      R.readRenderTargetPixels(rt, 0, 0, w, h, px);
+      const img = g.createImageData(w, h);
+      for (let y = 0; y < h; y++) img.data.set(px.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);
+      g.putImageData(img, 0, 0);
+      portraitImg = document.createElement('canvas'); portraitImg.width = w; portraitImg.height = h;
+      portraitImg.getContext('2d').drawImage(cv, 0, 0);
+      portraitOf = app;
+    } catch (e) { ok = false; }
+    R.setRenderTarget(was); R.setClearColor(col, alpha);
+    rt.dispose(); m.dispose();
+    return ok;
+  }
+
   const M = {
     el: null,
     tab: 'character',
@@ -56,14 +135,22 @@
     init() {
       const p = el('div', 'panel hidden', null, DV.UI.root);
       p.id = 'rpgmenu';
-      p.innerHTML = '<div class="tabs"></div><div class="content"></div><div class="foot"><span>TAB — close · 1-6 — tabs</span><span class="ft"></span></div>';
+      p.innerHTML = '<div class="rm-head"><div class="rm-em"><canvas width="96" height="96"></canvas></div><div class="rm-id"><div class="nm"></div><div class="sub"></div></div>' +
+        '<div class="rm-xp"><div class="k">Experience <span class="xv"></span></div><div class="bar xp"><i></i></div></div><div class="rm-where"><div class="pl"></div><div class="tm"></div></div></div>' +
+        '<div class="tabs"></div><div class="content"></div><div class="foot"><span><span class="kc">Tab</span>Close<span class="kc">1</span>\u2013<span class="kc">6</span>Pages' +
+        '<span class="kc">I</span>Inventory<span class="kc">J</span>Journal<span class="kc">M</span>Map</span><span class="ft"></span></div>';
+      DV.UI.ornate(p);
       this.el = p;
       const tabs = p.querySelector('.tabs');
       TABS.forEach(([id, name], i) => {
-        const t = el('div', 'tab', name.toUpperCase(), tabs);
+        const t = el('div', 'tab', null, tabs);
+        t.appendChild(tabIcon(id));
+        el('span', 'tl', name.toUpperCase(), t);
+        el('span', 'dot', '\u25cf', t);
         t.dataset.id = id;
+        t.title = name + ' [' + (i + 1) + ']';
+        t.onmouseenter = () => DV.Audio.play('hover');
         t.onclick = () => { DV.Audio.play('click'); this.show(id); };
-        void i;
       });
       DV.Events.on('inventory:changed', () => { if (this.isOpen() && this.tab === 'inventory') this.render(); });
       DV.Events.on('player:stats', () => { if (this.isOpen() && this.tab === 'character') this.render(); });
@@ -86,18 +173,32 @@
       this.render();
     },
     refreshTabDots() {
-      const qt = this.el.querySelector('.tab[data-id=quests]');
       const unread = DV.Quests.all().some((x) => x.q.unread);
-      qt.innerHTML = 'QUESTS' + (unread ? ' <span class="dot">●</span>' : '');
-      const ct = this.el.querySelector('.tab[data-id=character]');
-      ct.innerHTML = 'CHARACTER' + (DV.State.data.player.unspent > 0 ? ' <span class="dot">●</span>' : '');
+      this.el.querySelector('.tab[data-id=quests]').classList.toggle('new', unread);
+      this.el.querySelector('.tab[data-id=character]').classList.toggle('new', DV.State.data.player.unspent > 0);
+    },
+    // the head of the window: your mark, your name and standing, how far to the next level, where and when
+    head() {
+      const p = DV.State.data.player, F = DV.Factions, h = this.el.querySelector('.rm-head');
+      const cv = h.querySelector('.rm-em canvas'), key = (p.faction || 'seal');
+      if (cv.dataset.k !== key) { cv.dataset.k = key; DV.Tex.drawEmblem(cv.getContext('2d'), key, 96, p.faction ? (DV.Menus.FC[p.faction] || F.get(p.faction).accent) : '#b8873e'); }
+      h.querySelector('.nm').textContent = p.name || 'Initiate';
+      h.querySelector('.sub').textContent = 'Level ' + p.level + ' \u00b7 ' + (p.faction ? F.name(p.faction) : 'Undecided') + (p.upbringing && p.upbringing !== p.faction ? ' \u00b7 raised ' + F.name(p.upbringing) : '');
+      const nx = DV.Stats.xpForLevel(p.level + 1);
+      h.querySelector('.xv').textContent = p.xp + ' / ' + nx;
+      h.querySelector('.bar.xp i').style.width = Math.round(U.clamp(p.xp / Math.max(1, nx), 0, 1) * 100) + '%';
+      const zone = DV.World.current, sim = DV.Game.inSimulation();
+      const place = zone && zone.placeName && !sim ? zone.placeName(DV.Player.x, DV.Player.z) : null;
+      h.querySelector('.pl').textContent = sim ? 'The Simulation' : place ? place.name : '';
+      h.querySelector('.tm').textContent = sim ? '' : 'Day ' + DV.Clock.day() + '  \u00b7  ' + DV.Clock.str();
     },
     render() {
       this.refreshTabDots();
+      this.head();
       const c = this.el.querySelector('.content');
       c.innerHTML = '';
-      const p = DV.State.data.player;
-      this.el.querySelector('.ft').textContent = p.name + ' · Level ' + p.level + ' · Day ' + DV.Clock.day() + ' ' + DV.Clock.str();
+      c.dataset.tab = this.tab;
+      this.el.querySelector('.ft').textContent = 'Faction before blood';
       this['render_' + this.tab](c);
     },
 
@@ -105,42 +206,28 @@
     render_character(c) {
       const p = DV.State.data.player;
       const cols = el('div', 'cols', null, c);
-      const a = el('div', 'col', null, cols);
-      a.style.width = '34%';
-      const em = document.createElement('canvas');
-      em.width = em.height = 96;
-      em.style.cssText = 'width:72px;height:72px;float:right;margin:2px 0 6px 8px;';
-      DV.Tex.drawEmblem(em.getContext('2d'), p.faction || 'seal', 96, p.faction ? DV.Factions.get(p.faction).accent : '#8a7a5a');
-      a.appendChild(em);
+      const a = el('div', 'col', null, cols), b = el('div', 'col', null, cols), d = el('div', 'col', null, cols);
+      a.style.width = '33%'; b.style.width = '37%'; d.style.flex = '1';
+      // the portrait, in a frame, with a nameplate
+      const fr = el('div', 'portrait', '<canvas width="168" height="216"></canvas><div class="plate"><span class="pn"></span><span class="pf"></span></div>', a);
+      fr.querySelector('.pn').textContent = p.name;
+      fr.querySelector('.pf').textContent = p.faction ? DV.Factions.name(p.faction) + ' initiate' : 'Undecided';
+      if (!portrait(fr.querySelector('canvas'))) fr.classList.add('none');
       el('div', 'h', 'Identity', a);
-      const kv = (k, v, cls) => el('div', 'kv', '<span class="k">' + k + '</span><span class="v ' + (cls || '') + '">' + v + '</span>', a);
-      kv('NAME', U.esc(p.name));
-      kv('LEVEL', p.level);
-      const nx = DV.Stats.xpForLevel(p.level + 1);
-      kv('EXPERIENCE', p.xp + ' / ' + nx);
-      kv('SEX', p.sex === 'f' ? 'Female' : 'Male');
-      kv('RAISED', DV.Factions.name(p.upbringing));
-      kv('CANDIDATE NO.', DV.State.flag('checked_in') ? '4-17 · Group 4 · Room 4' : 'Not checked in', DV.State.flag('checked_in') ? null : 'dim');
-      kv('CURRENT FACTION', p.faction ? DV.Factions.name(p.faction).toUpperCase() : 'UNDECIDED', p.faction ? 'accent' : 'dim');
-      kv('APTITUDE RESULT', DV.Aptitude.displayResult(), DV.State.data.aptitude.status === 'complete' ? 'accent' : 'dim');
-      kv('WEARING', U.esc(this.outfitName(p.outfit)));
-      el('div', 'h', 'Condition', a);
-      kv('STAMINA', Math.round(DV.Player.stamina) + ' / 100');
-      const buffs = p.buffs || {};
-      let any = false;
-      for (const k in buffs) if (buffs[k] && buffs[k].until > DV.Clock.total()) { any = true; kv(U.esc(buffs[k].label), '+' + buffs[k].amount + ' ' + U.capitalize(buffs[k].attr), 'good'); }
-      if (!any) kv('EFFECTS', 'None', 'dim');
-      el('div', 'h', 'Journal', a);
-      const jn = DV.State.data.journal.slice(-5).reverse();
-      if (!jn.length) el('div', 'log', 'Nothing noted yet.', a);
-      for (const j of jn) el('div', 'log', '<b>' + U.formatTime(j.t) + '</b>' + U.esc(j.text), a);
+      const kv = (box, k, v, cls) => el('div', 'kv', '<span class="k">' + k + '</span><span class="v ' + (cls || '') + '">' + v + '</span>', box);
+      kv(a, 'SEX', p.sex === 'f' ? 'Female' : 'Male');
+      kv(a, 'RAISED', DV.Factions.name(p.upbringing));
+      kv(a, 'CANDIDATE NO.', DV.State.flag('checked_in') ? '4-17 · Group 4 · Room 4' : 'Not checked in', DV.State.flag('checked_in') ? null : 'dim');
+      kv(a, 'CURRENT FACTION', p.faction ? DV.Factions.name(p.faction).toUpperCase() : 'UNDECIDED', p.faction ? 'accent' : 'dim');
+      kv(a, 'APTITUDE RESULT', DV.Aptitude.displayResult(), DV.State.data.aptitude.status === 'complete' ? 'accent' : 'dim');
+      kv(a, 'WEARING', U.esc(this.outfitName(p.outfit)));
 
-      const b = el('div', 'col', null, cols);
-      b.style.width = '38%';
       el('div', 'h', 'Attributes' + (p.unspent > 0 ? ' — <span class="good">' + p.unspent + ' point' + (p.unspent > 1 ? 's' : '') + ' to spend</span>' : ''), b);
+      const descBox = el('div', 'descbox', null, d);
+      const describe = (at) => { descBox.innerHTML = '<div class="h">' + at.name + '</div><div class="desc">' + U.esc(at.desc) + '</div>'; };
       for (const at of DV.RPG.attributes) {
         const base = DV.Stats.baseAttr(at.id), cur = DV.Stats.attr(at.id);
-        const row = el('div', 'attr-row', null, b);
+        const row = el('div', 'attr-row' + (this.selAttr === at.id ? ' sel' : ''), null, b);
         let pips = '';
         for (let i = 1; i <= 10; i++) pips += '<i class="' + (i <= base ? 'on' : i <= cur ? 'buff' : '') + '"></i>';
         row.innerHTML = '<span class="nm">' + at.name + '</span><span class="val">' + cur + '</span><span class="pips">' + pips + '</span>';
@@ -148,16 +235,23 @@
           const plus = el('span', 'btn small', '+', row);
           plus.onclick = (e) => { e.stopPropagation(); if (DV.Stats.spendPoint(at.id)) { DV.Audio.play('levelup'); this.render(); } };
         }
-        row.onmouseenter = () => { this.selAttr = at.id; descBox.innerHTML = '<div class="h">' + at.name + '</div><div class="desc">' + U.esc(at.desc) + '</div>'; };
+        row.onmouseenter = () => { this.selAttr = at.id; b.querySelectorAll('.attr-row').forEach((r) => r.classList.toggle('sel', r === row)); describe(at); };
       }
       el('div', 'sep', null, b);
       el('div', 'faint', 'Attributes gate dialogue and world checks. Faction never limits them — any build can choose any faction.', b).style.fontSize = '12px';
+      describe(DV.RPG.attributes.find((x) => x.id === this.selAttr));
 
-      const d = el('div', 'col', null, cols);
-      d.style.flex = '1';
-      const descBox = el('div', null, null, d);
-      const at0 = DV.RPG.attributes.find((x) => x.id === this.selAttr);
-      descBox.innerHTML = '<div class="h">' + at0.name + '</div><div class="desc">' + U.esc(at0.desc) + '</div>';
+      el('div', 'h', 'Condition', d);
+      const st = Math.round(DV.Player.stamina);
+      el('div', 'cond', '<span class="k">STAMINA</span><div class="bar stamina"><i style="width:' + st + '%"></i></div><span class="v">' + st + '</span>', d);
+      const buffs = p.buffs || {};
+      let any = false;
+      for (const k in buffs) if (buffs[k] && buffs[k].until > DV.Clock.total()) { any = true; kv(d, U.esc(buffs[k].label), '+' + buffs[k].amount + ' ' + U.capitalize(buffs[k].attr), 'good'); }
+      if (!any) kv(d, 'EFFECTS', 'None', 'dim');
+      el('div', 'h', 'Journal', d);
+      const jn = DV.State.data.journal.slice(-5).reverse();
+      if (!jn.length) el('div', 'log', 'Nothing noted yet.', d);
+      for (const j of jn) el('div', 'log', '<b>' + U.formatTime(j.t) + '</b>' + U.esc(j.text), d);
     },
     outfitName(o) {
       if (o === 'neutral') return 'Neutral Testing Garments';

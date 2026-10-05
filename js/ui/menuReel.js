@@ -6,14 +6,14 @@
    Erudite at the reading hall's long tables, Candor arguing it out in the
    circle, Amity's harvest and the song round the fire. Each is a real place
    in the game with its own people doing their day, shot with a few camera
-   moves and cut together behind a chrome wipe. A place is built the first
+   moves and cut together through a dip to black. A place is built the first
    time the reel reaches it, behind the wipe (so the hitch is never seen);
    after that it's a cut.
 
      DV.Reel.start()       the main menu opens (game.js)
      DV.Reel.update(dt)    every frame on the main menu
      DV.Reel.stop(home)    the menu closes; home: back on the rooftop (the creator needs it)
-     DV.Reel.jump(id)      straight to a faction's highlight (the menu's sigils)
+     DV.Reel.jump(id)      straight to a faction's highlight (the menu's bowls)
      DV.Reel.SEGMENTS      [{ id, faction, zone, dur, name, virtue, line, time }]
      DV.Reel.info()        { id, t, shot, wiping, actors } (QA)
    ========================================================================== */
@@ -213,6 +213,7 @@
     go(ix) {
       this.trans = { k: 0, to: ix, phase: 'cover' };
       this.caption(null);
+      this.card(SEGS[ix]);
       if (DV.Audio.ctx) DV.Audio.play('whoosh', { volume: 0.12 });
     },
     wiping(dt) {
@@ -240,22 +241,31 @@
     },
 
     /* ---------------- the menu's side of it ---------------- */
-    // k 0 → 1: the chrome bands sweep in; 1 → 2: away again; -1: gone
+    // k 0 → 1: down to black (the next faction's mark coming up out of it); 1 → 2: up again; -1: gone
     wipe(k, loading) {
       const w = document.querySelector('#mainmenu .reel-wipe');
       if (!w) return;
       w.style.display = k < 0 ? 'none' : 'block';
       if (k < 0) return;
-      // the bands sweep across together, like a curtain: in from off the left (the far ones a
-      // little ahead), shut at k = 1, and on off the right (vw: screen widths)
-      const bands = w.querySelectorAll('.band');
-      const e = U.smooth(U.clamp(k <= 1 ? k : k - 1, 0, 1));
-      bands.forEach((b, j) => {
-        const s = k <= 1 ? (-170 + j * 8) * (1 - e) : (160 - (5 - j) * 8) * e;
-        b.style.transform = 'translateX(' + s.toFixed(1) + 'vw) skewX(-18deg)';
-      });
-      w.querySelector('.flash').style.opacity = k > 0.85 && k < 1.35 ? (1 - Math.abs(k - 1.05) / 0.3).toFixed(2) : '0';
+      const e = U.smooth(U.clamp(k <= 1 ? k : 2 - k, 0, 1));
+      w.querySelector('.black').style.opacity = e.toFixed(3);
+      w.querySelector('.card').style.opacity = U.clamp((e - 0.5) / 0.5, 0, 1).toFixed(3);
       w.querySelector('.loading').style.display = loading ? 'block' : 'none';
+    },
+    // the mark on the black between highlights
+    card(S) {
+      const c = document.querySelector('#mainmenu .reel-wipe .card');
+      if (!c) return;
+      const cv = c.querySelector('canvas'), g = cv.getContext('2d');
+      this.mark(g, S, cv.width);
+      c.querySelector('.cn').textContent = S.faction ? DV.Factions.name(S.faction) : S.name;
+      c.querySelector('.cv').textContent = S.faction ? DV.Factions.get(S.faction).virtue : S.virtue;
+    },
+    // a faction's emblem in its colour, or the city's skyline
+    mark(g, S, n) {
+      g.clearRect(0, 0, n, n);
+      if (S.faction) DV.Tex.drawEmblem(g, S.faction, n, DV.Menus.FC[S.faction]);
+      else DV.Menus.drawCity(g, n, n);
     },
     caption(S) {
       const c = document.querySelector('#mainmenu .reel-cap');
@@ -269,19 +279,15 @@
       c.querySelector('.cap-time').textContent = S.time;
       c.querySelector('.cap-place').textContent = S.place;
       const cv = c.querySelector('canvas');
-      const g = cv.getContext('2d');
-      g.clearRect(0, 0, cv.width, cv.height);
-      if (S.faction) DV.Tex.drawEmblem(g, S.faction, cv.width, S.faction === 'candor' ? '#f2f0ea' : F.accent);
-      else { g.fillStyle = '#dfe6ee'; g.font = 'bold 40px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✦', cv.width / 2, cv.height / 2 + 2); }
+      this.mark(cv.getContext('2d'), S, cv.width);
       void c.offsetWidth; // (restart the slide-in)
       c.classList.add('show');
-      document.querySelectorAll('#mainmenu .reel-dots .dot').forEach((d, j) => d.classList.toggle('on', j === this.i));
-      document.querySelectorAll('#mainmenu .sigils .orb').forEach((o) => o.classList.toggle('on', o.dataset.f === (S.faction || '')));
-      const n = document.querySelector('#mainmenu .feed-n'), pad = (v) => (v < 10 ? '0' : '') + v;
+      document.querySelectorAll('#mainmenu .sigils .bowl').forEach((o) => o.classList.toggle('on', o.dataset.f === (S.faction || '')));
+      const n = document.querySelector('#mainmenu .cap-n'), pad = (v) => (v < 10 ? '0' : '') + v;
       if (n) n.textContent = pad(this.i + 1) + ' / ' + pad(SEGS.length);
     },
     progress() {
-      const d = document.querySelectorAll('#mainmenu .reel-dots .dot i')[this.i];
+      const d = document.querySelector('#mainmenu .bowl.on .pr i');
       if (d) d.style.width = Math.round(U.clamp(this.t / SEGS[this.i].dur, 0, 1) * 100) + '%';
     },
   };
@@ -299,7 +305,7 @@
   const SEGS = [
     {
       id: 'city', faction: null, zone: 'menu_bg', dur: 13, time: '18:40', place: 'Above the Testing District',
-      name: 'The City', virtue: 'Faction before blood',
+      name: 'The City', virtue: 'Five factions, one city',
       line: 'Dusk over what\'s left of Chicago. Behind the Fence, five factions keep the peace.',
       setup(Rl) {
         const run = runners(Rl, 2.2);

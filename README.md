@@ -45,7 +45,7 @@ Saves, settings and autosaves live in the browser's `localStorage` under the `di
 
 | Key | Action |
 |---|---|
-| **Main menu** | ↑ ↓ (or W S, Tab) choose, **Enter** to go; ← → step through the factions' highlights, or click an orb; **Esc** closes Settings, Load and Credits. Click anywhere (or press a key) for the theme song |
+| **Main menu** | ↑ ↓ (or W S, Tab) choose, **Enter** to go; ← → step through the factions' highlights, or click a bowl; **Esc** closes Settings, Load and Credits. Click anywhere (or press a key) for the theme song |
 | **W A S D** / arrow keys | Move (relative to the camera) |
 | **Mouse** | Orbit the camera. Click the game to capture the mouse, or hold a button and drag |
 | **Mouse wheel** | Zoom the camera |
@@ -207,7 +207,7 @@ js/
     dialogueUI.js          Old-school dialogue window (typewriter text, numbered choices, check labels)
     rpgMenu.js             Tab menu: Character / Skills / Inventory / Quests / Reputation / Map
     worldMap.js            Build 4: the City map (sectors, streets by name, landmarks, the Fence, you, home)
-    menus.js               Main menu (Y2K, keyboard), pause, save/load, settings, controls, credits, wait
+    menus.js               Main menu (the bowls of the Choosing, keyboard), pause, save/load, settings, controls, credits, wait
     menuReel.js            The main menu's highlights reel: the factions' days in real places, cut together
     menuTheme.js           The main menu's theme song: SoundCloud's (or YouTube's) own player, or the synth
     devMenu.js             Build 4: the developer menu (go to, story jumps, time, noclip, readout…)
@@ -270,14 +270,18 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 ## Implemented features
 
 **Build 4: The City**
-- **The main menu, redone.** It's Y2K now: a chrome logo with a glint running across it, glossy gel buttons, a bubble orb per faction, a glass caption card, scanlines and a ticker of the factions' mottos. It works from the keyboard too.
+- **The main menu, redone,** in the game's own look: the serif logo with the five-faction seal and *Faction before blood* under it, the buttons on a bronze-framed plate, a caption panel for what's playing, and along the bottom **the bowls of the Choosing**: grey stones, burning coals, water, glass and earth, with the city's skyline for the city. It works from the keyboard too.
+- **Pause and Tab menus, redone.** Every big window wears the same bronze frame with bracket corners.
+  - **Pause:** the menu on the left; on the right, who you are (your mark, name, level, faction and experience), where and when you are, the task in hand and your stamina.
+  - **Tab:** a head with your mark, name, standing, experience, place and time; engraved page tabs with icons; and a rendered portrait of you in a frame with a bronze nameplate on the Character page. Headings are engraved, and the chosen row is lit at its edge.
+  - The HUD steps back while either is open.
   - **A highlights reel plays behind it.** It cuts between real places in the game, each with its people at their day:
     - the Dauntless free-running the rooftops at dusk;
     - Abnegation handing bread to a queue of factionless;
     - Erudite reading and lecturing in the reading hall;
     - Candor arguing it out in the circle;
     - Amity picking apples, and dancing and singing round the fire.
-  - **Cuts and captions:** each place is shot with a few camera moves and cut together behind a chrome wipe. A place is built behind the wipe the first time round, so you never see the hitch. Click an orb (or press ← →) to cut straight to a faction.
+  - **Cuts and captions:** each place is shot with a few camera moves. Between them the reel dips to black, with the next faction's mark and virtue. A place is built under the black the first time round, so you never see the hitch. Click a bowl (or press ← →) to cut straight to a faction.
   - **The theme song** is Paul van Dyk's *Nothing But You* (Cirrus Mix, Amaru deconstruction). It streams in SoundCloud's own player in a "Now Playing" window, with YouTube's as the backup. It starts on your first click, the synth music steps aside while it plays, and it fades out when you start. Its ♪ stops it, its ✕ turns it off, and Settings brings it back.
 - **Free-running.** Characters can vault (speed and kong), leap gaps, drop, roll out of a landing, climb a wall and mantle onto it, and front-flip. Jumps fly true arcs under gravity, and a roll or flip turns the whole body over. There are new everyday actions too: handing things out, carrying, picking fruit, playing guitar, arguing, dancing, shelving books.
 - **Physics.**
@@ -467,8 +471,8 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - The rankings go up at 17:00 while you wait through it. A conversation that takes over mid-wait gets the screen back.
   - The bunk rest is a time-lapse, and T does nothing in a chapter.
 - **The main menu** (77 checks):
-  - **The menu:** the chrome logo, its buttons, the orbs, the reel's progress and the ticker; the keyboard (past a disabled button; Enter; Esc out of a panel; ← → through the highlights); Settings over the running reel; Credits naming the song; Continue from a real save (the reel and the theme stop); the layout at 1024×600, 1280×720 and 1920×1080 with nothing overlapping.
-  - **The reel:** it opens on the city; each faction's highlight plays in its own place with its people at their routine, inside the draw-call budget; the wipe covers the screen before a place is swapped (and says LOADING when it's built); it goes on by itself and round again; three times round leaves nothing behind; New Game from the middle of it (even mid-wipe) puts you on the rooftop for the creator.
+  - **The menu:** the logo and oath, the bronze-framed buttons in the game's serif, the bowls (each drawn), the keys and the version line, and nothing left of the old skin; the keyboard (past a disabled button; Enter; Esc out of a panel; ← → through the highlights); Settings over the running reel; Credits naming the song; Continue from a real save (the reel and the theme stop); the layout at 1024×600, 1280×720 and 1920×1080 with nothing overlapping.
+  - **The reel:** it opens on the city; each faction's highlight plays in its own place with its people at their routine, inside the draw-call budget; the dip to black covers the screen (with the next faction's mark) before a place is swapped (and says LOADING when it's built); it goes on by itself and round again; three times round leaves nothing behind; New Game from the middle of it (even mid-wipe) puts you on the rooftop for the creator.
   - **Free-running:** every step is on a roof or an obstacle and nothing is run through (sampled every 20 ms), three runners in their own lanes, all the moves, the flip and the roll turning the body over, no shadow in the air.
   - **The theme song** (stand-in players: no SoundCloud or YouTube from the test machine): SoundCloud's player in view, waiting for a click, the menu's music stepping aside, the volume from Settings, ♪ and ✕, YouTube taking over if SoundCloud says no, the synth if neither will, and the fade on the way out. From disk it doesn't try to stream.
 - **Physics** (17 checks): walking into a bin shoves it and running knocks it over; it lands (never through the ground), stops and sleeps; knocked at a wall it stops at the wall; on its side it rolls across its axis far more than it slides; bodies knock each other on; a car knocks a cone flying without slowing; people shove bins aside; a wild knock is held to what a car could do and settles; a 10 fps sprint never carries you through a 10 cm wall; you're never left inside something pinned against a wall; you slide along walls; a car's nose dips braking and settles.
