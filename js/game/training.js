@@ -46,16 +46,12 @@
   const baseFov = () => DV.Config.CAMERA.fov;
 
   /* ============================== the range ============================== */
+  // the pistol in your hands (DV.Arms), lit like the lane you're standing in
   function makePistol() {
-    const g = new THREE.Group();
-    const m = new THREE.MeshLambertMaterial({ color: 0x26272a, flatShading: true });
-    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.19), m); slide.position.set(0, 0.03, 0.02); g.add(slide);
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.045), m); grip.position.set(0, -0.025, -0.05); grip.rotation.x = 0.25; g.add(grip);
-    const flash = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.18), new THREE.MeshBasicMaterial({ color: 0xffd080, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
-    flash.position.set(0, 0.03, 0.15);
-    g.add(flash);
-    const flash2 = flash.clone(); flash2.material = flash.material; flash2.rotation.y = Math.PI / 2; g.add(flash2);
-    g.userData.flash = flash.material;
+    const g = DV.Arms.pistol();
+    const z = DV.World.current, P = DV.Player;
+    if (z) { const L = z.lightAt(P.x, P.z); DV.Arms.tint(g, [L[0] * 1.2, L[1] * 1.2, L[2] * 1.2]); }
+    g.scale.setScalar(1.25); // (held things read a little big, the way the rest of the world does)
     return g;
   }
 
@@ -144,7 +140,11 @@
       // pose + the pistol between your hands, pointing where you are
       P.rot = U.dampAngle(P.rot, this.rot + this.ay, 12, dt);
       pose(dt, { speed: 0, action: 'aim', aimPitch: pitch * 0.9, recoil: Math.max(0, this.recoil * 4) });
-      const gp = new THREE.Vector3(P.x, 1.36 * sc, P.z).addScaledVector(dir, 0.55 * sc).addScaledVector(rt, 0.02);
+      // at the hip it's in your hands; down the sights it comes up in front of your eye
+      // (in the grip: between the wrists, the right hand's a little more)
+      const hand = P.model.boneWorld('handR', this._hr || (this._hr = new THREE.Vector3())).lerp(P.model.boneWorld('handL', this._hl || (this._hl = new THREE.Vector3())), 0.4).addScaledVector(dir, 0.07 * sc).add(new THREE.Vector3(0, -0.01, 0));
+      const sight = eye.clone().addScaledVector(dir, 0.55).add(new THREE.Vector3(0, -0.085, 0));
+      const gp = hand.lerp(sight, this.zoom);
       this.gun.position.copy(gp);
       this.gun.lookAt(gp.clone().add(dir));
       this.gun.userData.flash.opacity = Math.max(0, this.gun.userData.flash.opacity - dt * 14);
@@ -228,7 +228,7 @@
       b.classList.toggle('shaky', this.shaky > 0);
     }
     end() {
-      if (this.gun) { DV.Game.scene.remove(this.gun); this.gun.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
+      if (this.gun) DV.Game.scene.remove(this.gun); // (its geometry is shared: DV.Arms)
       if (this.face) { this.face.position.copy(this.face0); this.face.rotation.y = this.faceRot0; }
       setFov(baseFov());
     }
@@ -236,11 +236,9 @@
 
   /* ============================== the knives ============================== */
   function makeKnife() {
-    const g = new THREE.Group();
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.035, 0.17), new THREE.MeshBasicMaterial({ color: 0xc8ccd0, fog: true }));
-    blade.position.z = 0.085; g.add(blade);
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.11), new THREE.MeshBasicMaterial({ color: 0x1a1a1a, fog: true }));
-    handle.position.z = -0.055; g.add(handle);
+    const g = DV.Arms.knife();
+    const z = DV.World.current, P = DV.Player;
+    if (z) DV.Arms.tint(g, z.lightAt(P.x, P.z));
     return g;
   }
 

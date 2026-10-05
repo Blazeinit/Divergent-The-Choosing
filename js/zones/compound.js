@@ -251,14 +251,34 @@
     if (p.id) ctx.spot(p.id, 0.0, 2.2, Math.PI, 'arms_crossed');
   });
 
-  // a gun rack on the wall
+  // a gun rack on the wall: carbines standing in their slots, pistols on the pegs above
   DV.Props.define('gun_rack', (ctx, p, B) => {
     const w = ctx.M('wood'), m = ctx.M('metal_dark');
-    B.box(w, 0, 0.9, 0.04, 1.4, 1.1, 0.06);
-    for (let k = 0; k < 6; k++) {
-      B.box(m, -0.55 + k * 0.22, 1.25, 0.12, 0.06, 0.1, 0.16);
-      B.box(m, -0.55 + k * 0.22, 1.12, 0.12, 0.04, 0.16, 0.05);
+    B.box(w, 0, 0.2, 0.04, 1.5, 1.85, 0.06);
+    B.box(w, 0, 0.05, 0.2, 1.5, 0.12, 0.3); // the butt shelf
+    B.box(m, 0, 1.15, 0.12, 1.4, 0.05, 0.16); // the slotted bar
+    for (let k = 0; k < 4; k++) B.box(m, -0.45 + k * 0.3, 1.7, 0.1, 0.05, 0.05, 0.12); // pegs
+    // the weapons themselves (DV.Arms), one mesh, lit like the room
+    const M = new DV.Vehicles.MB();
+    const n = p.rifles === undefined ? 5 : p.rifles;
+    for (let k = 0; k < n; k++) {
+      M.push(-0.56 + k * 0.28, 0.42, 0.17, 0, -Math.PI / 2 + 0.06, 0); // butt on the shelf, muzzle up, leaning back
+      M.merge(DV.Arms.geometry('rifle'));
+      M.pop();
     }
+    for (let k = 0; k < 3; k++) {
+      M.push(-0.45 + k * 0.3 + 0.15, 1.66, 0.12, Math.PI / 2, 0, 0); // pistols hung by the trigger guard
+      M.merge(DV.Arms.geometry('pistol'));
+      M.pop();
+    }
+    const mesh = new THREE.Mesh(M.geometry(), new THREE.MeshBasicMaterial({ vertexColors: true, fog: true }));
+    const L = ctx.light(p.x, p.z);
+    mesh.material.color.setRGB(Math.min(1.2, L[0]), Math.min(1.2, L[1]), Math.min(1.2, L[2]));
+    const [wx, wz] = ctx.toWorld(0, 0);
+    mesh.position.set(wx, p.elev || 0, wz);
+    mesh.rotation.y = ctx.prop.rot || 0;
+    ctx.add(mesh);
+    ctx.collide(-0.78, -0.05, 0.78, 0.36, { y1: 2 });
   });
 
   /* ------------------------------ the compound ------------------------------ */

@@ -27,9 +27,14 @@ L.run('Build 3: Dauntless, days 2–4', async (p, T, errs) => {
   const r1 = await ev(() => { B.at('08:02'); const u = B.use('range:lane1'); const id = DV.Activity.current && DV.Activity.current.id; B.finishActivity(); return [u, id]; });
   T.ok(r1[1] === 'range', 'Day 3, 08:00: the range', r1);
   await L.until(p, () => DV.Game.state === 'playing' && !DV.Activity.active(), 8000);
+  // (the range used to finish from inside its own update, which then put its aiming camera back:
+  // the camera stayed frozen at the firing line)
+  const cam = await ev(() => { const r = DV.Game.rig, y0 = r.yaw; DV.Input.mouseDX += 200; QA.step(0.1); return { mode: r.mode, turned: Math.abs(r.yaw - y0) > 0.05, gun: !DV.Game.scene.children.some((o) => o.userData && o.userData.flash) }; });
+  T.ok(cam.mode === 'follow' && cam.turned && cam.gun, 'after the range the camera is yours again (and the pistol is put away)', cam);
   const bags = await ev(() => { B.use('bag:bag2'); const id = DV.Activity.current && DV.Activity.current.id; B.finishActivity(); return id; });
   T.eq(bags, 'bags', '10:00: the bags');
   await L.until(p, () => DV.Game.state === 'playing' && !DV.Activity.active(), 8000);
+  T.eq(await ev(() => DV.Game.rig.mode), 'follow', 'and after the bags');
   const spar = await ev(() => { B.at('13:31'); B.use('ring_step'); QA.step(1.2); const F = DV.Activity.current; const who = F && F.them && F.them.name; B.finishActivity(); return who; });
   T.ok(/Joey/.test(spar || ''), '13:30: sparring — against Joey (' + spar + ')');
   await L.until(p, () => DV.Game.state === 'playing' && !DV.Activity.active(), 8000);

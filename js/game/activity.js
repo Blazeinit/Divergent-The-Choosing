@@ -58,13 +58,19 @@
       if (!act) return;
       if (this.hitStop > 0) { this.hitStop -= dt; dt *= 0.08; }
       this.t += dt;
-      act.update(dt, input, this);
+      // an activity that finishes itself mid-update (a timer firing at the top of its update)
+      // still runs the rest of that update, which puts its own camera back: so the hand-back
+      // waits until the update is over
+      this.inUpdate = true;
+      try { act.update(dt, input, this); } finally { this.inUpdate = false; }
+      if (this.pending && this.current === act) { const r = this.pending; this.pending = null; this.finish(r.result); }
     },
 
     // the activity is over: hand the controls back, then tell whoever started it
     finish(result) {
       const act = this.current;
       if (!act) return;
+      if (this.inUpdate) { if (!this.pending) this.pending = { result }; return; }
       const cb = this.onDone;
       this.cleanup();
       const G = DV.Game;
@@ -85,6 +91,7 @@
       const act = this.current;
       this.current = null;
       this.onDone = null;
+      this.pending = null;
       try { if (act && act.end) act.end(this); } catch (e) { console.error(e); }
       if (this.hud) { this.hud.remove(); this.hud = null; }
       DV.UI.root.classList.remove('in-activity');
