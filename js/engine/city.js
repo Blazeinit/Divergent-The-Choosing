@@ -314,38 +314,57 @@
     'uniform sampler2D map; uniform sampler2D noise;',
     'uniform vec3 hazeColor; uniform float hazeK; uniform float time; uniform vec2 wind; uniform float cloudScale; uniform float shadowAmt;',
     'uniform vec4 winRect; uniform float litChance; uniform float litAmt; uniform float useMap; uniform vec3 ambient;',
-    'uniform float street; uniform float shabby; uniform vec3 blankCol; uniform vec2 blankGrid;',
+    'uniform float street; uniform float shabby; uniform vec3 blankCol; uniform vec2 blankGrid; uniform float venetian;',
     'varying vec2 vUv; varying vec3 vCol; varying vec3 vWP; varying float vSeed;',
     'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
     'void main() {',
     // (the seed is a whole number per building, but interpolating it across a face can leave it a
-    // hair off, which the hash turns into a different window on every pixel: round it)
+    // hair off, which the hash turns into a different window on every pixel: round it. Seeds of
+    // 5000 and up are the ruins' buildings; 30000 and up, on the plain colours, a neon sign)
     '  float back = step(9999.5, vSeed); float blank = step(19999.5, vSeed);',
-    '  float sd = floor(mod(vSeed, 10000.0) + 0.5);',
+    '  float sd = floor(mod(vSeed, 10000.0) + 0.5); float ruin = step(4999.5, sd);',
     '  vec3 c = vCol * ambient;',
     '  if (useMap > 0.5) {',
     '    vec2 cell = floor(vUv); vec2 f = fract(vUv);',
+    '    float lum = dot(vCol, vec3(0.333));',
     '    if (street > 0.5 && back < 0.5 && cell.y < 0.5 && vWP.y > -0.2) {',
-    // the ground floor, seen from the pavement: a stone plinth, shop windows or boarded-up
-    // ones, a door every few bays, a fascia over them; some shops lit at dusk
-    '      float hb = hash(vec2(cell.x, sd)); float hs = hash(vec2(floor(cell.x / 3.0), sd + 7.0));',
+    // the ground floor, seen from the pavement: shops three bays wide between darker pilasters, each
+    // with its name in blocky letters on the fascia, a stone stallriser, display windows with a
+    // transom and a mullion and the goods on a shelf behind the glass, a door with a glass panel
+    // every few bays; boarded up or shuttered where times are hard; some shops lit at dusk
+    '      vec2 p = floor(f * 64.0) / 64.0;',
+    '      float hb = hash(vec2(cell.x, sd)); float shop = floor(cell.x / 3.0); float hs = hash(vec2(shop, sd + 7.0)); float bay = mod(cell.x, 3.0);',
     '      vec3 stone = vCol * ambient * 0.62;',
     '      vec3 fascia = mix(vec3(0.22, 0.2, 0.18), vec3(0.42, 0.16, 0.12), step(0.7, hs)) * mix(1.0, 0.6, step(0.4, hs) * step(hs, 0.55));',
     '      fascia = mix(fascia, vec3(0.15, 0.24, 0.3), step(0.85, hs));',
-    '      float glassA = step(0.14, f.y) * step(f.y, 0.74) * step(0.07, f.x) * step(f.x, 0.93);',
-    '      float doorA = step(hb, 0.22) * step(0.32, f.x) * step(f.x, 0.68) * step(f.y, 0.74);',
-    '      float boarded = step(1.0 - shabby, hash(vec2(cell.x * 1.7, sd + 3.0)));',
-    '      vec3 glass = mix(vec3(0.09, 0.11, 0.12), vec3(0.2, 0.24, 0.26), smoothstep(0.4, 0.74, f.y));',
-    '      vec3 board = vec3(0.4, 0.33, 0.24) * (0.85 + 0.15 * step(0.5, fract(f.x * 6.0)));',
-    '      vec3 shut = vec3(0.32, 0.32, 0.31) * (0.8 + 0.2 * step(0.5, fract(f.y * 22.0)));',
+    '      float glassA = step(0.14, p.y) * step(p.y, 0.74) * step(0.07, p.x) * step(p.x, 0.93);',
+    '      float doorA = step(hb, 0.22) * step(0.32, p.x) * step(p.x, 0.68) * step(p.y, 0.74);',
+    '      float boarded = step(1.0 - max(shabby, ruin * 0.85), hash(vec2(cell.x * 1.7, sd + 3.0)));',
+    '      vec3 glass = mix(vec3(0.09, 0.11, 0.12), vec3(0.2, 0.24, 0.26), smoothstep(0.4, 0.74, p.y));',
+    '      float col8 = floor(p.x * 8.0);',
+    '      float item = step(0.3, p.y) * step(p.y, 0.31 + 0.17 * hash(vec2(col8 + 3.0, cell.x + sd))) * step(0.45, hash(vec2(col8, cell.x + sd + 9.0)));',
+    '      glass = mix(glass, vec3(0.26, 0.24, 0.22), step(p.y, 0.3));',
+    '      glass = mix(glass, mix(vec3(0.46, 0.38, 0.26), vec3(0.28, 0.34, 0.46), hash(vec2(col8, shop + sd))) * 0.7, item);',
+    '      glass = mix(glass, vec3(0.12, 0.11, 0.1), max(step(0.6, p.y) * step(p.y, 0.62), step(0.49, p.x) * step(p.x, 0.51) * step(p.y, 0.6)));',
+    '      vec3 board = vec3(0.4, 0.33, 0.24) * (0.85 + 0.15 * step(0.5, fract(p.x * 6.0)));',
+    '      vec3 shut = vec3(0.32, 0.32, 0.31) * (0.8 + 0.2 * step(0.5, fract(p.y * 22.0)));',
     '      vec3 win = mix(glass, mix(shut, board, step(0.5, hb)), boarded);',
     '      float lit = step(0.72, hs) * (1.0 - boarded) * litAmt;',
-    '      win = mix(win, vec3(0.95, 0.78, 0.48), lit * 0.85);',
+    '      win = mix(win, vec3(0.95, 0.78, 0.48) * mix(0.82, 1.0, step(0.62, p.y)), lit * 0.85);',
+    // the shop's name: three letters to a bay across the middle of it, a few pixels gone from each
+    '      float fy = (p.y - 0.79) / 0.16, lx = (bay + p.x) * 6.0, li = floor(lx), lf = fract(lx), len = 6.0 + floor(hs * 9.0);',
+    '      float gx = floor((lf - 0.2) / 0.2), gy = floor((fy - 0.22) / 0.11);',
+    '      float letters = step(0.25, hs) * step(9.0 - len * 0.5, lx) * step(lx, 9.0 + len * 0.5) * step(0.2, lf) * step(lf, 0.79) * step(0.22, fy) * step(fy, 0.76);',
+    '      letters *= step(0.1, hash(vec2(li, shop + sd + 2.0))) * step(0.38, hash(vec2(gx + gy * 3.0 + li * 0.37, li + shop * 7.0 + sd)));',
+    '      vec3 letterCol = mix(vec3(0.86, 0.82, 0.68), vec3(0.95, 0.76, 0.32), step(0.6, hs));',
     '      c = stone;',
-    '      c = mix(c, fascia, step(0.79, f.y) * step(f.y, 0.95));',
+    '      c = mix(c, fascia * ambient, step(0.79, p.y) * step(p.y, 0.95));',
+    '      c = mix(c, letterCol * mix(ambient, vec3(1.25), step(0.72, hs) * litAmt), letters * (1.0 - 0.7 * boarded));',
     '      c = mix(c, win * ambient, glassA);',
-    '      c = mix(c, vec3(0.17, 0.15, 0.13) * ambient, doorA);',
-    '      c *= 0.9 + 0.1 * step(0.03, f.x) * step(f.x, 0.97);',
+    '      vec3 door = mix(vec3(0.17, 0.15, 0.13), vec3(0.11, 0.14, 0.16), step(0.4, p.y) * step(p.y, 0.66) * step(0.38, p.x) * step(p.x, 0.62));',
+    '      c = mix(c, door * ambient, doorA);',
+    '      c *= 0.9 + 0.1 * step(0.03, p.x) * step(p.x, 0.97);',
+    '      c *= 1.0 - 0.2 * (step(bay, 0.5) * step(p.x, 0.06) + step(1.5, bay) * step(0.94, p.x));',
     '    } else if (blank > 0.5) {',
     // a party wall: courses of brick (or blocks of stone, panels of concrete) at the facade's own
     // pixel size, each a shade apart, grime run down it in streaks, and no windows
@@ -357,9 +376,28 @@
     '    } else {',
     '    c *= texture2D(map, vUv * 0.25).rgb;',
     '    float win = step(winRect.x, f.x) * step(f.x, winRect.z) * step(winRect.y, f.y) * step(f.y, winRect.w);',
-    '    float on = step(1.0 - litChance * (1.0 + litAmt * 2.0), hash(cell + sd));',
-    '    c = mix(c, vec3(1.0, 0.8, 0.5), win * on * (0.25 + 0.75 * litAmt));',
+    // in the windows: blinds pulled down to different depths (venetian in the offices), curtains,
+    // boards over them in the ruins; at night lamplight, a strip light, a television's blue
+    '    vec2 w = floor(clamp((f - winRect.xy) / max(winRect.zw - winRect.xy, vec2(0.01)), 0.0, 0.999) * 24.0) / 24.0;',
+    '    float hw = hash(cell + sd + 11.0), hl = hash(cell + sd + 5.0);',
+    '    float blind = win * step(hw, 0.3 - 0.22 * ruin) * step(0.75 - 0.6 * hash(cell + sd + 13.0), w.y);',
+    '    vec3 blindCol = mix(vec3(0.74, 0.7, 0.6), vec3(0.62, 0.64, 0.62) * (0.86 + 0.14 * step(0.5, fract(w.y * 8.0))), venetian);',
+    '    float curtain = win * (1.0 - venetian) * (1.0 - ruin) * step(0.3, hw) * step(hw, 0.42) * max(step(w.x, 0.22), step(0.78, w.x));',
+    '    vec3 curtCol = mix(vec3(0.5, 0.22, 0.17), mix(vec3(0.32, 0.4, 0.3), vec3(0.7, 0.64, 0.5), step(0.39, hw)), step(0.35, hw));',
+    '    float boardW = win * ruin * step(hash(cell + sd + 17.0), 0.45);',
+    '    vec3 planks = vec3(0.36, 0.29, 0.21) * (0.8 + 0.2 * step(0.5, fract(w.y * 4.0))) * (0.88 + 0.12 * hash(vec2(floor(w.y * 4.0), cell.x + sd)));',
+    '    c = mix(c, blindCol * lum * ambient, blind);',
+    '    c = mix(c, curtCol * lum * ambient, curtain);',
+    '    c = mix(c, planks * lum * ambient, boardW);',
+    '    float on = step(1.0 - litChance * (1.0 + litAmt * 2.0), hash(cell + sd)) * (1.0 - boardW);',
+    '    vec3 lamp = mix(mix(vec3(1.0, 0.8, 0.5), vec3(0.84, 0.92, 1.0), step(0.72, hl)), vec3(0.42, 0.52, 0.95), step(0.92, hl));',
+    '    lamp = mix(lamp, vec3(1.0, 0.86, 0.62), max(blind, curtain) * 0.6);',
+    '    c = mix(c, lamp, win * on * (0.25 + 0.75 * litAmt));',
     '    }',
+    // grime at the foot of every wall, where the rain splashes and the street's dirt sticks
+    '    c *= 1.0 - 0.16 * (1.0 - smoothstep(0.15, 1.5, vWP.y));',
+    '  } else {',
+    '    c = mix(c, vCol * 1.25, step(29999.5, vSeed) * litAmt);',
     '  }',
     '  float n = texture2D(noise, vWP.xz / cloudScale + wind * time).r;',
     '  c *= 1.0 - shadowAmt * smoothstep(0.5, 0.68, n);',
@@ -779,11 +817,27 @@
   // one building: a block with its cornice (and a belt course over the shops), bays, awnings,
   // fire escapes, and a roof with things on it; a tower on a podium; or a ruin whose top floors
   // are gone. Returns how tall it came out.
+  // what the city's walls are made of, beyond the style's own colour: [tint, how likely]
+  const MAKES = {
+    // (warm tints only: the stone and the window frames take them too, and a green one turns them green)
+    brick: [[[1, 1, 1], 0.4], [[0.84, 0.78, 0.74], 0.2], [[1.16, 1.0, 0.88], 0.18], [[1.26, 1.18, 1.1], 0.12], [[0.72, 0.7, 0.7], 0.1]], // red, brown, orange, faded, sooty
+    loft: [[[1, 1, 1], 0.55], [[0.85, 0.78, 0.72], 0.25], [[1.16, 1.02, 0.9], 0.2]],
+    stone: [[[1, 1, 1], 0.55], [[0.84, 0.7, 0.6], 0.25], [[0.88, 0.9, 0.95], 0.2]], // limestone, brownstone, grey
+    office: [[[1, 1, 1], 0.5], [[1.08, 1.02, 0.9], 0.3], [[0.78, 0.8, 0.84], 0.2]], // concrete, cream, weathered dark
+  };
+
   function building(B, x, z, bw, bd, h, style, tint, seed, ruined, info) {
     info = info || {};
     const r = B.r;
     B.part = 'buildings';
     const S = STYLES[style];
+    // (its own dice for how it's dressed, so the city's layout stays the same whatever's added)
+    const v = U.rng(seed * 7919 + 17);
+    if (info.type && MAKES[style]) {
+      let t = v();
+      const m = MAKES[style].find(([, w]) => (t -= w) <= 0) || MAKES[style][0];
+      tint = [tint[0] * m[0][0], tint[1] * m[0][1], tint[2] * m[0][2]];
+    }
     h = Math.max(S.floor * 2, Math.round(h / S.floor) * S.floor);
     if (h > 48 && !ruined && (info.type === 'tower' || r() < 0.6)) return tower(B, x, z, bw, bd, h, style, tint, seed);
     if (ruined) {
@@ -807,7 +861,10 @@
     }
     // shops on the street front (and round the corner on a corner lot); plain walls behind; and the
     // side walls a neighbour stands against (or an empty lot shows) are blank: no windows in a party wall
-    let shops = null, blank = null, edges = null;
+    let shops = null, blank = null, edges = null, fronts = null;
+    // a few of the walk-ups along a street are all flats, no shop: windows on the ground floor too,
+    // a stoop up to the front door
+    const home = info.face && (style === 'brick' || style === 'stone') && h <= 22 && !info.cornerSide && !info.through && v() < 0.3;
     if (info.face) {
       shops = [info.face];
       if (info.through) shops.push([-info.face[0], -info.face[1]]); // (a shallow block: a street on both sides)
@@ -815,6 +872,8 @@
       const has = (q) => shops.some((p) => p[0] === q[0] && p[1] === q[1]);
       blank = (info.axis === 'x' ? [[-1, 0], [1, 0]] : [[0, -1], [0, 1]]).filter((q) => !has(q));
       edges = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter((q) => !blank.some((p) => p[0] === q[0] && p[1] === q[1])); // (what the cornice runs along)
+      fronts = shops;
+      if (home) shops = [];
     }
     B.box(x, z, bw, bd, 0, h, 0, style, tint, seed, { shops, blank });
     const masonry = style === 'brick' || style === 'stone' || style === 'loft';
@@ -824,7 +883,7 @@
       // a belt course over the shopfronts, the cornice (and on the old ones a deeper one over it).
       // In a row they stand out along the fronts and stop at the party walls (the belt course only
       // over the shops); a building standing on its own has them all the way round
-      if (h > S.floor * 2.5) band(B, x, z, bw, bd, S.floor - 0.05, S.floor + 0.28, 0.12, mul(tint, style === 'stone' ? 0.8 : 0.6), shops, { noTop: true });
+      if (h > S.floor * 2.5) band(B, x, z, bw, bd, S.floor - 0.05, S.floor + 0.28, 0.12, mul(tint, style === 'stone' ? 0.8 : 0.6), fronts, { noTop: true });
       band(B, x, z, bw, bd, h, h + 0.55, 0.15, mul(tint, style === 'brick' || style === 'loft' ? 0.5 : 0.62), edges, {});
       crest = h + 0.55;
       if (masonry && r() < 0.5) { band(B, x, z, bw, bd, h + 0.55, h + 0.85, 0.45, mul(tint, 0.44), edges, { bottom: true }); crest = h + 0.85; }
@@ -837,7 +896,7 @@
     }
     // the broken roofline of a derelict
     if (style === 'derelict') for (let k = 0; k < 3; k++) B.box(x + (r() - 0.5) * bw * 0.7, z + (r() - 0.5) * bd * 0.7, 1 + r() * 4, 1 + r() * 4, h, h + 1 + r() * 3, 0, null, [0.4, 0.39, 0.37], 0, {});
-    if (info.face) frontage(B, x, z, bw, bd, h, style, tint, seed, info);
+    if (info.face) frontage(B, x, z, bw, bd, h, style, tint, seed, Object.assign({ home, v }, info));
     roofTop(B, x, z, bw, bd, top, h, style);
     return h;
   }
@@ -868,16 +927,58 @@
         B.box(px, pz, sw, sd, fl, h - 0.3, 0, style, tint, seed + 3 + i, { bottom: true });
       }
     }
+    const v = info.v;
     if (style !== 'glass' && style !== 'derelict' && r() < 0.45) {
       const cols = [[0.22, 0.3, 0.24], [0.42, 0.16, 0.14], [0.2, 0.22, 0.32], [0.5, 0.42, 0.3], [0.32, 0.29, 0.26], [0.36, 0.3, 0.12]];
       const col = cols[Math.floor(r() * cols.length)], aw = Math.min(W - 1.2, 3 + r() * 4), u = (r() - 0.5) * Math.max(0, W - aw - 1);
-      let [px, pz] = front(u, 0.6), [sw, sd] = lo(1.2, aw);
-      B.box(px, pz, sw, sd, 2.78, 2.9, 0, null, col, 0, { bottom: true });
-      [px, pz] = front(u, 1.18); [sw, sd] = lo(0.06, aw);
-      B.box(px, pz, sw, sd, 2.46, 2.9, 0, null, mul(col, 0.8), 0, { noTop: true });
+      if (!info.home) awning(B, front, fx, fz, u, aw, fl, col, v);
+    }
+    // a sign hung out from the wall over a shop, lit up at night
+    if (!info.home && style !== 'glass' && style !== 'institution' && v() < 0.3) {
+      const u = (v() < 0.5 ? -1 : 1) * Math.max(0, W / 2 - 0.9), y0 = fl + 0.45, y1 = y0 + 1.5 + v() * 0.6;
+      const cols = [[0.2, 0.2, 0.22], [0.42, 0.14, 0.12], [0.16, 0.2, 0.3], [0.24, 0.3, 0.22]], neon = [[1, 0.32, 0.26], [0.36, 0.7, 1], [0.5, 1, 0.5], [1, 0.82, 0.36]];
+      const c0 = cols[Math.floor(v() * cols.length)], c1 = neon[Math.floor(v() * neon.length)];
+      let [px, pz] = front(u, 0.07), [sw, sd] = lo(0.1, 0.14);
+      B.box(px, pz, sw, sd, y1 - 0.25, y1 - 0.15, 0, null, [0.12, 0.12, 0.13], 0, { solid: false }); // the bracket's foot
+      [px, pz] = front(u, 0.6); [sw, sd] = lo(0.12, 0.9);
+      B.box(px, pz, sw, sd, y0, y1, 0, null, c0, 0, { solid: false, bottom: true });
+      [px, pz] = front(u, 0.6); [sw, sd] = lo(0.14, 0.62);
+      B.box(px, pz, sw, sd, y0 + 0.18, y1 - 0.18, 0, null, mul(c1, 0.55), 30000, { solid: false, noTop: true }); // (its letters: neon, after dark)
+    }
+    // flats over no shop: a stoop of stone steps up to a panelled door under a hood, with a rail
+    if (info.home) {
+      const n = Math.max(1, Math.floor(W / S.bay)), k = v() < 0.5 ? 0 : v() < 0.5 ? n - 1 : Math.floor(n / 2);
+      const u = (fz < 0 || fx > 0 ? 1 : -1) * ((k + 0.5) * S.bay - W / 2);
+      const stone = style === 'stone' ? mul(tint, 0.82) : [0.55, 0.54, 0.5], g = B.g.plain, nn = [fx, 0, fz];
+      let [px, pz] = front(u, 0.75), [sw, sd] = lo(1.8, 1.5);
+      B.box(px, pz, sw, sd, 0, 0.2, 0, null, stone, 0, { solid: false });
+      [px, pz] = front(u, 0.45); [sw, sd] = lo(1.6, 0.9);
+      B.box(px, pz, sw, sd, 0.2, 0.42, 0, null, mul(stone, 1.04), 0, { solid: false });
+      const q = (a0, a1, y0, y1, col) => { const p0 = front(u + a0, 0.03), p1 = front(u + a1, 0.03); g.quad([[p0[0], y0, p0[1]], [p1[0], y0, p1[1]], [p1[0], y1, p1[1]], [p0[0], y1, p0[1]]], null, col, nn, 0); };
+      q(-0.62, 0.62, 0.42, 3.05, [0.12, 0.11, 0.1]); // the doorway
+      q(-0.5, 0.5, 0.42, 2.55, mul([0.3, 0.2, 0.14], shadeN(fx, fz))); // the door
+      q(-0.5, 0.5, 2.62, 2.98, [0.16, 0.19, 0.21]); // the fanlight
+      [px, pz] = front(u, 0.16); [sw, sd] = lo(1.7, 0.32);
+      B.box(px, pz, sw, sd, 3.05, 3.25, 0, null, mul(stone, 0.95), 0, { solid: false, bottom: true }); // the hood
+      for (const sgn of [-1, 1]) { [px, pz] = front(u + sgn * 0.84, 0.75); [sw, sd] = lo(0.05, 1.4); B.box(px, pz, sw, sd, 0.2, 1.15, 0, null, [0.12, 0.12, 0.13], 0, { solid: false, noTop: true }); }
     }
     if ((style === 'brick' || style === 'derelict') && h >= fl * 3 && h <= 22 && r() < 0.15) fireEscape(B, front, fx, W, h, fl, r);
     if (info.alley && (style === 'brick' || style === 'stone' || style === 'loft') && h <= 22 && r() < 0.3) fireEscape(B, at(-1), fx, W, h, fl, r);
+  }
+  // a shop's awning: canvas sloping out and down from over the window, striped or plain, its valance
+  // hanging along the front, its ends closed, its underside in its own shadow
+  function awning(B, front, fx, fz, u, aw, fl, col, v) {
+    const g = B.g.plain, y0 = fl * 0.76, y1 = y0 - 0.34, out = 1.15, n = [fx, 0, fz];
+    const striped = v() < 0.55, k = striped ? U.clamp(Math.round(aw / 0.55), 3, 9) : 1, cream = [0.66, 0.63, 0.55];
+    const pt = (t, o, y) => { const [px, pz] = front(u - aw / 2 + aw * t, o); return [px, y, pz]; };
+    const sh = shadeN(fx, fz);
+    for (let i = 0; i < k; i++) {
+      const c = striped && i % 2 ? cream : col, t0 = i / k, t1 = (i + 1) / k;
+      g.quad([pt(t0, 0, y0), pt(t1, 0, y0), pt(t1, out, y1), pt(t0, out, y1)], null, mul(c, 1.08), [fx * 0.3, 1, fz * 0.3], 0);
+      g.quad([pt(t0, out, y1), pt(t1, out, y1), pt(t1, out, y1 - 0.26), pt(t0, out, y1 - 0.26)], null, mul(c, sh * 0.92), n, 0);
+    }
+    g.quad([pt(0, 0, y0), pt(1, 0, y0), pt(1, out, y1), pt(0, out, y1)], null, mul(col, 0.38), [-fx * 0.3, -1, -fz * 0.3], 0);
+    for (const t of [0, 1]) g.quad([pt(t, 0, y0), pt(t, out, y1), pt(t, out, y1 - 0.26), pt(t, out, y1 - 0.26)], null, mul(col, 0.7), fx ? [0, 0, t ? 1 : -1] : [t ? 1 : -1, 0, 0], 0);
   }
   // landings on each floor with a rail, and ladders down between them, zig-zagging
   function fireEscape(B, at, fx, W, h, fl, r) {
@@ -1008,7 +1109,7 @@
       const seed = Math.floor(r() * 1000);
       const bw = w - 1 - r() * 3, bd = d - 1 - r() * 3;
       const style = r() < 0.72 ? 'derelict' : 'brick';
-      building(B, x, z, bw, bd, 7 + r() * 22, style, tintK(r, 0.8, 0.1), seed, r() < 0.72);
+      building(B, x, z, bw, bd, 7 + r() * 22, style, tintK(r, 0.8, 0.1), seed + 5000, r() < 0.72); // (5000 up: a ruin's seed, boarded and broken)
     },
     // Erudite: glass and clean stone, taller, a little blue
     erudite(B, x, z, w, d) {
@@ -1792,6 +1893,7 @@
             shabby: { value: k === 'derelict' ? 0.75 : k === 'brick' || k === 'loft' ? 0.3 : 0.12 },
             blankCol: { value: new THREE.Vector3(...(S && S.blank ? S.blank.slice(0, 3) : [0.5, 0.5, 0.5])) },
             blankGrid: { value: new THREE.Vector2(...(S && S.blank ? S.blank.slice(3) : [1, 1])) },
+            venetian: { value: k === 'office' || k === 'glass' || k === 'institution' ? 1 : 0 },
           }),
           vertexShader: VERT,
           fragmentShader: FRAG,
