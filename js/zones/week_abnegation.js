@@ -58,6 +58,7 @@
       chapter: true, noDiscover: true,
       bounds: { x0: -2, z0: -2, x1: 10, z1: 9 },
       buildingHeight: 6,
+      roof: { gable: true, tint: [0.9, 0.9, 0.88] }, // (a house: two storeys under a pitched roof)
       fog: { color: 0x0c1018, near: 30, far: 120 },
       sky: { top: 0x04060c, horizon: 0x161c2a, ground: 0x05070a, skyline: false },
       rooms: [{ id: 'kitchen', name: 'Kitchen', x0: 0, z0: 0, x1: 8, z1: 7, h: 2.7, floor: 'wood', wall: 'paint_warm', ceiling: 'paint_white', light: { ambient: [0.24, 0.22, 0.2], color: [1, 0.84, 0.6], intensity: 0.85, spacing: 4, range: 5, fixture: 'bulb' } }],

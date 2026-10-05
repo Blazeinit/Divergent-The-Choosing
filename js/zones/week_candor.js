@@ -58,6 +58,7 @@
       chapter: true, noDiscover: true,
       bounds: { x0: -2, z0: -2, x1: 34, z1: 32 },
       buildingHeight: 12,
+      roof: true,
       fog: { color: 0x3a3a3a, near: 40, far: 160 },
       sky: { top: 0x5b6773, horizon: 0x9ca3a9, ground: 0x585b5d, skyline: false },
       rooms: [

@@ -17,30 +17,35 @@
     abnegation: {
       wall: 'paint_wall', floor: 'wood', ceiling: 'paint_white', facade: 'concrete_panel',
       light: { ambient: [0.26, 0.25, 0.24], color: [1, 0.86, 0.66], intensity: 0.75, spacing: 4, range: 5.5, fixture: 'bulb' },
+      roof: [0.9, 0.9, 0.88], // (the shingles' shade)
       sofa: 'fabric_grey', rug: 'carpet_grey', top: 'wood', banner: 'abnegation',
       sector: 'Abnegation sector', street: 'Grey houses, all the same, all lights out by ten.',
     },
     erudite: {
       wall: 'paint_blue', floor: 'carpet_blue', ceiling: 'paint_white', facade: 'facade',
       light: { ambient: [0.3, 0.32, 0.36], color: [0.88, 0.94, 1], intensity: 0.9, spacing: 3.5, range: 5.5, fixture: 'tube' },
+      roof: [0.8, 0.88, 1.05], // (the shingles' shade)
       sofa: 'fabric_blue', rug: 'carpet_blue', top: 'wood_light', banner: 'erudite',
       sector: 'Erudite quarter', street: 'Every window on the street is lit. Nobody here sleeps before midnight.',
     },
     candor: {
       wall: 'paint_white', floor: 'marble_check', ceiling: 'paint_white', facade: 'concrete',
       light: { ambient: [0.34, 0.34, 0.34], color: [1, 0.98, 0.94], intensity: 0.9, spacing: 3.5, range: 5.5 },
+      roof: [0.6, 0.6, 0.62], // (the shingles' shade)
       sofa: 'black', rug: 'carpet_dark', top: 'white', banner: 'candor',
       sector: 'Candor district', street: 'Somebody two doors down is arguing, cheerfully, at full volume.',
     },
     amity: {
       wall: 'wood_panel', floor: 'wood_light', ceiling: 'wood', facade: 'brick',
       light: { ambient: [0.32, 0.27, 0.2], color: [1, 0.82, 0.58], intensity: 0.85, spacing: 3.5, range: 6, fixture: 'bulb' },
+      roof: [1.15, 0.8, 0.6], // (the shingles' shade)
       sofa: 'fabric_grey', rug: 'carpet_red', top: 'wood', banner: 'amity',
       sector: 'the Amity guest house in town', street: 'The farm truck leaves at dawn. Someone is still singing in the yard.',
     },
     dauntless: {
       wall: 'concrete_dark', floor: 'metal_plate', ceiling: 'ceiling_concrete', facade: 'concrete_dark',
       light: { ambient: [0.18, 0.2, 0.26], color: [0.7, 0.82, 1], intensity: 0.85, spacing: 4, range: 5.5, fixture: 'bulb' },
+      roof: [0.55, 0.55, 0.58], // (the shingles' shade)
       sofa: 'black', rug: 'carpet_dark', top: 'metal_dark', banner: 'dauntless',
       sector: 'the Dauntless compound', street: 'Through the wall: the river in the chasm, and somebody laughing much too loud.',
     },
@@ -91,6 +96,7 @@
       bounds: { x0: -2, z0: -2, x1: 18, z1: 14 },
       buildingHeight: 3.2,
       facade: S.facade,
+      roof: { gable: true, tint: S.roof }, // (seen from the street outside, and from above)
       fog: { color: 0x0d0f14, near: 22, far: 90 },
       fogOutdoor: { color: 0x141821, near: 30, far: 260 },
       sky: { top: 0x05070d, horizon: 0x1a1f2b, ground: 0x08090c, skyline: false },

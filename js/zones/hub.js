@@ -112,6 +112,7 @@
       noDiscover: true,
       bounds: { x0: -2, z0: -2, x1: 48, z1: 38 },
       buildingHeight: 10,
+      roof: { parapet: 1.1, tank: false }, // (from above, the top of the tower: plant, a mast, no water tank)
       facade: 'glass_dark',
       fog: { color: 0x7d858c, near: 60, far: 320 },
       sky: { top: 0x63727f, horizon: 0xa8b0b6, ground: 0x5a5d60, skyline: false },

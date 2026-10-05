@@ -202,7 +202,7 @@
       if (def.build) def.build(this.ctx);
       // a roof over the rooms, for a building the city (or the sky) looks down on (def.roof; a zone
       // that needs it sooner builds its own from build(): see buildRoof)
-      if (def.roof && !this.roof) this.buildRoof(def.roof === true ? {} : def.roof);
+      if (def.roof && !this.roofDeck) this.buildRoof(def.roof === true ? {} : def.roof);
 
       // doors (dynamic)
       for (const d of def.doors || []) this.buildDoor(d);
@@ -313,7 +313,8 @@
     //   o: { y: the walls' top (default: each room's), slab, parapet (its height),
     //        cover: [[x0, z0, x1, z1]] more ground under the same roof (a shell round the rooms),
     //        party: [[x0, z0, x1, z1]] taller buildings next door (no parapet against them),
-    //        bulkhead: [x, z], tank: [x, z] | false, plant: how many units, deck: material }
+    //        bulkhead: [x, z], tank: [x, z] | false, plant: how many units, kit: false (bare), deck: material,
+    //        gable: true (a house's pitched roof instead: see gableRoof; tint, rise, eaves, chimney) }
     // Returns { rects: [[x0, z0, x1, z1, y]] } (the deck, for the cloud shadows).
     buildRoof(o) {
       o = o || {};
@@ -334,6 +335,7 @@
       const at = (i, j) => (i >= 0 && j >= 0 && i < W && j < H ? top[j * W + i] : 0);
       const party = (i, j) => (o.party || []).some((q) => inR(cx(i), cz(j), q));
       B.room = OPEN_AIR;
+      if (o.gable) return this.gableRoof(o, top);
       // the deck: the biggest rectangles of one height
       const rects = [], seen = new Uint8Array(W * H);
       for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
@@ -380,7 +382,7 @@
             };
             const y1 = h + slab + ph;
             piece(pin, pout, base, y1, 0, face);
-            piece(pin + 0.05, pout + 0.07, y1, y1 + 0.09, 0.06, cap); // the coping: a lip both sides
+            if (ph > 0) piece(pin + 0.05, pout + 0.07, y1, y1 + 0.09, 0.06, cap); // the coping: a lip both sides
             run = null;
           };
           for (let s = 0; s < nAlong; s++) {
@@ -395,9 +397,58 @@
           flush();
         }
       }
-      this.roofKit(o, rects, top, slab);
-      this.roof = { rects };
-      return this.roof;
+      if (o.kit !== false) this.roofKit(o, rects, top, slab);
+      this.roofDeck = { rects }; // (not zone.roof: that is the roof the Dauntless jump onto)
+      return this.roofDeck;
+    }
+
+    // a house's roof: two slopes of shingle over the rooms' outline, the ridge along its longer side,
+    // gable ends in the walls' own finish, eaves with a fascia and a soffit, a chimney
+    gableRoof(o, top) {
+      const B = this.batch, W = this.W, H = this.H, M = (k) => DV.Mat.get(k);
+      let i0 = W, j0 = H, i1 = -1, j1 = -1, y = 0;
+      for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (top[j * W + i]) { i0 = Math.min(i0, i); j0 = Math.min(j0, j); i1 = Math.max(i1, i); j1 = Math.max(j1, j); y = Math.max(y, top[j * W + i]); }
+      if (i1 < 0) return (this.roofDeck = { rects: [] });
+      const T2 = T / 2, ov = o.eaves === undefined ? 0.45 : o.eaves;
+      const x0 = this.bx0 + i0 * G - T2, x1 = this.bx0 + (i1 + 1) * G + T2, z0 = this.bz0 + j0 * G - T2, z1 = this.bz0 + (j1 + 1) * G + T2;
+      const alongX = x1 - x0 >= z1 - z0;
+      // in ridge space: a along the ridge, b across it
+      const a0 = alongX ? x0 : z0, a1 = alongX ? x1 : z1, b0 = alongX ? z0 : x0, b1 = alongX ? z1 : x1, bc = (b0 + b1) / 2;
+      const rise = o.rise || Math.min(2.6, (b1 - b0) * 0.32), yr = y + rise, ye = y - ov * (rise / ((b1 - b0) / 2));
+      const P = (a, yy, b) => (alongX ? [a, yy, b] : [b, yy, a]);
+      // a quad or a triangle facing `want` (the axes swap when the ridge runs along z, and so would the winding)
+      const face = (mat, pts, uvs, want, tint) => {
+        const [p0, p1, p2] = pts, e1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]], e2 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
+        const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+        if (n[0] * want[0] + n[1] * want[1] + n[2] * want[2] < 0) { pts = pts.slice().reverse(); uvs = uvs.slice().reverse(); }
+        if (pts.length === 3) B.tri(mat, pts[0], pts[1], pts[2], uvs[0], uvs[1], uvs[2], tint);
+        else B.quad(mat, pts[0], pts[1], pts[2], pts[3], uvs[0], uvs[1], uvs[2], uvs[3], { tint });
+      };
+      const sh = M(o.deck || 'shingle'), sw = (sh.map && sh.map.userData.world) || 1, tint = o.tint;
+      const slopeLen = Math.hypot(bc - (b0 - ov), yr - ye);
+      for (const side of [-1, 1]) {
+        const be = side < 0 ? b0 - ov : b1 + ov, n = P(0, 1, side);
+        face(sh, [P(a0 - ov, ye, be), P(a1 + ov, ye, be), P(a1 + ov, yr, bc), P(a0 - ov, yr, bc)],
+          [[(a0 - ov) / sw, 0], [(a1 + ov) / sw, 0], [(a1 + ov) / sw, slopeLen / sw], [(a0 - ov) / sw, slopeLen / sw]], n, tint);
+        // the underside of the eaves and of the overhang at each gable end, and the fascia board along the eaves
+        const bw = side < 0 ? b0 : b1, down = P(0, -1, -side);
+        face(M('wood'), [P(a0 - ov, ye, be), P(a1 + ov, ye, be), P(a1 + ov, y, bw), P(a0 - ov, y, bw)], [[0, 0], [4, 0], [4, 1], [0, 1]], down);
+        for (const [e0, e1] of [[a0 - ov, a0], [a1, a1 + ov]]) face(M('wood'), [P(e0, ye, be), P(e1, ye, be), P(e1, yr, bc), P(e0, yr, bc)], [[0, 0], [1, 0], [1, 2], [0, 2]], down);
+        face(M('wood'), [P(a0 - ov, ye - 0.18, be), P(a1 + ov, ye - 0.18, be), P(a1 + ov, ye + 0.02, be), P(a0 - ov, ye + 0.02, be)], [[0, 0], [4, 0], [4, 1], [0, 1]], P(0, 0, side));
+      }
+      // the gable ends: the walls carried up into the triangle under the ridge
+      const wall = M(this.def.facade || 'facade'), ww = (wall.map && wall.map.userData.world) || 1;
+      for (const [ae, sgn] of [[a0, -1], [a1, 1]]) face(wall, [P(ae, y, b0), P(ae, y, b1), P(ae, yr, bc)], [[b0 / ww, y / ww], [b1 / ww, y / ww], [bc / ww, yr / ww]], P(sgn, 0, 0));
+      // the ridge cap, and a brick chimney through the slope near one end
+      if (alongX) B.box(M('metal_dark'), (a0 + a1) / 2, yr - 0.04, bc, a1 - a0 + ov * 2, 0.1, 0.22);
+      else B.box(M('metal_dark'), bc, yr - 0.04, (a0 + a1) / 2, 0.22, 0.1, a1 - a0 + ov * 2);
+      if (o.chimney !== false) {
+        const ca = a0 + (a1 - a0) * 0.22, cb = bc + (b1 - bc) * 0.45, [chx, , chz] = P(ca, 0, cb);
+        B.box(M('brick'), chx, y, chz, 0.7, yr - y + 0.9, 0.7, { skip: { bottom: 1 } });
+        B.box(M('concrete'), chx, yr + 0.9, chz, 0.85, 0.1, 0.85);
+      }
+      this.roofDeck = { rects: [] };
+      return this.roofDeck;
     }
 
     // what stands on a flat roof: the stair's bulkhead, the plant on its curbs, vents and stacks, and
