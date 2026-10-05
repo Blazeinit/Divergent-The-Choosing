@@ -125,24 +125,39 @@
 
   const hex = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
   const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
-  const GLASS = [0.1, 0.12, 0.14], GLASS_HI = [0.22, 0.27, 0.31], TYRE = [0.07, 0.07, 0.075], HUB = [0.55, 0.56, 0.57];
+  const GLASS = [0.1, 0.12, 0.14], GLASS_HI = [0.22, 0.27, 0.31], TYRE = [0.07, 0.07, 0.075], TYRE_OUT = [0.13, 0.13, 0.135], WELL = [0.025, 0.025, 0.03], HUB = [0.55, 0.56, 0.57];
   const TRIM = [0.13, 0.13, 0.14], CHROME = [0.66, 0.67, 0.68], HEAD = [1.0, 0.97, 0.86], TAIL = [0.75, 0.08, 0.06], AMBER = [0.95, 0.62, 0.15];
   // the city's cars are old: faded paint, mostly
   const PAINT = [0x6e7b72, 0x8a8478, 0x5a6470, 0x7a5a4a, 0x9a9488, 0x4a5550, 0x8f7a5a, 0x5e5e62, 0x9aa0a4, 0x6a4a44, 0x3e4a5a, 0xa89a7a];
 
   // wheels: the tyre's outer face just proud of the body side, a hub disc on it, and a dark
   // wheel arch painted on the side around it (the body is solid, so the arch is a decal)
+  // a round-topped arch (open at the bottom), in shape space: x along the vehicle, y up
+  function archShape(R, cy) {
+    const s = new THREE.Shape();
+    s.moveTo(-R, 0.02); s.lineTo(-R, cy); s.absarc(0, cy, R, Math.PI, 0, true); s.lineTo(R, 0.02); s.lineTo(-R, 0.02);
+    return s;
+  }
   function wheelSet(M, axles, W, r, w, body, opts) {
     const wheels = [];
     const archTop = (opts && opts.archTop) || r * 2 + 0.1;
+    const R = Math.max(r * 1.08, Math.min(r * 1.22, archTop - r - 0.015));
     for (const z of axles) for (const side of [-1, 1]) {
       const x = side * (W / 2 - w / 2 + 0.035);
       const flat = opts && opts.wreck && side === 1 && z === axles[0];
       const ry = flat ? r * 0.8 : r;
-      M.box(side * (W / 2 + 0.006), archTop / 2 + 0.02, z, 0.012, archTop - 0.04, r * 2.35, TRIM);
-      M.box(side * (W / 2 - 0.1), archTop / 2 + 0.02, z, 0.2, archTop - 0.04, r * 2.3, TYRE); // the dark inside of the arch
-      M.wheel(x, ry, z, ry, w, TYRE, 10);
-      M.wheel(x + side * (w / 2 + 0.006), ry, z, r * 0.55, 0.012, opts && opts.wreck ? [0.35, 0.28, 0.22] : HUB, 8);
+      // the wheel arch: a round-topped well cut into the side (dark), with a trim lip round it
+      const well = new THREE.ExtrudeGeometry(archShape(R, r), { depth: 0.208, bevelEnabled: false, curveSegments: 10 });
+      well.rotateY(side * Math.PI / 2);
+      well.translate(side * (W / 2 - 0.2), 0, z);
+      M.add(well, WELL);
+      const lip = new THREE.ShapeGeometry(archShape(R + 0.05, r), 10);
+      lip.rotateY(side * Math.PI / 2);
+      lip.translate(side * (W / 2 + 0.004), 0, z);
+      M.add(lip, TRIM);
+      M.wheel(x, ry, z, ry, w, TYRE_OUT, 18);
+      M.wheel(x + side * (w / 2 + 0.006), ry, z, r * 0.55, 0.012, opts && opts.wreck ? [0.35, 0.28, 0.22] : HUB, 12);
+      M.wheel(x + side * (w / 2 + 0.012), ry, z, r * 0.18, 0.012, TRIM, 8); // the centre cap
       wheels.push({ x, z, r });
     }
     void body;
