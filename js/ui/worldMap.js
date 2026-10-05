@@ -110,12 +110,16 @@
       g.setLineDash([]);
       g.restore();
 
-      // the Fence: the ring, its towers, the gate
-      g.strokeStyle = '#c9b27a'; g.lineWidth = 2;
+      // the Fence: the wall (as thick as it is), its watchtowers, the cordon in front of it (dashed)
+      const WL = CM.wall;
+      g.strokeStyle = '#c9b27a'; g.lineWidth = Math.max(2, (WL.outer - WL.inner) * s);
       g.beginPath(); g.arc(X(C[0]), Y(C[1]), F * s, 0, Math.PI * 2); g.stroke();
-      const n = Math.round((Math.PI * 2 * F) / 9);
+      g.strokeStyle = 'rgba(201,178,122,0.55)'; g.lineWidth = 1; g.setLineDash([3, 3]);
+      g.beginPath(); g.arc(X(C[0]), Y(C[1]), WL.cordon * s, 0, Math.PI * 2); g.stroke();
+      g.setLineDash([]);
       g.fillStyle = '#c9b27a';
-      for (let k = 11; k < n; k += 22) { const a = ((k + 0.5) / n) * Math.PI * 2; g.fillRect(X(C[0] + Math.cos(a) * F) - 2, Y(C[1] + Math.sin(a) * F) - 2, 4, 4); }
+      const tw = Math.max(4, 12 * s);
+      for (const a of CM.towerAngles()) g.fillRect(X(C[0] + Math.cos(a) * F) - tw / 2, Y(C[1] + Math.sin(a) * F) - tw / 2, tw, tw);
       // the old pier and its wheel
       g.strokeStyle = '#8a8478'; g.lineWidth = 1.5;
       g.beginPath(); g.arc(X(CM.ferris[0]), Y(CM.ferris[1]), Math.max(4, 38 * s), 0, Math.PI * 2); g.stroke();

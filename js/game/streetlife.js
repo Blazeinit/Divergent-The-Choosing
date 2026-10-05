@@ -337,7 +337,9 @@
         if (e.j && e.j.signal) {
           if (R.walk(e.j, e.axis) !== 'walk') return false;
           const A = W.nodes[e.a], B = W.nodes[e.b], mx = (A.x + B.x) / 2, mz = (A.z + B.z) / 2;
-          return !this.cars.some((c) => c.speed > 0.5 && Math.hypot(c.x - mx, c.z - mz) < 9);
+          // (traffic going the same way as you doesn't cross your path: what's coming across, or turning, does)
+          const across = e.axis === 'x' ? (c) => Math.abs(c.hz) > 0.5 : (c) => Math.abs(c.hx) > 0.5;
+          return !this.cars.some((c) => c.speed > 0.5 && (c.turn || across(c)) && Math.hypot(c.x - mx, c.z - mz) < 9);
         }
       }
       return this.clearToCross(e);
@@ -362,9 +364,12 @@
         const fx = Math.sin(p.wantRot), fz = Math.cos(p.wantRot);
         const ax = P.x - p.x, az = P.z - p.z, ahead = ax * fx + az * fz, beside = ax * fz - az * fx;
         if (ahead > 0 && ahead < 1.3 && Math.abs(beside) < 0.75) {
-          spd = Math.min(spd, 0.15);
+          // (right up against you they stand still: creeping on would shove you back up the street)
+          spd = Math.min(spd, ahead < 0.95 ? 0 : 0.15);
           p.stuck += dt;
-          if (p.stuck > 0.5) p.side = U.damp(p.side, beside > 0 ? -0.95 : 0.95, 4, dt);
+          // (and step out of your way, quickly)
+          // (beside < 0: you're to their left as they walk, which is +side; so the other way)
+          if (p.stuck > 0.15) p.side = U.damp(p.side, beside > 0 ? 1.15 : -1.15, 6, dt);
         } else {
           p.stuck = Math.max(0, p.stuck - dt);
           if (p.stuck === 0) p.side = U.damp(p.side, 0, 1.5, dt);
@@ -377,15 +382,22 @@
           this.barkT = 5;
         }
         if (p.barkCool <= 0) p.barkCool = 18 + this.r() * 20;
+        // never into you: a step that would bring them closer, inside arm's length, isn't taken
+        if (spd > 0) {
+          const nd = Math.hypot(p.x + fx * spd * dt - P.x, p.z + fz * spd * dt - P.z), d0 = Math.hypot(p.x - P.x, p.z - P.z);
+          if (nd < 0.68 && nd < d0) spd = 0;
+        }
         // along the edge, and on round the corner
         let e = W.edges[p.edge];
         p.t += spd * dt;
         if (p.t >= e.len) {
-          const next = this.nextEdge(p);
+          // (someone who's decided to cross waits at the kerb for it, not for ever)
+          const next = p.waitFor !== undefined && p.waitT < 25 ? p.waitFor : this.nextEdge(p);
           const ne = W.edges[next];
-          if (ne.cross && !this.mayCross(ne)) { p.t = e.len; p.wait = 0.5; }
+          if (ne.cross && !this.mayCross(ne)) { p.t = e.len; p.wait = 0.4; if (p.waitFor !== next) { p.waitFor = next; p.waitT = 0; } p.waitT += 0.4; }
           else {
             const at = p.to;
+            p.waitFor = undefined;
             p.edge = next; p.from = at; p.to = ne.a === at ? ne.b : ne.a; p.t = 0;
             e = ne;
           }
@@ -425,9 +437,10 @@
         default: return { kind: q < 0.45 ? 'sedan' : q < 0.7 ? 'hatch' : 'van' };
       }
     }
-    spawnCar(px, pz) {
+    // only: a lane filter (the dev tools and the tests can ask for traffic on a particular street)
+    spawnCar(px, pz, only) {
       // a lane that passes near you, at a point well off up or down it
-      const near = this.lanes.filter((l) => Math.abs(l.c - (l.axis === 'x' ? pz : px)) < 110);
+      const near = this.lanes.filter((l) => Math.abs(l.c - (l.axis === 'x' ? pz : px)) < 110 && (!only || only(l)));
       if (!near.length) return false;
       for (let tries = 0; tries < 8; tries++) {
         const lane = near[Math.floor(this.r() * near.length)];
@@ -530,10 +543,11 @@
         // what's ahead of it: you, someone crossing, the car in front (or one turning across)
         const hw = c.v.width / 2 + 0.55, look = c.v.length / 2 + 4 + c.speed * 1.3;
         let want = c.turn ? c.turn.vmax : c.top, forPlayer = false, held = false;
+        c.why = null; // (what's holding it up: for the dev readout and the tests)
         const ahead = (x, z) => { const dx = x - c.x, dz = z - c.z, a = dx * c.hx + dz * c.hz, b = Math.abs(dx * c.hz - dz * c.hx); return b < hw ? a : -1; };
         const ap = ahead(P.x, P.z);
-        if (ap > 0 && ap < look) { want = ap < c.v.length / 2 + 2.5 ? 0 : Math.min(want, (ap - c.v.length / 2 - 2.5) * 1.2); forPlayer = true; }
-        for (const p of this.peds) { const a = ahead(p.x, p.z); if (a > 0 && a < look) want = Math.min(want, a < c.v.length / 2 + 2.5 ? 0 : (a - c.v.length / 2 - 2.5) * 1.2); }
+        if (ap > 0 && ap < look) { want = ap < c.v.length / 2 + 2.5 ? 0 : Math.min(want, (ap - c.v.length / 2 - 2.5) * 1.2); forPlayer = true; c.why = 'you'; }
+        for (const p of this.peds) { const a = ahead(p.x, p.z); if (a > 0 && a < look) { want = Math.min(want, a < c.v.length / 2 + 2.5 ? 0 : (a - c.v.length / 2 - 2.5) * 1.2); c.why = 'someone crossing'; } }
         for (const o of this.cars) {
           if (o === c) continue;
           const a = ahead(o.x, o.z);
@@ -541,7 +555,7 @@
           // two that see each other (crossing paths): the older one goes first
           if (c.id < o.id && (c.x - o.x) * o.hx + (c.z - o.z) * o.hz > 0 && Math.abs((c.x - o.x) * o.hz - (c.z - o.z) * o.hx) < o.v.width / 2 + 0.55) continue;
           const gap = a - (o.v.length + c.v.length) / 2;
-          if (gap < 6 + c.speed * 1.4) want = Math.min(want, gap < 2.6 ? 0 : o.speed + (gap - 2.6) * 0.6);
+          if (gap < 6 + c.speed * 1.4) { want = Math.min(want, gap < 2.6 ? 0 : o.speed + (gap - 2.6) * 0.6); c.why = 'car ' + o.id; }
         }
         // the junction coming up: its lights, and what it'll do there
         if (!c.turn && R) {
@@ -551,7 +565,7 @@
             const light = R.light(nj.j, l.axis), stopD = nj.d - DV.Roads.CW - DV.Roads.STOP;
             if (light && light !== 'g' && stopD > -0.4) {
               // red: stop at the line; amber: stop if it can do it without slamming the brakes
-              if (light === 'r' || stopD > (c.speed * c.speed) / 9) { want = Math.min(want, stopD < 0.3 ? 0 : Math.sqrt(2 * 3.2 * (stopD - 0.3))); held = stopD < 12; }
+              if (light === 'r' || stopD > (c.speed * c.speed) / 9) { want = Math.min(want, stopD < 0.3 ? 0 : Math.sqrt(2 * 3.2 * (stopD - 0.3))); held = stopD < 12; c.why = c.why || 'light'; }
             } else if (!light && nj.d < 14) want = Math.min(want, 6.5); // a dead junction: slow down and look
             if (c.plan.turn !== 'straight' && nj.d < 26) want = Math.min(want, c.plan.turn === 'right' ? 5.5 : 7);
             if (c.plan.turn !== 'straight' && nj.d <= 0.3 && !held) this.beginTurn(c, nj);

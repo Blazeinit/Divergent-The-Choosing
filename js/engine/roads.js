@@ -23,7 +23,7 @@
   const DV = window.DV;
   const U = DV.U;
 
-  const GREEN = 17, AMBER = 3.2, CLEAR = 2;
+  const GREEN = 12.5, AMBER = 3, CLEAR = 1.5;
   const CYCLE = 2 * (GREEN + AMBER + CLEAR);
   const CW = 3.2; // a crossing's width, out from the junction's kerb line
   const STOP = 1.0; // the stop line, back from the crossing
@@ -84,7 +84,7 @@
     walk(j, axis) {
       if (!j.signal) return null;
       const left = this.greenLeft(j, axis);
-      return left > 7 ? 'walk' : left > 0 ? 'flash' : 'stop';
+      return left > 5 ? 'walk' : left > 0 ? 'flash' : 'stop';
     }
     // the junction a point is in, or next to (within r of its box)
     near(x, z, r) {

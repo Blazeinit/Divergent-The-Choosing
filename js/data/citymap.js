@@ -33,7 +33,10 @@
     seed: 1871,
     centre: [40, 35],
     radius: 580, // where the blocks stop
-    fence: 622, // the Fence: nobody goes past it
+    // the Fence: a wall round the whole city (the centre line of it), and the cordon in front of it
+    // that nobody goes past (a security fence, a patrol road, floodlights)
+    fence: 616,
+    wall: { inner: 612, outer: 620, height: 18, top: 34.5, towers: 12, cordon: 596 },
     marshX: 420, // the dried-up lake: the marsh
     hub: [96, 360],
     ferris: [458, 84],
@@ -76,7 +79,7 @@
       { id: 'dauntless_compound', name: 'The Dauntless Compound', x: 360, z: -108, w: 40, d: 30, icon: 'dauntless' },
       { id: 'ferris', name: 'The Old Pier', x: 458, z: 84, icon: 'wheel' },
       { id: 'hancock', name: 'The Hancock Building', x: 208, z: 246, w: 30, d: 30, icon: 'tower' },
-      { id: 'fence_gate', name: 'The Fence Gate', x: -532, z: 278, icon: 'gate' },
+      { id: 'fence_gate', name: 'The Fence Gate', x: -526, z: 278, icon: 'gate' },
       { id: 'amity', name: 'Amity Farms', x: -720, z: 420, icon: 'amity', outside: true },
     ],
 
@@ -87,7 +90,7 @@
       erudite: { x: 237.6, z: 252, face: 'e', kind: 'flats', street: 'Wells St' },
       candor: { x: -157.6, z: 256, face: 'w', kind: 'flats', street: 'Damen Ave' },
       dauntless: { x: 254.4, z: -118, face: 'w', kind: 'flats', street: 'Wells St' },
-      amity: { x: -526, z: 278, gate: true, street: 'Madison St' }, // the Amity truck waits at the Fence gate
+      amity: { x: -497, z: 278, gate: true, street: 'Madison St' }, // the Amity truck waits inside the checkpoint before the Fence gate
     },
 
     // every zone's place on the map (zones not listed have none: simulations, the menu)
@@ -131,7 +134,7 @@
       const dd = this.district(x, z);
       const sub = dd.marsh ? 'The Marsh' : dd.d && dd.k > 0.08 ? dd.d.name : 'The City';
       let name;
-      if (Math.hypot(x - this.centre[0], z - this.centre[1]) > this.fence - 30) name = 'The Fence';
+      if (Math.hypot(x - this.centre[0], z - this.centre[1]) > this.wall.cordon - 26) name = 'The Fence';
       else if (lm && !lm.outside) name = lm.name;
       else if (ns && ew) name = ew.name + ' & ' + ns.name;
       else if (ns || ew) name = (ns || ew).name;
@@ -157,6 +160,16 @@
       if (line.road) return line.road;
       const c = line.x !== undefined ? line.x : line.z;
       return [c - line.w / 2, c + line.w / 2];
+    },
+    // the Fence's watchtowers: their angles round the ring (none at the gate, which has its own)
+    towerAngles() {
+      const gate = this.fenceGate, ga = Math.atan2(gate.z - this.centre[1], gate.x - this.centre[0]);
+      const out = [];
+      for (let k = 0; k < this.wall.towers; k++) {
+        const a = ga + ((k + 0.5) / this.wall.towers) * Math.PI * 2;
+        out.push(Math.atan2(Math.sin(a), Math.cos(a)));
+      }
+      return out;
     },
     inside(x, z, pad) { return Math.hypot(x - this.centre[0], z - this.centre[1]) < this.fence - (pad || 0); },
   };

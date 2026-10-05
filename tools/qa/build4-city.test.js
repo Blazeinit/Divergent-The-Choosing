@@ -5,6 +5,7 @@
 // can't walk through a car; the walk home ends at your own door; the world map draws the city
 // and where you are; and a game saved out in the streets loads back there.
 const L = require('./lib.js');
+const DV_WALL = () => '612–620 m';
 L.run('build 4: the walkable city', async (p, T, errs) => {
   await L.quickStart(p);
   const ev = (fn, a) => p.evaluate(fn, a);
@@ -46,18 +47,38 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     const h = DV.CityMap.homes.abnegation;
     QA.tp(h.x, h.z, Math.PI / 2); r.house = walkLine(h.x + 6, h.z, 6);
     r.houseInside = inSolid(DV.Player.x, DV.Player.z, 0.05);
-    // the Fence, west of everything
-    const C = DV.CityMap.centre, F = DV.CityMap.fence;
-    QA.tp(C[0] - F + 8, C[1], -Math.PI / 2); r.fence = walkLine(C[0] - F - 20, C[1], 10);
+    // the Fence, west of everything: you get as far as the cordon in front of it, never to the wall
+    const C = DV.CityMap.centre, F = DV.CityMap.fence, CR = DV.CityMap.wall.cordon;
+    QA.tp(C[0] - CR + 8, C[1], -Math.PI / 2); r.fence = walkLine(C[0] - F - 20, C[1], 10);
     r.fenceDist = +Math.hypot(DV.Player.x - C[0], DV.Player.z - C[1]).toFixed(1);
+    // and at the gate, along Madison Street: the checkpoint's barrier is as far as anyone gets
+    const g = DV.CityMap.fenceGate;
+    QA.tp(g.x + 40, g.z, -Math.PI / 2); r.gate = walkLine(g.x - 10, g.z, 20);
+    r.gateDist = +Math.hypot(DV.Player.x - C[0], DV.Player.z - C[1]).toFixed(1);
     // the marsh: the shore wall
     QA.tp(405, 82, Math.PI / 2); r.marsh = walkLine(440, 82, 10);
     return r;
   });
   T.ok(walls.campus.at[1] < -0.2, 'the Testing Center\'s walls are solid from outside (stopped at z ' + walls.campus.at[1] + ')', walls.campus);
   T.ok(walls.house.at[0] < DV_HOUSE_FACE() && !walls.houseInside, 'houses are solid: you stop at the front wall', walls.house);
-  T.ok(walls.fenceDist < 622 && walls.fenceDist > 600, 'the Fence: you can walk up to it, not through it (' + walls.fenceDist + ' m out)', walls.fence);
+  T.ok(walls.fenceDist < 596 && walls.fenceDist > 590, 'the Fence: you can walk up to its cordon, no further (' + walls.fenceDist + ' m out; the wall is at ' + DV_WALL() + ')', walls.fence);
+  T.ok(walls.gateDist < 596 && walls.gateDist > 590, 'not even at the gate: the checkpoint stops you (' + walls.gateDist + ' m out)', walls.gate);
   T.ok(walls.marsh.at[0] < 417, 'the shore wall keeps you off the marsh (x ' + walls.marsh.at[0] + ')', walls.marsh);
+  // the Fence: the wall, its towers, the gatehouse, the cordon, their lamps
+  const wall = await ev(() => {
+    const zone = DV.World.current, CM = DV.CityMap, C = CM.centre, W = CM.wall;
+    const ring = (r0, r1) => zone.city.walk.solids.filter((q) => { const d = Math.hypot((q[0] + q[2]) / 2 - C[0], (q[1] + q[3]) / 2 - C[1]); return d > r0 && d < r1; });
+    const wallBits = ring(W.inner - 4, W.outer + 4), tall = wallBits.filter((q) => q[4] >= 40);
+    let gap = 0; // the widest gap round the ring, in degrees (there shouldn't be one)
+    const angs = wallBits.filter((q) => q[4] >= W.height - 0.5).map((q) => Math.atan2((q[1] + q[3]) / 2 - C[1], (q[0] + q[2]) / 2 - C[0])).sort((a, b) => a - b);
+    for (let i = 1; i < angs.length; i++) gap = Math.max(gap, angs[i] - angs[i - 1]);
+    gap = Math.max(gap, angs[0] + Math.PI * 2 - angs[angs.length - 1]);
+    const lamps = zone.lamps.filter((l) => Math.hypot(l[0] - C[0], l[2] - C[1]) > W.cordon - 5);
+    return { pieces: wallBits.length, towers: tall.length, gapDeg: +(gap * 180 / Math.PI).toFixed(1), limit: +zone.city.walk.limit.toFixed(1), lamps: lamps.length, red: lamps.filter((l) => l[3] && l[3][1] < 0.3).length, truck: Math.hypot(CM.homes.amity.x - C[0], CM.homes.amity.z - C[1]) };
+  });
+  T.ok(wall.pieces > 300 && wall.towers >= 14 && wall.gapDeg < 6, 'the Fence: a wall right round the city (' + wall.pieces + ' pieces, no gap wider than ' + wall.gapDeg + '°), ' + wall.towers + ' towers over it (the gate\'s two among them)', wall);
+  T.ok(wall.lamps > 50 && wall.red > 20 && wall.limit < 596 && wall.truck < wall.limit, 'floodlights along the cordon and red lamps on the wall (' + wall.lamps + '); the Amity truck waits inside the cordon', wall);
+
   // the L's columns stand on the pavement, never in a road (the deck spans each junction from its corners)
   const lcols = await ev(() => {
     const CM = DV.CityMap, t = CM.track;
@@ -164,6 +185,8 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     const lake = life.lanes.filter((l) => l.line.name === 'Lake St');
     let car = null;
     for (let i = 0; i < 900 && !car; i++) {
+      // (traffic comes and goes at random: put some on Lake Street, upstream, if there's none)
+      if (i % 50 === 0 && !life.cars.some((c) => c.lane.line.name === 'Lake St' && c.x > 128)) life.spawnCar(128, 82, (l) => l.line.name === 'Lake St');
       QA.step(0.1, [128, 76.9]);
       car = life.cars.find((c) => c.lane.line.name === 'Lake St' && !c.turn && c.x > 140 && c.x < 162 && c.speed > 2);
     }

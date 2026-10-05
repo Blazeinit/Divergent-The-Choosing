@@ -6,7 +6,7 @@ L.run('city, haze, clouds & the L', async (p, T, errs) => {
   await L.quickStart(p);
   const ev = (fn, a) => p.evaluate(fn, a);
   const st = await ev(() => { const c = DV.World.current.city; return c ? Object.assign({ meshes: c.group.children.length }, c.stats) : null; });
-  T.ok(st && st.tris > 20000 && st.tris < 160000, 'the city is built (' + (st && st.tris) + ' tris in ' + (st && st.meshes) + ' meshes)');
+  T.ok(st && st.tris > 20000 && st.tris < 190000, 'the city is built (' + (st && st.tris) + ' tris in ' + (st && st.meshes) + ' meshes)');
   T.ok(st && st.buildMs < 2500, 'and builds quickly (' + (st && st.buildMs) + ' ms in software GL)');
   T.ok(await ev(() => !DV.Zones.get('testing_center').props.some((q) => q.type === 'backdrop')), 'no flat painted backdrops left');
   // no city geometry inside any playable room (above floor level)

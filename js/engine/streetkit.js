@@ -199,17 +199,21 @@
     if (glowMats) return glowMats;
     const add = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 };
     glowMats = {
-      halo: new THREE.PointsMaterial(Object.assign({ size: 2.4, map: glowTex(false), color: 0xffd7a0, sizeAttenuation: true, fog: true }, add)),
+      halo: new THREE.PointsMaterial(Object.assign({ size: 2.4, map: glowTex(false), vertexColors: true, sizeAttenuation: true, fog: true }, add)),
       pool: new THREE.MeshBasicMaterial(Object.assign({ map: glowTex(true), color: 0x9a7448, fog: true, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }, add)),
       on: 0,
     };
     return glowMats;
   }
-  // heads: [[x, y, z], …] → a THREE.Group of the halos and the pools under them
+  // heads: [[x, y, z, colour?, noPool?], …] → a THREE.Group of the halos and the pools under them
+  // (a lamp high up, a red beacon on the Fence, has no pool)
+  const WARM = [1, 0.84, 0.63];
   function glowGroup(heads) {
-    const M = mats(), pos = [], q = [], uv = [];
-    for (const [x, y, z] of heads) {
+    const M = mats(), pos = [], col = [], q = [], uv = [];
+    for (const [x, y, z, c, noPool] of heads) {
       pos.push(x, y - 0.12, z);
+      col.push(...(c || WARM));
+      if (noPool) continue;
       const R = 4.6, Y = 0.07;
       q.push(x - R, Y, z - R, x - R, Y, z + R, x + R, Y, z + R, x - R, Y, z - R, x + R, Y, z + R, x + R, Y, z - R);
       uv.push(0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0);
@@ -218,6 +222,7 @@
     g.name = 'lamp_glow';
     const pg = new THREE.BufferGeometry();
     pg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    pg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     const halo = new THREE.Points(pg, M.halo);
     halo.renderOrder = 3;
     const qg = new THREE.BufferGeometry();

@@ -207,7 +207,29 @@
       }
     },
   };
-  const ORDER = ['office', 'brick', 'glass', 'derelict', 'institution', 'stone', 'loft', 'ghost'];
+  // the Fence: poured concrete in 4 m formwork panels, tie holes in rows, pour lines, a hundred
+  // years of weather running down it (rust from the ties, black from the top)
+  STYLES.bastion = {
+    bay: 4, floor: 4.5, lit: 0, win: [0, 0, 0, 0], noShops: true,
+    paint(g, r) {
+      g.fillStyle = '#6c6a65'; g.fillRect(0, 0, 256, 256);
+      speckle(g, 256, 256, r, 3600, 0.13);
+      for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
+        const x = b * 64, y = f * 64, k = r();
+        g.fillStyle = 'rgba(' + (k < 0.5 ? '255,255,250' : '20,20,18') + ',' + (0.03 + r() * 0.05).toFixed(3) + ')'; g.fillRect(x, y, 64, 64);
+        g.fillStyle = 'rgba(30,30,28,0.55)'; g.fillRect(x, y, 64, 2); g.fillRect(x, y, 2, 64); // the panel joints
+        g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(x, y + 31, 64, 1); // a pour line
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
+          const hx = x + 12 + i * 20, hy = y + 18 + j * 28;
+          g.fillStyle = '#34322f'; g.fillRect(hx, hy, 3, 3); // the tie holes
+          if (r() < 0.35) { g.fillStyle = 'rgba(110,60,30,' + (0.2 + r() * 0.3).toFixed(2) + ')'; g.fillRect(hx, hy + 3, 2, 6 + r() * 26); } // rust running from them
+        }
+      }
+      // black streaks running down from the top
+      for (let i = 0; i < 70; i++) { const x = Math.floor(r() * 256), len = 30 + r() * 140; g.fillStyle = 'rgba(15,15,14,' + (0.08 + r() * 0.18).toFixed(2) + ')'; g.fillRect(x, 256 - len, 2 + Math.floor(r() * 4), len); }
+    },
+  };
+  const ORDER = ['office', 'brick', 'glass', 'derelict', 'institution', 'stone', 'loft', 'ghost', 'bastion'];
 
   // tileable value noise → fbm (cloud shadows and the cloud deck share it)
   function noiseTexture(seed) {
@@ -446,6 +468,7 @@
       }
       const lens = [w, d, w, d];
       for (let k = 0; k < 4; k++) {
+        if (o.noEnds && (k === 0 || k === 2)) continue; // (the faces at its ends, across d: hidden where segments meet)
         const A = pts[k], B = pts[(k + 1) % 4];
         const mx = (A[0] + B[0]) / 2 - cx, mz = (A[1] + B[1]) / 2 - cz;
         const ml = Math.hypot(mx, mz) || 1;
@@ -588,7 +611,7 @@
     if (walk) {
       for (const l of walk.landmarks || []) if (LANDMARKS[l.id]) LANDMARKS[l.id](B, l);
       for (const f in walk.homes || {}) homeFor(B, f, walk.homes[f]);
-      theFence(B, centre, walk.fence, walk.gate, marshX);
+      theFence(B, centre, walk, walk.gate, marshX);
       for (const sg of walk.signs || []) sign(B, sg.x, sg.y, sg.z, sg.rot, sg.w, sg.h, sg.tex);
     }
     return B;
@@ -1098,50 +1121,154 @@
 
   // the Fence: a ring of chain-link and concrete with watchtowers, and the gate out to Amity
   //   (the chain-link itself is a textured band the build makes from B.fence)
-  function theFence(B, c, R, gate, marshX) {
-    const n = Math.round((Math.PI * 2 * R) / 9);
+  // The Fence, the way the film shows it: not a fence at all but a wall round the whole city,
+  // eighteen metres of poured concrete with buttresses up its inner face, a walkway along the top,
+  // and on it a steel frame carrying the electrified mesh another sixteen metres up, razor wire
+  // along the crest, red lamps on the posts. Watchtowers stand over it; the gate to Amity is a
+  // gatehouse with two towers and doors you could drive a train through. In front of it, a
+  // cordon nobody crosses: a security fence (signs every so often), a strip of open ground, the
+  // patrol road, floodlights. You can walk up to the cordon and look; that's all.
+  function theFence(B, c, Wd, gate, marshX) {
+    const WL = Wd.wall, R = Wd.fence, IR = WL.inner, OR = WL.outer, H = WL.height, TOP = WL.top, CR = WL.cordon;
     const ga = gate ? Math.atan2(gate[1] - c[1], gate[0] - c[0]) : 99;
-    const conc = [0.5, 0.49, 0.46], steel = [0.24, 0.24, 0.25];
+    const conc = [0.62, 0.61, 0.58], steel = [0.21, 0.21, 0.22], dark = [0.12, 0.12, 0.13];
+    const at = (a, r) => [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r];
+    const near = (a, b, m) => { let d = Math.abs(a - b) % (Math.PI * 2); d = Math.min(d, Math.PI * 2 - d); return d * R < m; };
+    const towers = DV.CityMap.towerAngles();
+    const lamps = (B.lamps = B.lamps || []);
+    // a strip in a vertical plane between two points (both faces): the frame's diagonal braces
+    const strip = (p0, y0, p1, y1, wdt, col, nx, nz) => {
+      const g = B.g.plain;
+      const q = [[p0[0], y0 - wdt / 2, p0[1]], [p1[0], y1 - wdt / 2, p1[1]], [p1[0], y1 + wdt / 2, p1[1]], [p0[0], y0 + wdt / 2, p0[1]]];
+      g.quad(q, null, col, [nx, 0, nz], 0);
+      g.quad(q, null, mul(col, 0.8), [-nx, 0, -nz], 0);
+    };
+    const n = Math.round((Math.PI * 2 * R) / 24);
+    B.part = 'the Fence';
     for (let k = 0; k < n; k++) {
-      const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
-      const p0 = [c[0] + Math.cos(a0) * R, c[1] + Math.sin(a0) * R], p1 = [c[0] + Math.cos(a1) * R, c[1] + Math.sin(a1) * R];
-      const mid = (a0 + a1) / 2;
-      let da = Math.abs(mid - ga); da = Math.min(da, Math.PI * 2 - da);
-      const atGate = da * R < 9;
-      // the posts (every segment), a concrete footing, the mesh above (not across the gate)
-      B.box(p0[0], p0[1], 0.35, 0.35, 0, 9.4, -a0, null, steel, 0, { solid: false });
-      if (atGate) continue;
-      const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
-      B.box((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, 0.5, len, 0, 1.3, -mid, null, conc, 0, { solid: false });
-      B.fence.push([p0[0], p0[1], p1[0], p1[1]]);
-      // barbed coils along the top
-      B.box((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, 0.5, len, 9.1, 9.5, -mid, null, [0.3, 0.3, 0.3], 0, { noTop: true, solid: false });
-      // a watchtower every so often
-      if (k % 22 === 11) {
-        const tx = c[0] + Math.cos(mid) * (R - 3), tz = c[1] + Math.sin(mid) * (R - 3);
-        for (const [ox, oz] of [[-1.4, -1.4], [1.4, -1.4], [1.4, 1.4], [-1.4, 1.4]]) B.box(tx + ox, tz + oz, 0.3, 0.3, 0, 12, 0, null, steel, 0, {});
-        B.box(tx, tz, 4.4, 4.4, 12, 12.3, 0, null, conc, 0, {});
-        B.box(tx, tz, 4.0, 4.0, 12.3, 14.4, 0, null, [0.34, 0.33, 0.31], 0, { noTop: true });
-        B.box(tx, tz, 4.8, 4.8, 14.4, 14.7, 0, null, [0.2, 0.2, 0.2], 0, {});
-      }
+      const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2, mid = (a0 + a1) / 2;
+      const chord = 2 * R * Math.sin(Math.PI / n) + 0.1;
+      const ux = Math.cos(mid), uz = Math.sin(mid); // out from the city
+      if (near(mid, ga, 22)) continue; // the gatehouse stands here (its towers meet the next segment)
+      // the wall itself: the concrete, and its top
+      const [wx, wz] = at(mid, (IR + OR) / 2);
+      B.box(wx, wz, OR - IR, chord * (OR / R), 0, H, -mid, 'bastion', conc, 300 + (k % 40), { noEnds: true, roof: [0.4, 0.39, 0.37] });
+      // up its inner face: a buttress at every joint (deep at the foot, stepping in halfway), a
+      // ledge at nine metres, vents low down
+      const [bx, bz] = at(a0, IR - 1.5), [bx2, bz2] = at(a0, IR - 0.9);
+      B.box(bx, bz, 3, 2.6, 0, 8.5, -a0, 'bastion', mul(conc, 0.96), 341, {});
+      B.box(bx2, bz2, 1.8, 2.2, 8.5, H - 0.4, -a0, 'bastion', mul(conc, 0.96), 342, {});
+      const [lx, lz] = at(mid, IR - 0.25);
+      B.box(lx, lz, 0.5, chord * 0.98, 8.6, 9.2, -mid, null, mul(conc, 0.7), 0, { noEnds: true, bottom: true });
+      if (k % 3 === 0) { const [vx, vz] = at(mid + 0.004, IR - 0.06); B.box(vx, vz, 0.12, 1.6, 2.2, 3.1, -mid, null, dark, 0, { noTop: true }); }
+      // on top: the walkway's rail on the city side, a parapet on the far side
+      const [rx, rz] = at(mid, IR + 0.3), [px, pz] = at(mid, OR - 0.4);
+      B.box(rx, rz, 0.08, chord, H, H + 1.1, -mid, null, steel, 0, { noTop: true, noEnds: true });
+      B.box(px, pz, 0.8, chord * (OR / R), H, H + 1.4, -mid, null, mul(conc, 0.85), 0, { noEnds: true });
+      // the frame: a post at every joint, girders, a cross-brace in each bay, the mesh, the razor wire
+      const [sx, sz] = at(a0, R);
+      B.box(sx, sz, 0.9, 0.6, H, TOP + 0.4, -a0, null, steel, 0, {});
+      const [gx, gz] = at(mid, R);
+      for (const y of [H + 7.5, TOP - 0.3]) B.box(gx, gz, 0.6, chord, y - 0.3, y + 0.3, -mid, null, steel, 0, { noEnds: true, bottom: true });
+      const p0 = at(a0, R - 0.35), p1 = at(a1, R - 0.35);
+      strip(p0, H + 0.6, p1, TOP - 0.8, 0.32, steel, -ux, -uz);
+      strip(p0, TOP - 0.8, p1, H + 0.6, 0.32, steel, -ux, -uz);
+      const m0 = at(a0, R + 0.05), m1 = at(a1, R + 0.05);
+      B.fence.push([m0[0], m0[1], m1[0], m1[1], H + 0.4, TOP - 0.4]);
+      const [cx2, cz2] = at(mid, R);
+      B.box(cx2, cz2, 0.7, chord, TOP + 0.1, TOP + 0.75, -mid, null, mul(steel, 0.8), 0, { noEnds: true });
+      // a red lamp on every third post
+      if (k % 3 === 0) lamps.push([sx, TOP + 0.6, sz, [1, 0.12, 0.08], true]);
     }
-    // the gate: two towers and a pair of heavy leaves, shut
+    // the watchtowers: a shaft up out of the wall, a cabin with windows all round, a roof, an aerial,
+    // a searchlight looking in over the city
+    for (const ta of towers) {
+      const [tx, tz] = at(ta, R);
+      B.box(tx, tz, 13, 11, 0, 44, -ta, 'bastion', conc, 360, {});
+      B.box(tx, tz, 13.6, 11.6, 44, 44.6, -ta, null, mul(conc, 0.7), 0, { bottom: true });
+      B.box(tx, tz, 12, 10, 44.6, 48.1, -ta, 'office', [0.62, 0.64, 0.66], 361, {});
+      B.box(tx, tz, 14, 12, 48.1, 48.7, -ta, null, dark, 0, { bottom: true });
+      const [ax2, az2] = at(ta + 0.004, R + 2);
+      B.box(ax2, az2, 0.2, 0.2, 48.7, 60, -ta, null, steel, 0, {});
+      lamps.push([ax2, 60.2, az2, [1, 0.12, 0.08], true]);
+      const [lx, lz] = at(ta, R - 6.6);
+      B.box(lx, lz, 1.2, 1.4, 45.4, 46.4, -ta, null, dark, 0, {});
+      lamps.push([at(ta, R - 7.4)[0], 45.9, at(ta, R - 7.4)[1], null, true]);
+    }
+    // the gate: a gatehouse across the wall, two towers, the opening, the doors (shut)
     if (gate) {
-      const ux = Math.cos(ga), uz = Math.sin(ga), vx = -uz, vz = ux;
-      const gx = c[0] + ux * R, gz = c[1] + uz * R;
-      for (const s of [-1, 1]) {
-        const tx = gx + vx * s * 7.5, tz = gz + vz * s * 7.5;
-        B.box(tx, tz, 4, 4, 0, 13, -ga, null, conc, 0, {});
-        B.box(tx, tz, 4.6, 4.6, 13, 13.6, -ga, null, [0.22, 0.22, 0.22], 0, {});
-        B.box(gx + vx * s * 2.9, gz + vz * s * 2.9, 0.5, 5.6, 0, 8.5, -ga, null, [0.3, 0.29, 0.27], 0, {});
+      const [ox, oz] = at(ga, R);
+      for (const sd of [-1, 1]) {
+        const ta = ga + (sd * 15.5) / R, [tx, tz] = at(ta, R);
+        B.box(tx, tz, 14, 11, 0, 44, -ga, 'bastion', conc, 370, {});
+        B.box(tx, tz, 14.6, 11.6, 44, 44.6, -ga, null, mul(conc, 0.7), 0, { bottom: true });
+        B.box(tx, tz, 13, 10, 44.6, 48.1, -ga, 'office', [0.62, 0.64, 0.66], 371, {});
+        B.box(tx, tz, 15, 12, 48.1, 48.7, -ga, null, dark, 0, { bottom: true });
+        const [lx, lz] = at(ta, IR - 2.4);
+        lamps.push([lx, 16, lz, null, false]);
       }
-      sign(B, gx - ux * 0.4, 10.2, gz - uz * 0.4, Math.atan2(-ux, -uz), 7, 1.1, () => DV.Tex.sign('FENCE GATE 4 — AUTHORIZED ONLY', { w: 512, h: 64, bg: '#1d1d1d', color: '#d8c8a0', size: 26 }));
+      // over the opening: the lintel, and the frame carried on across it
+      B.box(ox, oz, OR - IR + 2, 21, 16, H + 2, -ga, 'bastion', conc, 372, {});
+      B.box(ox, oz, 0.9, 21, H + 2, TOP + 2, -ga, null, steel, 0, {});
+      // the doors: steel leaves with ribs and bands, a hazard stripe along their foot
+      const tx2 = -Math.sin(ga), tz2 = Math.cos(ga); // along the wall
+      for (const sd of [-1, 1]) {
+        const [dx, dz] = at(ga, R);
+        const cx3 = dx + tx2 * sd * 5.1, cz3 = dz + tz2 * sd * 5.1;
+        B.box(cx3, cz3, 1.2, 10.1, 0, 15.8, -ga, null, [0.26, 0.25, 0.24], 0, {});
+        for (let i = -2; i <= 2; i++) B.box(cx3 - Math.cos(ga) * 0.7 + tx2 * i * 2, cz3 - Math.sin(ga) * 0.7 + tz2 * i * 2, 0.25, 0.3, 0.6, 15.4, -ga, null, [0.2, 0.19, 0.18], 0, {});
+        for (const y of [4, 8, 12]) B.box(cx3 - Math.cos(ga) * 0.68, cz3 - Math.sin(ga) * 0.68, 0.18, 10.1, y, y + 0.45, -ga, null, [0.18, 0.18, 0.17], 0, { bottom: true });
+        for (let i = 0; i < 10; i++) B.box(cx3 - Math.cos(ga) * 0.66 + tx2 * (i - 4.5) * 1.0, cz3 - Math.sin(ga) * 0.66 + tz2 * (i - 4.5) * 1.0, 0.1, 1.0, 0, 0.7, -ga, null, i % 2 ? [0.62, 0.5, 0.12] : dark, 0, { noTop: true });
+      }
+      sign(B, ox - Math.cos(ga) * 5.06, 17, oz - Math.sin(ga) * 5.06, Math.atan2(-Math.cos(ga), -Math.sin(ga)), 16, 1.4,
+        () => DV.Tex.sign('THE FENCE · GATE 4 · DAUNTLESS AUTHORIZED PERSONNEL ONLY', { w: 1024, h: 72, bg: '#1b1b1a', color: '#d8c8a0', size: 30 }));
     }
-    // the shore wall along the marsh, inside the Fence
+    // the cordon: a security fence nobody crosses (signs on it every so often), a concrete strip
+    // inside it and an apron at the foot of the wall, the patrol road between, floodlights
+    B.part = 'the cordon';
+    const nc = Math.round((Math.PI * 2 * CR) / 8);
+    B.cordon = [];
+    for (let k = 0; k < nc; k++) {
+      const a0 = (k / nc) * Math.PI * 2, a1 = ((k + 1) / nc) * Math.PI * 2, mid = (a0 + a1) / 2;
+      const [x0, z0] = at(a0, CR), [x1, z1] = at(a1, CR);
+      if (Math.max(x0, x1) > marshX - 4) continue; // (the marsh has its own wall)
+      if (near(mid, ga, 9 * (R / CR))) continue; // the checkpoint
+      B.box(x0, z0, 0.14, 0.14, 0, 3.7, -a0, null, steel, 0, { solid: false });
+      const [ix, iz] = at(a0, CR - 0.3);
+      B.box(ix, iz, 0.7, 0.08, 3.6, 3.68, -a0, null, steel, 0, { solid: false, noTop: true }); // the outrigger, leaning in
+      B.fence.push([x0, z0, x1, z1, 0.15, 3.5]);
+      const [wx, wz] = at(mid, CR - 0.6);
+      B.box(wx, wz, 0.05, 8, 3.95, 4.0, -mid, null, dark, 0, { solid: false, noTop: true, noEnds: true }); // the barbed wire
+      B.cordon.push([x0, z0, x1, z1]);
+      if (k % 18 === 9) sign(B, ...(([sx, sz]) => [sx, 1.9, sz])(at(mid, CR - 0.12)), Math.atan2(-Math.cos(mid), -Math.sin(mid)), 1.9, 1.2,
+        () => DV.Tex.sign('RESTRICTED\nNO ENTRY BEYOND THIS FENCE\nDAUNTLESS PATROL ZONE', { w: 256, h: 160, bg: '#c8a020', color: '#141414', borderColor: '#141414', size: 22 }));
+      // floodlights over the strip, every so often
+      if (k % 8 === 4) {
+        const [fx, fz] = at(mid, R - 7);
+        B.box(fx, fz, 0.3, 0.3, 0, 14, -mid, null, steel, 0, {});
+        const [hx, hz] = at(mid, R - 7.6);
+        B.box(hx, hz, 0.8, 2.2, 13.6, 14.4, -mid, null, dark, 0, {});
+        lamps.push([hx, 13.7, hz, null, false]);
+      }
+    }
+    // the checkpoint where Madison Street meets the cordon: a guard booth, the barrier arm (down),
+    // concrete blocks, a sign
+    if (gate) {
+      const [kx, kz] = at(ga, CR), tx2 = -Math.sin(ga), tz2 = Math.cos(ga);
+      const bt = [kx + tx2 * 8.5, kz + tz2 * 8.5];
+      B.box(bt[0], bt[1], 2.6, 2.6, 0, 2.7, -ga, 'office', [0.58, 0.6, 0.6], 380, {});
+      B.box(bt[0], bt[1], 3.1, 3.1, 2.7, 2.9, -ga, null, dark, 0, {});
+      for (let i = 0; i < 8; i++) B.box(kx + tx2 * (6.9 - i * 1.6 - 0.8), kz + tz2 * (6.9 - i * 1.6 - 0.8), 0.14, 1.6, 1.0, 1.14, -ga, null, i % 2 ? [0.7, 0.68, 0.64] : [0.6, 0.12, 0.1], 0, { solid: false });
+      for (const o of [-1, 1]) { const [jx, jz] = at(ga, CR - 3); B.box(jx + tx2 * o * 11, jz + tz2 * o * 11, 1.0, 3.2, 0, 0.85, -ga, null, conc, 0, {}); }
+      sign(B, kx - Math.cos(ga) * 0.2 + tx2 * 8.5, 3.6, kz - Math.sin(ga) * 0.2 + tz2 * 8.5, Math.atan2(-Math.cos(ga), -Math.sin(ga)), 3.4, 0.9,
+        () => DV.Tex.sign('HALT · CHECKPOINT', { w: 256, h: 64, bg: '#7a1a14', color: '#f2ead8', size: 26 }));
+    }
+    // the shore wall along the marsh, inside the cordon
     if (marshX < 1e8) {
-      const zr = Math.sqrt(Math.max(0, R * R - (marshX - 3 - c[0]) * (marshX - 3 - c[0])));
+      const zr = Math.sqrt(Math.max(0, CR * CR - (marshX - 3 - c[0]) * (marshX - 3 - c[0])));
       for (let z = c[1] - zr; z < c[1] + zr; z += 20) B.box(marshX - 3, z + 10, 0.6, 20, 0, 1.1, 0, null, conc, 0, {});
     }
+    B.part = 'other';
   }
 
   function waterTower(B, x, z, y) {
@@ -1272,7 +1399,8 @@
     const W = o.walk, L = W.light || [0.9, 0.9, 0.9];
     const c = o.centre || [(o.campus[0] + o.campus[2]) / 2, (o.campus[1] + o.campus[3]) / 2];
     const campus = o.campus, R = W.fence + 60, marshX = o.marshX || 1e9;
-    const out = { open: [], pads: B.pads, solids: B.solids, campus, limit: W.fence - 1.4, shore: marshX - 3.6, fence: W.fence, signs: [], mats: [] };
+    const WL = W.wall || { cordon: W.fence, outer: W.fence };
+    const out = { open: [], pads: B.pads, solids: B.solids, campus, limit: WL.cordon - 1.4, shore: marshX - 3.6, fence: W.fence, wall: WL, lamps: B.lamps || [], signs: [], mats: [] };
     const mk = (g, key, opts) => {
       const base = DV.Mat.get(key);
       const m = new THREE.MeshBasicMaterial(Object.assign({ map: base.map, vertexColors: true, fog: true }, opts || {}));
@@ -1325,12 +1453,27 @@
       }
       mk(gy, 'grass', { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
     }
+    if (W.wall) {
+      // the cordon's ground: a concrete strip inside its fence, the patrol road, an apron at the wall's foot
+      const ring = (r0, r1, k) => {
+        const nseg = Math.round((Math.PI * 2 * r1) / 12);
+        for (let i = 0; i < nseg; i++) {
+          const a0 = (i / nseg) * Math.PI * 2, a1 = ((i + 1) / nseg) * Math.PI * 2;
+          const P = (a, r) => [c[0] + Math.cos(a) * r, 0.03, c[1] + Math.sin(a) * r];
+          const ps = [P(a0, r0), P(a1, r0), P(a1, r1), P(a0, r1)];
+          if (Math.max(ps[0][0], ps[1][0], ps[2][0], ps[3][0]) > marshX - 4) continue;
+          gk.quad(ps, ps.map((q) => [q[0] / wc, q[2] / wc]), mul(L, k), [0, 1, 0], 0);
+        }
+      };
+      ring(W.wall.cordon - 0.4, W.wall.cordon + 4, 0.78);
+      ring(W.fence - 10, W.wall.inner, 0.72);
+    }
     mk(gk, 'concrete', { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
     // the farmland outside the Fence: rings of fields, ploughed and green, out to the haze
     const gf = new Group(), wg = wOf('grass');
     const fr = U.rng(9);
     for (let ring = 0; ring < 6; ring++) {
-      const r0 = W.fence + 2 + ring * 90, r1 = r0 + 90, n = 48 + ring * 8;
+      const r0 = WL.outer + 2 + ring * 90, r1 = r0 + 90, n = 48 + ring * 8;
       for (let k = 0; k < n; k++) {
         const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
         const pt = (rr, a) => [c[0] + Math.cos(a) * rr, 0.12, c[1] + Math.sin(a) * rr];
@@ -1346,9 +1489,9 @@
     // the Fence's chain-link
     const gc = new Group(), wl = wOf('chainlink');
     let u = 0;
-    for (const [ax, az, bx, bz] of B.fence) {
+    for (const [ax, az, bx, bz, y0 = 1.3, y1 = 9.2] of B.fence) {
       const len = Math.hypot(bx - ax, bz - az);
-      gc.quad([[ax, 1.3, az], [bx, 1.3, bz], [bx, 9.2, bz], [ax, 9.2, az]], [[u / wl, 1.3 / wl], [(u + len) / wl, 1.3 / wl], [(u + len) / wl, 9.2 / wl], [u / wl, 9.2 / wl]], mul(L, 0.7), [ax - c[0], 0, az - c[1]], 0);
+      gc.quad([[ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y1, az]], [[u / wl, y0 / wl], [(u + len) / wl, y0 / wl], [(u + len) / wl, y1 / wl], [u / wl, y1 / wl]], mul(L, y0 > 5 ? 0.55 : 0.7), [ax - c[0], 0, az - c[1]], 0);
       u = (u + len) % 64;
     }
     if (gc.n) mk(gc, 'chainlink', { alphaTest: 0.5, side: THREE.DoubleSide });

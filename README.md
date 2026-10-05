@@ -14,7 +14,7 @@ A browser-based, offline, single-player third-person 3D RPG prototype set in the
 
 In every faction, what your aptitude test really said catches up with you.
 
-**Build 4** opens the city. Once your results are in, the Testing Center's gate lets you out onto Lake Street, and from there you can walk the whole city on foot, all the way to the Fence. The streets have their real names and the HUD tells you which one you're on and which sector you're in. Each sector looks like the faction that lives there: the grey Abnegation rows, Erudite glass, Candor's offices, the Dauntless warehouses and the factionless ruins. The blocks are built the way a real city fills up: continuous street walls of brick walk-ups, greystones, lofts and offices, alleys behind them, and towers stepping up downtown. People walk the pavements and cross on the walk signal. Traffic keeps to its lanes, stops at red lights, turns at junctions, and honks when you step out in front of it. You can walk home to your own front door instead of taking the bus. The Map tab now has a **City** view. The day goes by outside: the sun crosses the sky, dusk lights the windows and the street lamps, and the crickets start up. **T** lets you wait anywhere you're free to: the day passes in a time-lapse and stops when someone needs you. The Dauntless compound is busy at every hour, and the weapons are proper models.
+**Build 4** opens the city. Once your results are in, the Testing Center's gate lets you out onto Lake Street, and from there you can walk the whole city on foot, all the way to the Fence: a wall round the whole city, as in the film, that you can look at but never reach. The streets have their real names and the HUD tells you which one you're on and which sector you're in. Each sector looks like the faction that lives there: the grey Abnegation rows, Erudite glass, Candor's offices, the Dauntless warehouses and the factionless ruins. The blocks are built the way a real city fills up: continuous street walls of brick walk-ups, greystones, lofts and offices, alleys behind them, and towers stepping up downtown. People walk the pavements and cross on the walk signal. Traffic keeps to its lanes, stops at red lights, turns at junctions, and honks when you step out in front of it. You can walk home to your own front door instead of taking the bus. The Map tab now has a **City** view. The day goes by outside: the sun crosses the sky, dusk lights the windows and the street lamps, and the crickets start up. **T** lets you wait anywhere you're free to: the day passes in a time-lapse and stops when someone needs you. The Dauntless compound is busy at every hour, and the weapons are proper models.
 
 Everything is built from HTML, CSS, JavaScript and Three.js. There is no build step, no npm, and no framework. All textures, characters, sounds and music are generated procedurally at runtime.
 
@@ -274,6 +274,12 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
   - **Offices** have a stone base and a crown.
   - **Downtown towers** stand on a podium, set back from the street and step in twice to a crown and spire.
   - Shopfronts are only on the street side (and round the corner on a corner lot); backs and party walls are plain. A blank side wall rising over a lower roof still carries a faded painted sign. Roofs have stair bulkheads, plant, chimneys, aerials and Chicago's water towers.
+- **The Fence, as the film shows it.** It isn't a fence at all: it's a wall right round the city.
+  - **The wall:** 18 m of poured concrete (formwork panels, rows of tie holes, rust and weather running down it). Buttresses climb its inner face, there's a ledge halfway up, vents low down, and a walkway along the top with a rail and a parapet.
+  - **On top:** a steel frame carries the electrified mesh another 16 m up, with girders, cross-bracing in every bay, razor wire along the crest and red lamps on the posts.
+  - **Towers and gate:** a dozen watchtowers stand over it, each with a lit cabin, an aerial and a searchlight looking in. The gate to Amity, on Madison Street, is a gatehouse: two towers, a lintel with the frame carried across it, and two shut steel doors with ribs, bands and a hazard stripe.
+  - **The cordon:** nobody gets near it. In front of the wall runs a security fence with barbed outriggers and yellow RESTRICTED signs, then a concrete strip, the patrol road, an apron at the wall's foot, and floodlight masts that come on at dusk. You can walk up to the cordon and look; at the gate, a checkpoint (guard booth, the barrier arm down, HALT) stops you. The Amity truck now waits inside the checkpoint.
+  - **On the map:** the wall at its true thickness, its towers, and the cordon as a dashed line.
 - **The L's columns stand on the pavement.** Where an avenue crosses under it, the deck spans the junction from a bent past each corner, the way the Loop does it, instead of standing in the road.
 - **Street life.** Pedestrians dressed for their sector walk the pavements and cross at corners on the walk signal (or, where the signals are dead, when it's clear). Speak to one and they answer, and brush past a group and someone says something. Traffic keeps right (Lake Street is one-way under the L), queues, stops for you or for people crossing, and honks. Engines are positional sounds.
 - **Vehicles** are low-poly models in the game's style (a bus, saloons, hatchbacks, vans, pickups, Dauntless jeeps): wheels and arches, glass and pillars, lights, doors on the kerb side, one draw call each. Lake Street has a proper bus stop: shelter, lit advert, timetable, pole, street sign, crossing and road paint.
@@ -412,13 +418,14 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - The ambush: the struggle, the fight, the infirmary, and Josh expelled.
   - The cut on Day 6, then the fear simulation through to STAGE ONE COMPLETE.
 - **Build 3, the first week:** each of the four faction weeks is played start to finish, down to its banner, and a save made after it loads as free roam.
-- **Build 4, the city** (44 checks):
+- **Build 4, the city** (47 checks):
   - Out through the gate on foot and along the streets. Buildings, the Testing Center's walls, the shore and the Fence keep you in.
   - The HUD names the street and the sector. Street furniture stands clear of buildings and traffic lanes, and is solid.
   - People walk the pavements, dressed for their sector. They talk when spoken to and you can't walk through them.
   - One-way traffic on Lake Street keeps to its lanes and stops (and honks) for you. Nothing is drawn deep indoors.
   - The world map draws the city and where you are. A save made out in the streets loads back there, and the walk home ends at your own door.
   - The L's columns all stand on a pavement, none in a road.
+  - The Fence: you get as far as the cordon and no further, not even at the gate. The wall runs right round the city with no gaps, and it has its towers and lamps. The Amity truck waits inside the cordon.
   - Junctions have paint, poles and lamps. A signal is never green both ways, and the walk signal only shows with its green.
   - Cars stop at the line on red and never run one. They turn at junctions and never drive into each other. People cross on the white man.
 - **Build 4, waiting and the clock** (31 checks):
@@ -465,6 +472,8 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
 - **Persistence:** save → reload page → Continue restores state. Two playthroughs in one browser session also work.
 
 Bugs found and fixed during Build 4:
+- **People on the pavement stepped the wrong way.** When you were in someone's way, they sidestepped towards you instead of away (a sign error), then crept into you and shoved you back up the street. They now step aside quickly, the right way, and never walk into you.
+- **Hardly anyone crossed at the lights.** Someone who decided to cross and saw the hand would give up after half a second and wander off. Anyone waiting also counted cars driving straight on beside them as traffic in the way. They now wait at the kerb for the white man, and only traffic crossing their path, or turning, holds them up.
 - **The L's columns stood in the road.** Its bents were spaced every 15 m regardless of the streets crossing under it, so wherever one landed on an avenue its legs stood in the roadway and cut that avenue's traffic in two. They now stand on the pavement, and the deck spans each junction.
 - **The camera locked after the aptitude test.** Claire's results talk asked for the completion banner on a real-time timer. A player still reading her last lines got the banner on top of the conversation, and when the talk ended the camera was never handed back. Talking to her again was the only way out.
 - **Nothing happened after choosing a faction.** The ceremony waited for you to stand within 1.1 m of your place among the initiates. They stand shoulder to shoulder and you collide with them, so you could stop just short and wait forever, with the clock stopped. Getting close or pressing E now takes you the last step.
