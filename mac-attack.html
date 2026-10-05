@@ -753,6 +753,7 @@ function overlay() {
     txt('♥ ♥ ♥', W / 2, 372, 20, '#ff4d6d', 'center', '#ff0033');
     if (saved) { button('CONTINUE  (stage ' + (saved.stage + 1) + ')', 130, 420, 300, 54, continueCamp, 18); button('NEW GAME', 470, 420, 300, 54, newCampaign, 18); }
     else button('NEW GAME', W / 2 - 150, 420, 300, 54, newCampaign, 20);
+    txt('TEST KEYS:  E = skip to ending   N = clear stage   F = fail stage', W / 2, 505, 12, '#aaa', 'center');
   } else if (state === 'intro') {
     txt('STAGE ' + (camp.stage + 1) + ' / ' + STAGES.length, W / 2, 112, 15, '#ffd54a', 'center');
     big(ST.name, 168, '#fff6b0', '#ffb300', '#ff9a00', ST.name.length > 16 ? 46 : 58);
@@ -897,6 +898,12 @@ cv.addEventListener('pointerdown', e => {
 });
 addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); ringBell(); }
+  // test hotkeys: E = jump to the ending, N = force-clear current stage, F = force-fail current stage
+  if (state !== 'title' || e.code === 'KeyE') {
+    if (e.code === 'KeyE') { camp = { stage: STAGES.length, invested: 61300, stars: [3, 2, 3, 2, 3, 2], strikes: 3, fails: 0 }; clearInfo = null; startEnding(); }
+    else if (e.code === 'KeyN' && ['wait', 'tab', 'summary', 'intro'].includes(state)) { if (state === 'intro') prepStage(); bills = []; spawnQ = []; cash = START_CASH + ST.target * 2; stageClear(); }
+    else if (e.code === 'KeyF' && ['wait', 'tab', 'summary'].includes(state)) { cash = 0; endReason = 'bankrupt'; startKick('bankrupt'); }
+  }
   const n = parseInt(e.key); if (state === 'tab' && n >= 1 && n <= 8) pay(bills.findIndex(b => b.slot === n - 1 && !b.done));
 });
 
