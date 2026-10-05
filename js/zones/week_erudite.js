@@ -496,7 +496,8 @@
       DV.Quests.setObj('week_erudite', 'errand', 'done');
       DV.Quests.activate('week_erudite', 'exam');
       Ch.park.place(12, 9.3, Math.PI); Ch.park.action = 'clipboard';
-      const spots = [[9.5, 6.4], [11, 6.4], [12.5, 6.4], [14, 6.4], [9.5, 5.2], [14, 5.2]];
+      // the others wait either side of the lane from the door to Dr. Park (x 11–13 stays clear)
+      const spots = [[8.4, 6.4], [9.7, 5.4], [14.3, 6.4], [15.6, 5.4], [8.4, 4.4], [15.6, 4.2]];
       Ch.peerActors = Ch.peers.map((p, i) => Ch.actor({ id: p.id, name: p.name, faction: 'erudite', app: p.app, x: spots[i][0], z: spots[i][1], rot: 0, action: 'arms_crossed' }));
       FW().placePlayer(12, 2.6, 0);
       if (FW().was('exam_done')) { Ch.setFlag('examined'); Ch.after(0.5, () => this.finish(Ch)); }

@@ -28,7 +28,7 @@
     // the evidence room
     add('table', 4.5, 4.6, { w: 2.6, d: 1.1, chairs: 0, top: 'wood' });
     add('filing_cabinet', 0.5, 2.5, { rotDeg: 90, n: 3 });
-    add('file_shelf', 4.5, 9.6, { rotDeg: 180, len: 3.2 });
+    add('file_shelf', 4.5, 0.55, { rotDeg: 0, len: 3.2 }); // against the far wall, the door side stays clear
     add('noticeboard', 8.85, 5, { rotDeg: -90, w: 2.2, h: 1.1 });
     // the interview room: a table, two chairs, a mirror that isn't one
     add('table', 14.5, 5, { w: 1.5, d: 0.9, chairs: 0, top: 'black' });
