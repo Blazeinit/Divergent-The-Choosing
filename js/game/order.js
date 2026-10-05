@@ -40,6 +40,10 @@
     return w.order || (w.order = { notice: 0, stops: 0, scans: 0, detained: 0, cleared: 0 });
   };
   const curfew = () => { const m = DV.Clock.minutes(); return m >= CURFEW[0] || m < CURFEW[1]; };
+  // the drones only come down and look at people after nine at night: there's someone out there in the
+  // dark the Office is looking for (a killer; more of that in a later build). By day they fly their rounds
+  const SCAN_HOURS = [1260, 360]; // 21:00 – 06:00
+  const scanHours = () => { const m = DV.Clock.minutes(); return m >= SCAN_HOURS[0] || m < SCAN_HOURS[1]; };
   const factionWord = () => {
     const p = DV.State.data.player;
     return p.faction ? DV.Factions.name(p.faction) : 'no faction yet (tested today)';
@@ -454,7 +458,7 @@
           tx = dr.x; tz = dr.z;
           // time to look at somebody?
           dr.scanT -= dt;
-          if (dr.scanT <= 0 && !this.scanning && d < 45) this.chooseScan(dr);
+          if (dr.scanT <= 0 && !this.scanning && d < 45) { if (scanHours()) this.chooseScan(dr); else dr.scanT = 6 + this.r() * 10; }
         } else if (dr.mode === 'scan') {
           const t = dr.target, tgx = t === 'player' ? P.x : t.x, tgz = t === 'player' ? P.z : t.z;
           tx = tgx; tz = tgz; ty = 6;
@@ -778,5 +782,6 @@
     },
     notice() { return state().notice; },
     curfew,
+    scanHours,
   };
 })();

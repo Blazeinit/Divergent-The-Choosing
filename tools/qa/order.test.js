@@ -37,6 +37,22 @@ L.run('public order: the station, patrols, drones, stops', async (p, T, errs) =>
   await ev(() => { const o = DV.Order.active(); o.scanCool = 0; if (!o.drones.length) o.spawnDrone(DV.Player.x, DV.Player.z, true); const d = o.drones[0]; d.x = DV.Player.x + 4; d.z = DV.Player.z; d.y = 7; o.startScan(d, 'player'); });
   await p.waitForFunction(() => DV.State.data.world.order.scans >= 1, null, { timeout: 30000 }).catch(() => {});
   T.ok(await ev(() => DV.State.data.world.order.scans === 1), 'a drone comes down over you, scans you, and goes back up');
+  // by day the drones only fly their rounds; after nine at night they come down and look at people
+  const day = await ev(() => {
+    const o = DV.Order.active(); DV.Clock.skipTo(15 * 60);
+    let n = 0, seen = false;
+    while (n++ < 400) { for (const d of o.drones) { d.scanT = 0; d.x = DV.Player.x + 3; d.z = DV.Player.z; } o.updateDrones(0.05, DV.Player.x, DV.Player.z); if (o.scanning) seen = true; }
+    return { seen, hours: DV.Order.scanHours() };
+  });
+  T.ok(!day.seen && !day.hours, 'by day (15:00) no drone scans anybody', day);
+  const night = await ev(() => {
+    const o = DV.Order.active(); DV.Clock.skipTo(21 * 60 + 30); o.scanCool = 0;
+    let n = 0, seen = false;
+    while (n++ < 400 && !seen) { for (const d of o.drones) { if (d.mode === 'patrol') { d.scanT = 0; d.x = DV.Player.x + 3; d.z = DV.Player.z; } } o.updateDrones(0.05, DV.Player.x, DV.Player.z); if (o.scanning) seen = true; }
+    if (o.scanning) o.endScan(o.scanning);
+    return { seen, hours: DV.Order.scanHours() };
+  });
+  T.ok(night.seen && night.hours, 'after nine (21:30) they come down and scan people', night);
   // too much notice: two hours at the station
   const t0 = await ev(() => DV.Clock.total());
   await ev(() => DV.Order.active().addNotice(100, 'QA'));
