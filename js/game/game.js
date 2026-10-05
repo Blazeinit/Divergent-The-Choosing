@@ -440,6 +440,7 @@
       if (DV.Player.model) DV.Player.model.root.visible = !(this.rig.mode === 'follow' && this.rig.curDist < 0.7);
       DV.UI.updateHUD(this);
       DV.UI.updateBarks(this);
+      DV.Dev.update(dt);
       // playtime
       if (this.state !== 'paused') DV.State.data.meta.playTime += dt;
     },
@@ -452,6 +453,7 @@
       if (input.consume('KeyM')) { this.openRPGMenu('map'); return; }
       if (input.consume('KeyJ')) { this.openRPGMenu('quests'); return; }
       if (input.consume('KeyI')) { this.openRPGMenu('inventory'); return; }
+      if (input.consume('Backquote') && DV.Dev.on()) { DV.Dev.open(); return; }
       if (input.consume('KeyT') && !this.inSimulation()) {
         const why = DV.Wait.can();
         if (why) DV.UI.notify(why); else { this.openWait(); return; }

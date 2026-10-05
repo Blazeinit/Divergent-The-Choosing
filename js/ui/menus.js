@@ -55,6 +55,7 @@
         ['Load Game', () => this.showSaveLoad('load')],
         ['Settings', () => this.showSettings()],
         ['Controls', () => this.showControls()],
+        ...(DV.Dev && DV.Dev.on() ? [['Developer', () => DV.Dev.open()]] : []),
         ['Quit to Main Menu', () => DV.UI.confirm('Quit', 'Return to the main menu? Unsaved progress will be lost.', () => DV.Game.quitToMenu())],
       ];
       const box = p.querySelector('.items');
@@ -151,6 +152,8 @@
       toggle('Quest markers on compass', 'questMarkers');
       select('Dialogue text speed', 'textSpeed', [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']]);
       select('Clock speed (an in-game hour takes…)', 'clockSpeed', [['slow', '12 minutes (slow)'], ['normal', '6 minutes — default'], ['fast', '3 minutes (fast)']]);
+      el('div', 'h', 'Developer', body);
+      toggle('Dev menu (press ` in game, or Pause → Developer)', 'devMenu');
       const reset = el('span', 'btn', 'Reset to defaults', p.querySelector('.foot'));
       reset.onclick = () => DV.UI.confirm('Reset', 'Reset all settings to defaults?', () => { S.reset(); this.showSettings(); });
       p.querySelector('.foot').insertBefore(reset, p.querySelector('.foot').firstChild);

@@ -482,3 +482,14 @@ body.cutscene #hud-prompt, body.cutscene #hud-quest, body.cutscene #hud-compass,
 .dig-bar .mark { position: absolute; top: -6px; bottom: -6px; width: 4px; margin-left: -2px; background: #f4dc94; box-shadow: 0 0 6px #000; }
 .dig-prog { position: absolute; left: 50%; top: 68%; transform: translateX(-50%); width: 240px; text-align: center; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
 .dig-prog .fh-bar i { background: linear-gradient(180deg, #8ac0e0, #3a6a90); }
+
+/* the developer menu (js/ui/devMenu.js) */
+.side.devmenu { width: min(660px, 96vw); }
+.devmenu .dev-where { font-family: var(--mono); font-size: 11px; color: var(--dim); padding: 4px 0 8px; word-break: break-all; }
+.devmenu .dev-row { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; }
+.devmenu .dev-row > label { flex: 0 0 96px; font-size: 12px; color: var(--dim); padding-top: 4px; }
+.devmenu .dev-btns { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.devmenu .dev-btns select { max-width: 260px; }
+.devmenu .dev-note { font-size: 11px; color: var(--faint); margin: 2px 0 6px 104px; }
+#devinfo { position: absolute; right: 12px; bottom: 12px; z-index: 15; padding: 6px 9px; white-space: pre; font-family: var(--mono); font-size: 11px; line-height: 1.4; color: #cfe8c8; background: rgba(0, 0, 0, 0.6); border: 1px solid var(--line); pointer-events: none; }
+.dev-nohud #hud, .dev-nohud #hud-notify, .dev-nohud #hud-subtitle, .dev-nohud #barks { display: none !important; }

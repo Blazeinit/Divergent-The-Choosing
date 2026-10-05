@@ -506,6 +506,13 @@
     update(dt) {
       if (!this.awake) this.wake();
       const P = DV.Player, px = P.x, pz = P.z;
+      // (the dev menu can empty the streets: people and traffic, not the furniture)
+      if (DV.Dev && DV.Dev.on() && DV.Dev.flags.noStreet) {
+        for (const p of this.peds) p.model.root.visible = false;
+        for (const c of this.cars) { c.v.root.visible = false; if (c.sound) { c.sound.stop(); c.sound = null; } }
+        this.shown = null;
+        return;
+      }
       this.show(this.exposed());
       // a jump (a loaded game, a scene that moved you): start the streets round you afresh
       if (this.last && Math.hypot(px - this.last[0], pz - this.last[1]) > 40) this.first = true;
@@ -535,6 +542,7 @@
     // people you can bump into (the player's collision)
     bodies(px, pz, r) {
       const out = [];
+      if (this.shown === null) return out; // (emptied by the dev menu)
       for (const p of this.peds) if (Math.abs(p.x - px) < r && Math.abs(p.z - pz) < r) out.push({ x: p.x, z: p.z, r: 0.28 });
       return out;
     }

@@ -258,6 +258,14 @@
       };
       cv.onwheel = (e) => { e.preventDefault(); const p = pos(e); this.zoomBy(e.deltaY < 0 ? 1.25 : 0.8, p[0], p[1]); redraw(); };
       cv.ondblclick = () => { this.reset(); redraw(); };
+      // (the dev menu: Shift+click goes there)
+      cv.onclick = (e) => {
+        if (!(DV.Dev && DV.Dev.on()) || !(e.shiftKey || DV.Input.down('ShiftLeft') || DV.Input.down('ShiftRight')) || !this.T) return;
+        const zone = DV.World.current;
+        if (!zone || zone.id !== 'testing_center') { DV.UI.notify('Dev: the city map only goes places from the Testing Center\'s streets.'); return; }
+        const p = pos(e), x = this.T.cx + (p[0] - this.T.w / 2) / this.T.s, z = this.T.cz + (p[1] - this.T.h / 2) / this.T.s;
+        if (DV.Dev.go(x, z)) DV.Game.closeOverlay();
+      };
     },
   };
 

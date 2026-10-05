@@ -164,7 +164,8 @@
       let canRun = !this.exhausted && this.stamina > 0;
       const running = wantRun && canRun && !this.crouched;
       const speedBonus = 1 + U.clamp((athletics - 20) / 200, 0, 0.18);
-      const target = (this.crouched ? P.crouchSpeed : running ? P.runSpeed * speedBonus : P.walkSpeed) * this.moveScale;
+      const dev = DV.Dev && DV.Dev.on() ? DV.Dev.flags : null;
+      const target = (this.crouched ? P.crouchSpeed : running ? P.runSpeed * speedBonus : P.walkSpeed) * this.moveScale * (dev ? dev.speed : 1);
       const tvx = mx * target, tvz = mz * target;
       // little steering in the air
       const a = 1 - Math.exp(-P.accel * (this.onGround ? 1 : 0.22) * dt);
@@ -180,6 +181,7 @@
         if (this.stamina <= 0) this.exhausted = true;
         if (this.runTime > 3 && DV.Stats) { DV.Stats.practice('athletics', 0.6); this.runTime = 0; }
       } else this.regen(dt);
+      if (dev && dev.stamina) { this.stamina = P.staminaMax; this.exhausted = false; }
 
       // vertical: jumping and landing (ground is the room floor; 0 almost everywhere)
       const groundRoom = zone ? zone.roomAt(this.x, this.z) : null;
@@ -198,7 +200,7 @@
 
       // integrate + collide
       let nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
-      if (zone) {
+      if (zone && !(dev && dev.noclip)) {
         [nx, nz] = zone.colliders.resolveCircle(nx, nz, P.radius, 'player', feet);
         if (ctx.npcs) {
           for (const n of ctx.npcs) {

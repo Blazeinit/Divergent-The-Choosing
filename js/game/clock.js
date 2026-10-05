@@ -30,7 +30,7 @@
     },
     update(dt) {
       if (this.paused) return;
-      this.advance((dt * this.scale()) / 60);
+      this.advance((dt * this.scale() * (DV.Dev && DV.Dev.on() ? DV.Dev.flags.timeMul : 1)) / 60);
     },
     advance(mins) {
       if (!isFinite(mins) || mins <= 0) return;

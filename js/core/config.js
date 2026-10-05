@@ -74,6 +74,7 @@
     questMarkers: true,
     textSpeed: 'normal', // 'slow' | 'normal' | 'fast' | 'instant'
     clockSpeed: 'normal', // 'slow' (an hour every 12 minutes) | 'normal' (6) | 'fast' (3)
+    devMenu: false, // the developer menu (` or Pause → Developer), for testing
     showFps: false,
     drawDistance: 'normal', // 'near' | 'normal' | 'far'
   };

@@ -58,6 +58,7 @@ Saves, settings and autosaves live in the browser's `localStorage` under the `di
 | **In dialogue** | Point at a response with the in-game cursor and click (or scroll / ↑↓ and press E or Enter). 1–9 also work. The mouse stays captured, so you never need to click back into the game |
 | **Menus** | The Tab menu, waiting, reading and banners keep the mouse captured and show the game's own cursor. Turn **Settings → In-game cursor** off to use the system cursor instead |
 | **Clock speed** | **Settings → Clock speed**: an in-game hour takes 6 real minutes by default, 12 on slow or 3 on fast |
+| **`** (dev menu on) | The developer menu, for testing. Turn it on at the bottom of **Settings → Developer**. It opens with the key under Esc, or from **Pause → Developer** |
 | **Space (held)** | At the Choosing Ceremony: hurry the names along |
 | **Esc** | Pause menu (Resume, Save, Load, Settings, Controls, Quit) and close windows |
 
@@ -199,6 +200,7 @@ js/
     rpgMenu.js             Tab menu: Character / Skills / Inventory / Quests / Reputation / Map
     worldMap.js            Build 4: the City map (sectors, streets by name, landmarks, the Fence, you, home)
     menus.js               Main menu, pause, save/load, settings, controls, credits, wait
+    devMenu.js             Build 4: the developer menu (go to, story jumps, time, noclip, readout…)
     cursor.js              The in-game cursor (hover, click, wheel, sliders and dropdowns under pointer lock)
     creator.js             Character creation (appearance, upbringing, attributes, confirm)
 assets/                    Empty in Build 1 (everything is procedural); reserved for authored assets
@@ -278,6 +280,13 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
   - **Night:** the watch walking the railing.
 
   They stand, sit, talk among themselves or walk their loop, answer when spoken to, and are solid. The place looks lived in too: the flame and DAUNTLESS sprayed huge on the north wall, slogans between the paths, initiates' names and tallies at eye level, banners hanging from the paths, strings of bulbs across the Pit, and stalls selling cake and coffee, clothes, and boots and knives. The dormitory's washroom door is no longer behind a bunk.
+- **A developer menu for testing** (Settings → Developer, then **`** or Pause → Developer):
+  - **Go to:** the city's landmarks, sectors and front doors, or the rooms of wherever you are. Shift+click on the City map goes there too.
+  - **Story:** jump to a point in the story (results in with the gate open, the evening at home, the Choosing, Dauntless days 2–6, each first week).
+  - **Time:** set the hour and the day, freeze the clock or run it ×6/×60.
+  - **You:** noclip, ×2/×4 speed and endless stamina.
+  - **World:** an info readout (zone, room, coordinates, time, frame cost, the street's numbers), hiding the HUD for screenshots, and emptying the streets.
+  - **Quests & items:** finish the current objective, or give yourself any item.
 - **Weapons in the game's style.** A service pistol (slide, serrations, sights with dots, trigger guard, grip panels), a carbine, and a throwing knife with a diamond-section blade and cord-wrapped handle. The range pistol sits in your hands and comes up to your eye when you aim down the sights. The armoury rack holds real carbines and pistols.
 
 **Build 3: Initiation**
@@ -371,7 +380,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 27 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 28 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**
@@ -405,6 +414,7 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - It won't cross midnight. In Dauntless it stops at the call to training (nothing missed), and it warns about a block that's on now.
   - The rankings go up at 17:00 while you wait through it. A conversation that takes over mid-wait gets the screen back.
   - The bunk rest is a time-lapse, and T does nothing in a chapter.
+- **The developer menu** (24 checks): it's off by default, and the toggle at the bottom of Settings turns it on. Covered: the key and the pause entry, going to a landmark, setting the hour (the lamps come on), noclip ×4 through a wall, the readout, hiding the HUD, emptying the streets, Shift+click on the City map, jumping to a Dauntless day, a first week and the Choosing, and turning it off again.
 - **Playthrough at a human pace:** walking with the movement keys and reading dialogue at reading speed. It covers Claire's results and the camera afterwards, out through the gate to the bus, and the ceremony for all five factions. The Dauntless suite also checks the camera after the range and the bags.
   - Candor: the evidence, the interview (five lies caught, one truth miscalled), the verdict, the truth game, Rosa's warning, and holding one answer in under the serum.
   - Erudite: both benches in the fewest moves, the office key, the red folder, getting caught by the archivist, and the exam.
