@@ -174,12 +174,14 @@
       let last = g;
       const occ = opts.occluded !== undefined ? opts.occluded : DV.Soundscape && DV.Soundscape.occluded(x, z);
       if (occ) {
+        // through a wall: the highs gone; through an outside wall (the street, heard from in a
+        // building, or the other way round), most of it gone
         const f = c.createBiquadFilter();
         f.type = 'lowpass';
-        f.frequency.value = 850;
+        f.frequency.value = occ === 'wall' ? 480 : 850;
         g.connect(f);
         last = f;
-        vol *= 0.55;
+        vol *= occ === 'wall' ? 0.22 : 0.55;
       }
       g.gain.value = vol;
       if (c.createStereoPanner) {

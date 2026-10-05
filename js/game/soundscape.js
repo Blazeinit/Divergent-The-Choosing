@@ -75,6 +75,10 @@
       const zone = DV.World.current;
       if (!zone || !zone.roomAt) return false;
       const a = zone.roomAt(DV.Player.x, DV.Player.z), b = zone.roomAt(x, z);
+      // through an outside wall (you're in and it's out in the street, or the other way): 'wall'
+      // (heavily muffled); between two rooms: true; in the same space: false
+      const ain = !!a && !a.exterior, bin = !!b && !b.exterior;
+      if (ain !== bin) return 'wall';
       if (!a || !b || a === b) return false;
       if (a.exterior && b.exterior) return false;
       // big open connections (lobby ↔ checkpoint ↔ hall) don't muffle much
@@ -123,8 +127,9 @@
       }
       const L = {
         indoor: outside ? spill * 0.45 : 1,
-        outdoor: outside ? 1 : 0.1 + bleed * 0.75,
-        cutoff: outside ? 16000 : 320 + bleed * bleed * 7000,
+        // (indoors the street is a low murmur through the walls, until you're by an open door)
+        outdoor: outside ? 1 : 0.05 + bleed * 0.6,
+        cutoff: outside ? 16000 : 260 + bleed * bleed * 5000,
         crowd: Math.min(0.09, A.crowdLevel * 0.012) * (outside ? 0.5 : 1),
         buzz: 0, hum: 0, boiler: 0, server: 0, vend: 0,
       };

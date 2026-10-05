@@ -18,6 +18,14 @@ L.run('dynamic indoor / outdoor audio', async (p, T, errs) => {
   T.ok(lobby.rev === 'atrium' && lobby.L.indoor === 1 && lobby.L.outdoor < 0.6 && lobby.L.cutoff < 4000, 'lobby: big atrium reverb, outside muffled', lobby);
   const hall = await at(40, 28);
   T.ok(hall.rev === 'hall' && hall.L.outdoor <= 0.15 && hall.L.cutoff < 600, 'waiting hall: deep inside, outdoors barely there', hall);
+  // the street, heard from inside (and the inside, heard from the street): through an outside wall
+  const walls = await ev(() => {
+    const S = DV.Soundscape, out = {};
+    DV.Player.place(40, 30, 0); out.inHall = S.occluded(40, 120);
+    DV.Player.place(40, 120, 0); out.inStreet = S.occluded(40, 30); out.street = S.occluded(60, 125);
+    return out;
+  });
+  T.ok(walls.inHall === 'wall' && walls.inStreet === 'wall' && !walls.street, 'the street heard from inside (and the inside from the street) comes through an outside wall, heavily muffled; street to street, not at all', walls);
   T.eq((await at(30, 40.5)).rev, 'tiled', 'washroom: hard tiled reverb');
   T.ok((await at(70, 44)).L.boiler > 0.9, 'maintenance: the boiler');
   T.ok((await at(66, 18)).L.hum > 0.5, 'testing corridor by the simulation core: the hum');
