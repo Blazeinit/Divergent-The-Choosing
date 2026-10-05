@@ -93,6 +93,8 @@
       A.edges.push(i); B.edges.push(i);
     }
     addPad(pd) {
+      // (the pavement past the last streets brings its own walking lines, joined up round its corners)
+      if (pd.lanes) { for (const l of pd.lanes) for (let k = 1; k < l.length; k++) this.link(this.node(l[k - 1][0], l[k - 1][1]), this.node(l[k][0], l[k][1])); return; }
       const [x0, z0, x1, z1] = pd.r, e = pd.edge;
       if (x1 - x0 < 2 || z1 - z0 < 2) return;
       // a lane along each kerb, its ends at the corners (or short of the zone's grounds)
@@ -128,7 +130,8 @@
         this.link(i, best, true);
       };
       N.forEach((n, i) => {
-        if (n.edges.length > 2) return;
+        // (a corner keeps its place for a second crossing once it has one)
+        if (n.edges.filter((ei) => !this.edges[ei].cross).length > 2) return;
         // (only corners: where two lanes meet, or a lane ends)
         tryLink(i, byZ.get(Math.round(n.z * 2)) || [], 'x');
         tryLink(i, byX.get(Math.round(n.x * 2)) || [], 'z');
@@ -146,38 +149,37 @@
     }
   }
 
-  /* ---------------- the roads: lanes, cut where something stands on them ---------------- */
-  function buildLanes(city, blocked) {
-    const CM = DV.CityMap, c = city.centre, lim = (city.walk.edge || city.walk.limit) - 18, shore = city.walk.shore - 6; // (traffic keeps to the city)
-    const lanes = [];
-    const add = (axis, line, k0, k1) => {
-      const mid = (k0 + k1) / 2;
+  /* ---------------- the roads: lanes, junction to junction ---------------- */
+  // Each street's lanes run the length of a stretch of it that's real (DV.CityMap.roadNet: blocks
+  // along it), from a junction to a junction, and stop where something's built over the road (the
+  // Hub's podium across Halsted and Monroe). So a lane always ends at a junction: whatever drives
+  // to the end of one turns there, back into the city.
+  function buildLanes(city, blocked, R) {
+    const CM = DV.CityMap, lanes = [];
+    const add = (axis, line) => {
+      const [k0, k1] = CM.road(line), mid = (k0 + k1) / 2;
       const defs = line.oneWay ? [{ off: line.oneWay > 0 ? -0.5 : 0.5, dir: line.oneWay }] : axis === 'x' ? [{ off: 2.0, dir: 1 }, { off: -2.0, dir: -1 }] : [{ off: -2.0, dir: 1 }, { off: 2.0, dir: -1 }];
-      for (const d of defs) {
-        const cc = mid + d.off;
-        // the stretch inside the Fence
-        const across = axis === 'x' ? cc - c[1] : cc - c[0];
-        if (Math.abs(across) >= lim) continue;
-        const half = Math.sqrt(lim * lim - across * across);
-        let s0 = (axis === 'x' ? c[0] : c[1]) - half, s1 = (axis === 'x' ? c[0] : c[1]) + half;
-        if (axis === 'x') s1 = Math.min(s1, shore);
-        else if (cc > shore) continue;
-        // split where the road is built over (the Hub's podium sits across Halsted and Monroe)
-        let start = null;
-        for (let s = s0; s <= s1 + 0.01; s += 3) {
-          const x = axis === 'x' ? s : cc, z = axis === 'x' ? cc : s;
-          const free = s <= s1 && !blocked(x, z, 1.4);
-          if (free && start === null) start = s;
-          if ((!free || s + 3 > s1) && start !== null) {
-            const end = free ? s : s - 3;
-            if (end - start > 40) lanes.push({ axis, c: cc, dir: d.dir, s0: start + 4, s1: end - 4, line, cars: [] });
-            start = null;
-          }
-        }
+      // (nothing built over the road between two junctions, along both its lanes)
+      const clear = (a, b) => {
+        const s0 = axis === 'x' ? a.box[2] : a.box[3], s1 = axis === 'x' ? b.box[0] : b.box[1];
+        for (let t = s0; t <= s1; t += 3) for (const d of defs) if (blocked(axis === 'x' ? t : mid + d.off, axis === 'x' ? mid + d.off : t, 1.4)) return false;
+        return true;
+      };
+      const js = R.along(line), runs = [];
+      let run = null;
+      js.forEach((j, k) => {
+        if (!run) run = [j];
+        const n = js[k + 1];
+        if (n && R.arm(j, axis, 1) === 1 && R.arm(n, axis, -1) === 1 && clear(j, n)) run.push(n);
+        else { if (run.length > 1) runs.push(run); run = null; }
+      });
+      for (const r of runs) {
+        const a = r[0].box, b = r[r.length - 1].box;
+        for (const d of defs) lanes.push({ axis, c: mid + d.off, dir: d.dir, s0: axis === 'x' ? a[0] : a[1], s1: axis === 'x' ? b[2] : b[3], line, js: r, cars: [] });
       }
     };
-    for (const a of CM.avenues) { const [k0, k1] = CM.road(a); add('z', a, k0, k1); }
-    for (const st of CM.streets) { const [k0, k1] = CM.road(st); add('x', st, k0, k1); }
+    for (const a of CM.avenues) add('z', a);
+    for (const st of CM.streets) add('x', st);
     return lanes;
   }
 
@@ -190,7 +192,7 @@
       this.r = U.rng(4242);
       const blocked = (x, z, r) => kit.blocked(x, z, r);
       this.walk = new Walkways(city.walk.pads, blocked);
-      this.lanes = buildLanes(city, blocked);
+      this.lanes = buildLanes(city, blocked, zone.roads);
       // the lanes of each street (for turning into one)
       this.laneBy = new Map();
       for (const l of this.lanes) { let a = this.laneBy.get(l.line); if (!a) this.laneBy.set(l.line, (a = [])); a.push(l); }
@@ -329,9 +331,11 @@
       return opts[0];
     }
     // may someone cross here now? At a working junction, on the white man (and nothing turning
-    // through the crossing); anywhere else, when there's nothing coming
+    // through the crossing); anywhere else, when there's nothing coming. Never into a car standing
+    // across it.
     mayCross(e) {
       const R = this.zone.roads, W = this.walk;
+      if (this.carOn(e)) return false;
       if (R) {
         if (e.j === undefined) { const A = W.nodes[e.a], B = W.nodes[e.b]; e.j = R.near((A.x + B.x) / 2, (A.z + B.z) / 2, 5) || null; e.axis = Math.abs(B.x - A.x) > Math.abs(B.z - A.z) ? 'x' : 'z'; }
         if (e.j && e.j.signal) {
@@ -343,6 +347,20 @@
         }
       }
       return this.clearToCross(e);
+    }
+    // a car standing (or rolling) across a crossing's line
+    carOn(e) {
+      const W = this.walk, A = W.nodes[e.a], B = W.nodes[e.b], n = Math.ceil(e.len);
+      for (const c of this.cars) {
+        if (Math.abs(c.x - (A.x + B.x) / 2) + Math.abs(c.z - (A.z + B.z) / 2) > e.len / 2 + 9) continue;
+        for (let k = 0; k <= n; k++) if (this.inCar(c, A.x + ((B.x - A.x) * k) / n, A.z + ((B.z - A.z) * k) / n, 0.45)) return true;
+      }
+      return false;
+    }
+    // is (x, z) within r of a car's body?
+    inCar(c, x, z, r) {
+      const dx = x - c.x, dz = z - c.z, a = dx * c.hx + dz * c.hz, b = dx * c.hz - dz * c.hx;
+      return Math.abs(a) < c.v.length / 2 + r && Math.abs(b) < c.v.width / 2 + r;
     }
     // is it safe to cross from here to there? (nothing coming within 24 m)
     clearToCross(e) {
@@ -450,26 +468,33 @@
         const along = lane.axis === 'x' ? px : pz, across = Math.abs(lane.c - (lane.axis === 'x' ? pz : px));
         const reach = Math.sqrt(Math.max(0, 150 * 150 - across * across));
         // start behind the flow so it comes towards and past you
-        const s = U.clamp(along - lane.dir * (reach * (0.75 + this.r() * 0.25)), lane.s0, lane.s1);
+        // (and not right at the end of the lane, where it would have to turn straight away)
+        const s = U.clamp(along - lane.dir * (reach * (0.75 + this.r() * 0.25)), lane.s0 + (lane.dir < 0 ? 40 : 2), lane.s1 - (lane.dir > 0 ? 40 : 2));
         const x = lane.axis === 'x' ? s : lane.c, z = lane.axis === 'x' ? lane.c : s;
         const d = Math.hypot(x - px, z - pz);
         if (d < 90 || d > 175) continue;
         if (this.cars.some((c) => c.lane === lane && Math.abs(c.s - s) < 16)) continue;
         const k = this.carKind(x, z, lane);
         if (!k) continue;
-        const v = DV.Vehicles.build(k.kind, { seed: Math.floor(this.r() * 997), color: k.color, stripe: k.stripe });
-        v.mesh.material = v.mesh.material.clone();
-        const L = this.zone.lightAt(x, z);
-        v.mesh.material.color.setRGB(U.clamp(L[0] * 0.95, 0.35, 1.2), U.clamp(L[1] * 0.95, 0.35, 1.2), U.clamp(L[2] * 0.95, 0.35, 1.2));
-        this.zone.group.add(v.root);
-        v.root.visible = this.shown !== false;
-        const top = k.kind === 'bus' ? 9 : k.kind === 'jeep' ? 12.5 : 10.5 + this.r() * 2;
-        const car = { id: this.idN++, v, kind: k.kind, lane, s, x, z, hx: 0, hz: 1, speed: top * 0.8, top, honk: 0, stopped: 0, sound: null, plan: null, planJ: null, turn: null, brake: false };
-        this.placeCar(car);
-        this.cars.push(car);
+        this.carAt(lane, s, k);
         return true;
       }
       return false;
+    }
+    // a car on a lane, s along it (k: { kind, color, stripe }); the tests put one where they want it
+    carAt(lane, s, k) {
+      const x = lane.axis === 'x' ? s : lane.c, z = lane.axis === 'x' ? lane.c : s;
+      const v = DV.Vehicles.build(k.kind, { seed: Math.floor(this.r() * 997), color: k.color, stripe: k.stripe });
+      v.mesh.material = v.mesh.material.clone();
+      const L = this.zone.lightAt(x, z);
+      v.mesh.material.color.setRGB(U.clamp(L[0] * 0.95, 0.35, 1.2), U.clamp(L[1] * 0.95, 0.35, 1.2), U.clamp(L[2] * 0.95, 0.35, 1.2));
+      this.zone.group.add(v.root);
+      v.root.visible = this.shown !== false;
+      const top = k.kind === 'bus' ? 9 : k.kind === 'jeep' ? 12.5 : 10.5 + this.r() * 2;
+      const car = { id: this.idN++, v, kind: k.kind, lane, s, x, z, hx: 0, hz: 1, speed: top * 0.8, top, honk: 0, stopped: 0, sound: null, plan: null, planJ: null, turn: null, brake: false };
+      this.placeCar(car);
+      this.cars.push(car);
+      return car;
     }
     placeCar(c) {
       if (c.turn) {
@@ -495,7 +520,7 @@
       if (!R) return null;
       const front = c.s + (l.dir * c.v.length) / 2;
       let best = null;
-      for (const j of R.along(l.line)) {
+      for (const j of l.js || R.along(l.line)) {
         const a = l.axis === 'x' ? j.box[0] : j.box[1], b = l.axis === 'x' ? j.box[2] : j.box[3];
         const entry = l.dir > 0 ? a : b, d = (entry - front) * l.dir;
         if (d < -0.5) continue; // passed it (or in it)
@@ -503,34 +528,121 @@
       }
       return best;
     }
-    // at the next junction: straight on, or left or right (if there's a lane to turn into)
+    // the junction a car is in the middle of (its front past the entry, its tail not yet out), going straight
+    inJunction(c) {
+      const l = c.lane, f = c.s + (l.dir * c.v.length) / 2;
+      for (const j of l.js || []) {
+        const a = l.axis === 'x' ? j.box[0] : j.box[1], b = l.axis === 'x' ? j.box[2] : j.box[3];
+        const entry = l.dir > 0 ? a : b, exit = l.dir > 0 ? b : a;
+        if ((f - entry) * l.dir >= -0.5 && (exit - f) * l.dir > -0.3) return { j, entry, exit };
+      }
+      return null;
+    }
+    // a lane of the street crossing at j that goes on from it in direction dir (far enough to turn into)
+    laneFrom(j, axis, dir) {
+      const line = axis === 'x' ? j.st : j.av, at = axis === 'x' ? j.x : j.z;
+      return (this.laneBy.get(line) || []).find((t) => t.axis === axis && t.dir === dir && t.js.indexOf(j) >= 0 && (dir > 0 ? t.s1 - at : at - t.s0) > 24) || null;
+    }
+    // at the next junction: straight on, or left or right (if there's a lane to turn into). At the end
+    // of its lane (the edge of the city) it has to turn, whichever way it can; with nowhere to go
+    // (it never comes to that) it stops there.
     planTurn(c, nj) {
       const l = c.lane, j = nj.j, q = this.r();
+      const on = (l.dir > 0 ? l.s1 - nj.exit : nj.exit - l.s0) > 8; // (the lane goes on past it)
       const want = c.kind === 'bus' || q < 0.64 ? 'straight' : q < 0.84 ? 'right' : 'left';
-      if (want === 'straight') return { turn: 'straight' };
       const hx = l.axis === 'x' ? l.dir : 0, hz = l.axis === 'x' ? 0 : l.dir;
       const rx = -hz, rz = hx; // (your right, going that way)
-      const nx = want === 'right' ? rx : -rx, nz = want === 'right' ? rz : -rz;
-      const axis = nx ? 'x' : 'z', dir = nx || nz, line = axis === 'x' ? j.st : j.av, at = axis === 'x' ? j.x : j.z;
-      const lane = (this.laneBy.get(line) || []).find((t) => t.axis === axis && t.dir === dir && at > t.s0 + 6 && at < t.s1 - 14);
-      return lane ? { turn: want, lane } : { turn: 'straight' };
-    }
-    // into the junction: start the turn if the way's clear (otherwise carry straight on)
-    beginTurn(c, nj) {
-      const l = c.lane, T = c.plan.lane, j = nj.j;
-      const exitS = (T.dir > 0 ? (T.axis === 'x' ? j.box[2] : j.box[3]) : T.axis === 'x' ? j.box[0] : j.box[1]) + T.dir * (c.v.length / 2 + 1.5);
-      // room on the new lane, and (turning left) nothing coming the other way
-      const busy = this.cars.some((o) => o !== c && o.lane === T && !o.turn && (o.s - exitS) * T.dir > -16 && (o.s - exitS) * T.dir < 9);
-      const opp = c.plan.turn === 'left' && this.cars.some((o) => o !== c && o.lane.line === l.line && o.lane.dir === -l.dir && !o.turn && o.speed > 1 && Math.hypot(o.x - j.x, o.z - j.z) < 34);
-      if (busy || opp) { c.plan = { turn: 'straight' }; return; }
-      const k = l.axis === 'x' ? [T.c, l.c] : [l.c, T.c];
-      const p0 = [c.x, c.z], p1 = T.axis === 'x' ? [exitS, T.c] : [T.c, exitS];
-      let len = 0, prev = p0;
-      for (let i = 1; i <= 8; i++) {
-        const t = i / 8, it = 1 - t, q = [it * it * p0[0] + 2 * it * t * k[0] + t * t * p1[0], it * it * p0[1] + 2 * it * t * k[1] + t * t * p1[1]];
-        len += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q;
+      const to = (side) => { const nx = side === 'right' ? rx : -rx, nz = side === 'right' ? rz : -rz; return this.laneFrom(j, nx ? 'x' : 'z', nx || nz); };
+      if (on) {
+        if (want === 'straight') return { turn: 'straight' };
+        const lane = to(want);
+        return lane ? this.turnPlan(c, nj, want, lane) : { turn: 'straight' };
       }
-      c.turn = { p0, k, p1, len, u: 0, lane: T, endS: exitS, vmax: c.plan.turn === 'right' ? 5 : 6.5, side: c.plan.turn };
+      for (const side of want === 'left' ? ['left', 'right'] : ['right', 'left']) { const lane = to(side); if (lane) return Object.assign(this.turnPlan(c, nj, side, lane), { forced: true }); }
+      return { turn: 'end' };
+    }
+    // the way round the corner: a curve from the car's place as its front reaches the junction,
+    // through the corner of the lanes, to its place on the new lane once it's clear of the crossing
+    // there; and the gate (how far along the curve its front is at the crossing, less a margin),
+    // where it waits if anyone's on the crossing
+    turnPlan(c, nj, side, T, from) {
+      const l = c.lane, j = nj.j, CW = DV.Roads.CW;
+      const exitS = (T.dir > 0 ? (T.axis === 'x' ? j.box[2] : j.box[3]) : T.axis === 'x' ? j.box[0] : j.box[1]) + T.dir * (c.v.length / 2 + CW + 0.6);
+      const s0 = nj.entry - (l.dir * c.v.length) / 2;
+      const p0 = from || (l.axis === 'x' ? [s0, l.c] : [l.c, s0]);
+      const k = l.axis === 'x' ? [T.c, l.c] : [l.c, T.c];
+      const p1 = T.axis === 'x' ? [exitS, T.c] : [T.c, exitS];
+      const cross = this.crossingRect(j, T.axis, T.dir);
+      let len = 0, prev = p0, gate = null;
+      for (let i = 1; i <= 32; i++) {
+        const t = i / 32, it = 1 - t, q = [it * it * p0[0] + 2 * it * t * k[0] + t * t * p1[0], it * it * p0[1] + 2 * it * t * k[1] + t * t * p1[1]];
+        const step = Math.hypot(q[0] - prev[0], q[1] - prev[1]);
+        len += step;
+        if (gate === null && step > 0) {
+          // (the front of the car at this point of the curve, its two corners)
+          const hx = (q[0] - prev[0]) / step, hz = (q[1] - prev[1]) / step, L = c.v.length / 2, Wd = c.v.width / 2;
+          const fx = q[0] + hx * L, fz = q[1] + hz * L;
+          for (const sd of [-1, 1]) {
+            const x = fx + hz * Wd * sd, z = fz - hx * Wd * sd;
+            if (x > cross[0] - 0.7 && x < cross[2] + 0.7 && z > cross[1] - 0.7 && z < cross[3] + 0.7) gate = Math.max(0, len - step);
+          }
+        }
+        prev = q;
+      }
+      return { turn: side, lane: T, path: { p0, k, p1, len, gate: gate === null ? len : gate, endS: exitS } };
+    }
+    // the crossing over a junction's arm (the street going that way out of it), just outside the box
+    crossingRect(j, axis, dir) {
+      const b = j.box, CW = DV.Roads.CW;
+      if (axis === 'x') return dir > 0 ? [b[2], b[1], b[2] + CW, b[3]] : [b[0] - CW, b[1], b[0], b[3]];
+      return dir > 0 ? [b[0], b[3], b[2], b[3] + CW] : [b[0], b[1] - CW, b[2], b[1]];
+    }
+    // is anyone on that crossing, or stepping off the kerb onto it? (people walking, the Order's
+    // patrols, you): who, or null
+    crossingBusy(j, axis, dir) {
+      if (!j || !this.zone.roads || !this.zone.roads.arm(j, axis, dir)) return null;
+      const q = this.crossingRect(j, axis, dir), W = this.walk;
+      // (it runs across the street: the kerbs are at its ends, where people step on)
+      const ex = axis === 'x' ? 0.35 : 1.2, ez = axis === 'x' ? 1.2 : 0.35;
+      const on = (x, z, m) => x > q[0] - ex * m && x < q[2] + ex * m && z > q[1] - ez * m && z < q[3] + ez * m;
+      const P = DV.Player;
+      if (on(P.x, P.z, 1.2)) return 'you';
+      for (const p of this.peds) {
+        if (on(p.x, p.z, 1)) return p;
+        // (just stepped onto its line from the corner)
+        const e = W.edges[p.edge];
+        if (e.cross) { const A = W.nodes[e.a], B = W.nodes[e.b]; if (on((A.x + B.x) / 2, (A.z + B.z) / 2, 0)) return p; }
+      }
+      const O = this.zone.order;
+      if (O && O.squads) for (const sq of O.squads) for (const m of sq.members) if (on(m.x, m.z, 1)) return m;
+      return null;
+    }
+    // can the player (and the cars) see this car? (a car with nowhere to go is let go once you can't)
+    inView(c) {
+      const cam = DV.Game && DV.Game.camera, P = DV.Player;
+      const d = Math.hypot(c.x - P.x, c.z - P.z);
+      if (d > 150) return false;
+      if (!cam || d < 25) return true;
+      const v = this._dir || (this._dir = new THREE.Vector3());
+      cam.getWorldDirection(v);
+      const dx = c.x - cam.position.x, dz = c.z - cam.position.z, dl = Math.hypot(dx, dz) || 1;
+      return (dx * v.x + dz * v.z) / (dl * (Math.hypot(v.x, v.z) || 1)) > 0.5;
+    }
+    // into the junction: start the turn if the way's clear (otherwise carry straight on; or, at the
+    // end of its lane, wait for it). Returns whether it's turning.
+    // room on the new lane, and (turning left) nothing coming the other way
+    turnClear(c, nj) {
+      const l = c.lane, T = c.plan.lane, j = nj.j, endS = c.plan.path.endS;
+      const busy = this.cars.some((o) => o !== c && o.lane === T && !o.turn && (o.s - endS) * T.dir > -16 && (o.s - endS) * T.dir < 9);
+      const opp = c.plan.turn === 'left' && this.cars.some((o) => o !== c && o.lane.line === l.line && o.lane.dir === -l.dir && !o.turn && o.speed > 1 && Math.hypot(o.x - j.x, o.z - j.z) < 34);
+      return !busy && !opp;
+    }
+    beginTurn(c, nj) {
+      if (!this.turnClear(c, nj)) { if (!c.plan.forced) c.plan = { turn: 'straight' }; return false; }
+      // (the curve from where the car is: a hair short of the planned spot, maybe)
+      const path = this.turnPlan(c, nj, c.plan.turn, c.plan.lane, [c.x, c.z]).path;
+      c.turn = Object.assign({ u: 0, lane: c.plan.lane, j: nj.j, vmax: c.plan.turn === 'right' ? 4.5 : 6, side: c.plan.turn }, path);
+      return true;
     }
     releaseCar(c) {
       if (c.v.root.parent) c.v.root.parent.remove(c.v.root);
@@ -538,11 +650,11 @@
       if (c.sound) { c.sound.stop(); c.sound = null; }
     }
     updateCars(dt, px, pz) {
-      const P = DV.Player, R = this.zone.roads;
+      const P = DV.Player, R = this.zone.roads, CW = DV.Roads.CW;
       for (let i = this.cars.length - 1; i >= 0; i--) {
         const c = this.cars[i], l = c.lane;
         const d = Math.hypot(c.x - px, c.z - pz);
-        if (d > CAR_FAR || (!c.turn && (l.dir > 0 ? c.s > l.s1 : c.s < l.s0))) { this.releaseCar(c); this.cars.splice(i, 1); continue; }
+        if (d > CAR_FAR || c.gone || (!c.turn && (l.dir > 0 ? c.s > l.s1 : c.s < l.s0))) { this.releaseCar(c); this.cars.splice(i, 1); continue; }
         // what's ahead of it: you, someone crossing, the car in front (or one turning across)
         // (it looks far enough ahead to stop in, at a comfortable 5 m/s², with a beat to react)
         const hw = c.v.width / 2 + 0.55, look = c.v.length / 2 + 4 + c.speed * 0.6 + (c.speed * c.speed) / 10;
@@ -563,23 +675,66 @@
           const gap = a - (o.v.length + c.v.length) / 2;
           if (gap < 6 + c.speed * 1.4) { want = Math.min(want, gap < 2.6 ? 0 : o.speed + (gap - 2.6) * 0.6); c.why = 'car ' + o.id; }
         }
-        // the junction coming up: its lights, and what it'll do there
-        if (!c.turn && R) {
-          const nj = this.nextJunction(c);
+        // a crossing it's coming to with someone on it: it stops short of it (front `dist` from it)
+        const yieldTo = (who, dist) => {
+          if (!who || dist < -0.2) return;
+          want = Math.min(want, stopIn(dist - 0.6));
+          c.why = 'crossing';
+          if (who === 'you') forPlayer = true;
+        };
+        if (c.turn) {
+          // round the corner: wait at the gate while anyone's on the crossing it turns into
+          const T = c.turn;
+          if (T.u < T.gate) yieldTo(this.crossingBusy(T.j, T.lane.axis, T.lane.dir), T.gate - T.u + 0.6);
+        } else if (R) {
+          // the junction coming up: its lights, and what it'll do there
+          const nj = this.nextJunction(c), f = c.s + (l.dir * c.v.length) / 2;
           if (nj) {
             if (c.planJ !== nj.j) { c.planJ = nj.j; c.plan = this.planTurn(c, nj); }
-            const light = R.light(nj.j, l.axis), stopD = nj.d - DV.Roads.CW - DV.Roads.STOP;
+            const light = R.light(nj.j, l.axis), stopD = nj.d - CW - DV.Roads.STOP;
             if (light && light !== 'g' && stopD > -0.4) {
               // red: stop at the line; amber: stop if it can do it without slamming the brakes
               if (light === 'r' || stopD > (c.speed * c.speed) / 9) { want = Math.min(want, stopD < 0.3 ? 0 : Math.sqrt(2 * 3.2 * (stopD - 0.3))); held = stopD < 12; c.why = c.why || 'light'; }
             } else if (!light && nj.d < 14) want = Math.min(want, 6.5); // a dead junction: slow down and look
-            if (c.plan.turn !== 'straight' && nj.d < 26) want = Math.min(want, c.plan.turn === 'right' ? 5.5 : 7);
-            if (c.plan.turn !== 'straight' && nj.d <= 0.3 && !held) this.beginTurn(c, nj);
+            const turning = c.plan.turn === 'left' || c.plan.turn === 'right';
+            if (turning && nj.d < 26) want = Math.min(want, c.plan.turn === 'right' ? 5 : 6.5);
+            if (nj.d < 40) {
+              // the crossing before the junction (someone still on it from the last phase)
+              yieldTo(this.crossingBusy(nj.j, l.axis, -l.dir), nj.d - CW);
+              // the crossing it leaves the junction by: straight on, it waits in the junction (if there's
+              // room to, clear of the crossing behind it) or at the line; turning, at the line if the gate
+              // would leave it standing on the crossing behind it (a long bus)
+              const box = Math.abs(nj.exit - nj.entry), roomy = box > c.v.length + 1.4;
+              if (c.plan.turn === 'straight') { const who = this.crossingBusy(nj.j, l.axis, l.dir); if (who) yieldTo(who, roomy ? nj.d + box : nj.d - CW); }
+              else if (turning && c.plan.path.gate < c.v.length + 0.6) yieldTo(this.crossingBusy(nj.j, c.plan.lane.axis, c.plan.lane.dir), nj.d - CW);
+              // and it doesn't drive into the junction if the queue on the far side would leave it there
+              if (c.plan.turn === 'straight' && nj.d > -0.2) {
+                const q = this.cars.find((o) => o !== c && o.lane === l && !o.turn && (o.s - nj.exit) * l.dir > 0 && o.speed < 3 && (o.s - (o.v.length / 2) * l.dir - nj.exit) * l.dir < CW + c.v.length + 1.5);
+                if (q) { want = Math.min(want, stopIn(nj.d - CW - DV.Roads.STOP - 0.3)); c.why = c.why || 'queue'; }
+              }
+            }
+            if (c.plan.turn === 'end') {
+              // the end of the road (no lane to turn into): it stops at the line, and goes once you can't see it
+              want = Math.min(want, stopD < 0.3 ? 0 : Math.sqrt(2 * 3.2 * (stopD - 0.3)));
+              held = true;
+              c.why = 'end of the road';
+              if (c.speed < 0.5 && !this.inView(c)) c.gone = true;
+            }
+            // a turn it can't make yet (the lane it's turning into full, traffic coming the other way):
+            // at the end of its lane it waits at the line; anywhere else it goes straight on instead
+            if (turning && nj.d < 14 && !this.turnClear(c, nj)) {
+              if (c.plan.forced) { want = Math.min(want, stopD < 0.3 ? 0 : Math.sqrt(2 * 3.2 * (stopD - 0.3))); held = true; c.why = c.why || 'waiting to turn'; }
+              else c.plan = { turn: 'straight' };
+            }
+            if ((c.plan.turn === 'left' || c.plan.turn === 'right') && nj.d <= 0.3 && !held) this.beginTurn(c, nj);
           }
+          // going straight through a junction: the crossing it's driving out over
+          const ij = this.inJunction(c);
+          if (ij && (!nj || nj.j !== ij.j)) yieldTo(this.crossingBusy(ij.j, l.axis, l.dir), (ij.exit - f) * l.dir);
         }
         const was = c.speed;
         // (it brakes as hard as 8 m/s² if it has to: someone stepping out in front of it)
-        c.speed += U.clamp(want - c.speed, -(forPlayer || c.why === 'someone crossing' ? 8 : 6) * dt, 2.2 * dt);
+        c.speed += U.clamp(want - c.speed, -(forPlayer || c.why === 'someone crossing' || c.why === 'crossing' ? 8 : 6) * dt, 2.2 * dt);
         if (c.speed < 0.05) c.speed = 0;
         c.brake = c.speed < was - 0.4 * dt || (c.speed < 0.2 && want < 0.2);
         if (c.turn) {

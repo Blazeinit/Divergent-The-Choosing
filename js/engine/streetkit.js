@@ -160,9 +160,9 @@
     },
     // the rest of what a street has
     planter(M, v) {
-      M.box(0, 0.3, 0, 1.3, 0.6, 1.3, CONC);
-      M.box(0, 0.6, 0, 1.36, 0.06, 1.36, [0.6, 0.59, 0.56]);
-      M.box(0, 0.61, 0, 1.12, 0.03, 1.12, [0.2, 0.16, 0.12]);
+      M.box(0, 0.3, 0, 1.18, 0.6, 1.18, CONC);
+      M.box(0, 0.6, 0, 1.24, 0.06, 1.24, [0.6, 0.59, 0.56]);
+      M.box(0, 0.61, 0, 1.0, 0.03, 1.0, [0.2, 0.16, 0.12]);
       const g = new THREE.IcosahedronGeometry(0.62, 0); g.scale(1, 0.75, 1); g.translate(0, 1.05, 0); M.add(g, LEAF[(v || 0) % LEAF.length]);
     },
     bollards(M) { for (const x of [-1.5, 0, 1.5]) { cylY(M, x, 0, 0, 0.11, 0.1, 0.9, DARK, 8); cylY(M, x, 0.9, 0, 0.1, 0.06, 0.06, DARK, 8); M.box(x, 0.7, 0, 0.23, 0.05, 0.23, [0.8, 0.62, 0.1]); } },
@@ -372,6 +372,14 @@
       for (const pd of this.city.walk.pads) {
         const [x0, z0, x1, z1] = pd.r;
         if (skip && x1 > skip[0] && x0 < skip[2] && z1 > skip[1] && z0 < skip[3]) continue;
+        // the pavement along the outside of the last streets: lamps and the rest along its kerbs
+        if (pd.strip) {
+          for (const k of pd.kerbs) {
+            const along = k[5] ? 'x' : 'z', a = along === 'x' ? Math.min(k[0], k[2]) : Math.min(k[1], k[3]), b = along === 'x' ? Math.max(k[0], k[2]) : Math.max(k[1], k[3]);
+            if (b - a >= 8) this.dressKerb({ along, line: along === 'x' ? k[1] : k[0], a, b, out: along === 'x' ? k[5] : k[4] }, DRESS[pd.d] || DRESS.none, pd);
+          }
+          continue;
+        }
         if (x1 - x0 < 6 || z1 - z0 < 6) continue;
         const dz = DRESS[pd.d] || DRESS.none;
         // the four kerbs: [axis the kerb runs along, its line, from, to, which way the road is]
@@ -447,11 +455,13 @@
         const side = (dir) => (line.oneWay ? [k0 + 0.25, k1 - 0.25] : (along === 'x') === (dir > 0) ? [cc + 0.1, k1 - 0.25] : [k0 + 0.25, cc - 0.1]);
         for (const j of js) {
           const [a, b] = span(j), wear = wearAt(j);
-          // the crossings either side of the junction: bars along the traffic, across the road
-          if (j.signal || j.district !== 'factionless') for (const [c0, c1] of [[a - CW, a], [b, b + CW]]) for (let t = k0 + 0.5; t + 0.5 <= k1 - 0.35; t += 1.05) rect(c0 + 0.15, c1 - 0.15, t, t + 0.55, WHITE, wear);
+          // the crossings either side of the junction: bars along the traffic, across the road (not
+          // where the street stops at the junction: there's a kerb there)
+          if (j.signal || j.district !== 'factionless') for (const [c0, c1, dir] of [[a - CW, a, -1], [b, b + CW, 1]]) if (R.arm(j, along, dir)) for (let t = k0 + 0.5; t + 0.5 <= k1 - 0.35; t += 1.05) rect(c0 + 0.15, c1 - 0.15, t, t + 0.55, WHITE, wear);
         }
         for (let i = 0; i + 1 < js.length; i++) {
           const A = js[i], Bj = js[i + 1], wear = Math.max(wearAt(A), wearAt(Bj));
+          if (R.arm(A, along, 1) !== 1) continue; // (no street between them)
           const s0 = span(A)[1] + CW, s1 = span(Bj)[0] - CW;
           if (s1 - s0 < 10 || s1 - s0 > 150) continue;
           // stop lines: where each direction's traffic comes up to a junction
@@ -512,7 +522,7 @@
       // half way between those: planters, a bike rack, a phone booth; bollards by a door
       for (let t = sd.a + 19; t < sd.b - 8; t += 14) {
         const q = r();
-        if (q < dz.planter) put('planter', t, 2.4, 0.7, 0.7, face, { v: Math.floor(r() * 4) });
+        if (q < dz.planter) put('planter', t, 2.5, 0.64, 0.64, face, { v: Math.floor(r() * 4) }); // (back from the line people walk along)
         else if (q < dz.planter + dz.rack) put('bikerack', t, 1.25, 1.3, 0.2);
         else if (q < dz.planter + dz.rack + dz.phone) put('phonebooth', t, 2.5, 0.55, 0.55);
         else if (q < dz.planter + dz.rack + dz.phone + dz.bollards) put('bollards', t, 0.35, 1.65, 0.15);
@@ -589,7 +599,7 @@
           const hx = (it.car.w * cc + it.car.l * ss) / 2, hz = (it.car.w * ss + it.car.l * cc) / 2;
           zone.colliders.add(it.x - hx, it.z - hz, it.x + hx, it.z + hz, { y1: 1.5, tag: 'vehicle' });
         } else {
-          const rad = { lamp: 0.12, lamp_dead: 0.12, signal: 0.1, sig_pole: 0.13, sig_post: 0.12, tree: 0.18, tree_bare: 0.17, stump: 0.2, hydrant: 0.18, signpost: 0.06, busstop: 0.06, bench: 0, signal_down: 0, planter: 0.66, meter: 0.07, mailbox: 0.27, firebox: 0.08, phonebooth: 0.5 }[it.name];
+          const rad = { lamp: 0.12, lamp_dead: 0.12, signal: 0.1, sig_pole: 0.13, sig_post: 0.12, tree: 0.18, tree_bare: 0.17, stump: 0.2, hydrant: 0.18, signpost: 0.06, busstop: 0.06, bench: 0, signal_down: 0, planter: 0.6, meter: 0.07, mailbox: 0.27, firebox: 0.08, phonebooth: 0.5 }[it.name];
           const low = { hydrant: 0.7, stump: 0.7, planter: 1.1, mailbox: 1.35, meter: 1.4, firebox: 1.5 }[it.name];
           if (rad) zone.colliders.add(it.x - rad, it.z - rad, it.x + rad, it.z + rad, { y1: low || 3, tag: 'city', camera: false });
           if (it.name === 'bench') zone.colliders.addRotated(it.x, it.z, 0.9, 0.25, it.rot, { y1: 0.5, tag: 'city', camera: false });
