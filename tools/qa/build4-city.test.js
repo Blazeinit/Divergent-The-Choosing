@@ -58,6 +58,17 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
   T.ok(walls.house.at[0] < DV_HOUSE_FACE() && !walls.houseInside, 'houses are solid: you stop at the front wall', walls.house);
   T.ok(walls.fenceDist < 622 && walls.fenceDist > 600, 'the Fence: you can walk up to it, not through it (' + walls.fenceDist + ' m out)', walls.fence);
   T.ok(walls.marsh.at[0] < 417, 'the shore wall keeps you off the marsh (x ' + walls.marsh.at[0] + ')', walls.marsh);
+  // the L's columns stand on the pavement, never in a road (the deck spans each junction from its corners)
+  const lcols = await ev(() => {
+    const CM = DV.CityMap, t = CM.track;
+    const cols = DV.World.current.city.walk.solids.filter((q) => q[2] - q[0] < 0.7 && q[3] - q[1] < 0.7 && q[1] > t.z0 - 0.2 && q[3] < t.z1 + 0.2);
+    const xs = [...new Set(cols.map((q) => (q[0] + q[2]) / 2))].sort((a, b) => a - b);
+    let gap = 0;
+    for (let i = 1; i < xs.length; i++) gap = Math.max(gap, xs[i] - xs[i - 1]);
+    const lane = (z) => (CM.lake.road[0] < z && z < CM.lake.road[1]);
+    return { n: cols.length, inRoad: cols.filter((q) => CM.avenues.some((a) => Math.abs((q[0] + q[2]) / 2 - a.x) < a.w / 2 + 0.3) || lane((q[1] + q[3]) / 2)).length, gap: +gap.toFixed(1) };
+  });
+  T.ok(lcols.n > 100 && lcols.inRoad === 0 && lcols.gap < 22, 'the L\'s columns all stand on the pavement, none in a road (longest span ' + lcols.gap + ' m)', lcols);
   function DV_HOUSE_FACE() { return -309.6 + 0.8 + 0.01; } // (the house's front wall, east of the pavement point)
 
   /* ---------------- the street furniture ---------------- */

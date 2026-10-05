@@ -515,7 +515,7 @@
     }
     if (hub && !o.noHubTower) theHub(B, hub[0], hub[1]); // (not when you're standing inside it)
     if (o.ferris) ferrisWheel(B, o.ferris[0], o.ferris[1], centre);
-    if (o.track) elevatedTrack(B, o.track);
+    if (o.track) elevatedTrack(B, o.track, xs, walk ? walk.sidewalk || 3 : 0);
     if (walk) {
       for (const l of walk.landmarks || []) if (LANDMARKS[l.id]) LANDMARKS[l.id](B, l);
       for (const f in walk.homes || {}) homeFor(B, f, walk.homes[f]);
@@ -952,8 +952,10 @@
     B.box(x, z, 60, 22, -0.05, 1.2, face, null, [0.32, 0.31, 0.29], 0, {}); // the pier deck
   }
 
-  // the elevated L: deck on steel bents, running the length of the street
-  function elevatedTrack(B, t) {
+  // the elevated L: deck on steel bents, running the length of the street. The bents stand on
+  // the pavement, never in a road: where an avenue crosses under, the deck spans the junction
+  // from a bent on each corner (the way the Loop does it)
+  function elevatedTrack(B, t, cross, sw) {
     const steel = [0.3, 0.29, 0.28], dark = [0.2, 0.2, 0.2];
     const cz = (t.z0 + t.z1) / 2, W = t.z1 - t.z0;
     for (let x = t.x0; x < t.x1; x += 60) {
@@ -964,10 +966,30 @@
       B.box(cx, t.z1 - 0.15, len, 0.3, t.y, t.y + 0.9, 0, null, dark, 0, {});
       for (const rz of [t.z0 + 1.1, t.z0 + 2.2, t.z1 - 2.2, t.z1 - 1.1]) B.box(cx, rz, len, 0.12, t.y, t.y + 0.18, 0, null, [0.42, 0.4, 0.38], 0, {});
     }
-    for (let x = t.x0; x <= t.x1; x += t.span || 15) {
+    for (const x of bentsAlong(t, cross, sw)) {
       for (const z of [t.z0 + 0.6, t.z1 - 0.6]) B.box(x, z, 0.55, 0.55, 0, t.y - 0.9, 0, null, steel, 0, {});
       B.box(x, cz, 0.6, W, t.y - 1.6, t.y - 0.9, 0, null, steel, 0, {});
     }
+  }
+  // where the bents go: every span, but out of the crossing roads and their pavements (where people
+  // walk): one each side of the junction instead, just past the corner
+  function bentsAlong(t, cross, sw) {
+    const span = t.span || 15, roads = (cross || []).map((L) => [L.c - L.w / 2 - (sw || 0), L.c + L.w / 2 + (sw || 0)]);
+    const corners = [];
+    for (const [a, b] of roads) if (b > t.x0 && a < t.x1) corners.push(a - 1.3, b + 1.3);
+    const out = corners.filter((x) => x >= t.x0 && x <= t.x1);
+    for (let x = t.x0; x <= t.x1; x += span) {
+      if (roads.some(([a, b]) => x > a - 2.5 && x < b + 2.5)) continue;
+      if (corners.some((c) => Math.abs(c - x) < span * 0.45)) continue;
+      out.push(x);
+    }
+    out.sort((a, b) => a - b);
+    // (and nothing left too long unsupported: a bent halfway along a long gap, if that's not a road)
+    for (let i = 0; i + 1 < out.length; i++) {
+      const m = (out[i] + out[i + 1]) / 2;
+      if (out[i + 1] - out[i] > span * 1.35 && !roads.some(([a, b]) => m > a - 2.5 && m < b + 2.5)) out.splice(i + 1, 0, m);
+    }
+    return out;
   }
 
   function trainMesh(cars) {
