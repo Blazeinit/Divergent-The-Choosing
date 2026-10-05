@@ -161,6 +161,7 @@ js/
     checkpoint.js          The security arch: badge checks, the barrier arm, NPCs queueing to show badges
     soundscape.js          What you hear where you stand: reverb, indoor/outdoor layers, accents, one-shots
     wildlife.js            Pigeon flocks, crows and gulls, blowing litter, flags flying in the wind
+    citylife.js            Scenes on the pavements: stalls, a bread line, buskers, children, readers, arguments, crews, fires
     order.js               Erudite's police: the Order Station's guards and vans, patrols, drones, stops, notice
     streetlife.js          Build 4: pedestrians by sector on the pavements and crossings, and traffic that
                            keeps right, queues, stops for you and honks
@@ -284,6 +285,13 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
     - Amity picking apples, and dancing and singing round the fire.
   - **Cuts and captions:** each place is shot with a few camera moves. Between them the reel dips to black, with the next faction's mark and virtue. A place is built under the black the first time round, so you never see the hitch. Click a bowl (or press ← →) to cut straight to a faction.
   - **The theme song** is Paul van Dyk's *Nothing But You* (Cirrus Mix, Amaru deconstruction). It streams in SoundCloud's own player in a "Now Playing" window, with YouTube's as the backup. It starts on your first click, the synth music steps aside while it plays, and it fades out when you start. Its ♪ stops it, its ✕ turns it off, and Settings brings it back.
+- **The city going about its day.** Besides the people walking past, small scenes of people stopped and doing something happen on the pavements near you. Which ones depends on the sector and the hour:
+  - an Amity fruit stall, a Candor newsstand, Abnegation volunteers handing bread to a queue of factionless;
+  - a busker with a little crowd, children playing chase, someone sweeping the pavement;
+  - Erudite reading as they wait, Candor arguing on a corner, Dauntless crews lounging;
+  - after dark, the factionless round a burning barrel, talking low about a body found by the river.
+
+  Talk to anyone in a scene. The stallholders and the volunteer give you something: an Amity apple, Abnegation bread, or *The Candor Daily*, which you can read. Scenes appear out of sight, go once they're behind you, and none show from inside a building.
 - **Erudite's police.** The Office of Public Order: Erudite runs it, and the Dauntless walk it.
   - **The Order Station** stands on Armitage Avenue at Clinton Street, in the empty north of the city. It's a concrete block with a band of blue glass, Erudite banners, a glass porch under a *PUBLIC ORDER* canopy and a curfew notice. A radio mast and a drone pad are on the roof, the drone shed is on the west, and on the east is a fenced motor pool with its vans, a gatehouse and a barrier arm. Guards stand at the door and the gate. It's on the world map.
   - **Patrols** walk the pavements in twos: Dauntless in black with the Office's blue armband, sometimes with an Erudite supervisor and her tablet behind them. They wait at crossings, talk on the radio, tell you to step aside, and there are more of them after the 22:00 curfew.
@@ -437,7 +445,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 31 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 32 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**

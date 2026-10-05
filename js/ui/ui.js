@@ -236,6 +236,8 @@
       if (street) others(street.barkSources(), 'st:', 18);
       const order = DV.Order && DV.Order.active();
       if (order) others(order.barkSources(), 'po:', 26);
+      const scenes = DV.CityLife && DV.CityLife.active();
+      if (scenes) others(scenes.barkSources(), 'cl:', 18);
       const zx = DV.World.current && DV.World.current.extras;
       if (zx) others(zx.barkSources(), 'ex:', 16);
       for (const e of Array.from(this.barksEl.children)) if (!live.has(e.dataset.id)) e.remove();

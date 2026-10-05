@@ -61,6 +61,23 @@
       desc: 'A paper sachet of something floral steeped in hot water. Steadies the nerves. (+1 Resolve, 2 hours)',
       use: { type: 'buff', attr: 'resolve', amount: 1, minutes: 120, label: 'Calm', sound: 'drink' }, icon: { shape: 'cup', color: '#e0a526' },
     },
+    // what the city's stalls and volunteers hand out (js/game/citylife.js)
+    apple: {
+      name: 'Amity Apple', cat: 'consumable', stack: true, usable: true,
+      desc: 'Red, a little bruised, picked this morning in the orchards inside the Fence. Restores some stamina.',
+      use: { type: 'stamina', amount: 25 }, icon: { shape: 'token', color: '#b8281c' },
+    },
+    bread_roll: {
+      name: 'Abnegation Bread', cat: 'consumable', stack: true, usable: true,
+      desc: 'A plain brown roll, still warm, handed out on the pavement by a volunteer in grey. Restores stamina.',
+      use: { type: 'stamina', amount: 35 }, icon: { shape: 'bar', color: '#c58d4c' },
+    },
+    candor_paper: {
+      name: 'The Candor Daily', cat: 'misc', stack: true, usable: true,
+      desc: 'Today\'s paper. Every word of it, they swear, true.',
+      use: { type: 'read', title: 'The Candor Daily', text: 'COUNCIL MEETS ON CHOOSING DAY ARRANGEMENTS\n\nThe Abnegation-led council confirmed today that the Choosing Ceremony will be held at the Hub as in every year. Erudite representatives asked, again, that the ceremony be "reviewed for efficiency". The request was noted.\n\nORDER OFFICE EXTENDS NIGHT PATROLS\n\nThe Office of Public Order will keep drones over the streets after nine each night "until further notice". Asked why, a spokesman said only that citizens should stay indoors after dark and report anything unusual. Asked whether this had anything to do with the body found by the river last week, he said he would not comment on rumours.\n\nLETTERS: "My neighbour waters his plants at four in the morning. I have told him to his face. He says I am too honest. There is no such thing." \u2014 R., Sector 2' },
+      icon: { shape: 'paper', color: '#e8e6de' },
+    },
     peppermint: {
       name: 'Peppermint', cat: 'consumable', stack: true, usable: true,
       desc: 'A hard white candy. Small comfort. Restores a little stamina.',

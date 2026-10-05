@@ -745,11 +745,14 @@
       const life = DV.StreetLife.attach(zone, city, kit);
       // Erudite's police: the patrols, the guards at the Order Station, the drones (js/game/order.js)
       const order = DV.Order.attach(zone, city, life);
+      // and people stopped doing something: stalls, buskers, a bread line, children playing (js/game/citylife.js)
+      const scenes = DV.CityLife.attach(zone, city, life);
       ctx.update((dt) => {
         const cam = DV.Game && DV.Game.camera;
         if (cam) kit.update(cam.position.x, cam.position.z);
         life.update(dt);
         order.update(dt);
+        scenes.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 
