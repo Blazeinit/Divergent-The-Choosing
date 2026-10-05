@@ -222,6 +222,8 @@
       if (DV.Chapter && DV.Chapter.active) others(DV.Chapter.barkSources(), 'ch:', 22);
       const street = DV.StreetLife && DV.StreetLife.active();
       if (street) others(street.barkSources(), 'st:', 18);
+      const zx = DV.World.current && DV.World.current.extras;
+      if (zx) others(zx.barkSources(), 'ex:', 16);
       for (const e of Array.from(this.barksEl.children)) if (!live.has(e.dataset.id)) e.remove();
     },
     // cinematic bars for cutscenes

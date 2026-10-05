@@ -520,6 +520,13 @@
             for (let k = 0; k < 22; k++) this.burst('bandpass', 900 + Math.random() * 300, 2.5, 0.05, (0.02 + 0.03 * Math.sin((k / 22) * Math.PI)) * v, 1.5 + k * 0.36 + (k % 2) * 0.09);
             break;
           }
+          case 'drum': { // an oil drum played with the hands: a boom (low) or a slap
+            const low = !!opts.low, t = this.ctx.currentTime;
+            const o = this.tone(low ? 92 : 170, low ? 0.38 : 0.16, 'sine', (low ? 0.5 : 0.22) * v);
+            o.frequency.exponentialRampToValueAtTime(low ? 46 : 110, t + (low ? 0.3 : 0.12));
+            this.burst(low ? 'lowpass' : 'bandpass', low ? 260 : 1400, low ? 0.8 : 1.2, low ? 0.09 : 0.05, (low ? 0.35 : 0.3) * v);
+            break;
+          }
           case 'carhorn': { // a driver leaning on the horn: two short blasts (a bus: lower and longer)
             const low = !!opts.big;
             [0, 0.32].forEach((dt0) => [low ? 290 : 410, low ? 345 : 505].forEach((fq) => {

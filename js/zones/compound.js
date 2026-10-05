@@ -251,6 +251,64 @@
     if (p.id) ctx.spot(p.id, 0.0, 2.2, Math.PI, 'arms_crossed');
   });
 
+  // an oil drum with a fire in it: the Pit's evenings gather round these
+  DV.Props.define('fire_barrel', (ctx, p, B) => {
+    B.cyl(ctx.M('rust'), 0, 0, 0, 0.3, 0.3, 0.9, 8);
+    B.cyl(ctx.M('black'), 0, 0.88, 0, 0.27, 0.27, 0.02, 8);
+    ctx.collide(-0.32, -0.32, 0.32, 0.32, { y1: 0.9, camera: false });
+    const g = new THREE.Group();
+    const fm = [0xffb040, 0xff7020, 0xffd070].map((c) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.85, depthWrite: false }));
+    const tongues = [];
+    for (let k = 0; k < 5; k++) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.14 + (k % 2) * 0.05, 0.6, 5), fm[k % 3]); t.position.set((k % 3 - 1) * 0.12, 0.3, (Math.floor(k / 3) - 0.5) * 0.14); g.add(t); tongues.push(t); }
+    // the glow it throws on everything round it
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color: 0xff9a40, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.scale.set(3.4, 3.4, 1); glow.position.y = 0.5; g.add(glow);
+    g.position.set(p.x, 0.95, p.z);
+    ctx.add(g);
+    let t = p.x;
+    ctx.update((dt) => {
+      t += dt;
+      tongues.forEach((m, i) => { const s = 0.75 + 0.35 * Math.sin(t * (8 + i) + i * 1.9); m.scale.set(1, s, 1); m.rotation.y = t * (0.6 + i * 0.1); });
+      glow.material.opacity = 0.45 + 0.12 * Math.sin(t * 9.3) * Math.sin(t * 4.1);
+    });
+    (ctx.zone.fires || (ctx.zone.fires = [])).push({ x: p.x, z: p.z });
+  });
+  function glowTex() {
+    return DV.Tex.custom('fireglow', 64, 64, (c) => {
+      const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+    });
+  }
+
+  // a stall against the rock: a counter, posts, a striped awning, its goods, a hand-painted sign
+  DV.Props.define('stall', (ctx, p, B) => {
+    const w = p.w || 3.2, wood = ctx.M('wood'), m = ctx.M('metal_dark');
+    B.box(wood, 0, 0, 0.3, w, 1.0, 0.7, { faces: { pz: ctx.M('wood_panel') } });
+    B.box(ctx.M('wood_light'), 0, 1.0, 0.3, w + 0.1, 0.05, 0.8);
+    for (const x of [-w / 2 + 0.06, w / 2 - 0.06]) B.box(m, x, 0, 0.7, 0.07, 2.4, 0.07);
+    // the awning: red and black stripes, tilted out over the counter
+    const stripes = [ctx.M('mat_red'), ctx.M('black')];
+    for (let k = 0; k < 6; k++) {
+      const x0 = -w / 2 - 0.1 + ((w + 0.2) * k) / 6, x1 = x0 + (w + 0.2) / 6;
+      B.quad(stripes[k % 2], [x0, 2.4, -0.4], [x1, 2.4, -0.4], [x1, 2.15, 1.05], [x0, 2.15, 1.05], [0, 0], [1, 0], [1, 1], [0, 1]);
+    }
+    // the goods
+    const r = U.rng('stall' + p.x + p.z);
+    if (p.kind === 'food') {
+      for (let k = 0; k < 4; k++) B.cyl(ctx.M('metal'), -w / 2 + 0.5 + k * 0.7, 1.05, 0.3, 0.17, 0.17, 0.04, 8);
+      for (let k = 0; k < 3; k++) B.box(ctx.M('wood_light'), -w / 2 + 0.8 + k * 0.85, 1.05, 0.2, 0.42, 0.22, 0.3, { faces: { top: ctx.M('mat_red') } }); // cakes
+    } else if (p.kind === 'clothes') {
+      B.box(m, 0, 1.9, 0, w - 0.4, 0.03, 0.03);
+      for (let k = 0; k < 7; k++) B.box(ctx.M(r() < 0.6 ? 'black' : r() < 0.5 ? 'mat_red' : 'fabric_grey'), -w / 2 + 0.45 + k * ((w - 0.9) / 6), 1.2, 0, 0.32, 0.68, 0.06);
+    } else {
+      for (let k = 0; k < 5; k++) B.box(ctx.M(r() < 0.5 ? 'metal_dark' : 'wood_light'), -w / 2 + 0.4 + k * 0.6, 1.05, 0.25, 0.4, 0.15 + r() * 0.3, 0.35);
+    }
+    const sign = DV.Mat.fromTexture('stallsign|' + p.text, DV.Tex.sign(p.text || 'STALL', { w: 256, h: 48, bg: '#141414', color: '#e8502a', size: 26, border: false }), { emit: true });
+    B.panel(sign, 0, 2.62, 0.72, Math.min(w - 0.2, 2.4), 0.42);
+    ctx.collide(-w / 2, -0.1, w / 2, 0.7, { y1: 1.1 });
+  });
+
   // a gun rack on the wall: carbines standing in their slots, pistols on the pegs above
   DV.Props.define('gun_rack', (ctx, p, B) => {
     const w = ctx.M('wood'), m = ctx.M('metal_dark');
@@ -318,11 +376,22 @@
   add('crate', 15.5, 17.5, { size: 0.9 });
   add('poster', 60.95, -12, { rotDeg: -90, kind: 'dauntless' });
   add('poster', 13.05, 12, { rotDeg: 90, kind: 'dauntless' });
+  // fires to stand round, stalls along the walls, banners down from the paths
+  for (const [x, z] of [[21, 9], [32, -7], [47, 5], [57.2, 18.2]]) add('fire_barrel', x, z);
+  add('stall', 14.4, -2.5, { rotDeg: 90, kind: 'food', text: 'CAKE · BREAD · COFFEE', w: 3.4 });
+  add('stall', 14.4, 11.2, { rotDeg: 90, kind: 'clothes', text: 'CLOTHES', w: 3.0 });
+  add('stall', 59.6, 0.6, { rotDeg: -90, kind: 'gear', text: 'BOOTS · KNIVES · GEAR', w: 3.4 });
+  for (const [x, z, r] of [[18, -13.9, 0], [44, -13.9, 0], [58, -13.9, 0], [13.1, 0, 90], [60.9, 12.5, -90]]) add('banner', x, z, { rotDeg: r, faction: 'dauntless', y: 9.6, h: 4.2 });
+  // the drums (oil drums, upturned)
+  for (const [x, z] of [[36, 9.4], [37.4, 9.9], [38.6, 9.2]]) add('barrel', x, z, { mat: 'metal_dark' });
 
   /* --- dormitory: bunks along both long walls, lockers by the door --- */
   const bunkX = [-7.5, -5, -2.5, 0, 2.5];
-  bunkX.forEach((x, i) => add('bunk_bed', x, -15.9, { id: 'bunk_n' + i, rotDeg: 0, sheet: i % 2 ? 'fabric_grey' : 'carpet_dark' }));
+  // (the north row leaves an aisle to the washroom door, at x −5 in the north wall)
+  const bunkXN = [-7.5, -2.75, -0.25, 2.25, 4.75];
+  bunkXN.forEach((x, i) => add('bunk_bed', x, -15.9, { id: 'bunk_n' + i, rotDeg: 0, sheet: i % 2 ? 'fabric_grey' : 'carpet_dark' }));
   bunkX.forEach((x, i) => add('bunk_bed', x, -2.1, { id: 'bunk_s' + i, rotDeg: 180, sheet: i % 2 ? 'carpet_dark' : 'fabric_grey', mine: i === 4 }));
+  add('sign', -5, -16.88, { text: 'WASHROOM', y: 2.45, w: 1.3, h: 0.26, bg: '#1d1d1d', color: '#d8c8a0' });
   add('lockers', 6.7, -14.5, { len: 2.4, rotDeg: -90 });
   add('lockers', 6.7, -4, { len: 2.4, rotDeg: -90 });
   add('table', -3, -9, { w: 2.4, d: 1.0, chairs: 4, id: 'dorm_table', top: 'wood' });
@@ -369,6 +438,8 @@
   add('kitchenette', 46.4, -28.5, { len: 2.6, rotDeg: 90 });
   for (const [x, z, i] of [[50.5, -25.5, 0], [57.5, -25.5, 1], [50.5, -19.5, 2], [57.5, -19.5, 3]]) add('long_table', x, z, { id: 'dt' + i, len: 5.2, seed: i });
   add('banner', 61.9, -23, { rotDeg: -90, faction: 'dauntless', y: 4.4, h: 3.2 });
+  // the members' tables, by the door
+  add('long_table', 49.6, -16.5, { len: 4.4, seed: 7 }); add('long_table', 58.4, -16.5, { len: 4.4, seed: 8 });
   add('trash_bin', 47, -15, {});
 
   /* --- tattoo parlour --- */
@@ -383,6 +454,165 @@
   add('curtain', 64.25, 8.5, { len: 2, rotDeg: 90 });
   add('med_cabinet', 68.7, 4, { rotDeg: -90 });
   add('desk', 66, 3, { rotDeg: 0, id: 'inf_desk' });
+
+  /* ------------------------------ the Pit, dressed ------------------------------ */
+  // spray paint on rock: rough letters, overspray, a drip or two
+  function sprayTex(key, text, color, w, h, size) {
+    return DV.Tex.custom('spray|' + key, w, h, (c, W, H, r) => {
+      c.clearRect(0, 0, W, H);
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.font = 'bold ' + (size || Math.floor(H * 0.62)) + 'px Impact, "Arial Black", sans-serif';
+      // overspray: the same letters, soft and offset, a few times
+      c.globalAlpha = 0.12; c.fillStyle = color;
+      for (let k = 0; k < 6; k++) c.fillText(text, W / 2 + (r() - 0.5) * 6, H / 2 + (r() - 0.5) * 6);
+      c.globalAlpha = 1; c.fillText(text, W / 2, H / 2);
+      // drips running down from the letters
+      const tw = c.measureText(text).width;
+      for (let k = 0; k < Math.floor(tw / 18); k++) {
+        const x = W / 2 - tw / 2 + r() * tw, y = H / 2 + (size || H * 0.62) * 0.3, len = 4 + r() * H * 0.35;
+        c.fillRect(Math.floor(x), Math.floor(y), 2, Math.floor(len));
+        c.beginPath(); c.arc(x + 1, y + len, 1.6, 0, Math.PI * 2); c.fill();
+      }
+      // knock some paint off the rock's bumps
+      c.globalCompositeOperation = 'destination-out';
+      for (let k = 0; k < W * H * 0.004; k++) { c.globalAlpha = r() * 0.6; c.fillRect(Math.floor(r() * W), Math.floor(r() * H), 2, 2); }
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    });
+  }
+  function dressPit(ctx) {
+    const decal = (tex, x, y, z, rotY, w, h, opts) => {
+      const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, fog: true, color: (opts && opts.tint) || 0xd8d8d8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+      mesh.position.set(x, y, z); mesh.rotation.y = rotY;
+      ctx.add(mesh);
+      return mesh;
+    };
+    // the north wall: the flame, eight metres high, and the name under it
+    decal(DV.Tex.emblem('dauntless', '#e8502a', null, 256), 37, 12.2, -13.97, 0, 7.5, 7.5, { tint: 0xc8c8c8 });
+    decal(sprayTex('dauntless', 'DAUNTLESS', '#e8e2d6', 1024, 160), 37, 7.35, -13.96, 0, 18, 2.8);
+    // slogans between the paths on the side walls
+    decal(sprayTex('nojump', 'NO ONE JUMPS ALONE', '#d8402a', 1024, 128), 13.03, 6.7, 2.5, Math.PI / 2, 11, 1.4);
+    decal(sprayTex('fear', 'FEAR IS A CHOICE', '#e8e2d6', 1024, 128), 60.97, 6.7, 3.5, -Math.PI / 2, 10, 1.25);
+    decal(sprayTex('habit', 'BRAVERY IS A HABIT', '#e8902a', 1024, 128), 60.97, 11.3, -4, -Math.PI / 2, 10, 1.25);
+    decal(sprayTex('back', 'DON\'T LOOK BACK', '#d8402a', 1024, 128), 13.03, 11.3, 9, Math.PI / 2, 9, 1.2);
+    // names and tallies down at eye level, where initiates sign the rock
+    decal(sprayTex('tags', 'TESS · ROD · J.B. · 4EVR · MAYA', '#c8c0b0', 1024, 96, 52), 19.5, 2.2, -13.96, 0, 5.2, 0.5);
+    decal(sprayTex('tally', '|||| |||| |||| ||', '#e8502a', 512, 96, 60), 46.5, 2.0, -13.96, 0, 2.4, 0.45);
+    decal(sprayTex('jumped', 'JUMPED FIRST', '#e8e2d6', 512, 96, 54), 13.03, 2.6, -4.6, Math.PI / 2, 2.6, 0.5);
+    // strings of bulbs from path to path across the Pit, sagging in the middle
+    const N = 34, pos = [], col = [], lp = [];
+    const warm = [[1, 0.82, 0.5], [1, 0.62, 0.3], [0.95, 0.35, 0.22], [1, 0.9, 0.7]];
+    for (const [z, y] of [[-9, 10.2], [-2, 9.8], [5, 10.4], [12, 9.9]]) {
+      for (let k = 0; k <= N; k++) {
+        const t = k / N, x = 14.2 + (59.8 - 14.2) * t, yy = y - Math.sin(t * Math.PI) * 2.6;
+        lp.push(x, yy, z);
+        if (k < N) { const t2 = (k + 1) / N; lp.push(14.2 + (59.8 - 14.2) * t2, y - Math.sin(t2 * Math.PI) * 2.6, z); }
+        if (k % 2 === 0) { pos.push(x, yy - 0.12, z); const c = warm[(k / 2) % warm.length]; col.push(c[0], c[1], c[2]); }
+      }
+    }
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3));
+    ctx.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x141414, fog: true })));
+    const bg = new THREE.BufferGeometry();
+    bg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); bg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    const bulbs = new THREE.Points(bg, new THREE.PointsMaterial({ size: 0.26, vertexColors: true, fog: true }));
+    bulbs.frustumCulled = false;
+    ctx.add(bulbs);
+    const halo = new THREE.Points(bg, new THREE.PointsMaterial({ size: 0.9, vertexColors: true, map: DV.Tex.custom('fireglow', 64, 64, () => {}), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: true }));
+    halo.frustumCulled = false;
+    ctx.add(halo);
+  }
+
+  /* ------------------------------ the people about ------------------------------ */
+  const SEEN_PIT = ['the_pit', 'pit_tunnel', 'dorm_corr', 'tr_corr', 'dining', 'tattoo', 'infirmary', 'net_room'];
+  function crowdDef() {
+    const ring = (cx, cz, r, n, acts, a0) => Array.from({ length: n }, (_, i) => {
+      const a = (a0 || 0) + (i / n) * Math.PI * 2, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+      return { x, z, face: [cx, cz], act: acts[i % acts.length] };
+    });
+    // (the paths cut into the side walls: their walking surface, and the outer edge to sit on)
+    const shelfX = { w: 14.25, e: 59.75 }, top = (y) => y + 0.2;
+    const seats = (tx, tz, len, take) => {
+      const n = Math.floor(len / 0.72), out = [];
+      for (const side of [-1, 1]) for (let k = 0; k < n; k++) {
+        if (!take(k, side)) continue;
+        const x = tx - len / 2 + (len / n) * (k + 0.5);
+        out.push({ x, z: tz + side * 0.78, rot: side < 0 ? 0 : Math.PI, act: ['sit', 'sit_touch', 'sit', 'sit_cheer', 'sit_fold'][(k + (side > 0 ? 2 : 0)) % 5], seatY: 0.45 });
+      }
+      return out;
+    };
+    return {
+      faction: 'dauntless', title: 'Dauntless', seed: 31,
+      lines: [
+        'Initiate. You\'re standing in my light.',
+        'First week? Don\'t eat the stew. Trust me.',
+        'Jumped off the roof yourself, or did someone push?',
+        'Nina\'s got an empty chair tonight, if you want ink.',
+        'The railing\'s where you find out who you are. Or who your friends are.',
+        'Keep your guard up. Everyone in here hits harder than they look.',
+        'Rankings go up at five. Everyone pretends they don\'t care.',
+        'Brave doesn\'t mean grim. Have a drink. Have some cake.',
+        'You hear the river at night? You stop hearing it after a month.',
+        'Transfer, huh? Don\'t worry. Nobody here cares where you came from. Much.',
+      ],
+      banter: ['Ha! No way.', 'Did you see him on the net?', 'Again! Again!', 'Five says she makes it.', 'Who\'s on the wall tonight?', 'Pass it here.', 'Look at the new ones. Babies.', 'Race you to the top path.', 'Hey! Over here!', 'That\'s what I said!', 'Louder!', 'He fell asleep on the train. On the ROOF.'],
+      sets: [
+        // the evening: everyone's out
+        { id: 'pit_eve', when: [['17:30', '23:59'], ['00:00', '00:40']], rooms: SEEN_PIT, people: [
+          ...ring(21, 9, 1.35, 4, ['talk', 'arms_crossed', 'talk', 'cheer'], 0.4),
+          ...ring(32, -7, 1.35, 4, ['talk', 'lean', 'talk', 'arms_crossed'], 1.1),
+          ...ring(47, 5, 1.4, 5, ['talk', 'cheer', 'talk', 'arms_crossed', 'talk'], 0.2),
+          { x: 23.5, z: 19.45, rot: 0, act: 'sit', seatY: 1.12 }, { x: 30.5, z: 19.45, rot: 0.1, act: 'sit_cheer', seatY: 1.12 },
+          { x: 41.5, z: 19.45, rot: -0.1, act: 'sit', seatY: 1.12 }, { x: 48.5, z: 19.45, rot: 0, act: 'sit_touch', seatY: 1.12 },
+          { x: 25.6, z: 19.0, rot: 0.15, act: 'lean' }, { x: 36.2, z: 19.0, rot: -0.2, act: 'lean' }, { x: 53.6, z: 19.0, rot: 0, act: 'lean' },
+          { x: 16.2, z: -2.2, rot: -Math.PI / 2, act: 'idle' }, { x: 16.4, z: -3.3, rot: -1.3, act: 'talk' },
+          { x: 16.3, z: 11.4, rot: -Math.PI / 2, act: 'point' }, { x: 57.8, z: 0.4, rot: Math.PI / 2, act: 'arms_crossed' },
+          { walk: [[17, -11], [57, -11], [57, 16], [17, 16]], speed: 1.3 },
+          { walk: [[57, 16], [17, 16], [17, -11], [57, -11]], speed: 1.15 },
+          { walk: [[22, 1], [50, 12], [55, -8], [30, -10]], speed: 1.4 },
+          { y: top(4.5), walk: [[shelfX.w, -12], [shelfX.w, 17]], speed: 1.1 },
+          { y: top(9), walk: [[shelfX.e, 17], [shelfX.e, -12]], speed: 1.2 },
+          { y: top(13.5), walk: [[shelfX.e, -12], [shelfX.e, 9]], speed: 0.9 },
+          { y: top(9) - 0.45, x: 15.3, z: 3, rot: Math.PI / 2, act: 'sit', seatY: 0.45 }, // legs over the edge
+          { y: top(4.5) - 0.45, x: 58.7, z: 12, rot: -Math.PI / 2, act: 'sit_touch', seatY: 0.45 },
+        ] },
+        // the drums, after dinner
+        { id: 'drums', when: [['19:45', '23:15']], rooms: SEEN_PIT, people: [
+          { x: 36, z: 8.6, face: [36, 9.4], act: 'clap' }, { x: 37.4, z: 9.1, face: [37.4, 9.9], act: 'clap' }, { x: 38.6, z: 8.4, face: [38.6, 9.2], act: 'clap' },
+          ...ring(37.3, 9.4, 2.9, 7, ['cheer', 'clap', 'cheer', 'arms_crossed', 'clap', 'cheer', 'wave'], 0.3),
+        ] },
+        // daytime: fewer, and busier
+        { id: 'pit_day', when: [['06:30', '17:30']], rooms: SEEN_PIT, people: [
+          { x: 16.2, z: -2.4, rot: -Math.PI / 2, act: 'idle' }, { x: 16.5, z: -1.4, rot: -1.9, act: 'talk' }, { x: 17.4, z: -3.1, rot: -1.1, act: 'talk' },
+          { x: 26.5, z: 19.0, rot: 0, act: 'lean' }, { x: 47.6, z: 19.0, rot: 0.2, act: 'lean' }, { x: 38.8, z: 19.45, rot: 0, act: 'sit', seatY: 1.12 },
+          ...ring(32, -7, 1.35, 3, ['talk', 'arms_crossed', 'talk'], 0.6),
+          { x: 57.8, z: 0.2, rot: Math.PI / 2, act: 'point' }, { x: 57.6, z: 1.4, rot: 1.9, act: 'idle' }, { x: 16.3, z: 11.0, rot: -Math.PI / 2, act: 'idle' },
+          { walk: [[17, -11], [57, -11], [57, 16], [17, 16]], speed: 1.5 },
+          { walk: [[57, 16], [17, 16], [17, -11], [57, -11]], speed: 1.35 },
+          { walk: [[24, -12], [24, 3], [53, -12]], speed: 1.6 },
+          { walk: [[45, -12], [24, -12], [30, 14], [52, 10]], speed: 1.45 },
+          { y: top(4.5), walk: [[shelfX.e, -12], [shelfX.e, 17]], speed: 1.2 },
+          { y: top(9), walk: [[shelfX.w, 17], [shelfX.w, -12]], speed: 1.1 },
+        ] },
+        // the night watch
+        { id: 'night', when: [['00:40', '06:30']], rooms: SEEN_PIT, people: [
+          { walk: [[16, 18.4], [58, 18.4]], speed: 0.9 },
+          { y: top(4.5), walk: [[shelfX.e, -12], [shelfX.e, 17]], speed: 0.8 },
+        ] },
+        // meals: the members' tables full, a queue at the counter
+        { id: 'meals', when: [['06:55', '07:55'], ['12:25', '13:25'], ['18:55', '19:55']], rooms: ['dining'], people: [
+          ...seats(49.6, -16.5, 4.4, (k, sd) => (k + (sd > 0 ? 1 : 0)) % 4 !== 3),
+          ...seats(58.4, -16.5, 4.4, (k, sd) => (k + (sd > 0 ? 2 : 0)) % 4 !== 1),
+          { x: 51.6, z: -29.4, rot: Math.PI, act: 'idle' }, { x: 52.6, z: -28.6, rot: Math.PI, act: 'arms_crossed' }, { x: 53.7, z: -29.0, rot: 2.9, act: 'talk' },
+        ] },
+        // members watching the initiates train
+        { id: 'training', when: [['08:00', '17:00']], rooms: ['training', 'tr_corr'], people: [
+          { x: 27.4, z: -32.2, face: [32.5, -28.4], act: 'arms_crossed' }, { x: 38.6, z: -32.6, face: [32.5, -28.4], act: 'cheer' },
+          { x: 36.2, z: -23.3, face: [32.5, -28.4], act: 'arms_crossed' }, { x: 42.6, z: -27.6, face: [41.2, -31.2], act: 'talk' },
+          { x: 42.4, z: -29.0, face: [41.2, -31.2], act: 'arms_crossed' },
+        ] },
+      ],
+    };
+  }
 
   DV.Zones.define('d_compound', {
     name: 'Dauntless Compound',
@@ -470,15 +700,23 @@
           b.g.rotation.x = b.az; b.g.rotation.z = -b.ax;
         }
       });
-      // a few glowing posters of the members in the dining hall would be nice; instead, a fire barrel
-      const fireG = new THREE.Group();
-      const fm = [0xffb040, 0xff7020, 0xffd070].map((c) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.85, depthWrite: false }));
-      const tongues = [];
-      for (let k = 0; k < 5; k++) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.14 + (k % 2) * 0.05, 0.6, 5), fm[k % 3]); t.position.set((k % 3 - 1) * 0.12, 0.3, (Math.floor(k / 3) - 0.5) * 0.14); fireG.add(t); tongues.push(t); }
-      fireG.position.set(57.2, 0.95, 18.2);
-      ctx.add(fireG);
-      let t = 0;
-      ctx.update((dt) => { t += dt; tongues.forEach((m, i) => { const s = 0.75 + 0.35 * Math.sin(t * (8 + i) + i * 1.9); m.scale.set(1, s, 1); m.rotation.y = t * (0.6 + i * 0.1); }); });
+      // (the fire barrel by the railing where the class hangs out in the evening is a prop)
+      dressPit(ctx);
+      // the people who make the place busy (DV.Extras), and their drums in the evening
+      const crowd = DV.Extras.attach(zone, crowdDef());
+      let beat = 0, step = 0;
+      const RHYTHM = [2, 0, 1, 0, 2, 2, 1, 0, 2, 0, 1, 1, 2, 0, 1, 0];
+      ctx.update((dt) => {
+        crowd.update(dt);
+        const drums = crowd.sets.find((q) => q.id === 'drums');
+        const P = DV.Player, d = Math.hypot(P.x - 37.3, P.z - 9.5);
+        if (!drums || !drums.on || d > 34 || !DV.Audio.ready) return;
+        beat -= dt;
+        if (beat > 0) return;
+        beat += 0.21;
+        const h = RHYTHM[step++ % RHYTHM.length];
+        if (h) DV.Audio.play('drum', { x: 37.3, z: 9.5, range: 40, low: h === 2, volume: 0.9 });
+      });
       zone.fireBarrel = { x: 57.2, z: 18.2 };
       // the knife line and the ring are stations too
       ctx.interact({ id: 'knife_line', kind: 'action', action: 'knife_line', x: 37.6, y: 1.0, z: -37.3, radius: 1.8, label: 'Step up to the line', name: 'Knife Wall' });
