@@ -438,7 +438,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 31 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 32 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**
@@ -472,6 +472,7 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - Amity's farmland lies inside the wall: its fields, orchards and steads are all there and none is out of place. You can walk out of the city along Madison Street into the farms, Amity Headquarters stands inside the Fence, and the map names the farmland and what's outside the wall.
   - Junctions have paint, poles and lamps. A signal is never green both ways, and the walk signal only shows with its green.
   - Cars stop at the line on red and never run one. They turn at junctions and never drive into each other. People cross on the white man.
+- **Invisible walls** (8 checks): every collider the city puts up within reach stands inside the thing it was built for (19,000 of them; the turned ones stand out at most 22 cm), and every one of the Testing Center's walls, props and cars has something drawn where it stops you. The player walks up to the rubble in the empty lot by the FURNITURE sign from every side and stops against it, walks out of the front plaza through the gate and along Lake Street both ways into the city, and stops at the plaza's fence right where it stands.
 - **Build 4, waiting and the clock** (31 checks):
   - The clock speed setting.
   - T opens the wait standing up. The keys work on the panel, and the time-lapse runs and ends by itself. Esc stops it early.
@@ -522,6 +523,9 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
 - **Persistence:** save → reload page → Continue restores state. Two playthroughs in one browser session also work.
 
 Bugs found and fixed during Build 4:
+- **An invisible wall in an empty lot.** A slab of rubble turned at an angle in an empty lot got its bounding box for a collider, so you stopped up to a metre short of it, all round. A turned box is now a grid of small colliders that hug it, and a new suite checks every collider in the city against what it was built for.
+- **A stray strip across the facades.** The belt course over the shopfronts ran all the way round each building at first-floor height, so over an empty lot or a lower neighbour it crossed the blank side wall and the old painted sign on it, floating there. Belt courses and cornices now run along the street fronts and stop at the party walls, the party walls are blank brick with no windows, and the painted signs start above the first floor.
+- **No roof on the Testing Center.** See *A roof on the Testing Center* above.
 - **Buildings stood in the road.** The Hub was centred on Halsted Street, so its tubes covered the street and the Monroe junction. The Dauntless compound's jump-off block was set 9 m out from the compound, which put it across State Street. An audit of every piece the city builds against every carriageway found both, and the city suite now checks for it.
 - **A car could roll into you.** Traffic slowed in proportion to the gap ahead, at no more than 6 m/s². A car doing 12 m/s that only saw you late couldn't stop in time and touched you. Cars now brake to their stopping distance and look far enough ahead to stop in, braking up to 8 m/s² for someone in the road.
 - **You could run through thin walls at a low frame rate.** Each frame's movement was resolved in one jump. At 10 fps a sprint covers half a metre a frame, which could land you on the far side of a fence or a post. Movement is now resolved in steps of a third of your width.
