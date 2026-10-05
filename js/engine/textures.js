@@ -336,6 +336,19 @@
     speckle(c, w, h, r, 900, ['#3e5127', '#5a6f38', '#6b7c40', '#36451f', '#7b7a44'], 1);
     blotches(c, w, h, r, 4, 'rgba(90,80,40,0.25)', 6, 16);
   });
+  // a field in rows: the crop along the ridges, the soil between (grey, tinted by the field: wheat,
+  // corn, cabbages, the plough's furrows); four rows a tile, along u
+  def('field_rows', 64, 64, 3.0, (c, w, h, r) => {
+    c.fillStyle = '#9a9a92'; c.fillRect(0, 0, w, h);
+    for (let k = 0; k < 4; k++) {
+      const y = k * 16;
+      c.fillStyle = '#5a564e'; c.fillRect(0, y, w, 5); // the furrow
+      c.fillStyle = '#76736a'; c.fillRect(0, y + 5, w, 2);
+      c.fillStyle = '#b4b4aa'; c.fillRect(0, y + 9, w, 4); // the top of the ridge, catching the light
+    }
+    speckle(c, w, h, r, 500, ['#6a675f', '#c8c8bc', '#8a877e', '#4e4b45'], 1);
+    noise(c, w, h, r, 16);
+  });
   def('dirt', 64, 64, 2.0, (c, w, h, r) => {
     c.fillStyle = '#5b4632'; c.fillRect(0, 0, w, h);
     speckle(c, w, h, r, 700, ['#4a3828', '#6d5640', '#3b2c20', '#7a6650'], 1);

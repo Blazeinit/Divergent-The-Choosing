@@ -448,6 +448,12 @@
   const SUN = [0.55, 0, -0.83];
   const shadeN = (nx, nz) => 0.74 + 0.26 * (0.5 + 0.5 * (nx * SUN[0] + nz * SUN[2]));
   const mul = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+  // smooth value noise, 0..1 (patches in the ground)
+  const vhash = (i, j) => { const h = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return h - Math.floor(h); };
+  const vnoise = (x, z) => {
+    const i = Math.floor(x), j = Math.floor(z), fx = x - i, fz = z - j, u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+    return U.lerp(U.lerp(vhash(i, j), vhash(i + 1, j), u), U.lerp(vhash(i, j + 1), vhash(i + 1, j + 1), u), v);
+  };
 
   /* ------------------------------ the builder ------------------------------ */
   class Builder {
@@ -564,7 +570,7 @@
     const keep = o.keepClear || [];
     const walk = o.walk || null;
     const inRect = (x, z, q, pad) => x > q[0] - (pad || 0) && x < q[2] + (pad || 0) && z > q[1] - (pad || 0) && z < q[3] + (pad || 0);
-    if (walk) { B.solids = []; B.pads = []; B.avoid = []; B.signs = []; B.fence = []; B.yards = []; }
+    if (walk) { B.solids = []; B.pads = []; B.avoid = []; B.signs = []; B.fence = []; B.yards = []; B.lots = []; }
 
     // ground: asphalt, block pads, marsh beyond the city (a walkable city lays its own,
     // textured, ground in build(): see walkGround)
@@ -626,6 +632,14 @@
         fb = [Math.max(fb[0], b.pad[0] + sw), Math.max(fb[1], b.pad[1] + sw), Math.min(fb[2], b.pad[2] - sw), Math.min(fb[3], b.pad[3] - sw)];
       }
       fillBlock(B, fb, { centre, hub, keep, o, block: fb });
+    }
+    // past the last blocks the streets stop at a kerb: a pavement along the outside of them, and
+    // open ground beyond (DV.CityMap.roadNet; DV.Farms dresses it)
+    if (walk && walk.edge) {
+      for (const st of DV.CityMap.roadNet().strips) {
+        const dd = districtOf(o, (st.r[0] + st.r[2]) / 2, (st.r[1] + st.r[3]) / 2);
+        B.pads.push({ r: st.r, d: dd && dd.d.id, edge: st.edge, kerbs: st.kerbs, lanes: st.lanes, strip: true });
+      }
     }
 
     // hand-placed buildings (filling the zone's own block around the playable area)
@@ -741,8 +755,10 @@
     // a faction's sector builds its own way (fading out towards its edges)
     const dd = districtOf(ctx.o, x, z);
     if (dd && SECTOR[dd.d.id] && r() < Math.min(1, dd.k * 2.4)) { B.part = 'sector:' + dd.d.id; SECTOR[dd.d.id](B, x, z, w, d, ctx); return null; }
-    if (r() < 0.06) { // an empty lot: a rubble mound
-      B.box(x, z, w * 0.6, d * 0.5, -0.05, 0.6 + r() * 1.6, r() * 3, null, [0.36, 0.35, 0.33], 0, {});
+    if (r() < 0.06) { // an empty lot: a rubble mound (a walkable city's are dressed by DV.Farms: gardens, stalls, wrecks)
+      const mh = 0.6 + r() * 1.6, mr = r() * 3;
+      if (B.lots) B.lots.push({ x, z, w, d, face: info.face || [0, 1], sector: dd ? dd.d.id : null });
+      else B.box(x, z, w * 0.6, d * 0.5, -0.05, mh, mr, null, [0.36, 0.35, 0.33], 0, {});
       return { h: 0 };
     }
     const seed = Math.floor(r() * 1000);
@@ -1438,13 +1454,27 @@
   }
 
   // Amity's farmland between the city and the Fence (the layout is DV.CityMap.farms(), which the
-  // map draws too): dirt section roads, orchards in rows, farmsteads (a house, a barn, a silo,
-  // grain bins), hedgerows between the fields. The fields themselves are ground: walkMeshes.
+  // map draws too): the dirt section roads, with the ruts worn either side of a grass crown, and
+  // the tracks that carry them on across the open ground by the city. The fields are ground
+  // (walkMeshes); the farms and everything else out there are DV.Farms'.
   function farmland(B, c) {
     const F = DV.CityMap.farms(), r = U.rng(5150);
     B.part = 'the farms';
-    const dirt = [0.4, 0.34, 0.26];
-    for (const [x0, z0, x1, z1] of F.roads) B.g.plain.quad([[x0, 0.16, z0], [x1, 0.16, z0], [x1, 0.16, z1], [x0, 0.16, z1]], null, mul(dirt, 0.92 + r() * 0.1), [0, 1, 0], 0);
+    const dirt = [0.4, 0.34, 0.26], g = B.g.plain;
+    const tracks = DV.CityMap.roadNet().roads.filter((q) => q.track).map((q) => q.r);
+    // (across the road: dirt, a rut, dirt, the crown, dirt, a rut, dirt; side by side, never overlapping)
+    const BANDS = [[-1.25, 0], [-0.75, 1], [-0.3, 0], [0.3, 2], [0.75, 0], [1.25, 1]];
+    for (const [x0, z0, x1, z1] of F.roads.concat(tracks)) {
+      const k = 0.92 + r() * 0.1, vert = x1 - x0 < z1 - z0, m = vert ? (x0 + x1) / 2 : (z0 + z1) / 2, hw = (vert ? x1 - x0 : z1 - z0) / 2;
+      const cols = [mul(dirt, k), mul(dirt, k * 0.8), [0.3 * k, 0.33 * k, 0.21 * k]];
+      let a = -hw;
+      for (const [b, t] of BANDS.concat([[hw, 0]])) {
+        const y = 0.16, p0 = m + a, p1 = m + b;
+        if (vert) g.quad([[p0, y, z0], [p1, y, z0], [p1, y, z1], [p0, y, z1]], null, cols[t], [0, 1, 0], 0);
+        else g.quad([[x0, y, p0], [x1, y, p0], [x1, y, p1], [x0, y, p1]], null, cols[t], [0, 1, 0], 0);
+        a = b;
+      }
+    }
     for (const [x0, z0, x1, z1] of F.hedges) B.box((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, 1.3 + r() * 0.5, 0, null, [0.2, 0.27, 0.15], 0, { solid: false });
     // orchards: rows of fruit trees (a trunk, a round crown), all kept
     let trees = 0;
@@ -1469,6 +1499,7 @@
       B.prism(hx, hz, 2.4, 0, 13, 8, [0.62, 0.62, 0.64], 1.6);
       for (const k of [0, 1]) { [hx, hz] = P(13 - k * 5.5, -6); B.prism(hx, hz, 2.1, 0, 4.2, 8, [0.56, 0.57, 0.6], 1.4); }
     }
+    void c;
     B.part = 'other';
   }
 
@@ -1614,15 +1645,33 @@
     };
     const wOf = (key) => { const t = DV.Mat.get(key).map; return (t && t.userData.world) || 1; };
     const flatQ = (g, x0, z0, x1, z1, y, col, ws) => g.quad([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], [[x0 / ws, -z0 / ws], [x1 / ws, -z0 / ws], [x1 / ws, -z1 / ws], [x0 / ws, -z1 / ws]], col, [0, 1, 0], 0);
-    // asphalt: a square round the Fence, less the zone's grounds and the marsh
+    // asphalt: the city's streets (only where they run between blocks: DV.CityMap.roadNet), and the
+    // roads out of it; or, any other city, a square round the Fence less the zone's grounds and the marsh
     const ga = new Group(), wa = wOf('asphalt');
     const sq = [c[0] - R, c[1] - R, Math.min(c[0] + R, marshX), c[1] + R];
+    const net = W.edge ? DV.CityMap.roadNet() : null;
+    // (in tiles, so the big quads don't stretch the fog and the shading too far)
+    const tiles = (g, q, y, col, ws) => { for (let x = q[0]; x < q[2]; x += 160) for (let z = q[1]; z < q[3]; z += 160) flatQ(g, x, z, Math.min(q[2], x + 160), Math.min(q[3], z + 160), y, col, ws); };
     for (const q of rectMinus(sq, campus)) {
-      // in tiles, so the big quads don't stretch the fog and the shading too far
-      for (let x = q[0]; x < q[2]; x += 160) for (let z = q[1]; z < q[3]; z += 160) flatQ(ga, x, z, Math.min(q[2], x + 160), Math.min(q[3], z + 160), 0, mul(L, 0.82), wa);
+      if (!net) tiles(ga, q, 0, mul(L, 0.82), wa);
       out.open.push(q);
     }
-    mk(ga, 'asphalt');
+    if (net) {
+      for (const q of net.roads) if (q.kind !== 'out') tiles(ga, q.r, 0, mul(L, 0.82), wa);
+      // a road out: the street's width through the pavement, rising to the farmland's level, then a
+      // lane, older and paler, on to the farm road (or the gate)
+      const YF = 0.15;
+      for (const rd of net.out) {
+        const [m, ln] = rd.parts, v = rd.axis === 'z';
+        // (the mouth's corners: y 0 at the junction, YF at the far end)
+        const at = (x, z) => [x, rd.dir * ((v ? z : x) - (v ? (rd.dir < 0 ? m[3] : m[1]) : rd.dir < 0 ? m[2] : m[0])) > 0.01 ? YF : 0, z];
+        const ps = [at(m[0], m[1]), at(m[2], m[1]), at(m[2], m[3]), at(m[0], m[3])];
+        ga.quad(ps, ps.map((q) => [q[0] / wa, -q[2] / wa]), mul(L, 0.82), [0, 1, 0], 0);
+        tiles(ga, ln, YF, mul(L, 0.95), wa);
+      }
+    }
+    out.net = net;
+    mk(ga, 'asphalt', net ? { polygonOffset: true, polygonOffsetFactor: -0.5, polygonOffsetUnits: -1 } : undefined);
     // pavements and kerbs (the pavement wins the depth test against the asphalt under it)
     const gp = new Group(), gk = new Group(), wp = wOf('pavement'), wc = wOf('concrete');
     const r = U.rng(5);
@@ -1637,6 +1686,8 @@
         gk.quad([[ax, t, az], [bx, t, bz], [bx + hx, t, bz + hz], [ax + hx, t, az + hz]], [[ax / wc, az / wc], [bx / wc, bz / wc], [(bx + hx) / wc, (bz + hz) / wc], [(ax + hx) / wc, (az + hz) / wc]], mul(L, 0.95), [0, 1, 0], 0);
         gk.quad([[ax + hx, 0, az + hz], [bx + hx, 0, bz + hz], [bx + hx, t, bz + hz], [ax + hx, t, az + hz]], [[ax / wc, 0], [bx / wc + bz / wc, 0], [bx / wc + bz / wc, t / wc], [ax / wc, t / wc]], mul(L, 0.72), [nx, 0, nz], 0);
       };
+      // (the pavement past the last streets: its kerbs are where the roads are, worked out by the network)
+      if (pd.kerbs) { for (const q of pd.kerbs) kq(...q); continue; }
       if (e[1]) kq(x0, z0, x1, z0, 0, -1);
       if (e[3]) kq(x1, z1, x0, z1, 0, 1);
       if (e[0]) kq(x0, z1, x0, z0, -1, 0);
@@ -1668,7 +1719,8 @@
     }
     mk(gk, 'concrete', { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
     // the ground past the city's edge: grass in rings (cut off cleanly at the marsh's shore), green
-    // up to the Fence and dry beyond it; and on it Amity's fields, strip by strip
+    // up to the Fence and dry beyond it, in patches (lusher, sparer, a dry spot); the rough ground
+    // between the last streets and the farms; and Amity's fields, strip by strip
     const gf = new Group(), wg = wOf('grass');
     const fr = U.rng(9);
     for (const [ps, col] of yardQ) gf.quad(ps, ps.map((q) => [q[0] / wg, -q[2] / wg]), col, [0, 1, 0], 0);
@@ -1681,39 +1733,80 @@
       }
       return outp;
     };
+    // (patches: a smooth noise over the ground, sampled at the corners)
+    const patch = (x, z, a, b) => { const n = vnoise(x / 70, z / 70) * 0.65 + vnoise(x / 23 + 7, z / 23) * 0.35; return [U.lerp(a[0], b[0], n), U.lerp(a[1], b[1], n), U.lerp(a[2], b[2], n)]; };
+    const LUSH = [0.74, 0.92, 0.62], SPARE = [0.96, 0.95, 0.7], DRY = [0.95, 0.86, 0.66], DRY2 = [0.8, 0.74, 0.6];
     const ringIn = W.edge ? W.edge - 12 : WL.outer + 2, wallOut = WL.outer + 2;
     const bands = [];
     for (let r0 = ringIn; r0 < wallOut + 420; ) { const r1 = r0 < wallOut && r0 + 110 > wallOut ? wallOut : r0 + 110; bands.push([r0, r1]); r0 = r1; }
+    const guv = (q) => [q[0] / wg / 2.5, -q[2] / wg / 2.5];
     for (const [r0, r1] of bands) {
       const n = Math.round((Math.PI * 2 * r1) / 60);
-      for (let k = 0; k < n; k++) {
-        const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
+      const outside = r0 >= wallOut - 0.5, nr = outside ? 1 : Math.max(1, Math.round((r1 - r0) / 28));
+      for (let k = 0; k < n; k++) for (let m = 0; m < nr; m++) {
+        const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2, ra = r0 + ((r1 - r0) * m) / nr, rb = r0 + ((r1 - r0) * (m + 1)) / nr;
         const pt = (rr, a) => [c[0] + Math.cos(a) * rr, 0.12, c[1] + Math.sin(a) * rr];
-        let ps = [pt(r0, a0), pt(r0, a1), pt(r1, a1), pt(r1, a0)];
+        let ps = [pt(ra, a0), pt(ra, a1), pt(rb, a1), pt(rb, a0)];
         // (inside the Fence the marsh takes over east of the shore; outside it, the ground runs on)
         if (r1 <= wallOut) ps = clipX(ps, marshX);
         if (ps.length < 3) continue;
-        const outside = r0 >= wallOut - 0.5, hue = fr();
-        const col = outside ? (hue < 0.5 ? [0.92, 0.84, 0.66] : [0.8, 0.74, 0.6]) : hue < 0.5 ? [0.86, 0.96, 0.72] : [0.8, 0.9, 0.7];
-        const uv = (q) => [q[0] / wg / 6, -q[2] / wg / 6];
-        const cc = mul(col, 0.8 * L[0]);
+        const hue = fr(), col = (q) => mul(outside ? (hue < 0.5 ? DRY : DRY2) : patch(q[0], q[2], LUSH, SPARE), 0.8 * L[0]);
         if (ps.length === 3) ps.push(ps[2]);
-        gf.quad(ps.slice(0, 4), ps.slice(0, 4).map(uv), cc, [0, 1, 0], 0);
-        if (ps.length === 5) gf.quad([ps[0], ps[3], ps[4], ps[4]], [ps[0], ps[3], ps[4], ps[4]].map(uv), cc, [0, 1, 0], 0);
-        if (r0 >= ringIn && r1 <= wallOut) out.farm.push([r0, r1, a0, a1]);
+        const q4 = ps.slice(0, 4);
+        gf.quad(q4, q4.map(guv), q4.map(col), [0, 1, 0], 0);
+        if (ps.length === 5) { const q5 = [ps[0], ps[3], ps[4], ps[4]]; gf.quad(q5, q5.map(guv), q5.map(col), [0, 1, 0], 0); }
+        if (m === 0 && r0 >= ringIn && r1 <= wallOut) out.farm.push([r0, r1, a0, a1]);
+      }
+    }
+    // the rough ground past the last streets, under the pavements and the roads out (on the city's
+    // own grid: every block that isn't built, every stretch of street that isn't one)
+    const gr = new Group(), wr = wOf('field_rows');
+    if (net) {
+      const xb = [sq[0]], zb = [sq[1]];
+      for (const a of DV.CityMap.avenues) xb.push(...DV.CityMap.road(a));
+      for (const q of DV.CityMap.streets) zb.push(...DV.CityMap.road(q));
+      xb.push(sq[2]); zb.push(sq[3]);
+      const solid = [campus];
+      for (const q of net.roads) if (q.kind !== 'out') solid.push(q.r);
+      for (let i = -1; i < net.nx; i++) for (let j = -1; j < net.nz; j++) if (net.built(i, j)) solid.push(net.cell(i, j));
+      const ROUGH = [0.78, 0.86, 0.6], BARE = [0.95, 0.85, 0.66];
+      for (let i = 0; i + 1 < xb.length; i++) for (let j = 0; j + 1 < zb.length; j++) {
+        const x0 = xb[i], x1 = xb[i + 1], z0 = zb[j], z1 = zb[j + 1], mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+        if (x1 - x0 < 0.1 || z1 - z0 < 0.1 || x0 >= marshX - 0.1) continue;
+        if (solid.some((q) => mx > q[0] && mx < q[2] && mz > q[1] && mz < q[3])) continue;
+        const xe = Math.min(x1, marshX);
+        for (let x = x0; x < xe - 0.01; x += 40) for (let z = z0; z < z1 - 0.01; z += 40) {
+          const ps = [[x, -0.03, z], [Math.min(xe, x + 40), -0.03, z], [Math.min(xe, x + 40), -0.03, Math.min(z1, z + 40)], [x, -0.03, Math.min(z1, z + 40)]];
+          gf.quad(ps, ps.map(guv), ps.map((q) => mul(patch(q[0] + 300, q[2], ROUGH, BARE), 0.72 * L[0])), [0, 1, 0], 0);
+        }
       }
     }
     if (W.edge) {
-      const CROP = { wheat: [1.22, 1.08, 0.6], green: [0.8, 1.04, 0.56], plough: [0.96, 0.74, 0.52], pasture: [0.74, 0.92, 0.6], fallow: [1.02, 0.94, 0.7] };
-      for (const f of DV.CityMap.farms().fields) {
-        const [x0, z0, x1, z1] = f.r, y = 0.135, k = 0.9 + fr() * 0.15;
-        const ps = [[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]];
-        gf.quad(ps, ps.map((q) => [q[0] / wg / 3, -q[2] / wg / 3]), mul(CROP[f.crop], 0.8 * L[0] * k), [0, 1, 0], 0);
+      // the fields: crops in rows (the rows a texture, along the field's length: DV.Farms stands the
+      // crop up in them close to), grass for the pasture and what's lying fallow
+      const ROWS = { wheat: [1.18, 1.02, 0.56], stubble: [1.12, 0.98, 0.62], corn: [0.72, 0.86, 0.44], cabbage: [0.7, 0.86, 0.6], beans: [0.66, 0.8, 0.48], green: [0.74, 0.9, 0.5], plough: [0.86, 0.66, 0.48] };
+      const GRASS = { pasture: [0.74, 0.92, 0.6], fallow: [1.02, 0.94, 0.7] };
+      const F = DV.CityMap.farms();
+      for (const f of F.fields) {
+        const [x0, z0, x1, z1] = f.r, k = 0.9 + f.k * 0.15, ps = [[x0, 0.135, z0], [x1, 0.135, z0], [x1, 0.135, z1], [x0, 0.135, z1]];
+        if (ROWS[f.crop]) {
+          // (the rows run along the field: u along them, v across)
+          const along = x1 - x0 >= z1 - z0;
+          gr.quad(ps, ps.map((q) => (along ? [q[0] / wr, q[2] / wr] : [q[2] / wr, q[0] / wr])), mul(ROWS[f.crop], 0.8 * L[0] * k), [0, 1, 0], 0);
+        } else gf.quad(ps, ps.map(guv), ps.map((q) => mul(patch(q[0], q[2] + 500, GRASS[f.crop], mul(GRASS[f.crop], 1.08)), 0.8 * L[0] * k)), [0, 1, 0], 0);
+      }
+      // the farmyards: trodden earth round the buildings, the grass between
+      for (const st of F.steads) {
+        const y = st.yard, q = [Math.max(y[0], st.x - 17), Math.max(y[1], st.z - 12), Math.min(y[2], st.x + 17), Math.min(y[3], st.z + 12)];
+        for (const r4 of rectMinus(y, q)) { const p4 = [[r4[0], 0.135, r4[1]], [r4[2], 0.135, r4[1]], [r4[2], 0.135, r4[3]], [r4[0], 0.135, r4[3]]]; gf.quad(p4, p4.map(guv), mul([0.82, 0.94, 0.62], 0.8 * L[0]), [0, 1, 0], 0); }
+        const pq = [[q[0], 0.135, q[1]], [q[2], 0.135, q[1]], [q[2], 0.135, q[3]], [q[0], 0.135, q[3]]];
+        gf.quad(pq, pq.map(guv), pq.map((p2) => mul(patch(p2[0], p2[2], [1.05, 0.86, 0.62], [0.9, 0.78, 0.58]), 0.8 * L[0])), [0, 1, 0], 0);
       }
     }
     // (the fields go under the marsh flats east of the shore; they're drawn first)
     const fields = mk(gf, 'grass');
     fields.renderOrder = -1;
+    if (gr.n) { out.rows = mk(gr, 'field_rows'); out.rows.renderOrder = -1; }
     // the Fence's chain-link
     const gc = new Group(), wl = wOf('chainlink');
     let u = 0;

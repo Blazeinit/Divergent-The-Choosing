@@ -197,6 +197,9 @@
         return out.filter((_, i) => i % 2 === 0);
       };
       const gx = ext(this.avenues.map((a) => a.x), 76, c[0] - O - 80, c[0] + O + 80), gz = ext(this.streets.map((q) => q.z), 64, c[1] - O - 70, c[1] + O + 70);
+      // Madison Street carries on out to the gate as the gate road: nothing's planted on it
+      const G = this.gateRoad();
+      const offGate = (q) => (q[1] < G.r[3] + 3 && q[3] > G.r[1] - 3 && q[0] < G.r[2] ? ((q[1] + q[3]) / 2 < G.z ? [q[0], q[1], q[2], G.r[1] - 3] : [q[0], G.r[3] + 3, q[2], q[3]]) : q);
       // the roads: each line, where it runs through the farmland (out of the city, up to the cordon)
       const roads = [];
       const span = (d) => { const a = d < E ? Math.sqrt(E * E - d * d) : 0, b = Math.sqrt(Math.max(0, O * O - d * d)); return d >= O ? [] : a ? [[a, b], [-b, -a]] : [[-b, b]]; };
@@ -212,11 +215,14 @@
         let stead = r() < 0.32 ? Math.floor(r() * 4) : -1;
         [[P[0], P[1], hx - 1, hz - 1], [hx + 1, P[1], P[2], hz - 1], [P[0], hz + 1, hx - 1, P[3]], [hx + 1, hz + 1, P[2], P[3]]].forEach((q, k) => {
           if (!inRing(q) || hits(q, keep)) { if (k === stead) stead = -1; return; }
+          q = offGate(q);
           if (k === stead) {
             // the farm: by the road, in the corner of its quarter nearest the parcel's
             const cx = k % 2 ? q[2] - 16 : q[0] + 16, cz = k < 2 ? q[1] + 14 : q[3] - 14;
-            steads.push({ x: cx, z: cz, rot: k < 2 ? Math.PI : 0, seed: Math.floor(r() * 1000), barn: r() < 0.5 ? 'red' : 'grey' });
             const along = q[2] - q[0] > q[3] - q[1];
+            // (its yard: the end of the quarter the crop doesn't take)
+            const yard = along ? [k % 2 ? q[2] - 34 : q[0], q[1], k % 2 ? q[2] : q[0] + 34, q[3]] : [q[0], k < 2 ? q[1] : q[3] - 30, q[2], k < 2 ? q[1] + 30 : q[3]];
+            steads.push({ x: cx, z: cz, rot: k < 2 ? Math.PI : 0, seed: Math.floor(r() * 1000), barn: r() < 0.5 ? 'red' : 'grey', yard, quarter: k });
             // the rest of the quarter: one strip of crop
             fields.push({ r: along ? [k % 2 ? q[0] : q[0] + 34, q[1], k % 2 ? q[2] - 34 : q[2], q[3]] : [q[0], k < 2 ? q[1] + 30 : q[1], q[2], k < 2 ? q[3] : q[3] - 30], crop: crop() });
             return;
@@ -232,7 +238,184 @@
           if (r() < 0.4) hedges.push(along ? [q[0], q[3] + 0.2, q[2], q[3] + 0.8] : [q[2] + 0.2, q[1], q[2] + 0.8, q[3]]);
         });
       }
-      return (this._farms = { roads, fields, orchards, steads, hedges });
+      // what's growing in the green fields (corn, cabbages, beans up their poles, potatoes), and
+      // which of the wheat is in already (stubble, the bales still out on it)
+      const r2 = U.rng(4072);
+      for (const f of fields) {
+        const q = r2();
+        if (f.crop === 'green') f.crop = q < 0.3 ? 'corn' : q < 0.5 ? 'cabbage' : q < 0.65 ? 'beans' : 'green';
+        else if (f.crop === 'wheat' && q < 0.3) f.crop = 'stubble';
+        f.k = r2();
+      }
+      return (this._farms = { roads, fields, orchards, steads, hedges, gate: G });
+    },
+    // Madison Street on out of the city to the Fence's gate: from the last junction it reaches
+    // (Pulaski Road) to the checkpoint at the cordon
+    gateRoad() {
+      if (this._gate) return this._gate;
+      const c = this.centre, z = this.homes.amity.z, x1 = this.avenues.find((a) => a.name === 'Pulaski Rd').x - 6;
+      // (it stops short of the checkpoint's blocks, on the cordon's apron)
+      const x0 = c[0] - Math.sqrt((this.wall.cordon - 6) * (this.wall.cordon - 6) - (z - c[1]) * (z - c[1]));
+      return (this._gate = { z, r: [x0, z - 5, x1, z + 5] });
+    },
+
+    // The streets as a network, worked out once (the generator, the traffic, the map and the
+    // tests share it). A stretch of street is real where a block stands on at least one side of
+    // it; past the last blocks the road stops at a kerb with a pavement along it, and the ground
+    // beyond is the edge of the farmland. Some roads go on out of the city: the farm roads that
+    // carry a street's line on, and Madison Street to the gate.
+    //   built(i, j), cell(i, j): the block between avenues i, i+1 and streets j, j+1 (i, j from −1:
+    //     the ground past the last avenue or street)
+    //   junction(i, j): { i, j, x, z, box, arms: { n, s, w, e } } or null; an arm is 1 (a street),
+    //     2 (a road out of the city) or 0 (none: a kerb across it)
+    //   roads: [{ r, kind: 'street' | 'junction' | 'out' }]: every carriageway, kerb to kerb
+    //   strips: the pavement along the outside of the last streets ({ r, kerbs, lanes, edge })
+    //   lots: the open ground past them, between the city and the farms ({ r, d, front })
+    //   onRoad(x, z, pad): on a street or in a junction (the traffic's ground; not the roads out)
+    roadNet() {
+      if (this._net) return this._net;
+      const xs = this.avenues, zs = this.streets, nx = xs.length, nz = zs.length, c = this.centre;
+      const SW = this.sidewalk, INS = 1.6;
+      const kx = xs.map((a) => this.road(a)), kz = zs.map((s) => this.road(s));
+      // the ground past the last lines runs out to where the farm roads would be
+      const W0 = xs[0].x - 76 + 3, E1 = this.marshX - 4, N0 = zs[0].z - 64 + 3, S1 = zs[nz - 1].z + 64 - 3;
+      const cx0 = (i) => (i < 0 ? W0 : kx[i][1]), cx1 = (i) => (i + 1 >= nx ? E1 : kx[i + 1][0]);
+      const cz0 = (j) => (j < 0 ? N0 : kz[j][1]), cz1 = (j) => (j + 1 >= nz ? S1 : kz[j + 1][0]);
+      const cell = (i, j) => [cx0(i), cz0(j), cx1(i), cz1(j)];
+      // (the same test the city's generator uses for where it builds)
+      const built = (i, j) => {
+        if (i < 0 || j < 0 || i >= nx - 1 || j >= nz - 1) return false;
+        const b = [xs[i].x + xs[i].w / 2, zs[j].z + zs[j].w / 2, xs[i + 1].x - xs[i + 1].w / 2, zs[j + 1].z - zs[j + 1].w / 2];
+        if (Math.hypot((b[0] + b[2]) / 2 - c[0], (b[1] + b[3]) / 2 - c[1]) > this.radius) return false;
+        return b[0] < this.marshX - 10;
+      };
+      // a stretch of avenue i between streets j and j + 1; of street j between avenues i and i + 1
+      const av = (i, j) => built(i - 1, j) || built(i, j), st = (j, i) => built(i, j - 1) || built(i, j);
+      const J = new Map(), roads = [], strips = [], lots = [];
+      const key = (i, j) => i * 1000 + j;
+      for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+        const arms = { n: av(i, j - 1) ? 1 : 0, s: av(i, j) ? 1 : 0, w: st(j, i - 1) ? 1 : 0, e: st(j, i) ? 1 : 0 };
+        if (!(arms.n || arms.s || arms.w || arms.e)) continue;
+        J.set(key(i, j), { i, j, x: xs[i].x, z: zs[j].z, box: [kx[i][0], kz[j][0], kx[i][1], kz[j][1]], arms });
+      }
+      const junction = (i, j) => J.get(key(i, j)) || null;
+      for (const q of J.values()) {
+        roads.push({ r: q.box, kind: 'junction' });
+        // the street on from it (east, and south), to the next junction
+        if (q.arms.e && q.i + 1 < nx) roads.push({ r: [q.box[2], q.box[1], kx[q.i + 1][0], q.box[3]], kind: 'street' });
+        if (q.arms.s && q.j + 1 < nz) roads.push({ r: [q.box[0], q.box[3], q.box[2], kz[q.j + 1][0]], kind: 'street' });
+      }
+      // the roads out: each farm road that carries on a street's line runs in to the last junction
+      // on it (wide as the street through the pavement, then a lane), and Madison Street to the gate
+      const out = [];
+      const F = this.farms(), G = this.gateRoad();
+      const outRoad = (q, dir, axis, end, w) => {
+        const b = q.box, m = axis === 'z' ? (dir < 0 ? b[1] : b[3]) : dir < 0 ? b[0] : b[2], m2 = m + dir * SW;
+        const k = axis === 'z' ? kx[q.i] : kz[q.j], lo = (k[0] + k[1]) / 2; // (the middle of the street: Lake Street's is off its line)
+        const span = (a, bb, h0, h1) => (axis === 'z' ? [h0, Math.min(a, bb), h1, Math.max(a, bb)] : [Math.min(a, bb), h0, Math.max(a, bb), h1]);
+        const parts = [span(m, m2, k[0], k[1]), span(m2, end, lo - w / 2, lo + w / 2)];
+        q.arms[axis === 'z' ? (dir < 0 ? 'n' : 's') : dir < 0 ? 'w' : 'e'] = 2;
+        for (const r of parts) roads.push({ r, kind: 'out' });
+        out.push({ junction: q, axis, dir, parts });
+      };
+      const outermost = (fixed, axis, dir) => {
+        let best = null;
+        for (const q of J.values()) if ((axis === 'z' ? q.i : q.j) === fixed && (!best || ((axis === 'z' ? q.z - best.z : q.x - best.x) * dir > 0))) best = q;
+        return best;
+      };
+      for (const fr of F.roads) {
+        const vert = fr[2] - fr[0] < fr[3] - fr[1], line = vert ? (fr[0] + fr[2]) / 2 : (fr[1] + fr[3]) / 2;
+        const idx = vert ? xs.findIndex((a) => Math.abs(a.x - line) < 0.5) : zs.findIndex((s) => Math.abs(s.z - line) < 0.5);
+        if (idx < 0) continue;
+        // (the end of the farm road nearer the city)
+        const near = vert ? (Math.abs(fr[1] - c[1]) < Math.abs(fr[3] - c[1]) ? fr[1] : fr[3]) : Math.abs(fr[0] - c[0]) < Math.abs(fr[2] - c[0]) ? fr[0] : fr[2];
+        const dir = vert ? Math.sign(near - c[1]) : Math.sign(near - c[0]);
+        const q = outermost(idx, vert ? 'z' : 'x', dir);
+        const edge = q && (vert ? (dir < 0 ? q.box[1] : q.box[3]) : dir < 0 ? q.box[0] : q.box[2]);
+        if (q && q.arms[vert ? (dir < 0 ? 'n' : 's') : dir < 0 ? 'w' : 'e'] === 0 && (near - edge) * dir > SW + 2) outRoad(q, dir, vert ? 'z' : 'x', near + dir * 2, 7);
+      }
+      const gi = zs.findIndex((s) => s.z === G.z), gq = outermost(gi, 'x', -1);
+      if (gq && gq.arms.w === 0) outRoad(gq, -1, 'x', G.r[0], 10);
+      // a farm road that passes the city by (its line isn't one of the city's) carries on across the
+      // open ground between, as a track
+      const lines = new Map();
+      for (const fr of F.roads) {
+        const vert = fr[2] - fr[0] < fr[3] - fr[1], k = (vert ? 'x' : 'z') + ((vert ? fr[0] + fr[2] : fr[1] + fr[3]) / 2);
+        if (!lines.has(k)) lines.set(k, []);
+        lines.get(k).push(fr);
+      }
+      const hitsCity = (r) => roads.some((q) => q.kind !== 'out' && r[0] < q.r[2] && r[2] > q.r[0] && r[1] < q.r[3] && r[3] > q.r[1]) ||
+        [...Array(nx + 1).keys()].some((ii) => [...Array(nz + 1).keys()].some((jj) => { if (!built(ii - 1, jj - 1)) return false; const b = cell(ii - 1, jj - 1); return r[0] < b[2] && r[2] > b[0] && r[1] < b[3] && r[3] > b[1]; }));
+      for (const [k, list] of lines) {
+        if (list.length !== 2) continue;
+        const vert = k[0] === 'x', [a, b] = list.sort((p, q) => (vert ? p[1] - q[1] : p[0] - q[0]));
+        const r = vert ? [a[0], a[3] - 2, a[2], b[1] + 2] : [a[2] - 2, a[1], b[0] + 2, a[3]];
+        if ((vert ? r[3] - r[1] : r[2] - r[0]) > 4 && !hitsCity(r)) roads.push({ r, kind: 'out', track: true });
+      }
+      // the pavement along the outside: down the side of each empty block facing a street, across the
+      // mouth of each street that goes no further, and round the corners between
+      const kerbsOf = (r) => {
+        const ks = [];
+        // (none where a road goes out of the city: the pavement drops to it, like a driveway)
+        for (const q of roads) {
+          if (q.kind === 'out') continue;
+          const p = q.r, e = 0.02;
+          const ox = Math.min(r[2], p[2]) - Math.max(r[0], p[0]), oz = Math.min(r[3], p[3]) - Math.max(r[1], p[1]);
+          if (ox > 0.2 && Math.abs(r[3] - p[1]) < e) ks.push([Math.max(r[0], p[0]), r[3], Math.min(r[2], p[2]), r[3], 0, 1]);
+          if (ox > 0.2 && Math.abs(r[1] - p[3]) < e) ks.push([Math.max(r[0], p[0]), r[1], Math.min(r[2], p[2]), r[1], 0, -1]);
+          if (oz > 0.2 && Math.abs(r[2] - p[0]) < e) ks.push([r[2], Math.max(r[1], p[1]), r[2], Math.min(r[3], p[3]), 1, 0]);
+          if (oz > 0.2 && Math.abs(r[0] - p[2]) < e) ks.push([r[0], Math.max(r[1], p[1]), r[0], Math.min(r[3], p[3]), -1, 0]);
+        }
+        return ks;
+      };
+      const strip = (r, lanes) => strips.push({ r, lanes, kerbs: null, edge: null });
+      for (let i = -1; i < nx; i++) for (let j = -1; j < nz; j++) {
+        if (built(i, j)) continue;
+        const [x0, z0, x1, z1] = cell(i, j);
+        const N = j >= 0 && st(j, i), S = j + 1 < nz && st(j + 1, i), Wd = i >= 0 && av(i, j), E = i + 1 < nx && av(i + 1, j);
+        // (each lane has nodes where the crossings to the blocks opposite land)
+        if (N) strip([x0, z0, x1, z0 + SW], [[[Wd ? x0 + INS : x0, z0 + INS], [x0 + INS, z0 + INS], [x1 - INS, z0 + INS], [E ? x1 - INS : x1, z0 + INS]]]);
+        if (S) strip([x0, z1 - SW, x1, z1], [[[Wd ? x0 + INS : x0, z1 - INS], [x0 + INS, z1 - INS], [x1 - INS, z1 - INS], [E ? x1 - INS : x1, z1 - INS]]]);
+        if (Wd) strip([x0, N ? z0 + SW : z0, x0 + SW, S ? z1 - SW : z1], [[[x0 + INS, N ? z0 + INS : z0], [x0 + INS, z0 + INS], [x0 + INS, z1 - INS], [x0 + INS, S ? z1 - INS : z1]]]);
+        if (E) strip([x1 - SW, N ? z0 + SW : z0, x1, S ? z1 - SW : z1], [[[x1 - INS, N ? z0 + INS : z0], [x1 - INS, z0 + INS], [x1 - INS, z1 - INS], [x1 - INS, S ? z1 - INS : z1]]]);
+        // what's left of it: open ground (the street sides it fronts, for whatever goes on it)
+        // (only inside the city's edge: past it, the farms)
+        const r = [x0 + (Wd ? SW : 0), z0 + (N ? SW : 0), x1 - (E ? SW : 0), z1 - (S ? SW : 0)];
+        const nearest = Math.hypot(Math.max(r[0] - c[0], 0, c[0] - r[2]), Math.max(r[1] - c[1], 0, c[1] - r[3]));
+        if (r[2] - r[0] > 4 && r[3] - r[1] > 4 && nearest < this.edge - 8) lots.push({ r, cell: [i, j], front: [Wd, N, E, S] });
+      }
+      for (const q of J.values()) {
+        const [bx0, bz0, bx1, bz1] = q.box, A = q.arms;
+        if (!A.n) strip([bx0, bz0 - SW, bx1, bz0], [[[bx0, bz0 - INS], [bx1, bz0 - INS]]]);
+        if (!A.s) strip([bx0, bz1, bx1, bz1 + SW], [[[bx0, bz1 + INS], [bx1, bz1 + INS]]]);
+        if (!A.w) strip([bx0 - SW, bz0, bx0, bz1], [[[bx0 - INS, bz0], [bx0 - INS, bz1]]]);
+        if (!A.e) strip([bx1, bz0, bx1 + SW, bz1], [[[bx1 + INS, bz0], [bx1 + INS, bz1]]]);
+        // the corners where two of them meet
+        if (A.n !== 1 && A.e !== 1) strip([bx1, bz0 - SW, bx1 + SW, bz0], [[[bx1, bz0 - INS], [bx1 + INS, bz0 - INS], [bx1 + INS, bz0]]]);
+        if (A.n !== 1 && A.w !== 1) strip([bx0 - SW, bz0 - SW, bx0, bz0], [[[bx0, bz0 - INS], [bx0 - INS, bz0 - INS], [bx0 - INS, bz0]]]);
+        if (A.s !== 1 && A.e !== 1) strip([bx1, bz1, bx1 + SW, bz1 + SW], [[[bx1, bz1 + INS], [bx1 + INS, bz1 + INS], [bx1 + INS, bz1]]]);
+        if (A.s !== 1 && A.w !== 1) strip([bx0 - SW, bz1, bx0, bz1 + SW], [[[bx0, bz1 + INS], [bx0 - INS, bz1 + INS], [bx0 - INS, bz1]]]);
+      }
+      for (const s of strips) {
+        s.kerbs = kerbsOf(s.r);
+        // (which of its sides is a kerb: the street furniture goes along those)
+        s.edge = [s.kerbs.some((k) => k[4] < 0), s.kerbs.some((k) => k[5] < 0), s.kerbs.some((k) => k[4] > 0), s.kerbs.some((k) => k[5] > 0)];
+        // (lanes collapsed to nothing at an end, where no corner turns: drop the repeated points)
+        s.lanes = s.lanes.map((l) => l.filter((p, k) => !k || Math.hypot(p[0] - l[k - 1][0], p[1] - l[k - 1][1]) > 0.05));
+      }
+      for (const l of lots) {
+        const m = [(l.r[0] + l.r[2]) / 2, (l.r[1] + l.r[3]) / 2];
+        let best = null, bk = -1e9;
+        for (const d of this.districts) { const k = 1 - Math.hypot(m[0] - d.c[0], m[1] - d.c[1]) / d.r; if (k > bk) { bk = k; best = d; } }
+        l.d = best.id; l.k = bk;
+      }
+      const streetRoads = roads.filter((q) => q.kind !== 'out');
+      const onRoad = (x, z, pad) => {
+        pad = pad || 0;
+        for (const q of streetRoads) if (x > q.r[0] - pad && x < q.r[2] + pad && z > q.r[1] - pad && z < q.r[3] + pad) return true;
+        return false;
+      };
+      return (this._net = { built, cell, junction, junctions: [...J.values()], roads, strips, lots, out, onRoad, nx, nz });
     },
     inside(x, z, pad) { return Math.hypot(x - this.centre[0], z - this.centre[1]) < this.fence - (pad || 0); },
   };

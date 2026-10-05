@@ -12,7 +12,8 @@
    a run of greens (a green wave).
 
      const R = DV.Roads.build(city, blocked, opts)   (StreetKit makes it: zone.roads)
-     R.junctions           [{ id, x, z, av, st, box: [x0, z0, x1, z1], signal, district, offset }]
+     R.junctions           [{ id, x, z, av, st, box: [x0, z0, x1, z1], signal, district, offset, arms }]
+                           (arms: { n, s, w, e }: 1 a street goes on that way, 2 a road out of the city, 0 none)
      R.light(j, axis)      'g' | 'a' | 'r'  for traffic moving along axis 'x' or 'z' (null: no signal)
      R.walk(j, axis)       'walk' | 'flash' | 'stop' for people crossing along that axis (null: no signal)
      R.along(line)         the junctions on a street or avenue, in order
@@ -38,27 +39,35 @@
       const lim = (city.walk ? city.walk.edge || city.walk.limit : CM.edge) - 14, shore = city.walk ? city.walk.shore : CM.marshX;
       const campus = city.walk ? city.walk.campus : CM.campus;
       const hash = (a, b) => { const s = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return s - Math.floor(s); };
-      for (const av of CM.avenues) {
+      // (the city's own streets: only where they run between blocks, see DV.CityMap.roadNet)
+      const net = city.walk && city.walk.edge ? CM.roadNet() : null;
+      CM.avenues.forEach((av, ai) => {
         const [ax0, ax1] = CM.road(av);
-        for (const st of CM.streets) {
+        CM.streets.forEach((st, si) => {
           const [sz0, sz1] = CM.road(st);
           const x = av.x, z = st.z;
-          if (Math.hypot(x - c[0], z - c[1]) > lim || ax1 > shore - 2) continue;
+          const q = net ? net.junction(ai, si) : null;
+          if (net ? !q : Math.hypot(x - c[0], z - c[1]) > lim) return;
+          if (ax1 > shore - 2) return;
           // not on the Testing Center's own grounds, and not where something's built over it (the Hub)
-          if (ax1 > campus[0] - 1 && ax0 < campus[2] + 1 && sz1 > campus[1] - 1 && sz0 < campus[3] + 1) continue;
-          if (blocked && blocked(x, z, 1.5)) continue;
+          if (ax1 > campus[0] - 1 && ax0 < campus[2] + 1 && sz1 > campus[1] - 1 && sz0 < campus[3] + 1) return;
+          if (blocked && blocked(x, z, 1.5)) return;
           const dd = CM.district(x, z), district = dd.d && dd.k > 0.2 ? dd.d.id : 'testing';
           // the ruins' signals went dark years ago; a third of the Dauntless sector's are down
           const dead = district === 'factionless' || (district === 'dauntless' && hash(x, z) < 0.35);
           // a green wave along the streets (≈ 11 m/s between junctions), a looser one up the avenues
           const offset = ((-x / 11 + z / 23) % CYCLE + CYCLE) % CYCLE;
-          const j = { id: this.junctions.length, x, z, av, st, box: [ax0, sz0, ax1, sz1], signal: !dead, dead, district, offset };
+          // which ways a street goes on from it (n, s, w, e: 1 a street, 2 a road out of the city, 0 a kerb)
+          const arms = q ? Object.assign({}, q.arms) : { n: 1, s: 1, w: 1, e: 1 };
+          const j = { id: this.junctions.length, x, z, av, st, box: [ax0, sz0, ax1, sz1], signal: !dead, dead, district, offset, arms };
           this.junctions.push(j);
           this.on(av, j); this.on(st, j);
-        }
-      }
+        });
+      });
       for (const [line, list] of this.byLine) list.sort((a, b) => (line.x !== undefined ? a.z - b.z : a.x - b.x));
     }
+    // the arm of a junction a heading leads into ('x' or 'z', +1 or −1)
+    arm(j, axis, dir) { return j.arms[axis === 'x' ? (dir > 0 ? 'e' : 'w') : dir > 0 ? 's' : 'n']; }
     on(line, j) { let l = this.byLine.get(line); if (!l) this.byLine.set(line, (l = [])); l.push(j); }
     along(line) { return this.byLine.get(line) || []; }
     update(dt) { this.t += dt; }

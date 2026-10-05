@@ -111,15 +111,15 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
   /* ---------------- nothing in the road ---------------- */
   const road = await ev(() => {
     const CM = DV.CityMap, z = DV.World.current, city = z.city, c = city.centre, edge = city.walk.edge, end = CM.marshX - 4;
-    // every carriageway, kerb to kerb (the streets end at the marsh), and the farm roads
-    const roads = [];
-    for (const av of CM.avenues) { const [k0, k1] = CM.road(av); roads.push([av.name, k0, c[1] - edge, k1, c[1] + edge]); }
-    for (const st of CM.streets) { const [k0, k1] = CM.road(st); roads.push([st.name, c[0] - edge, k0, end, k1]); }
+    // every carriageway, kerb to kerb: the city's streets and junctions (where they run between blocks:
+    // past the last ones they stop at a kerb), the roads out of the city (the gate road, the tracks),
+    // and the farm roads
+    const roads = [], net = CM.roadNet();
+    for (const q of net.roads) roads.push([q.kind === 'out' ? 'a road out' : 'a ' + q.kind, q.r[0], q.r[1], q.r[2], q.r[3]]);
     for (const q of CM.farms().roads) roads.push(['a farm road', q[0], q[1], q[2], q[3]]);
     const cp = CM.campus, hits = [];
-    // (the city's own roads stop at its edge: past it, only the farm roads carry on)
-    const inCity = (x, z) => Math.hypot(x - c[0], z - c[1]) < edge;
-    const on = (x0, z0, x1, z1) => roads.find((q) => (q[0] === 'a farm road' || inCity((x0 + x1) / 2, (z0 + z1) / 2)) && Math.min(x1, q[3]) - Math.max(x0, q[1]) > 0.05 && Math.min(z1, q[4]) - Math.max(z0, q[2]) > 0.05);
+    const on = (x0, z0, x1, z1) => roads.find((q) => Math.min(x1, q[3]) - Math.max(x0, q[1]) > 0.05 && Math.min(z1, q[4]) - Math.max(z0, q[2]) > 0.05);
+    void edge;
     for (const [x0, z0, x1, z1, y0, y1, part] of city.audit || []) {
       if (y0 > 2.4 || y1 < 0.12) continue; // (overhead, or paint)
       if (x0 > cp[0] - 1 && x1 < cp[2] + 1 && z0 > cp[1] - 1 && z1 < cp[3] + 1) continue; // (the Testing Center's own grounds)
@@ -333,6 +333,120 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     return { starts, bad, waits };
   });
   T.ok(walkers.starts > 0 && walkers.bad === 0, 'people wait at the kerb and cross on the white man (' + walkers.starts + ' crossings, ' + walkers.waits + ' waits)', walkers);
+  // the city's edge: the traffic turns back into the city at the end of a street (or, with nowhere
+  // to go, waits till you can't see it), never off the end of one onto open ground
+  const edgeCars = await ev(() => {
+    const life = DV.World.current.streetLife, net = DV.CityMap.roadNet();
+    const off = [], forced = new Set(), vanished = [];
+    let frames = 0;
+    for (const [px, pz] of [[-552, 100], [-14, -531], [60, 543], [-400, 478]]) {
+      QA.tp(px, pz, 0); QA.step(0.2, [px, pz]);
+      for (let i = 0; i < 300; i++) { // (a minute in all)
+        if (i % 25 === 0) life.spawnCar(px, pz);
+        const before = life.cars.slice();
+        QA.step(0.05, [px, pz]);
+        for (const c of life.cars) {
+          frames++;
+          if (c.plan && c.plan.forced) forced.add(c.id);
+          if (!net.onRoad(c.x, c.z, 0.3)) off.push([c.kind, +c.x.toFixed(1), +c.z.toFixed(1), c.turn ? 'turning' : c.lane.line.name]);
+        }
+        for (const c of before) if (life.cars.indexOf(c) < 0 && Math.hypot(c.x - px, c.z - pz) < 150 && life.inView(c)) vanished.push([c.kind, Math.round(c.x), Math.round(c.z)]);
+      }
+    }
+    return { frames, off: off.slice(0, 6), nOff: off.length, forced: forced.size, vanished: vanished.slice(0, 6) };
+  });
+  T.ok(edgeCars.frames > 1000 && edgeCars.nOff === 0, 'at the city\'s edge the traffic stays on the streets (' + edgeCars.frames + ' car-frames over a minute, none off the road network)', edgeCars);
+  T.ok(edgeCars.forced > 0 && edgeCars.vanished.length === 0, 'at the end of a street they turn back into the city (' + edgeCars.forced + ' had to), and none vanishes in front of you', edgeCars);
+  // turning across a crossing with people on it: never through anyone
+  const busyJ = await ev(() => {
+    const zone = DV.World.current, life = zone.streetLife, R = zone.roads, W = life.walk;
+    const J = R.junctions.find((j) => j.av.name === 'Halsted St' && j.st.name === 'Randolph St');
+    const at = [J.box[2] + 2.3, J.box[3] + 2.3]; // (on the corner)
+    QA.tp(at[0], at[1], 0);
+    const hits = [], was = new Map();
+    // (and people making for its crossings: every few seconds somebody comes up to one of its corners
+    // meaning to cross, and waits there for the white man)
+    const crossings = W.edges.map((e, k) => k).filter((k) => { const e = W.edges[k], a = W.nodes[e.a], b = W.nodes[e.b]; return e.cross && Math.abs((a.x + b.x) / 2 - J.x) < 12 && Math.abs((a.z + b.z) / 2 - J.z) < 12; });
+    const sendOne = (k) => {
+      const ce = W.edges[crossings[k % crossings.length]], n = k % 2 ? ce.a : ce.b, ei = W.nodes[n].edges.find((q) => !W.edges[q].cross);
+      const p = life.peds.find((q) => !W.edges[q.edge].cross && Math.hypot(q.x - J.x, q.z - J.z) > 14);
+      if (!p || ei === undefined) return;
+      const e = W.edges[ei];
+      Object.assign(p, { edge: ei, to: n, from: e.a === n ? e.b : e.a, t: Math.max(0, e.len - 3), waitFor: crossings[k % crossings.length], waitT: 0, listen: 0, wait: 0 });
+      life.place(p);
+    };
+    let onCross = 0, here = 0, yielded = 0, turns = 0;
+    for (let i = 0; i < 3000; i++) { // (two and a half minutes)
+      if (i % 50 === 0) life.spawnCar(at[0], at[1], (l) => l.line === J.av || l.line === J.st);
+      if (i % 40 === 0) sendOne(i / 40);
+      QA.step(0.05, at);
+      for (const c of life.cars) {
+        if (c.why === 'crossing') yielded++;
+        if (!c.turn && was.get(c)) turns++;
+        was.set(c, !!c.turn);
+      }
+      for (const p of life.peds) {
+        if (!W.edges[p.edge].cross) continue;
+        onCross++;
+        if (Math.abs(p.x - J.x) < 16 && Math.abs(p.z - J.z) < 16) here++;
+        for (const c of life.cars) if (life.inCar(c, p.x, p.z, 0.25)) hits.push([c.kind, c.turn ? 'turning' : 'straight', +p.x.toFixed(1), +p.z.toFixed(1)]);
+      }
+    }
+    return { crossings: crossings.length, onCross, here, yielded, turns, hits: hits.slice(0, 6), nHits: hits.length };
+  });
+  T.ok(busyJ.here > 50 && busyJ.turns >= 3 && busyJ.nHits === 0, 'a busy junction for two and a half minutes: no car ever drives over anyone on a crossing (' + busyJ.here + ' person-frames on its crossings, ' + busyJ.turns + ' turns, ' + busyJ.yielded + ' car-frames yielding)', busyJ);
+  // a car turning right waits for somebody on the crossing it's turning into (you, then a passer-by),
+  // then goes round once they're off it
+  const turnWait = await ev(() => {
+    const zone = DV.World.current, life = zone.streetLife, R = zone.roads, W = life.walk, P = DV.Player;
+    const J = R.junctions.find((j) => j.av.name === 'Halsted St' && j.st.name === 'Randolph St');
+    // (westbound on Randolph, right into Halsted: north, over the crossing on its north side)
+    const A = life.lanes.find((l) => l.line === J.st && l.dir === -1 && l.s1 > J.box[2] + 40), T = life.laneFrom(J, 'z', -1);
+    const cr = life.crossingRect(J, 'z', -1), mid = (cr[1] + cr[3]) / 2;
+    // (on its far side: the other lane, not in the turning car's own path)
+    const spot = [T.c - 5, mid], corner = [J.box[2] + 2.3, J.box[3] + 2.3];
+    // (the street's lights kept on green, and nobody else about: no other cars, nobody else coming to cross)
+    const hold = () => { R.t = DV.Roads.CYCLE * 20 - J.offset + 1; life.carT = 99; life.pedT = 99; };
+    const out = {};
+    for (const who of ['you', 'npc']) {
+      for (const c of life.cars.splice(0)) life.releaseCar(c);
+      for (const p of life.peds.slice(1)) { life.releasePed(p); life.peds.splice(life.peds.indexOf(p), 1); }
+      hold();
+      const car = life.carAt(A, J.box[2] + 34, { kind: 'sedan' });
+      car.planJ = J; car.plan = life.turnPlan(car, life.nextJunction(car), 'right', T);
+      let ped = null;
+      if (who === 'npc') {
+        // somebody stopped on the crossing (talking to someone), till they walk on
+        ped = life.peds.find((p) => Math.hypot(p.x - corner[0], p.z - corner[1]) < 70) || life.peds[0];
+        const ei = W.edges.findIndex((e) => { if (!e.cross) return false; const a = W.nodes[e.a], b = W.nodes[e.b]; return Math.abs((a.z + b.z) / 2 - mid) < 0.6 && Math.abs((a.x + b.x) / 2 - J.x) < 2; });
+        // (walking west, away from the car's path, once they go on)
+        const e = W.edges[ei], a = W.nodes[e.a], b = W.nodes[e.b], east = a.x > b.x ? e.a : e.b;
+        Object.assign(ped, { edge: ei, from: east, to: east === e.a ? e.b : e.a, t: W.nodes[east].x - spot[0], listen: 60, wait: 0, waitFor: undefined });
+        life.place(ped);
+      }
+      const stand = who === 'you' ? spot : corner;
+      let waited = 0, hits = 0, i = 0;
+      const person = () => (who === 'you' ? [P.x, P.z] : [ped.x, ped.z]);
+      for (; i < 600 && waited < 5; i++) {
+        hold(); QA.step(0.05, stand);
+        if (car.speed === 0 && car.why === 'crossing') waited += 0.05;
+        if (life.inCar(car, ...person(), 0.25)) hits++;
+      }
+      const waitedAt = { turning: !!car.turn, x: +car.x.toFixed(1), z: +car.z.toFixed(1) };
+      // they get off the crossing: you step back onto the corner, the passer-by walks on
+      if (ped) ped.listen = 0;
+      let done = false;
+      for (i = 0; i < 400 && !done; i++) {
+        hold(); QA.step(0.05, corner);
+        if (life.inCar(car, ...person(), 0.25)) hits++;
+        done = !car.turn && car.lane === T;
+      }
+      out[who] = { waited: +waited.toFixed(2), waitedAt, hits, done, cars: life.cars.length };
+    }
+    return out;
+  });
+  T.ok(turnWait.you.waited >= 5 && turnWait.you.hits === 0 && turnWait.you.done, 'a car turning right waits for you on the crossing it turns into (' + turnWait.you.waited + ' s), then goes round once you step off', turnWait.you);
+  T.ok(turnWait.npc.waited >= 5 && turnWait.npc.hits === 0 && turnWait.npc.done, 'and for a passer-by stopped on it, then goes once they\'ve walked on (' + turnWait.npc.waited + ' s)', turnWait.npc);
 
   /* ---------------- the world map ---------------- */
   const map = await ev(() => {
