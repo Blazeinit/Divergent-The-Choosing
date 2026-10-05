@@ -61,15 +61,50 @@
         ['Credits', () => this.showCredits()],
       ];
       const box = m.querySelector('.items');
+      const buttons = [];
       for (const [label, fn, dis] of items) {
         const it = el('div', 'mm-item' + (dis ? ' disabled' : ''), label, box);
-        it.onmouseenter = () => DV.Audio.play('hover');
+        it.onmouseenter = () => { DV.Audio.play('hover'); this.focusMain(buttons.indexOf(it), true); };
         it.onclick = () => { DV.Audio.init(); DV.Audio.play('click'); fn(); };
+        buttons.push(it);
       }
+      this.mainButtons = buttons;
+      this.mainFocus = -1;
+      // the keyboard: up and down (or W and S) through the buttons, Enter to choose, left and right
+      // through the factions' highlights, Esc out of a panel
+      this.mainKeys = (e) => {
+        if (!this.main || DV.Game.state !== 'mainmenu') return;
+        if (document.querySelector('.modal')) return; // (a question being asked: it has the keys)
+        const k = e.code;
+        if (this.sideEl) { if (k === 'Escape') { e.preventDefault(); DV.Audio.play('back'); this.closeSide(); } return; }
+        const step = k === 'ArrowDown' || k === 'KeyS' || (k === 'Tab' && !e.shiftKey) ? 1 : k === 'ArrowUp' || k === 'KeyW' || (k === 'Tab' && e.shiftKey) ? -1 : 0;
+        if (step) { e.preventDefault(); this.focusMain(this.mainFocus < 0 && step < 0 ? 0 : this.mainFocus + step); DV.Audio.play('hover'); return; }
+        if ((k === 'Enter' || k === 'Space' || k === 'NumpadEnter') && this.mainFocus >= 0) { e.preventDefault(); this.mainButtons[this.mainFocus].click(); return; }
+        if ((k === 'ArrowLeft' || k === 'ArrowRight' || k === 'KeyA' || k === 'KeyD') && DV.Reel && DV.Reel.running) {
+          e.preventDefault();
+          const S = DV.Reel.SEGMENTS, i = DV.Reel.i + (k === 'ArrowRight' || k === 'KeyD' ? 1 : -1);
+          DV.Audio.init(); DV.Audio.play('click');
+          DV.Reel.jump(S[(i + S.length) % S.length].id);
+        }
+      };
+      window.addEventListener('keydown', this.mainKeys);
       m.querySelector('.foot').textContent = DV.Config.VERSION + '  \u00b7  A private, non-commercial fan prototype set in the Divergent universe' + (DV.Save.available() ? '' : '  \u00b7  WARNING: browser storage unavailable \u2014 saving disabled');
       this.main = m;
     },
+    // the highlighted button (the mouse and the keyboard share it; disabled ones are skipped)
+    focusMain(i, fromMouse) {
+      const B = this.mainButtons || [];
+      if (!B.length) return;
+      if (!fromMouse) {
+        const dir = i < this.mainFocus ? -1 : 1;
+        i = ((i % B.length) + B.length) % B.length;
+        for (let n = 0; n < B.length && B[i].classList.contains('disabled'); n++) i = (((i + dir) % B.length) + B.length) % B.length;
+      }
+      this.mainFocus = i;
+      B.forEach((b, j) => b.classList.toggle('kfocus', j === i));
+    },
     hideMain() {
+      if (this.mainKeys) { window.removeEventListener('keydown', this.mainKeys); this.mainKeys = null; }
       if (DV.Reel) DV.Reel.stop(false);
       if (DV.MenuTheme) DV.MenuTheme.stop();
       if (this.main) { this.main.remove(); this.main = null; }

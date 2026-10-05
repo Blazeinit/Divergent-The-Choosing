@@ -118,12 +118,12 @@
       ctx = ctx || {};
       dt = Math.min(dt, 0.12);
       const P = ctx.player;
-      // who's awake: near anything that moves, or moving
-      const awake = [];
+      // who's awake: moving, or near anything that moves (you, someone, a car, a body that's moving)
+      const awake = [], moving = this.bodies.filter((b) => !b.asleep);
       for (const b of this.bodies) {
         if (P && Math.abs(b.x - P.x) > SIM_R && Math.abs(b.z - P.z) > SIM_R) continue;
         if (!b.asleep) { awake.push(b); continue; }
-        if (this.touched(b, ctx)) { this.wake(b); awake.push(b); }
+        if (this.touched(b, ctx, moving)) { this.wake(b); awake.push(b); }
       }
       this.stats.awake = awake.length;
       if (!awake.length) return;
@@ -142,13 +142,13 @@
       this.stats.steps++;
     }
     // something near enough to touch it (you, someone, a car, another body moving)
-    touched(b, ctx) {
+    touched(b, ctx, moving) {
       const [x, z, r] = this.plan(b);
       const P = ctx.player;
       if (P && Math.hypot(P.x - x, P.z - z) < r + P.r + 0.05 && Math.hypot(P.vx, P.vz) > 0.05) return true;
       for (const p of ctx.peds || []) if (Math.hypot(p.x - x, p.z - z) < r + 0.32) return true;
       for (const c of ctx.cars || []) if (c.speed > 0.2 && Math.hypot(c.x - x, c.z - z) < r + c.v.length / 2 + 0.5) return true;
-      for (const o of this.bodies) if (o !== b && !o.asleep && Math.abs(o.x - x) < 2 && Math.abs(o.z - z) < 2) { const q = this.plan(o); if (Math.hypot(q[0] - x, q[1] - z) < r + q[2] + 0.05) return true; }
+      for (const o of moving) if (o !== b && Math.abs(o.x - x) < 2 && Math.abs(o.z - z) < 2) { const q = this.plan(o); if (Math.hypot(q[0] - x, q[1] - z) < r + q[2] + 0.05) return true; }
       return false;
     }
     integrate(b, h) {

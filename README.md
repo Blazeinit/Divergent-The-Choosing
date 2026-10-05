@@ -35,6 +35,7 @@ python3 -m http.server 8000
 Requirements:
 - A current version of Chrome, Edge, Firefox or Safari, with WebGL enabled.
 - No internet connection. Three.js r149 is included at `js/lib/three.min.js`. If that file is missing, `index.html` falls back to the jsDelivr CDN.
+- **The main menu's theme song** streams from SoundCloud (or YouTube, if SoundCloud won't play it), so it needs a connection and the page served (Option B). Opened from disk or offline, the menu plays its own synth music instead. To play a copy of your own offline, put it in `assets/audio/` and set `MENU_THEME.file` in `js/core/config.js`.
 
 Saves, settings and autosaves live in the browser's `localStorage` under the `divergent_b1_` prefix. To wipe them, clear site data for the page.
 
@@ -44,6 +45,7 @@ Saves, settings and autosaves live in the browser's `localStorage` under the `di
 
 | Key | Action |
 |---|---|
+| **Main menu** | ↑ ↓ (or W S, Tab) choose, **Enter** to go; ← → step through the factions' highlights, or click an orb; **Esc** closes Settings, Load and Credits. Click anywhere (or press a key) for the theme song |
 | **W A S D** / arrow keys | Move (relative to the camera) |
 | **Mouse** | Orbit the camera. Click the game to capture the mouse, or hold a button and drag |
 | **Mouse wheel** | Zoom the camera |
@@ -128,8 +130,11 @@ js/
     props_street.js        Build 4: the bus shelter, stop and street signs, hydrants, news boxes, kerbs, road paint
     roads.js               Build 4: the road network: junctions, their kerbs, and their signals' cycle
     streetkit.js           Build 4: street furniture along every kerb in 96 m chunks near you (lamps, trees,
-                           benches, signs at the corners, parked cars), solid, darkening with the hour; the
-                           lamps' glow at night; road markings and the traffic signals (and their lamps)
+                           benches, planters, bollards, bike racks, meters, mailboxes, phone booths, works
+                           on the pavement, signs at the corners, parked cars), solid, darkening with the
+                           hour; the lamps' glow at night; road markings and the traffic signals
+    physics.js             Loose things (bins, newspaper boxes, cones, crates, rubbish bags): pushed, knocked
+                           over, rolling, bouncing off walls and each other, sleeping; one mesh for all
     world.js               Zone definition → rooms, walls, doors, windows, lights, colliders, nav, spots;
                            indoor/outdoor fog blending
     city.js                The procedural city around a zone: street grid, towers, the Hub, the L and its
@@ -167,6 +172,8 @@ js/
     district.js            Build 3: a living zone you stay in for days (the Dauntless compound): the
                            day's script, NPC schedules per day, sleeping, entering and leaving
     wait.js                Build 4: waiting (T) — the time-lapse, what stops it, what you'd miss
+    freerun.js             Free-running: a course of moves (runs, vaults, leaps, rolls, climbs, flips) on true
+                           arcs under gravity, and runners that take it
     activity.js            Build 3: hands-on play that takes over controls, camera and HUD for a while
                            and hands back a result (fights, training, the serum, the lab benches…)
     combat.js              Hand to hand: moves with tells, block, dodge, stamina, poise, stagger,
@@ -200,7 +207,9 @@ js/
     dialogueUI.js          Old-school dialogue window (typewriter text, numbered choices, check labels)
     rpgMenu.js             Tab menu: Character / Skills / Inventory / Quests / Reputation / Map
     worldMap.js            Build 4: the City map (sectors, streets by name, landmarks, the Fence, you, home)
-    menus.js               Main menu, pause, save/load, settings, controls, credits, wait
+    menus.js               Main menu (Y2K, keyboard), pause, save/load, settings, controls, credits, wait
+    menuReel.js            The main menu's highlights reel: the factions' days in real places, cut together
+    menuTheme.js           The main menu's theme song: SoundCloud's (or YouTube's) own player, or the synth
     devMenu.js             Build 4: the developer menu (go to, story jumps, time, noclip, readout…)
     cursor.js              The in-game cursor (hover, click, wheel, sliders and dropdowns under pointer lock)
     creator.js             Character creation (appearance, upbringing, attributes, confirm)
@@ -261,6 +270,22 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 ## Implemented features
 
 **Build 4: The City**
+- **The main menu, redone.** It's Y2K now: a chrome logo with a glint running across it, glossy gel buttons, a bubble orb per faction, a glass caption card, scanlines and a ticker of the factions' mottos. It works from the keyboard too.
+  - **A highlights reel plays behind it.** It cuts between real places in the game, each with its people at their day:
+    - the Dauntless free-running the rooftops at dusk;
+    - Abnegation handing bread to a queue of factionless;
+    - Erudite reading and lecturing in the reading hall;
+    - Candor arguing it out in the circle;
+    - Amity picking apples, and dancing and singing round the fire.
+  - **Cuts and captions:** each place is shot with a few camera moves and cut together behind a chrome wipe. A place is built behind the wipe the first time round, so you never see the hitch. Click an orb (or press ← →) to cut straight to a faction.
+  - **The theme song** is Paul van Dyk's *Nothing But You* (Cirrus Mix, Amaru deconstruction). It streams in SoundCloud's own player in a "Now Playing" window, with YouTube's as the backup. It starts on your first click, the synth music steps aside while it plays, and it fades out when you start. Its ♪ stops it, its ✕ turns it off, and Settings brings it back.
+- **Free-running.** Characters can vault (speed and kong), leap gaps, drop, roll out of a landing, climb a wall and mantle onto it, and front-flip. Jumps fly true arcs under gravity, and a roll or flip turns the whole body over. There are new everyday actions too: handing things out, carrying, picking fruit, playing guitar, arguing, dancing, shelving books.
+- **Physics.**
+  - **Loose things in the streets:** bins, newspaper boxes, traffic cones, crates and rubbish bags aren't bolted down. Walk into one and you shove it along; run into one and it goes over. They slide with friction and rock on the edge of their base, past the tipping point they fall, and they land, bounce, roll on their side, stop at walls, knock each other on, and settle. Cars knock them flying, and people walking past shove them aside.
+  - **You:** your movement is sub-stepped, so a slow frame can't carry you through a thin wall or a post. You slide along walls, and you stop at the edge of the map instead of snapping back.
+  - **Traffic:** cars brake to their stopping distance (hard, if you step out in front of one), and their bodies dip under braking, lift pulling away and lean in turns.
+- **More in the streets.** Planters, bollards, bike racks, parking meters by the parked cars, blue mailboxes, phone booths, fire alarm posts, works on the pavement with barriers and cones, rubbish bags in the ruins, and crates in the Dauntless sector. Each sector has its own mix, and nothing is placed on top of anything else.
+- **Nothing in the road.** An audit of everything the city builds found two buildings standing in streets. The Hub straddled Halsted Street and the Monroe junction; it now stands in the middle of its own block. The Dauntless compound's derelict jump-off block stood across State Street; it's now against the compound's west wall. Farm hedges no longer clip the dirt roads.
 - **A walkable city.** The Testing Center's front gate opens once your results are in, and the city outside is solid ground all the way to the Fence. It's laid out from one shared map (`DV.CityMap`): avenues and streets with their real names, the faction sectors, landmarks and every family's home. The HUD names the street and sector you're in, and so do save summaries.
   - **Each sector is built its own way:** rows of identical grey Abnegation houses with their yards, Erudite glass, Candor's offices, the Dauntless warehouses, the factionless ruins. Ground floors have shopfronts (boarded up where it's poor), and some shops are lit after dark.
   - **Landmarks:** the Merciless Mart, Erudite headquarters, the Abnegation council hall, the Dauntless compound, the Hancock, the Hub, the marsh and its Ferris wheel, and Amity Headquarters out among its farms. The Fence rings the city and the farmland with watchtowers and a gate.
@@ -401,7 +426,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 28 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 30 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**
@@ -423,13 +448,14 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - The ambush: the struggle, the fight, the infirmary, and Josh expelled.
   - The cut on Day 6, then the fear simulation through to STAGE ONE COMPLETE.
 - **Build 3, the first week:** each of the four faction weeks is played start to finish, down to its banner, and a save made after it loads as free roam.
-- **Build 4, the city** (49 checks):
+- **Build 4, the city** (51 checks):
   - Out through the gate on foot and along the streets. Buildings, the Testing Center's walls, the shore and the Fence keep you in.
   - The HUD names the street and the sector. Street furniture stands clear of buildings and traffic lanes, and is solid.
   - People walk the pavements, dressed for their sector. They talk when spoken to and you can't walk through them.
   - One-way traffic on Lake Street keeps to its lanes and stops (and honks) for you. Nothing is drawn deep indoors.
   - The world map draws the city and where you are. A save made out in the streets loads back there, and the walk home ends at your own door.
   - The L's columns all stand on a pavement, none in a road.
+  - Nothing the city puts up (19,000 pieces) stands in a road or a farm road, and no street furniture is off the pavement.
   - The Fence: you get as far as the cordon and no further, not even at the gate. The wall runs right round the city with no gaps, and it has its towers and lamps. The Amity truck waits inside the cordon.
   - Amity's farmland lies inside the wall: its fields, orchards and steads are all there and none is out of place. You can walk out of the city along Madison Street into the farms, Amity Headquarters stands inside the Fence, and the map names the farmland and what's outside the wall.
   - Junctions have paint, poles and lamps. A signal is never green both ways, and the walk signal only shows with its green.
@@ -440,6 +466,12 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - It won't cross midnight. In Dauntless it stops at the call to training (nothing missed), and it warns about a block that's on now.
   - The rankings go up at 17:00 while you wait through it. A conversation that takes over mid-wait gets the screen back.
   - The bunk rest is a time-lapse, and T does nothing in a chapter.
+- **The main menu** (77 checks):
+  - **The menu:** the chrome logo, its buttons, the orbs, the reel's progress and the ticker; the keyboard (past a disabled button; Enter; Esc out of a panel; ← → through the highlights); Settings over the running reel; Credits naming the song; Continue from a real save (the reel and the theme stop); the layout at 1024×600, 1280×720 and 1920×1080 with nothing overlapping.
+  - **The reel:** it opens on the city; each faction's highlight plays in its own place with its people at their routine, inside the draw-call budget; the wipe covers the screen before a place is swapped (and says LOADING when it's built); it goes on by itself and round again; three times round leaves nothing behind; New Game from the middle of it (even mid-wipe) puts you on the rooftop for the creator.
+  - **Free-running:** every step is on a roof or an obstacle and nothing is run through (sampled every 20 ms), three runners in their own lanes, all the moves, the flip and the roll turning the body over, no shadow in the air.
+  - **The theme song** (stand-in players: no SoundCloud or YouTube from the test machine): SoundCloud's player in view, waiting for a click, the menu's music stepping aside, the volume from Settings, ♪ and ✕, YouTube taking over if SoundCloud says no, the synth if neither will, and the fade on the way out. From disk it doesn't try to stream.
+- **Physics** (17 checks): walking into a bin shoves it and running knocks it over; it lands (never through the ground), stops and sleeps; knocked at a wall it stops at the wall; on its side it rolls across its axis far more than it slides; bodies knock each other on; a car knocks a cone flying without slowing; people shove bins aside; a wild knock is held to what a car could do and settles; a 10 fps sprint never carries you through a 10 cm wall; you're never left inside something pinned against a wall; you slide along walls; a car's nose dips braking and settles.
 - **The developer menu** (24 checks): it's off by default, and the toggle at the bottom of Settings turns it on. Covered: the key and the pause entry, going to a landmark, setting the hour (the lamps come on), noclip ×4 through a wall, the readout, hiding the HUD, emptying the streets, Shift+click on the City map, jumping to a Dauntless day, a first week and the Choosing, and turning it off again.
 - **Playthrough at a human pace:** walking with the movement keys and reading dialogue at reading speed. It covers Claire's results and the camera afterwards, out through the gate to the bus, and the ceremony for all five factions. The Dauntless suite also checks the camera after the range and the bags.
   - Candor: the evidence, the interview (five lies caught, one truth miscalled), the verdict, the truth game, Rosa's warning, and holding one answer in under the serum.
@@ -478,6 +510,9 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
 - **Persistence:** save → reload page → Continue restores state. Two playthroughs in one browser session also work.
 
 Bugs found and fixed during Build 4:
+- **Buildings stood in the road.** The Hub was centred on Halsted Street, so its tubes covered the street and the Monroe junction. The Dauntless compound's jump-off block was set 9 m out from the compound, which put it across State Street. An audit of every piece the city builds against every carriageway found both, and the city suite now checks for it.
+- **A car could roll into you.** Traffic slowed in proportion to the gap ahead, at no more than 6 m/s². A car doing 12 m/s that only saw you late couldn't stop in time and touched you. Cars now brake to their stopping distance and look far enough ahead to stop in, braking up to 8 m/s² for someone in the road.
+- **You could run through thin walls at a low frame rate.** Each frame's movement was resolved in one jump. At 10 fps a sprint covers half a metre a frame, which could land you on the far side of a fence or a post. Movement is now resolved in steps of a third of your width.
 - **People on the pavement stepped the wrong way.** When you were in someone's way, they sidestepped towards you instead of away (a sign error), then crept into you and shoved you back up the street. They now step aside quickly, the right way, and never walk into you.
 - **Hardly anyone crossed at the lights.** Someone who decided to cross and saw the hand would give up after half a second and wander off. Anyone waiting also counted cars driving straight on beside them as traffic in the way. They now wait at the kerb for the white man, and only traffic crossing their path, or turning, holds them up.
 - **The L's columns stood in the road.** Its bents were spaced every 15 m regardless of the streets crossing under it, so wherever one landed on an avenue its legs stood in the roadway and cut that avenue's traffic in two. They now stand on the pavement, and the deck spans each junction.
@@ -540,7 +575,9 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 - **Spoken PA** (optional speech synthesis) can't be routed through the game's audio effects, so only the PA chime gets the horn-speaker and echo treatment.
 - **No mid-simulation saves** (by design), and only one in-game day is scripted. After 17:00 the building quietly empties.
 - **Performance** depends on the GPU. The static level is batched into one draw call per material. A typical frame in the hub is 60–85k triangles and 45–190 draw calls. Each character draws in one call, and door details and NPC shadows are culled with distance. The busy lobby is the worst case. Integrated GPUs should run it at the default "Retro (480p)" render scale, while "Native" resolution on a 4K display may struggle.
-- **Desktop only.** No gamepad or touch controls yet.
+- **Physics is for the street's loose things.** Bodies are circles in plan against walls and each other. They don't stack, and people walking past don't step round them. Indoors, furniture is still fixed.
+- **The theme song needs a connection** and the page served. Opened from disk, or offline, the menu plays its own music.
+- **Desktop only.** No gamepad or touch controls yet. The main menu works from the keyboard as well as the mouse.
 
 ---
 

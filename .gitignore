@@ -1,2 +1,5 @@
 tools/qa/out/
 node_modules/
+
+# a copy of the menu theme of your own (it isn't the game's to ship)
+assets/audio/menu_theme.*

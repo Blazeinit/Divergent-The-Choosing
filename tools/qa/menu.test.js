@@ -240,5 +240,80 @@ L.run('main menu: the Y2K front end and the highlights reel', async (p, T, errs)
   await p.waitForTimeout(300);
   const back = await ev(() => DV.Reel.info());
   T.ok(back.running && back.id === 'city' && back.zone === 'menu_bg' && back.actors === 3, 'back to the main menu: the reel starts over, on the city', back);
+
+  /* ---------------- everything else on it ---------------- */
+  // the keyboard: down past the disabled Continue, Enter opens Load, Esc closes it; right to the next highlight
+  // (the mouse out of the way, nothing highlighted yet)
+  await p.mouse.move(900, 660);
+  await ev(() => { DV.Menus.mainFocus = -1; DV.Menus.mainButtons.forEach((b) => b.classList.remove('kfocus')); });
+  await p.keyboard.press('ArrowDown');
+  const k1 = await ev(() => (document.querySelector('#mainmenu .mm-item.kfocus') || {}).textContent);
+  await p.keyboard.press('ArrowDown');
+  const k2 = await ev(() => (document.querySelector('#mainmenu .mm-item.kfocus') || {}).textContent);
+  await p.keyboard.press('Enter');
+  const k3 = await ev(() => (document.querySelector('.side .panel-title') || {}).textContent);
+  await p.keyboard.press('Escape');
+  const k4 = await ev(() => !document.querySelector('.side') && !!document.getElementById('mainmenu'));
+  T.ok(k1 === 'New Game' && k2 === 'Load Game' && k3 === 'Load Game' && k4, 'the keyboard: down to New Game, down again past the disabled Continue to Load Game, Enter opens it, Esc closes it', [k1, k2, k3, k4]);
+  await p.keyboard.press('ArrowRight');
+  T.ok(await ev(() => !!DV.Reel.trans && DV.Reel.SEGMENTS[DV.Reel.trans.to].id === 'dauntless'), 'right arrow: on to the next highlight');
+  await settle();
+  // Settings over the reel: it plays on behind, and the theme's switch is there
+  await p.click('#mainmenu .mm-item:has-text("Settings")');
+  const set1 = await ev(() => { const t0 = DV.Reel.t; for (let k = 0; k < 20; k++) DV.Reel.update(0.05); return { t: DV.Reel.t - t0, running: DV.Reel.running, theme: [...document.querySelectorAll('.side .row label')].some((l) => /theme song/i.test(l.textContent)) }; });
+  T.ok(set1.running && set1.t > 0.9 && set1.theme, 'Settings opens over the reel, which plays on behind it; the theme song has its switch', set1);
+  await p.keyboard.press('Escape');
+  // Credits name the theme song
+  await p.click('#mainmenu .mm-item:has-text("Credits")');
+  const cred = await ev(() => document.querySelector('.side .body').textContent);
+  T.ok(/Nothing But You/.test(cred) && /SoundCloud/.test(cred), 'Credits name the theme song and where it streams from');
+  await p.keyboard.press('Escape');
+  // Continue: a save, back to the menu, Continue
+  await ev(() => {
+    DV.Menus.hideAll(); DV.State.reset();
+    const pl = DV.State.data.player; pl.name = 'Saver'; pl.sex = 'f'; pl.upbringing = 'amity'; pl.appearance = DV.Character.fromFaction('neutral', 'f', 'saver');
+    DV.Game.enterWorld(false);
+  });
+  if (!(await p.waitForFunction(() => DV.Game.state === 'playing', null, { timeout: 90000 }).then(() => true, () => false))) { T.ok(false, 'into the world', { state: await ev(() => DV.Game.state), errs: errs.slice(0, 4) }); return; }
+  const saved = await ev(() => DV.Save.write('1').ok);
+  await ev(() => DV.Game.quitToMenu());
+  await p.waitForTimeout(300);
+  const cont0 = await ev(() => ({ on: !document.querySelector('#mainmenu .mm-item:nth-child(2)').classList.contains('disabled'), reel: DV.Reel.running }));
+  await p.click('#mainmenu .mm-item:has-text("Continue")');
+  if (!(await p.waitForFunction(() => DV.Game.state === 'playing', null, { timeout: 90000 }).then(() => true, () => false))) { T.ok(false, 'into the world', { state: await ev(() => DV.Game.state), errs: errs.slice(0, 4) }); return; }
+  const cont1 = await ev(() => ({ state: DV.Game.state, name: DV.State.data.player.name, reel: DV.Reel.running, theme: DV.MenuTheme.state().on, menu: !!document.getElementById('mainmenu'), zone: DV.World.current.id }));
+  T.ok(saved && cont0.on && cont0.reel, 'with a save made, quitting to the menu: Continue is lit and the reel is back');
+  T.ok(cont1.state === 'playing' && cont1.name === 'Saver' && !cont1.reel && !cont1.theme && !cont1.menu && cont1.zone !== 'menu_bg', 'Continue loads it: the reel and the theme stop, the menu goes', cont1);
+  await ev(() => DV.Game.quitToMenu());
+  await p.waitForTimeout(300);
+  // the layout, small and large: nothing on top of anything else
+  const lay = [];
+  for (const [w, h] of [[1024, 600], [1920, 1080], [1280, 720]]) {
+    await p.setViewportSize({ width: w, height: h });
+    await p.waitForTimeout(250);
+    lay.push(await ev(([w, h]) => {
+      const R = (q) => { const e = document.querySelector(q); return e ? e.getBoundingClientRect() : null; };
+      const box = R('#mainmenu .items'), cap = R('#mainmenu .reel-cap'), orbs = R('#mainmenu .sigils'), logo = R('#mainmenu .title'), tick = R('#mainmenu .ticker');
+      const hit = (a, b) => a && b && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      const inView = [box, cap, orbs, logo].every((r) => r.left >= 0 && r.top >= 0 && r.right <= w + 1 && r.bottom <= h + 1);
+      return { size: w + 'x' + h, overlaps: [['menu', 'caption', hit(box, cap)], ['menu', 'orbs', hit(box, orbs)], ['caption', 'orbs', hit(cap, orbs)], ['logo', 'menu', hit(logo, box)], ['orbs', 'ticker', hit(orbs, tick)]].filter((x) => x[2]).map((x) => x[0] + '/' + x[1]), inView };
+    }, [w, h]));
+  }
+  T.ok(lay.every((l) => !l.overlaps.length && l.inView), 'at 1024×600, 1920×1080 and 1280×720 nothing on the menu overlaps anything else, and it\'s all on screen', lay);
+  // round and round: three times through, nothing piles up
+  const leak = await ev(() => {
+    const G = DV.Game, R = DV.Reel, mem = () => ({ kids: G.scene.children.length, geos: G.renderer.info.memory.geometries });
+    const lap = () => { const start = R.i; let n = 0, wrapped = false; while (n++ < 20000) { DV.Reel.update(0.1); if (R.i === start && wrapped && !R.trans) break; if (R.i !== start) wrapped = true; } };
+    lap(); G.renderer.render(G.scene, G.camera); const a = mem();
+    lap(); lap(); G.renderer.render(G.scene, G.camera); const b = mem();
+    return { a, b, actors: R.actors.length };
+  });
+  T.ok(leak.b.kids === leak.a.kids && leak.b.geos <= leak.a.geos + 2, 'three times round the reel: nothing piles up in the scene (' + leak.a.kids + ' → ' + leak.b.kids + ' objects, ' + leak.a.geos + ' → ' + leak.b.geos + ' geometries)', leak);
+  // New Game in the middle of a wipe
+  await ev(() => { DV.Reel.jump('amity'); DV.Reel.update(0.15); });
+  await p.click('#mainmenu .mm-item:has-text("New Game")');
+  await p.waitForTimeout(300);
+  const mid = await ev(() => ({ state: DV.Game.state, zone: DV.World.current.id, wipe: !!document.querySelector('.reel-wipe'), reel: DV.Reel.running, trans: DV.Reel.trans }));
+  T.ok(mid.state === 'creator' && mid.zone === 'menu_bg' && !mid.wipe && !mid.reel && !mid.trans, 'New Game in the middle of a wipe: straight to the creator, nothing of the wipe left on screen', mid);
   T.noErrors(errs);
 });

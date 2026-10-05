@@ -6,7 +6,7 @@
   const DV = window.DV;
 
   DV.Config = {
-    VERSION: 'Build 4 — v0.4.0',
+    VERSION: 'Build 4 — v0.4.1',
     DEBUG: /[?&]debug=1/.test(location.search),
 
     // 1 real second = TIME_SCALE game seconds (the fallback: the player picks the
