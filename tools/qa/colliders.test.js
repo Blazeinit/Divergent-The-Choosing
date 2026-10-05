@@ -113,6 +113,12 @@ L.run('invisible walls', async (p, T, errs) => {
       const mx = (a[0] + a[2]) / 2, mz = (a[1] + a[3]) / 2, d = Math.hypot(mx - s.x, mz - s.z), far = Math.hypot(mx - 40, mz - 40);
       if (d < 14 && (!best || far < best.far)) best = { a, far, sign: [+s.x.toFixed(1), +s.z.toFixed(1)] };
     }
+    // (the empty lots are dressed now (gardens, markets, wrecks: js/engine/farms.js) and that slab may
+    // be gone: then the turned solid thing nearest the Testing Center, whatever it is)
+    if (!best) for (const a of rubble) {
+      const mx = (a[0] + a[2]) / 2, mz = (a[1] + a[3]) / 2, far = Math.hypot(mx - 40, mz - 40);
+      if (far > 90 && (!best || far < best.far)) best = { a, far, sign: 'none: ' + a[6] };
+    }
     if (!best) return null;
     const [x0, z0, x1, z1, , , , , pts] = best.a, mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
     // walk at it from eight sides, from 5 m out past its corners

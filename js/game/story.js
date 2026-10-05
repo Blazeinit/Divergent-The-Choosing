@@ -198,7 +198,13 @@
       if (door && zs.doors[door.id] === 'unlocked') return true;
       switch (lock) {
         case 'tr4': return !!flag('tr4_open') && DV.State.data.aptitude.status !== 'in_progress';
-        case 'proctor': return DV.Inventory.has('staff_keycard');
+        // the proctors' doors read your card from the corridor; from inside they always let you out (hand
+        // the card back in there and you can still leave, you just can't get back in)
+        case 'proctor': {
+          if (DV.Inventory.has('staff_keycard')) return true;
+          const z = DV.World.current, room = z && z.id === 'testing_center' && z.roomAt(DV.Player.x, DV.Player.z);
+          return !!room && (room.id === 'proctor' || room.id === 'gallery');
+        }
         case 'storage': return DV.Inventory.has('storage_key');
         case 'records': return DV.Inventory.has('records_key');
         case 'custodian': return !!flag('closet_open') && door && door.id === 'closet_door';

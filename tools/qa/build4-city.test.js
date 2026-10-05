@@ -33,10 +33,13 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
 
   /* ---------------- out of the gate, along the streets ---------------- */
   // (over the crossing to the far pavement under the L, and along it: the road's for the traffic)
-  const out = await ev(() => { QA.tp(40, 72, 0); const a = walkLine(40, 88, 20); const b = walkLine(118, 88, 40); return { a, b, place: DV.World.current.placeName(DV.Player.x, DV.Player.z), room: !!DV.World.current.roomAt(DV.Player.x, DV.Player.z) }; });
+  // (the scenes on the pavements stand where they like: these walks want the pavements clear)
+  await ev(() => { if (DV.World.current.cityLife) DV.World.current.cityLife.off = true; });
+  // (down the clear lane between the L's two rows of columns)
+  const out = await ev(() => { QA.tp(40, 72, 0); const a = walkLine(40, 88.9, 20); const b = walkLine(118, 88.9, 40); return { a, b, place: DV.World.current.placeName(DV.Player.x, DV.Player.z), room: !!DV.World.current.roomAt(DV.Player.x, DV.Player.z) }; });
   T.ok(out.a.d < 0.6 && out.b.d < 0.6 && !out.room, 'out through the gate, over the road and east along Lake Street under the L, past the end of the Testing Center\'s own map', out);
   T.ok(/Lake St/.test(out.place.name) && out.place.sub === 'Testing District', 'the HUD names the street and the sector (' + out.place.name + ' · ' + out.place.sub + ')');
-  const south = await ev(() => { walkLine(101.6, 88, 10); return walkLine(101.6, 140, 30); });
+  const south = await ev(() => { walkLine(101.6, 88.9, 10); return walkLine(101.6, 140, 30); });
   T.ok(south.d < 0.6, 'and south down Halsted Street, on the pavement', south);
 
   /* ---------------- what keeps you in ---------------- */

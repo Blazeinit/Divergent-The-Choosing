@@ -325,6 +325,8 @@
     /* ---- every frame ---- */
     update(dt) {
       const P = DV.Player, px = P.x, pz = P.z;
+      // (off: the dev menu's empty streets, or a test that wants the pavements clear)
+      if (this.off || (DV.Dev && DV.Dev.on() && DV.Dev.flags.noStreet)) { if (this.scenes.length) { for (const sc of this.scenes) this.release(sc); this.scenes = []; this.glow.visible = false; } return; }
       const room = this.zone.roomAt(px, pz), away = this.life.shown !== true || (room && !room.exterior);
       if (away !== !this.shown) {
         this.shown = !away;
