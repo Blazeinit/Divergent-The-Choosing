@@ -158,30 +158,31 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
   /* ---------------- traffic ---------------- */
   const cars = await ev(() => {
     const life = DV.World.current.streetLife, P = DV.Player;
-    QA.tp(150, 82, 0);
-    // wait for a car coming down Lake Street (one-way, westbound) towards you
+    QA.tp(128, 82, 0);
+    // wait for a car coming down Lake Street (one-way, westbound) towards you, through the lights at
+    // Clinton (x 170) and on along the block you're in
     const lake = life.lanes.filter((l) => l.line.name === 'Lake St');
     let car = null;
-    for (let i = 0; i < 400 && !car; i++) {
-      QA.step(0.1, [150, 76.9]);
-      car = life.cars.find((c) => c.lane.line.name === 'Lake St' && c.x > 165 && c.x < 260);
+    for (let i = 0; i < 900 && !car; i++) {
+      QA.step(0.1, [128, 76.9]);
+      car = life.cars.find((c) => c.lane.line.name === 'Lake St' && !c.turn && c.x > 140 && c.x < 162 && c.speed > 2);
     }
     if (!car) return { none: true, cars: life.cars.length, lake: lake.length };
     // stand in its lane and wait
-    QA.tp(150, car.z, 0);
+    QA.tp(128, car.z, 0);
     let honks = 0;
     const real = DV.Audio.play.bind(DV.Audio);
     DV.Audio.play = (n, o) => { if (n === 'carhorn' && o && o.x !== undefined) honks++; return real(n, o); };
     let minGap = 99;
-    for (let i = 0; i < 500; i++) { QA.step(0.05, [150, car.z]); minGap = Math.min(minGap, car.x - car.v.length / 2 - 150); }
+    for (let i = 0; i < 500; i++) { QA.step(0.05, [128, car.z]); minGap = Math.min(minGap, car.x - car.v.length / 2 - 128); }
     DV.Audio.play = real;
     const stopped = car.speed < 0.1;
     // step out of the way: it drives on
-    QA.tp(150, 77.2, 0);
+    QA.tp(128, 77.2, 0);
     const x0 = car.x;
-    QA.step(4, [150, 77.2]);
+    QA.step(4, [128, 77.2]);
     // and you can't stand inside one
-    const c2 = life.cars.find((c) => Math.hypot(c.x - 150, c.z - 80) < 200) || car;
+    const c2 = life.cars.find((c) => Math.hypot(c.x - 128, c.z - 80) < 200 && !c.turn) || car;
     QA.tp(c2.x, c2.z, 0); QA.step(0.05, null);
     const ex = (c2.lane.axis === 'x' ? c2.v.length : c2.v.width) / 2, ez = (c2.lane.axis === 'x' ? c2.v.width : c2.v.length) / 2;
     const inside = Math.abs(P.x - c2.x) < ex && Math.abs(P.z - c2.z) < ez;
@@ -203,6 +204,68 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     return { inHall, plaza: life.shown };
   });
   T.ok(hidden.inHall.shown === false && hidden.inHall.kit === true && hidden.plaza === true, 'deep inside the Testing Center the streets aren\'t drawn; from the plaza they are', hidden);
+
+  /* ---------------- junctions: markings, signals, the traffic and the people at them ---------------- */
+  const junc = await ev(() => {
+    const zone = DV.World.current, R = zone.roads, kit = zone.streetKit;
+    QA.tp(102.5, 168, Math.PI); QA.step(0.5);
+    // never green both ways, and every phase comes round
+    const seen = new Set();
+    let both = 0;
+    const t0 = R.t;
+    for (let t = 0; t < DV.Roads.CYCLE; t += 0.5) { R.t = t0 + t; for (const j of R.junctions.slice(0, 40)) { const x = R.light(j, 'x'), z = R.light(j, 'z'); if (x && x !== 'r' && z && z !== 'r') both++; if (x) seen.add('x' + x); if (R.walk(j, 'x') === 'walk' && R.light(j, 'x') !== 'g') both++; } }
+    R.t = t0;
+    let paint = 0, lamps = 0;
+    for (const c of kit.chunks.values()) if (c.built && Math.hypot(c.cx - 102, c.cz - 168) < 150) { paint += c.paint.length; lamps += c.items.filter((it) => it.name === 'sig_pole').length; }
+    return { j: R.junctions.length, sig: R.junctions.filter((j) => j.signal).length, dead: R.junctions.filter((j) => j.dead).length, both, seen: [...seen].sort(), paint, poles: lamps, sigLamps: kit.sig ? kit.sig.lamps.length : 0 };
+  });
+  T.ok(junc.j > 150 && junc.sig > 120 && junc.dead > 0, junc.j + ' junctions: ' + junc.sig + ' with working signals, ' + junc.dead + ' dark (the ruins, some of the Dauntless sector)', junc);
+  T.ok(junc.both === 0 && junc.seen.join() === 'xa,xg,xr', 'a signal is never green (or amber) both ways, and walks only with its green', junc);
+  T.ok(junc.paint > 200 && junc.poles > 8 && junc.sigLamps > 100, 'paint on the roads round you (' + junc.paint + ' marks: crossings, stop lines, the double yellow), signal poles (' + junc.poles + ') and their lamps', junc);
+  // the traffic at the lights: stops at the line on red, goes on green; turns; never runs into another car
+  const lights = await ev(() => {
+    const zone = DV.World.current, R = zone.roads, life = zone.streetLife, P = DV.Player;
+    QA.tp(102.5, 168, Math.PI);
+    const ran = [], stops = [];
+    let turns = 0, overlap = 0, minGap = 99;
+    const was = new Map();
+    for (let i = 0; i < 1600; i++) {
+      QA.step(0.05, [102.5, 168]);
+      for (const c of life.cars) {
+        if (!c.turn && was.get(c) === 'turning') turns++;
+        was.set(c, c.turn ? 'turning' : 'lane');
+        if (c.turn) continue;
+        const nj = life.nextJunction(c);
+        if (!nj) continue;
+        const light = R.light(nj.j, c.lane.axis), stopD = nj.d - DV.Roads.CW - DV.Roads.STOP;
+        // over the line on red (it was well short of it a moment ago)
+        if (light === 'r' && stopD < -0.6 && stopD > -3 && c.prevStop > 0.5) ran.push({ x: Math.round(c.x), z: Math.round(c.z), stopD: +stopD.toFixed(2), was: +c.prevStop.toFixed(2) });
+        if (light === 'r' && c.speed === 0 && stopD > -0.4 && stopD < 1.2) stops.push(+stopD.toFixed(2));
+        c.prevStop = stopD;
+      }
+      for (let a = 0; a < life.cars.length; a++) for (let b = a + 1; b < life.cars.length; b++) {
+        const A = life.cars[a], Bc = life.cars[b];
+        const d = Math.hypot(A.x - Bc.x, A.z - Bc.z);
+        minGap = Math.min(minGap, d);
+        if (d < Math.min(A.v.width, Bc.v.width) * 0.9) overlap++;
+      }
+    }
+    return { ran: ran.slice(0, 5), nRan: ran.length, stops: stops.length, turns, overlap, minGap: +minGap.toFixed(2), cars: life.cars.length };
+  });
+  T.ok(lights.stops > 20 && lights.nRan === 0, 'cars stop at the line on red (' + lights.stops + ' car-frames waiting at it), and none runs a red', lights);
+  T.ok(lights.turns >= 2, 'cars turn at the junctions (' + lights.turns + ' turns in 80 s)', lights);
+  T.ok(lights.overlap === 0, 'and never drive into each other (closest ' + lights.minGap + ' m between centres)', lights);
+  // people cross on the white man (and wait for it)
+  const walkers = await ev(() => {
+    const zone = DV.World.current, R = zone.roads, life = zone.streetLife;
+    let starts = 0, bad = 0, waits = 0;
+    const real = life.mayCross.bind(life);
+    life.mayCross = (e) => { const ok = real(e); if (e.j && e.j.signal) { if (ok) { starts++; if (R.walk(e.j, e.axis) !== 'walk') bad++; } else waits++; } return ok; };
+    for (let i = 0; i < 2400 && starts < 2; i++) QA.step(0.05, [102.5, 168]);
+    life.mayCross = real;
+    return { starts, bad, waits };
+  });
+  T.ok(walkers.starts > 0 && walkers.bad === 0, 'people wait at the kerb and cross on the white man (' + walkers.starts + ' crossings, ' + walkers.waits + ' waits)', walkers);
 
   /* ---------------- the world map ---------------- */
   const map = await ev(() => {

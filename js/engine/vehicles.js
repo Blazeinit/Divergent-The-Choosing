@@ -47,6 +47,10 @@
       geo.dispose();
       if (g !== geo) g.dispose();
     }
+    // a flat rectangle facing up, in world space (ignores push), unshaded: road paint
+    flat(x0, z0, x1, z1, y, c) {
+      for (const [x, z] of [[x0, z0], [x0, z1], [x1, z1], [x0, z0], [x1, z1], [x1, z0]]) { this.pos.push(x, y, z); this.col.push(c[0], c[1], c[2]); }
+    }
     // a box centred on (x, y, z)
     box(x, y, z, sx, sy, sz, c, opts) {
       const g = new THREE.BoxGeometry(sx, sy, sz);

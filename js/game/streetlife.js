@@ -26,7 +26,7 @@
   const U = DV.U;
 
   const INS = 1.6; // the walking line, in from the kerb
-  const MAX_PEDS = 26, MAX_CARS = 9, MODEL_CAP = 36;
+  const MAX_PEDS = 26, MAX_CARS = 13, MODEL_CAP = 36;
   const PED_FAR = 72, CAR_FAR = 190;
 
   // what people say when you talk to them, faction by faction (it's the day of the aptitude test)
@@ -191,6 +191,17 @@
       const blocked = (x, z, r) => kit.blocked(x, z, r);
       this.walk = new Walkways(city.walk.pads, blocked);
       this.lanes = buildLanes(city, blocked);
+      // the lanes of each street (for turning into one)
+      this.laneBy = new Map();
+      for (const l of this.lanes) { let a = this.laneBy.get(l.line); if (!a) this.laneBy.set(l.line, (a = [])); a.push(l); }
+      // every car's lamps: tail lights, brake lights, indicators, headlights after dark (one draw call)
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_CARS * 6 * 3), 3));
+      lg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_CARS * 6 * 3), 3));
+      this.lamps = new THREE.Points(lg, new THREE.PointsMaterial({ size: 0.55, map: DV.StreetKit.glowTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: true }));
+      this.lamps.name = 'car_lamps';
+      this.lamps.frustumCulled = false;
+      zone.group.add(this.lamps);
       this.peds = [];
       this.cars = [];
       this.pool = [];
@@ -317,6 +328,20 @@
       for (let k = 0; k < opts.length; k++) { q -= w[k]; if (q <= 0) return opts[k]; }
       return opts[0];
     }
+    // may someone cross here now? At a working junction, on the white man (and nothing turning
+    // through the crossing); anywhere else, when there's nothing coming
+    mayCross(e) {
+      const R = this.zone.roads, W = this.walk;
+      if (R) {
+        if (e.j === undefined) { const A = W.nodes[e.a], B = W.nodes[e.b]; e.j = R.near((A.x + B.x) / 2, (A.z + B.z) / 2, 5) || null; e.axis = Math.abs(B.x - A.x) > Math.abs(B.z - A.z) ? 'x' : 'z'; }
+        if (e.j && e.j.signal) {
+          if (R.walk(e.j, e.axis) !== 'walk') return false;
+          const A = W.nodes[e.a], B = W.nodes[e.b], mx = (A.x + B.x) / 2, mz = (A.z + B.z) / 2;
+          return !this.cars.some((c) => c.speed > 0.5 && Math.hypot(c.x - mx, c.z - mz) < 9);
+        }
+      }
+      return this.clearToCross(e);
+    }
     // is it safe to cross from here to there? (nothing coming within 24 m)
     clearToCross(e) {
       const W = this.walk, A = W.nodes[e.a], B = W.nodes[e.b];
@@ -358,7 +383,7 @@
         if (p.t >= e.len) {
           const next = this.nextEdge(p);
           const ne = W.edges[next];
-          if (ne.cross && !this.clearToCross(ne)) { p.t = e.len; p.wait = 0.6; }
+          if (ne.cross && !this.mayCross(ne)) { p.t = e.len; p.wait = 0.5; }
           else {
             const at = p.to;
             p.edge = next; p.from = at; p.to = ne.a === at ? ne.b : ne.a; p.t = 0;
@@ -423,7 +448,7 @@
         this.zone.group.add(v.root);
         v.root.visible = this.shown !== false;
         const top = k.kind === 'bus' ? 9 : k.kind === 'jeep' ? 12.5 : 10.5 + this.r() * 2;
-        const car = { v, kind: k.kind, lane, s, x, z, speed: top * 0.8, top, honk: 0, stopped: 0, sound: null };
+        const car = { id: this.idN++, v, kind: k.kind, lane, s, x, z, hx: 0, hz: 1, speed: top * 0.8, top, honk: 0, stopped: 0, sound: null, plan: null, planJ: null, turn: null, brake: false };
         this.placeCar(car);
         this.cars.push(car);
         return true;
@@ -431,11 +456,65 @@
       return false;
     }
     placeCar(c) {
-      const l = c.lane;
-      c.x = l.axis === 'x' ? c.s : l.c;
-      c.z = l.axis === 'x' ? l.c : c.s;
+      if (c.turn) {
+        // round the corner: a curve from where it was on its lane, through the corner, onto the new one
+        const T = c.turn, t = U.clamp(T.u / T.len, 0, 1), it = 1 - t;
+        c.x = it * it * T.p0[0] + 2 * it * t * T.k[0] + t * t * T.p1[0];
+        c.z = it * it * T.p0[1] + 2 * it * t * T.k[1] + t * t * T.p1[1];
+        const dx = it * (T.k[0] - T.p0[0]) + t * (T.p1[0] - T.k[0]), dz = it * (T.k[1] - T.p0[1]) + t * (T.p1[1] - T.k[1]);
+        const n = Math.hypot(dx, dz) || 1;
+        c.hx = dx / n; c.hz = dz / n;
+      } else {
+        const l = c.lane;
+        c.x = l.axis === 'x' ? c.s : l.c;
+        c.z = l.axis === 'x' ? l.c : c.s;
+        c.hx = l.axis === 'x' ? l.dir : 0; c.hz = l.axis === 'x' ? 0 : l.dir;
+      }
       c.v.root.position.set(c.x, 0, c.z);
-      c.v.root.rotation.y = l.axis === 'x' ? (l.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : l.dir > 0 ? 0 : Math.PI;
+      c.v.root.rotation.y = Math.atan2(c.hx, c.hz);
+    }
+    // the next junction ahead of a car on its lane: { j, entry, exit, d (its front to the entry) }
+    nextJunction(c) {
+      const R = this.zone.roads, l = c.lane;
+      if (!R) return null;
+      const front = c.s + (l.dir * c.v.length) / 2;
+      let best = null;
+      for (const j of R.along(l.line)) {
+        const a = l.axis === 'x' ? j.box[0] : j.box[1], b = l.axis === 'x' ? j.box[2] : j.box[3];
+        const entry = l.dir > 0 ? a : b, d = (entry - front) * l.dir;
+        if (d < -0.5) continue; // passed it (or in it)
+        if (!best || d < best.d) best = { j, entry, exit: l.dir > 0 ? b : a, d };
+      }
+      return best;
+    }
+    // at the next junction: straight on, or left or right (if there's a lane to turn into)
+    planTurn(c, nj) {
+      const l = c.lane, j = nj.j, q = this.r();
+      const want = c.kind === 'bus' || q < 0.64 ? 'straight' : q < 0.84 ? 'right' : 'left';
+      if (want === 'straight') return { turn: 'straight' };
+      const hx = l.axis === 'x' ? l.dir : 0, hz = l.axis === 'x' ? 0 : l.dir;
+      const rx = -hz, rz = hx; // (your right, going that way)
+      const nx = want === 'right' ? rx : -rx, nz = want === 'right' ? rz : -rz;
+      const axis = nx ? 'x' : 'z', dir = nx || nz, line = axis === 'x' ? j.st : j.av, at = axis === 'x' ? j.x : j.z;
+      const lane = (this.laneBy.get(line) || []).find((t) => t.axis === axis && t.dir === dir && at > t.s0 + 6 && at < t.s1 - 14);
+      return lane ? { turn: want, lane } : { turn: 'straight' };
+    }
+    // into the junction: start the turn if the way's clear (otherwise carry straight on)
+    beginTurn(c, nj) {
+      const l = c.lane, T = c.plan.lane, j = nj.j;
+      const exitS = (T.dir > 0 ? (T.axis === 'x' ? j.box[2] : j.box[3]) : T.axis === 'x' ? j.box[0] : j.box[1]) + T.dir * (c.v.length / 2 + 1.5);
+      // room on the new lane, and (turning left) nothing coming the other way
+      const busy = this.cars.some((o) => o !== c && o.lane === T && !o.turn && (o.s - exitS) * T.dir > -16 && (o.s - exitS) * T.dir < 9);
+      const opp = c.plan.turn === 'left' && this.cars.some((o) => o !== c && o.lane.line === l.line && o.lane.dir === -l.dir && !o.turn && o.speed > 1 && Math.hypot(o.x - j.x, o.z - j.z) < 34);
+      if (busy || opp) { c.plan = { turn: 'straight' }; return; }
+      const k = l.axis === 'x' ? [T.c, l.c] : [l.c, T.c];
+      const p0 = [c.x, c.z], p1 = T.axis === 'x' ? [exitS, T.c] : [T.c, exitS];
+      let len = 0, prev = p0;
+      for (let i = 1; i <= 8; i++) {
+        const t = i / 8, it = 1 - t, q = [it * it * p0[0] + 2 * it * t * k[0] + t * t * p1[0], it * it * p0[1] + 2 * it * t * k[1] + t * t * p1[1]];
+        len += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q;
+      }
+      c.turn = { p0, k, p1, len, u: 0, lane: T, endS: exitS, vmax: c.plan.turn === 'right' ? 5 : 6.5, side: c.plan.turn };
     }
     releaseCar(c) {
       if (c.v.root.parent) c.v.root.parent.remove(c.v.root);
@@ -443,26 +522,49 @@
       if (c.sound) { c.sound.stop(); c.sound = null; }
     }
     updateCars(dt, px, pz) {
-      const P = DV.Player;
+      const P = DV.Player, R = this.zone.roads;
       for (let i = this.cars.length - 1; i >= 0; i--) {
         const c = this.cars[i], l = c.lane;
         const d = Math.hypot(c.x - px, c.z - pz);
-        if (d > CAR_FAR || (l.dir > 0 ? c.s > l.s1 : c.s < l.s0)) { this.releaseCar(c); this.cars.splice(i, 1); continue; }
-        // what's ahead in the lane: you, someone crossing, the car in front
+        if (d > CAR_FAR || (!c.turn && (l.dir > 0 ? c.s > l.s1 : c.s < l.s0))) { this.releaseCar(c); this.cars.splice(i, 1); continue; }
+        // what's ahead of it: you, someone crossing, the car in front (or one turning across)
         const hw = c.v.width / 2 + 0.55, look = c.v.length / 2 + 4 + c.speed * 1.3;
-        let want = c.top, forPlayer = false;
-        const ahead = (x, z) => { const a = (l.axis === 'x' ? x - c.x : z - c.z) * l.dir, b = Math.abs(l.axis === 'x' ? z - c.z : x - c.x); return b < hw ? a : -1; };
+        let want = c.turn ? c.turn.vmax : c.top, forPlayer = false, held = false;
+        const ahead = (x, z) => { const dx = x - c.x, dz = z - c.z, a = dx * c.hx + dz * c.hz, b = Math.abs(dx * c.hz - dz * c.hx); return b < hw ? a : -1; };
         const ap = ahead(P.x, P.z);
         if (ap > 0 && ap < look) { want = ap < c.v.length / 2 + 2.5 ? 0 : Math.min(want, (ap - c.v.length / 2 - 2.5) * 1.2); forPlayer = true; }
         for (const p of this.peds) { const a = ahead(p.x, p.z); if (a > 0 && a < look) want = Math.min(want, a < c.v.length / 2 + 2.5 ? 0 : (a - c.v.length / 2 - 2.5) * 1.2); }
         for (const o of this.cars) {
-          if (o === c || o.lane !== l) continue;
-          const gap = (o.s - c.s) * l.dir - (o.v.length + c.v.length) / 2;
-          if (gap > 0 && gap < 6 + c.speed * 1.4) want = Math.min(want, gap < 3 ? 0 : o.speed);
+          if (o === c) continue;
+          const a = ahead(o.x, o.z);
+          if (a <= 0 || a > look + o.v.length) continue;
+          // two that see each other (crossing paths): the older one goes first
+          if (c.id < o.id && (c.x - o.x) * o.hx + (c.z - o.z) * o.hz > 0 && Math.abs((c.x - o.x) * o.hz - (c.z - o.z) * o.hx) < o.v.width / 2 + 0.55) continue;
+          const gap = a - (o.v.length + c.v.length) / 2;
+          if (gap < 6 + c.speed * 1.4) want = Math.min(want, gap < 2.6 ? 0 : o.speed + (gap - 2.6) * 0.6);
         }
-        c.speed += U.clamp(want - c.speed, -7 * dt, 2.4 * dt);
+        // the junction coming up: its lights, and what it'll do there
+        if (!c.turn && R) {
+          const nj = this.nextJunction(c);
+          if (nj) {
+            if (c.planJ !== nj.j) { c.planJ = nj.j; c.plan = this.planTurn(c, nj); }
+            const light = R.light(nj.j, l.axis), stopD = nj.d - DV.Roads.CW - DV.Roads.STOP;
+            if (light && light !== 'g' && stopD > -0.4) {
+              // red: stop at the line; amber: stop if it can do it without slamming the brakes
+              if (light === 'r' || stopD > (c.speed * c.speed) / 9) { want = Math.min(want, stopD < 0.3 ? 0 : Math.sqrt(2 * 3.2 * (stopD - 0.3))); held = stopD < 12; }
+            } else if (!light && nj.d < 14) want = Math.min(want, 6.5); // a dead junction: slow down and look
+            if (c.plan.turn !== 'straight' && nj.d < 26) want = Math.min(want, c.plan.turn === 'right' ? 5.5 : 7);
+            if (c.plan.turn !== 'straight' && nj.d <= 0.3 && !held) this.beginTurn(c, nj);
+          }
+        }
+        const was = c.speed;
+        c.speed += U.clamp(want - c.speed, -6 * dt, 2.2 * dt);
         if (c.speed < 0.05) c.speed = 0;
-        c.s += l.dir * c.speed * dt;
+        c.brake = c.speed < was - 0.4 * dt || (c.speed < 0.2 && want < 0.2);
+        if (c.turn) {
+          c.turn.u += c.speed * dt;
+          if (c.turn.u >= c.turn.len) { c.lane = c.turn.lane; c.s = c.turn.endS; c.turn = null; c.planJ = null; c.plan = null; }
+        } else c.s += l.dir * c.speed * dt;
         this.placeCar(c);
         // stood there in front of it? it'll let you know
         if (forPlayer && c.speed < 0.3) { c.stopped += dt; c.honk -= dt; if (c.stopped > 2.2 && c.honk <= 0) { DV.Audio.play('carhorn', { x: c.x, z: c.z, range: 60, big: c.kind === 'bus' }); c.honk = 5 + this.r() * 3; } }
@@ -474,12 +576,41 @@
           if (c.sound) c.sound.update(c.x, c.z, c.speed);
         }
       }
+      this.updateLamps();
+    }
+    // tail and brake lights, indicators before and through a turn, headlights after dark
+    updateLamps() {
+      const g = this.lamps.geometry, pos = g.attributes.position.array, col = g.attributes.color.array;
+      col.fill(0);
+      const night = DV.StreetKit.lampsLevel ? DV.StreetKit.lampsLevel() : 0;
+      const blink = Math.floor(performance.now() / 380) % 2 === 0;
+      this.lamps.visible = this.shown !== false;
+      this.cars.forEach((c, i) => {
+        if (i >= MAX_CARS) return;
+        const rx = -c.hz, rz = c.hx, L = c.v.length / 2 + 0.03, Wd = c.v.width / 2 - 0.22;
+        const side = c.turn ? c.turn.side : c.plan && c.plan.turn !== 'straight' && c.planJ && Math.hypot(c.planJ.x - c.x, c.planJ.z - c.z) < 34 ? c.plan.turn : null;
+        // [x across (+ right), along (+ front), height, colour]
+        const pts = [
+          [Wd, -L, 0.82, side === 'right' && blink ? [1, 0.55, 0.05] : c.brake ? [1, 0.08, 0.04] : [0.42 * night, 0.03 * night, 0.02 * night]],
+          [-Wd, -L, 0.82, side === 'left' && blink ? [1, 0.55, 0.05] : c.brake ? [1, 0.08, 0.04] : [0.42 * night, 0.03 * night, 0.02 * night]],
+          [Wd, L, 0.72, side === 'right' && blink ? [1, 0.55, 0.05] : [0.85 * night, 0.8 * night, 0.55 * night]],
+          [-Wd, L, 0.72, side === 'left' && blink ? [1, 0.55, 0.05] : [0.85 * night, 0.8 * night, 0.55 * night]],
+        ];
+        pts.forEach(([a, b, y, cc], k) => {
+          const o = (i * 6 + k) * 3;
+          pos[o] = c.x + rx * a + c.hx * b; pos[o + 1] = y; pos[o + 2] = c.z + rz * a + c.hz * b;
+          col[o] = cc[0]; col[o + 1] = cc[1]; col[o + 2] = cc[2];
+        });
+      });
+      g.attributes.position.needsUpdate = true;
+      g.attributes.color.needsUpdate = true;
     }
     // you can't walk through a car: push the player out of any that overlap
     pushPlayer() {
       const P = DV.Player, R = 0.32;
       for (const c of this.cars) {
-        const ex = (c.lane.axis === 'x' ? c.v.length : c.v.width) / 2 + R, ez = (c.lane.axis === 'x' ? c.v.width : c.v.length) / 2 + R;
+        const ax = Math.abs(c.hx), az = Math.abs(c.hz);
+        const ex = (ax * c.v.length + az * c.v.width) / 2 + R, ez = (az * c.v.length + ax * c.v.width) / 2 + R;
         const dx = P.x - c.x, dz = P.z - c.z;
         if (Math.abs(dx) >= ex || Math.abs(dz) >= ez) continue;
         const ox = ex - Math.abs(dx), oz = ez - Math.abs(dz);
@@ -499,6 +630,7 @@
       this.shown = v;
       for (const p of this.peds) p.model.root.visible = v;
       for (const c of this.cars) c.v.root.visible = v;
+      if (this.lamps) this.lamps.visible = v;
       if (this.kit) this.kit.hidden = !v;
     }
 
@@ -506,10 +638,12 @@
     update(dt) {
       if (!this.awake) this.wake();
       const P = DV.Player, px = P.x, pz = P.z;
+      if (this.zone.roads) this.zone.roads.update(dt);
       // (the dev menu can empty the streets: people and traffic, not the furniture)
       if (DV.Dev && DV.Dev.on() && DV.Dev.flags.noStreet) {
         for (const p of this.peds) p.model.root.visible = false;
         for (const c of this.cars) { c.v.root.visible = false; if (c.sound) { c.sound.stop(); c.sound = null; } }
+        if (this.lamps) this.lamps.visible = false;
         this.shown = null;
         return;
       }

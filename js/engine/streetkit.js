@@ -22,6 +22,9 @@
   const CHUNK = 96, BUILD_R = 210, SHOW_R = 240;
   const STEEL = [0.24, 0.24, 0.25], DARK = [0.13, 0.13, 0.14], CONC = [0.55, 0.54, 0.51], BARK = [0.3, 0.24, 0.18];
   const LEAF = [[0.32, 0.38, 0.22], [0.36, 0.4, 0.24], [0.4, 0.38, 0.22], [0.28, 0.33, 0.22]];
+  const SIG = [0.13, 0.15, 0.12]; // signal housings: the city's old dark green
+  const SIG_HEADS = [[0, 3.05], [-4.05, 4.12]]; // where the heads are on a signal pole ([x, y], local)
+  const PED_Y = 2.45;
   const HYDRANT = [0.72, 0.36, 0.12], BENCH = [0.42, 0.3, 0.2], BIN = [0.2, 0.27, 0.22], LAMP = [1.0, 0.95, 0.8];
 
   // how each sector dresses its streets (chances per slot)
@@ -103,6 +106,31 @@
         M.box(0, 3.4, z, 0.3, 0.9, 0.26, [0.08, 0.08, 0.08]);
         for (let k = 0; k < 3; k++) M.box(0.16, 3.1 + k * 0.28, z, 0.02, 0.18, 0.18, [0.1, 0.11, 0.1]);
       }
+    },
+    // a working signal at a corner (+z faces the traffic coming): the pole, a head on it, and a mast
+    // arm over the road (towards local −x) with a second head hanging from it
+    sig_pole(M) {
+      cylY(M, 0, 0, 0, 0.11, 0.09, 4.95, STEEL, 8);
+      M.box(0, 0.2, 0, 0.36, 0.4, 0.36, STEEL);
+      M.box(-2.45, 4.78, 0, 4.9, 0.1, 0.1, STEEL);
+      M.box(-0.55, 4.45, 0, 1.1, 0.06, 0.06, STEEL); // (the arm's brace)
+      for (const [hx, hy] of SIG_HEADS) {
+        M.box(hx, hy, -0.15, 0.56, 1.22, 0.03, [0.06, 0.06, 0.06]); // backplate
+        M.box(hx, hy, 0, 0.34, 1.0, 0.26, SIG); // housing
+        for (const dy of [0.31, 0, -0.31]) M.box(hx, hy + dy + 0.12, 0.19, 0.27, 0.03, 0.13, SIG); // visors
+        if (hx < 0) M.box(hx, hy + 0.58, 0, 0.06, 0.16, 0.06, STEEL); // hung from the arm
+      }
+    },
+    // a corner with no traffic coming at it (a one-way street): just the pole, for the walk signals
+    sig_post(M) {
+      cylY(M, 0, 0, 0, 0.1, 0.085, 3.4, STEEL, 8);
+      M.box(0, 0.2, 0, 0.34, 0.4, 0.34, STEEL);
+    },
+    // a walk signal (+z faces the people across the road it's for)
+    ped_head(M) {
+      M.box(0, PED_Y, 0.17, 0.34, 0.36, 0.2, SIG);
+      M.box(0, PED_Y + 0.2, 0.25, 0.3, 0.03, 0.1, SIG);
+      M.box(0, PED_Y, 0.06, 0.06, 0.06, 0.12, STEEL);
     },
     // knocked down: the stump of the pole, the rest of it lying in the gutter with its lamps
     signal_down(M) {
@@ -203,6 +231,29 @@
     return g;
   }
 
+  /* ---------------- the signals' lamps ---------------- */
+  // a lamp on a signal: where it is (world), which way it faces, what it's for
+  function lamp(cx, cz, rot, lx, ly, lz, axis, kind, size) {
+    const c = Math.cos(rot), s = Math.sin(rot);
+    return { x: cx + lx * c + lz * s, y: ly, z: cz - lx * s + lz * c, nx: s, nz: c, axis, kind, size, st: -1 };
+  }
+  const LAMP_COL = [[0.05, 0.05, 0.05], [1, 0.13, 0.07], [1, 0.62, 0.08], [0.25, 1, 0.55], [0.95, 0.96, 0.9], [1, 0.46, 0.1]];
+  // what a lamp shows: 0 off, 1 red, 2 amber, 3 green, 4 the white man, 5 the hand
+  function lampState(R, j, L) {
+    if (L.kind === 'ped') { const w = R.walk(j, L.axis); return w === 'walk' ? 4 : w === 'flash' ? (Math.floor(R.t * 2) % 2 ? 5 : 0) : 5; }
+    const l = R.light(j, L.axis);
+    return l === L.kind ? (l === 'r' ? 1 : l === 'a' ? 2 : 3) : 0;
+  }
+  let sigMats = null;
+  function sigMaterials() {
+    if (sigMats) return sigMats;
+    sigMats = {
+      face: new THREE.MeshBasicMaterial({ vertexColors: true, fog: true }),
+      halo: new THREE.PointsMaterial({ size: 0.9, map: glowTex(false), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: true, opacity: 0.4 }),
+    };
+    return sigMats;
+  }
+
   /* ---------------- placing everything (data only) ---------------- */
   class Kit {
     constructor(zone, city, opts) {
@@ -217,6 +268,8 @@
       const L = zone.openAir || zone.lighting.sample(zone.bx0 - 50, 1.3, zone.bz0 - 50, 0, 1, 0, null, true);
       this.mat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true, color: new THREE.Color(U.clamp(L[0] * 0.95, 0.3, 1.2), U.clamp(L[1] * 0.95, 0.3, 1.2), U.clamp(L[2] * 0.95, 0.3, 1.2)) });
       this.signMat = new THREE.MeshBasicMaterial({ map: signAtlas().tex, fog: true, color: this.mat.color.clone() });
+      this.roads = DV.Roads.build(city, (x, z, r) => this.blocked(x, z, r));
+      this.sigCorners = new Set();
       this.place();
     }
     hashRect(h, q, val) {
@@ -237,7 +290,7 @@
     chunk(x, z) {
       const i = Math.floor(x / CHUNK), j = Math.floor(z / CHUNK), k = i * 100003 + j;
       let c = this.chunks.get(k);
-      if (!c) this.chunks.set(k, (c = { i, j, cx: (i + 0.5) * CHUNK, cz: (j + 0.5) * CHUNK, items: [], blades: [], mesh: null, signs: null }));
+      if (!c) this.chunks.set(k, (c = { i, j, cx: (i + 0.5) * CHUNK, cz: (j + 0.5) * CHUNK, items: [], blades: [], paint: [], mesh: null, signs: null }));
       return c;
     }
     add(name, x, z, rot, opts) {
@@ -250,6 +303,8 @@
     place() {
       const CM = DV.CityMap, r = this.r;
       const skip = this.opts.skip || null; // the zone dresses its own street
+      this.placeSignals(skip);
+      this.placeMarkings(skip);
       for (const pd of this.city.walk.pads) {
         const [x0, z0, x1, z1] = pd.r;
         if (skip && x1 > skip[0] && x0 < skip[2] && z1 > skip[1] && z0 < skip[3]) continue;
@@ -267,9 +322,92 @@
         const nsW = nearestLine(CM.avenues, 'x', x0 - 6), nsE = nearestLine(CM.avenues, 'x', x1 + 6);
         if (pd.edge[0] && pd.edge[1] && ewN && nsW) this.cornerSign(x0 + 0.6, z0 + 0.6, ewN.name, nsW.name);
         if (pd.edge[2] && pd.edge[3] && ewS && nsE) this.cornerSign(x1 - 0.6, z1 - 0.6, ewS.name, nsE.name);
-        if (pd.edge[2] && pd.edge[1] && r() < dz.signal) this.add(dz.broken && r() < dz.broken ? 'signal_down' : 'signal', x1 - 0.6, z0 + 0.6, -Math.PI / 2, { r: 0.2 });
+        if (pd.edge[2] && pd.edge[1] && r() < dz.signal && !this.sigCorner(x1 - 0.6, z0 + 0.6)) this.add(dz.broken && r() < dz.broken ? 'signal_down' : 'signal', x1 - 0.6, z0 + 0.6, -Math.PI / 2, { r: 0.2 });
       }
     }
+    /* ---------------- signals and road markings ---------------- */
+    sigCorner(x, z) { return this.sigCorners.has(Math.round(x) + ':' + Math.round(z)); }
+    // every working junction: a pole on each corner. The traffic's signal is on the far right corner
+    // as it comes (with a second head on the arm over its lane); walk signals face across each road
+    placeSignals(skip) {
+      const R = this.roads;
+      for (const j of R.junctions) {
+        if (!j.signal) continue;
+        const [x0, z0, x1, z1] = j.box, o = 0.6;
+        if (skip && x1 + o > skip[0] && x0 - o < skip[2] && z1 + o > skip[1] && z0 - o < skip[3]) { j.signal = false; continue; }
+        j.lamps = [];
+        // [heading of the traffic it's for, the corner]
+        for (const [hx, hz, cx, cz] of [[1, 0, x1 + o, z1 + o], [-1, 0, x0 - o, z0 - o], [0, 1, x0 - o, z1 + o], [0, -1, x1 + o, z0 - o]]) {
+          const line = hx ? j.st : j.av, axis = hx ? 'x' : 'z';
+          const comes = !line.oneWay || line.oneWay === (hx || hz);
+          const rot = Math.atan2(-hx, -hz);
+          this.chunk(cx, cz).items.push({ name: comes ? 'sig_pole' : 'sig_post', x: cx, z: cz, rot, v: 0, sig: true });
+          this.sigCorners.add(Math.round(cx) + ':' + Math.round(cz));
+          if (comes) for (const [lx, ly] of SIG_HEADS) for (const [dy, kind] of [[0.31, 'r'], [0, 'a'], [-0.31, 'g']]) j.lamps.push(lamp(cx, cz, rot, lx, ly + dy, 0.135, axis, kind, 0.1));
+          // walk signals on this corner, one facing across each road
+          const sx = Math.sign(cx - j.x), sz = Math.sign(cz - j.z);
+          for (const [fx, fz, ax] of [[-sx, 0, 'x'], [0, -sz, 'z']]) {
+            const pr = Math.atan2(fx, fz);
+            this.chunk(cx, cz).items.push({ name: 'ped_head', x: cx, z: cz, rot: pr, v: 0, sig: true });
+            j.lamps.push(lamp(cx, cz, pr, 0, PED_Y, 0.275, ax, 'ped', 0.13));
+          }
+        }
+      }
+    }
+    // paint: continental crossings on every arm of every junction, stop lines, the double yellow
+    // down two-way streets and the parking lanes' lines; worn where nobody repaints it
+    placeMarkings(skip) {
+      const CM = DV.CityMap, R = this.roads, CW = DV.Roads.CW, STOP = DV.Roads.STOP;
+      const WHITE = [0.6, 0.6, 0.57], YELLOW = [0.62, 0.47, 0.14];
+      const WEAR = { factionless: 0.7, dauntless: 0.4, abnegation: 0.16, testing: 0.14, downtown: 0.05, erudite: 0.03, candor: 0.07 };
+      const r = U.rng(31);
+      const paint = (x0, z0, x1, z1, col, wear) => {
+        if (skip && x1 > skip[0] && x0 < skip[2] && z1 > skip[1] && z0 < skip[3]) return;
+        if (r() < wear * 0.55) return; // worn away
+        const k = 1 - wear * (0.25 + r() * 0.5);
+        this.chunk((x0 + x1) / 2, (z0 + z1) / 2).paint.push([x0, z0, x1, z1, col[0] * k, col[1] * k, col[2] * k]);
+      };
+      // a long line, in pieces (so it wears in patches, and each piece lands in the chunk it's in)
+      const run = (rect, s0, s1, t0, t1, col, wear, dash, gap) => {
+        for (let s = s0; s < s1 - 0.2; s += dash + (gap || 0)) rect(s, Math.min(s1, s + dash), t0, t1, col, wear);
+      };
+      for (const line of CM.avenues.concat(CM.streets)) {
+        const js = R.along(line);
+        if (!js.length) continue;
+        const along = line.x !== undefined ? 'z' : 'x'; // (an avenue runs along z)
+        const [k0, k1] = CM.road(line), cc = (k0 + k1) / 2, w = k1 - k0;
+        const rect = (s0, s1, t0, t1, col, wear) => (along === 'x' ? paint(s0, t0, s1, t1, col, wear) : paint(t0, s0, t1, s1, col, wear));
+        const span = (j) => (along === 'x' ? [j.box[0], j.box[2]] : [j.box[1], j.box[3]]);
+        const wearAt = (j) => (WEAR[j.district] !== undefined ? WEAR[j.district] : 0.15);
+        // which side of the road each direction's traffic keeps to (keep right)
+        const side = (dir) => (line.oneWay ? [k0 + 0.25, k1 - 0.25] : (along === 'x') === (dir > 0) ? [cc + 0.1, k1 - 0.25] : [k0 + 0.25, cc - 0.1]);
+        for (const j of js) {
+          const [a, b] = span(j), wear = wearAt(j);
+          // the crossings either side of the junction: bars along the traffic, across the road
+          if (j.signal || j.district !== 'factionless') for (const [c0, c1] of [[a - CW, a], [b, b + CW]]) for (let t = k0 + 0.5; t + 0.5 <= k1 - 0.35; t += 1.05) rect(c0 + 0.15, c1 - 0.15, t, t + 0.55, WHITE, wear);
+        }
+        for (let i = 0; i + 1 < js.length; i++) {
+          const A = js[i], Bj = js[i + 1], wear = Math.max(wearAt(A), wearAt(Bj));
+          const s0 = span(A)[1] + CW, s1 = span(Bj)[0] - CW;
+          if (s1 - s0 < 10 || s1 - s0 > 150) continue;
+          // stop lines: where each direction's traffic comes up to a junction
+          for (const dir of line.oneWay ? [line.oneWay] : [1, -1]) {
+            const [t0, t1] = side(dir);
+            if (dir > 0) rect(s1 - STOP - 0.45, s1 - STOP, t0, t1, WHITE, wear * 0.6);
+            else rect(s0 + STOP, s0 + STOP + 0.45, t0, t1, WHITE, wear * 0.6);
+          }
+          const m0 = s0 + STOP + 1.2, m1 = s1 - STOP - 1.2;
+          if (!line.oneWay) {
+            // the double yellow
+            run(rect, m0, m1, cc - 0.21, cc - 0.09, YELLOW, wear, 12);
+            run(rect, m0, m1, cc + 0.09, cc + 0.21, YELLOW, wear, 12);
+          }
+          // the parking lanes' lines (dashed)
+          if (w >= 11) { run(rect, m0 + 2, m1, k0 + 2.25, k0 + 2.37, WHITE, wear, 2.8, 5.2); run(rect, m0 + 2, m1, k1 - 2.37, k1 - 2.25, WHITE, wear, 2.8, 5.2); }
+        }
+      }
+    }
+
     // along one kerb: lamps, trees, a hydrant, benches and bins, parked cars in the road beside it
     dressKerb(sd, dz, pd) {
       const r = this.r, len = sd.b - sd.a;
@@ -327,7 +465,8 @@
       }
     }
     cornerSign(x, z, ew, ns) {
-      if (!this.add('signpost', x, z, 0, { r: 0.1 })) return;
+      // (a working signal's pole on this corner carries the names instead)
+      if (!this.sigCorner(x, z) && !this.add('signpost', x, z, 0, { r: 0.1 })) return;
       const c = this.chunk(x, z);
       c.blades.push({ x, z, y: 2.95, along: 'x', name: ew }, { x, z, y: 2.72, along: 'z', name: ns });
     }
@@ -336,6 +475,8 @@
     buildChunk(c) {
       const M = new DV.Vehicles.MB();
       const zone = this.zone;
+      // the road paint, a hair above the asphalt (in the same mesh: no extra draw call)
+      for (const q of c.paint) M.flat(q[0], q[1], q[2], q[3], 0.022, [q[4], q[5], q[6]]);
       for (const it of c.items) {
         M.push(it.x, 0, it.z, it.rot);
         if (it.car) M.merge(DV.Vehicles.model(it.car.kind, { seed: it.car.seed, wreck: it.car.wreck }).geo);
@@ -347,7 +488,7 @@
           const hx = (it.car.w * cc + it.car.l * ss) / 2, hz = (it.car.w * ss + it.car.l * cc) / 2;
           zone.colliders.add(it.x - hx, it.z - hz, it.x + hx, it.z + hz, { y1: 1.5, tag: 'vehicle' });
         } else {
-          const rad = { lamp: 0.12, lamp_dead: 0.12, signal: 0.1, tree: 0.18, tree_bare: 0.17, stump: 0.2, hydrant: 0.18, bin: 0.28, signpost: 0.06, busstop: 0.06, bench: 0, news: 0.5, signal_down: 0 }[it.name];
+          const rad = { lamp: 0.12, lamp_dead: 0.12, signal: 0.1, sig_pole: 0.13, sig_post: 0.12, tree: 0.18, tree_bare: 0.17, stump: 0.2, hydrant: 0.18, bin: 0.28, signpost: 0.06, busstop: 0.06, bench: 0, news: 0.5, signal_down: 0 }[it.name];
           if (rad) zone.colliders.add(it.x - rad, it.z - rad, it.x + rad, it.z + rad, { y1: it.name === 'hydrant' || it.name === 'stump' ? 0.7 : 3, tag: 'city', camera: false });
           if (it.name === 'bench') zone.colliders.addRotated(it.x, it.z, 0.9, 0.25, it.rot, { y1: 0.5, tag: 'city', camera: false });
         }
@@ -407,6 +548,53 @@
         if (c.glow) c.glow.visible = vis && !!glowMats && glowMats.on > 0;
       }
       if (want) this.buildChunk(want);
+      this.updateSignals(px, pz);
+    }
+    // the signals' lamps near you: one mesh (and a halo each), rebuilt as you move on, recoloured
+    // only when a lamp changes
+    buildSignals(px, pz) {
+      const S = this.sig;
+      if (S) { this.zone.group.remove(S.mesh, S.halo); S.mesh.geometry.dispose(); S.halo.geometry.dispose(); }
+      const lamps = [];
+      for (const j of this.roads.junctions) if (j.signal && j.lamps && Math.hypot(j.x - px, j.z - pz) < 230) for (const L of j.lamps) { L.j = j; L.st = -1; lamps.push(L); }
+      const pos = new Float32Array(lamps.length * 18), hp = new Float32Array(lamps.length * 3);
+      lamps.forEach((L, i) => {
+        const rx = L.nz, rz = -L.nx, s = L.size, o = i * 18;
+        const P = (a, b) => [L.x + rx * a + L.nx * 0.01, L.y + b, L.z + rz * a + L.nz * 0.01];
+        const v = [P(-s, -s), P(s, -s), P(s, s), P(-s, -s), P(s, s), P(-s, s)];
+        for (let k = 0; k < 6; k++) pos.set(v[k], o + k * 3);
+        hp.set([L.x + L.nx * 0.08, L.y, L.z + L.nz * 0.08], i * 3);
+      });
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(lamps.length * 18), 3));
+      const hg = new THREE.BufferGeometry();
+      hg.setAttribute('position', new THREE.BufferAttribute(hp, 3));
+      hg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(lamps.length * 3), 3));
+      const M = sigMaterials();
+      const mesh = new THREE.Mesh(g, M.face), halo = new THREE.Points(hg, M.halo);
+      mesh.name = 'signal_lamps'; halo.name = 'signal_halos'; halo.renderOrder = 3;
+      this.zone.group.add(mesh, halo);
+      this.sig = { cx: px, cz: pz, lamps, mesh, halo };
+    }
+    updateSignals(px, pz) {
+      if (!this.sig || Math.hypot(px - this.sig.cx, pz - this.sig.cz) > 70) this.buildSignals(px, pz);
+      const S = this.sig, R = this.roads;
+      S.mesh.visible = S.halo.visible = !this.hidden;
+      if (this.hidden || !S.lamps.length) return;
+      const col = S.mesh.geometry.attributes.color, hc = S.halo.geometry.attributes.color;
+      let changed = false;
+      for (let i = 0; i < S.lamps.length; i++) {
+        const L = S.lamps[i], st = lampState(R, L.j, L);
+        if (st === L.st) continue;
+        L.st = st; changed = true;
+        const c = LAMP_COL[st];
+        for (let k = 0; k < 6; k++) col.array.set(c, i * 18 + k * 3);
+        hc.array.set(st ? c : [0, 0, 0], i * 3);
+      }
+      if (changed) { col.needsUpdate = true; hc.needsUpdate = true; }
+      // brighter halos after dark
+      sigMaterials().halo.opacity = 0.35 + 0.55 * (glowMats ? glowMats.on : 0);
     }
     // build everything within reach now (on arrival, so nothing pops in where you stand)
     warm(px, pz) {
@@ -421,6 +609,7 @@
       }
       this.mat.dispose();
       this.signMat.dispose();
+      if (this.sig) { this.sig.mesh.geometry.dispose(); this.sig.halo.geometry.dispose(); }
     }
   }
   function nearestLine(lines, key, v) {
@@ -433,6 +622,7 @@
     attach(zone, city, opts) {
       const kit = new Kit(zone, city, opts);
       zone.streetKit = kit;
+      zone.roads = kit.roads;
       return kit;
     },
     // halos and pools for lamps a zone placed itself (heads: [[x, y, z], …])
@@ -441,6 +631,9 @@
       zone.group.add(g);
       return g;
     },
+    glowTexture() { return glowTex(false); },
+    // how far on the lamps are (0 by day … 1 at night)
+    lampsLevel() { return glowMats ? glowMats.on : 0; },
     // 0 (day) … 1 (night): every lamp in the zone, all at once
     lampsOn(k, zone) {
       const M = mats();
