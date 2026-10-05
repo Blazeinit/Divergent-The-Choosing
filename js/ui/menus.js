@@ -11,17 +11,47 @@
     /* ------------------------------ main menu ------------------------------ */
     showMain() {
       this.hideAll();
-      const m = el('div', null, null, DV.UI.root);
+      const m = el('div', 'y2k', null, DV.UI.root);
       m.id = 'mainmenu';
-      m.innerHTML = '<div class="title">DIVERGENT</div><div class="subtitle">The City</div><div class="sigils"></div><div class="items"></div><div class="foot"></div>';
+      // (the highlights reel plays behind all of this: js/ui/menuReel.js)
+      m.innerHTML =
+        '<div class="reel-wipe"><div class="band"></div><div class="band"></div><div class="band"></div><div class="band"></div><div class="band"></div><div class="band"></div>' +
+        '<div class="flash"></div><div class="loading">LOADING <span>&#9646;&#9646;&#9646;</span></div></div>' +
+        '<div class="scan"></div><div class="frame"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i></div>' +
+        '<div class="mm-left"><div class="logo"><div class="title" data-text="DIVERGENT">DIVERGENT</div>' +
+        '<div class="subtitle"><span class="pill">BUILD 4</span><span class="sub">The City</span></div></div><div class="items"></div></div>' +
+        '<div class="feed"><span class="live">&#9679; LIVE</span> FACTION FEED <b class="feed-n">01 / 06</b></div>' +
+        '<div class="reel-cap"><div class="cap-orb"><canvas width="64" height="64"></canvas></div><div class="cap-body">' +
+        '<div class="cap-head"><span class="cap-name"></span><span class="cap-virtue"></span></div><div class="cap-line"></div>' +
+        '<div class="cap-meta"><span class="cap-time"></span><span class="cap-place"></span></div></div></div>' +
+        '<div class="mm-bottom"><div class="sigils"></div><div class="reel-dots"></div></div>' +
+        '<div class="ticker"><div class="foot"></div><div class="tk-win"><div class="tk"></div></div></div>';
+      // the sigils: an orb for the city and one for each faction; each cuts the reel to its highlight
       const sig = m.querySelector('.sigils');
-      for (const f of DV.Factions.testable) {
+      const orb = (f, title) => {
+        const o = el('div', 'orb', null, sig);
+        o.dataset.f = f || '';
+        o.title = title;
         const c = document.createElement('canvas');
         c.width = c.height = 84;
-        DV.Tex.drawEmblem(c.getContext('2d'), f, 84, f === 'candor' ? '#e8e6e0' : DV.Factions.get(f).accent);
-        c.title = DV.Factions.name(f) + ' — ' + DV.Factions.get(f).virtue;
-        sig.appendChild(c);
-      }
+        const g = c.getContext('2d');
+        if (f) DV.Tex.drawEmblem(g, f, 84, f === 'candor' ? '#f2f0ea' : DV.Factions.get(f).accent);
+        else { g.fillStyle = '#e6eef6'; g.font = 'bold 56px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('\u2726', 42, 46); }
+        o.appendChild(c);
+        if (f) o.style.setProperty('--fc', DV.Factions.get(f).accent);
+        o.onmouseenter = () => DV.Audio.play('hover');
+        o.onclick = () => { DV.Audio.init(); DV.Audio.play('click'); if (DV.Reel) DV.Reel.jump(f || 'city'); };
+      };
+      orb(null, 'The City');
+      for (const f of DV.Factions.testable) orb(f, DV.Factions.name(f) + ' \u2014 ' + DV.Factions.get(f).virtue);
+      const dots = m.querySelector('.reel-dots');
+      (DV.Reel ? DV.Reel.SEGMENTS : []).forEach((S) => {
+        const d = el('span', 'dot', '<i></i>', dots);
+        d.title = S.faction ? DV.Factions.name(S.faction) : S.name;
+        d.onclick = () => { DV.Audio.init(); DV.Audio.play('click'); DV.Reel.jump(S.id); };
+      });
+      const motto = 'FACTION BEFORE BLOOD \u2726 ' + DV.Factions.testable.map((f) => DV.Factions.name(f).toUpperCase() + ' \u00b7 ' + String(DV.Factions.get(f).virtue).toUpperCase()).join(' \u2726 ') + ' \u2726 ';
+      m.querySelector('.tk').textContent = motto + motto;
       const latest = DV.Save.latest();
       const items = [
         ['New Game', () => DV.Game.newGame()],
@@ -36,10 +66,12 @@
         it.onmouseenter = () => DV.Audio.play('hover');
         it.onclick = () => { DV.Audio.init(); DV.Audio.play('click'); fn(); };
       }
-      m.querySelector('.foot').textContent = DV.Config.VERSION + '  ·  A private, non-commercial fan prototype set in the Divergent universe' + (DV.Save.available() ? '' : '  ·  WARNING: browser storage unavailable — saving disabled');
+      m.querySelector('.foot').textContent = DV.Config.VERSION + '  \u00b7  A private, non-commercial fan prototype set in the Divergent universe' + (DV.Save.available() ? '' : '  \u00b7  WARNING: browser storage unavailable \u2014 saving disabled');
       this.main = m;
     },
     hideMain() {
+      if (DV.Reel) DV.Reel.stop(false);
+      if (DV.MenuTheme) DV.MenuTheme.stop();
       if (this.main) { this.main.remove(); this.main = null; }
     },
 
@@ -144,6 +176,7 @@
       el('div', 'h', 'Audio', body);
       range('Master volume', 'masterVolume', 0, 1, 0.05);
       range('Music volume', 'musicVolume', 0, 1, 0.05);
+      toggle('Main menu theme song (streams from YouTube)', 'menuTheme');
       range('Effects & ambience', 'sfxVolume', 0, 1, 0.05);
       toggle('Spoken PA announcements (speech synthesis)', 'paVoice');
       toggle('Room reverb', 'reverb');
@@ -181,7 +214,7 @@
         '<div class="sep"></div>' +
         '<p><span class="accent">Design, code, writing & procedural art</span><br>Built with HTML, CSS, JavaScript and Three.js (r149, MIT License).</p>' +
         '<p><span class="accent">Inspirations</span><br>The Elder Scrolls III: Morrowind · early MMORPG world design · Dreamcast & PS2-era environments · PS1 character art.</p>' +
-        '<p><span class="accent">Technology notes</span><br>Every texture, character, sound and piece of music is generated procedurally at runtime — no external assets are required to play.</p>' +
+        '<p><span class="accent">Technology notes</span><br>Every texture, character, sound and piece of music is generated procedurally at runtime — no external assets are required to play. The one exception is the main menu\'s theme song, which streams from YouTube in YouTube\'s own player when you\'re online (it isn\'t part of the game; with no connection the menu plays its own music).</p>' +
         '<div class="sep"></div><p class="dim">Faction before blood.</p></div>';
     },
 

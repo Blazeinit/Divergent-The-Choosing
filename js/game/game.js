@@ -135,6 +135,9 @@
         }
       }
       for (const m of this.menuFigures) this.scene.add(m.root);
+      // the factions' highlights play behind the menu, to its theme song
+      DV.Reel.start();
+      DV.MenuTheme.start();
     },
     hideMenuFigures() {
       if (this.menuFigures) for (const m of this.menuFigures) this.scene.remove(m.root);
@@ -143,6 +146,7 @@
     newGame() {
       DV.State.reset();
       DV.Menus.hideMain();
+      DV.Reel.stop(true); // (the creator is on the rooftop)
       this.hideMenuFigures();
       this.state = 'creator';
       DV.Creator.open();
@@ -368,6 +372,9 @@
       const input = DV.Input;
       switch (this.state) {
         case 'mainmenu':
+          if (DV.Reel.running) DV.Reel.update(dt);
+          else this.updateMenuCamera(dt);
+          return;
         case 'creator':
           this.updateMenuCamera(dt);
           return;

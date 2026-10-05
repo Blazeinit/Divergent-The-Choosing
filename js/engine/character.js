@@ -34,6 +34,55 @@
     heavy: { sw: 1.1, tw: 1.3, td: 1.32, limb: 1.2, hip: 1.22, belly: true },
   };
 
+  /* ----------------------------- free-running ----------------------------- */
+  // Key poses for parkour: { bone: [x, y, z] }, hy (hips raised or lowered, metres). Bones not
+  // named are straight. (x: legs and arms forward/up are negative; knees and the spine bend
+  // positive. z: out to the side is + on the left, − on the right.)
+  const PK_POSES = {
+    // pushing off the right foot, the left knee driving, the arms swinging up
+    takeoff: { uLegL: [-1.4, 0, 0.04], lLegL: [1.3, 0, 0], uLegR: [0.45, 0, -0.04], lLegR: [0.25, 0, 0], footR: [0.5, 0, 0], uArmL: [-1.9, 0, 0.25], uArmR: [-1.6, 0, -0.25], lArmL: [-0.6, 0, 0], lArmR: [-0.6, 0, 0], spine: [0.25, 0, 0], head: [-0.1, 0, 0] },
+    // running through the air: a long stride, the arms up and out for balance
+    stride: { uLegL: [-1.15, 0, 0.05], lLegL: [0.35, 0, 0], uLegR: [0.45, 0, -0.05], lLegR: [1.5, 0, 0], uArmL: [-2.3, 0, 0.55], uArmR: [-2.1, 0, -0.55], lArmL: [-0.3, 0, 0], lArmR: [-0.3, 0, 0], spine: [0.1, 0, 0], head: [-0.15, 0, 0] },
+    // both feet reaching for the landing
+    reach: { uLegL: [-1.25, 0, 0.08], lLegL: [0.7, 0, 0], uLegR: [-1.05, 0, -0.08], lLegR: [0.9, 0, 0], uArmL: [-1.5, 0, 0.35], uArmR: [-1.5, 0, -0.35], lArmL: [-0.4, 0, 0], lArmR: [-0.4, 0, 0], spine: [0.35, 0, 0], head: [0.15, 0, 0] },
+    // stepping off a height: legs together, arms high
+    drop: { uLegL: [-0.45, 0, 0.08], uLegR: [-0.3, 0, -0.08], lLegL: [0.55, 0, 0], lLegR: [0.45, 0, 0], uArmL: [-2.4, 0, 0.75], uArmR: [-2.4, 0, -0.75], lArmL: [-0.3, 0, 0], lArmR: [-0.3, 0, 0], spine: [0.05, 0, 0], head: [0.35, 0, 0] },
+    // soaking up a landing: deep in the knees, hands forward
+    squat: { hy: -0.45, uLegL: [-1.45, 0, 0.12], uLegR: [-1.45, 0, -0.12], lLegL: [2.0, 0, 0], lLegR: [2.0, 0, 0], footL: [-0.5, 0, 0], footR: [-0.5, 0, 0], uArmL: [-1.2, 0, 0.35], uArmR: [-1.2, 0, -0.35], lArmL: [-0.5, 0, 0], lArmR: [-0.5, 0, 0], spine: [0.55, 0, 0], head: [-0.3, 0, 0] },
+    // coming up out of it into the run
+    rise: { hy: -0.15, uLegL: [-0.8, 0, 0.05], uLegR: [-0.3, 0, -0.05], lLegL: [1.1, 0, 0], lLegR: [0.7, 0, 0], uArmL: [-0.6, 0, 0.15], uArmR: [0.3, 0, -0.15], lArmL: [-1.2, 0, 0], lArmR: [-1.2, 0, 0], spine: [0.35, 0, 0] },
+    // balled up for a roll or a flip
+    tuck: { hy: -0.6, uLegL: [-2.2, 0, 0.12], uLegR: [-2.2, 0, -0.12], lLegL: [2.4, 0, 0], lLegR: [2.4, 0, 0], footL: [-0.4, 0, 0], footR: [-0.4, 0, 0], uArmL: [-1.1, 0, 0.3], uArmR: [-1.1, 0, -0.3], lArmL: [-1.5, 0, 0], lArmR: [-1.5, 0, 0], spine: [0.9, 0, 0], chest: [0.25, 0, 0], head: [0.7, 0, 0] },
+    // a kong vault: diving at the obstacle, arms out for it…
+    dive: { uLegL: [0.35, 0, 0.06], uLegR: [0.5, 0, -0.06], lLegL: [0.6, 0, 0], lLegR: [0.4, 0, 0], uArmL: [-2.6, 0, 0.2], uArmR: [-2.6, 0, -0.2], lArmL: [-0.1, 0, 0], lArmR: [-0.1, 0, 0], spine: [0.75, 0, 0], head: [-0.6, 0, 0] },
+    // …then pushing off it and pulling the knees through
+    push: { uLegL: [-1.9, 0, 0.15], uLegR: [-1.9, 0, -0.15], lLegL: [2.0, 0, 0], lLegR: [2.0, 0, 0], uArmL: [-0.5, 0, 0.25], uArmR: [-0.5, 0, -0.25], lArmL: [-0.2, 0, 0], lArmR: [-0.2, 0, 0], spine: [0.5, 0, 0], head: [-0.3, 0, 0] },
+    // a speed vault: the left hand planted, the legs swung over to the right
+    sidevault: { uLegL: [-1.35, 0, -0.55], uLegR: [-1.15, 0, -0.75], lLegL: [0.7, 0, 0], lLegR: [1.0, 0, 0], uArmL: [-0.75, 0, 0.1], lArmL: [-0.05, 0, 0], uArmR: [-1.3, 0, -1.05], lArmR: [-0.4, 0, 0], spine: [0.25, 0, -0.32], head: [0.1, 0.3, 0] },
+    // up a wall: a foot on it, both arms up for the ledge
+    reachup: { uLegL: [-1.55, 0, 0.05], lLegL: [1.5, 0, 0], uLegR: [0.25, 0, -0.05], lLegR: [0.4, 0, 0], uArmL: [-2.95, 0, 0.15], uArmR: [-2.95, 0, -0.15], lArmL: [-0.15, 0, 0], lArmR: [-0.15, 0, 0], spine: [-0.12, 0, 0], head: [-0.45, 0, 0] },
+    // hanging off it, pulling up
+    hang: { uLegL: [-0.5, 0, 0.05], lLegL: [1.0, 0, 0], uLegR: [-0.2, 0, -0.05], lLegR: [0.6, 0, 0], uArmL: [-2.5, 0, 0.25], uArmR: [-2.5, 0, -0.25], lArmL: [-1.6, 0, 0], lArmR: [-1.6, 0, 0], spine: [0.1, 0, 0], head: [-0.2, 0, 0] },
+    // pressing up over the top, a knee onto it
+    mantle: { uLegL: [-2.0, 0, 0.1], lLegL: [2.2, 0, 0], uLegR: [0.15, 0, -0.05], lLegR: [0.6, 0, 0], uArmL: [-0.25, 0, 0.3], uArmR: [-0.25, 0, -0.3], lArmL: [-0.1, 0, 0], lArmR: [-0.1, 0, 0], spine: [0.75, 0, 0], head: [0.1, 0, 0] },
+  };
+  // each move: [t, pose, { sp: the whole body turned over (radians, forwards), pv: about a point
+  // this high off the feet }] keys, t running 0 → 1. The bones ease between keys; the turn is
+  // even (a roll mustn't stall half way over).
+  const TAU = Math.PI * 2;
+  const PK_MOVES = {
+    leap: [[0, 'takeoff'], [0.22, 'stride'], [0.68, 'stride'], [1, 'reach']],
+    drop: [[0, 'takeoff'], [0.25, 'drop'], [0.75, 'drop'], [1, 'reach']],
+    land: [[0, 'squat'], [0.4, 'squat'], [1, 'rise']],
+    roll: [[0, 'squat', { sp: 0, pv: 0.45 }], [0.12, 'tuck', { sp: 0, pv: 0.45 }], [0.8, 'tuck', { sp: TAU, pv: 0.45 }], [1, 'rise', { sp: TAU, pv: 0.45 }]],
+    vault: [[0, 'takeoff'], [0.3, 'sidevault'], [0.65, 'sidevault'], [1, 'reach']],
+    kong: [[0, 'takeoff', { sp: 0, pv: 0.9 }], [0.3, 'dive', { sp: 0.55, pv: 0.9 }], [0.55, 'push', { sp: 0.3, pv: 0.9 }], [0.82, 'reach', { sp: 0, pv: 0.9 }], [1, 'reach', { sp: 0, pv: 0.9 }]],
+    climb: [[0, 'takeoff'], [0.18, 'reachup'], [0.3, 'hang'], [0.55, 'hang'], [0.78, 'mantle'], [1, 'rise']],
+    flip: [[0, 'takeoff', { sp: 0, pv: 0.45 }], [0.18, 'tuck', { sp: 0.35, pv: 0.45 }], [0.78, 'tuck', { sp: TAU - 0.3, pv: 0.45 }], [1, 'reach', { sp: TAU, pv: 0.45 }]],
+  };
+  const PK_BONES = ['hips', 'spine', 'chest', 'neck', 'head', 'uArmL', 'lArmL', 'handL', 'uArmR', 'lArmR', 'handR', 'uLegL', 'lLegL', 'footL', 'uLegR', 'lLegR', 'footR'];
+  const ZERO3 = [0, 0, 0];
+
   /* ----------------------------- face textures ----------------------------- */
   const faceCache = {};
   function shade(hex, f) {
@@ -765,11 +814,16 @@
         const cyc = (it * 1.6 + this.seedPhase()) % 3, fr = cyc % 1;
         s = Object.assign({}, s, { fight: { move: cyc < 1 ? 'jab' : cyc < 2 ? 'cross' : 'stance', ext: cyc < 2 ? Math.sin(Math.PI * fr) : 0 } });
       }
-      if (s.fight && act !== 'lie') {
+      let pkSpin = 0, pkPivot = 0.5;
+      if (s.pk) {
+        // free-running: the move drives the whole body (see parkourPose)
+        const r = this.parkourPose(s.pk, set);
+        hipY = r.hipY; pkSpin = r.spin; pkPivot = r.pivot;
+      } else if (s.fight && act !== 'lie') {
         // hand to hand: a guard, footwork, and whatever move the fight system is driving
         const r = this.fightPose(dt, s, set, add);
         hipY = r.hipY;
-      } else if (speed > 0.05 && (act === 'idle' || act === 'walk' || act === 'run' || act === 'talk' || act === 'sneak')) {
+      } else if (speed > 0.05 && (act === 'idle' || act === 'walk' || act === 'run' || act === 'talk' || act === 'sneak' || act === 'carry' || act === 'read')) {
         const run = U.clamp((speed - 2.6) / 2.0, 0, 1);
         const rate = U.lerp(4.6, 3.0, run);
         this.phase += speed * rate * dt;
@@ -792,6 +846,17 @@
         set('hips', 0, sn * 0.08, 0);
         hipY = -Math.abs(cs) * U.lerp(0.025, 0.05, run) + 0.01;
         set('head', -U.lerp(0.02, 0.12, run), 0, 0);
+        if (act === 'carry') {
+          // a crate held in both arms in front, leaning back against the weight
+          set('uArmL', -0.55, 0, 0.12); set('uArmR', -0.55, 0, -0.12);
+          set('lArmL', -1.25, 0, 0); set('lArmR', -1.25, 0, 0);
+          set('spine', -0.04, sn * 0.04, 0);
+        } else if (act === 'read') {
+          // walking with your nose in a book
+          set('uArmL', -0.5, 0, 0.12); set('lArmL', -1.2, -0.4, 0);
+          set('uArmR', -0.3, 0, -0.1); set('lArmR', -1.0, 0.3, 0);
+          set('head', 0.3, 0, 0);
+        }
         if (act === 'sneak') {
           // crouch-walk: knees bent, hips low, leaning in, arms tucked forward
           hipY -= 0.3 * this.scaleY();
@@ -815,7 +880,7 @@
         set('spine', 0, 0, -Math.sin(it * 0.35) * 0.025);
         set('uLegL', 0, 0, 0.02);
         set('uLegR', 0, 0, -0.02);
-        if (act === 'sit' || act === 'work' || act === 'recline' || act === 'sit_clap' || act === 'sit_cheer' || act === 'sit_touch' || act === 'sit_fold' || act === 'sit_slump') {
+        if (act === 'sit' || act === 'work' || act === 'recline' || act === 'sit_clap' || act === 'sit_cheer' || act === 'sit_touch' || act === 'sit_fold' || act === 'sit_slump' || act === 'sit_strum') {
           const sy = s.seatY || 0.45;
           hipY = sy + 0.08 - 0.95 * this.scaleY();
           hipZ = -0.06;
@@ -857,6 +922,8 @@
             set('lArmL', -0.3, 0, 0); set('lArmR', -0.3, 0, 0);
             set('spine', 0.22 + Math.sin(it * 0.9) * 0.05, 0, Math.sin(it * 0.6) * 0.06);
             set('head', 0.35 + Math.sin(it * 0.7) * 0.08, 0, Math.sin(it * 0.5) * 0.1);
+          } else if (act === 'sit_strum') {
+            this.strumArms(set, it);
           } else if (act === 'sit_cheer') {
             const k = Math.max(0, Math.sin(it * 7 + this.seedPhase())) * 0.4;
             set('uArmL', -2.7 + k, 0, 0.35); set('uArmR', -2.7 + k, 0, -0.35);
@@ -952,7 +1019,7 @@
           set('uArmR', -2.6, 0, -0.3); set('lArmR', -0.4 + Math.sin(it * 8) * 0.4, 0, 0);
         } else if (act === 'point') {
           set('uArmR', -1.5, 0, -0.1); set('lArmR', -0.1, 0, 0);
-        } else if (act === 'mop' || act === 'garden') {
+        } else if (act === 'mop' || act === 'garden' || act === 'sweep') {
           set('spine', 0.35 + Math.sin(it * 2) * 0.1, 0, 0);
           set('uArmL', -0.8 + Math.sin(it * 2) * 0.3, 0, 0.1); set('uArmR', -0.9 + Math.sin(it * 2) * 0.3, 0, -0.1);
           set('lArmL', -0.5, 0, 0); set('lArmR', -0.5, 0, 0);
@@ -973,6 +1040,59 @@
           set('uArmL', -1.1 + fwd * 0.5, 0, -0.2 + fwd * 0.4); set('lArmL', -0.4, 0, 0);
           set('spine', -0.12 * back + 0.25 * fwd, 0.35 * back - 0.4 * fwd, 0);
           set('uLegL', -0.3, 0, 0.06); set('uLegR', 0.25, 0, -0.06); set('lLegL', 0.2, 0, 0);
+        } else if (act === 'strum') {
+          this.strumArms(set, it);
+          set('spine', 0, 0, Math.sin(it * 1.6) * 0.04);
+          set('uLegL', 0, 0, 0.06); set('uLegR', 0, 0, -0.06);
+        } else if (act === 'carry') {
+          set('uArmL', -0.55, 0, 0.12); set('uArmR', -0.55, 0, -0.12);
+          set('lArmL', -1.25, 0, 0); set('lArmR', -1.25, 0, 0);
+          set('spine', -0.04, 0, 0);
+        } else if (act === 'give') {
+          // handing something over (a loaf, a parcel), then reaching back for the next
+          const c = (it * 0.38 + this.seedPhase()) % 1;
+          let e = c < 0.35 ? c / 0.35 : c < 0.6 ? 1 : 1 - (c - 0.6) / 0.4;
+          e = e * e * (3 - 2 * e);
+          set('uArmR', U.lerp(-0.5, -1.35, e), 0, -0.1); set('lArmR', U.lerp(-1.3, -0.25, e), 0, 0);
+          set('uArmL', U.lerp(-0.45, -1.2, e), 0, 0.15); set('lArmL', U.lerp(-1.3, -0.35, e), 0, 0);
+          set('spine', 0.08 + 0.14 * e, 0, 0); set('head', 0.2, 0, 0);
+        } else if (act === 'pick') {
+          // up into the branches for one, down into the basket on your hip with it
+          const c = (it * 0.3 + this.seedPhase()) % 1;
+          let e = c < 0.45 ? c / 0.45 : c < 0.6 ? 1 : 1 - (c - 0.6) / 0.4;
+          e = e * e * (3 - 2 * e);
+          set('uArmR', U.lerp(-0.9, -2.85, e), 0, -0.2); set('lArmR', U.lerp(-1.1, -0.2, e), 0, 0);
+          set('uArmL', -0.25, 0, 0.3); set('lArmL', -1.3, 0, 0);
+          set('head', U.lerp(0.2, -0.45, e), 0, 0); set('spine', U.lerp(0.05, -0.12, e), 0, 0);
+        } else if (act === 'shelve') {
+          // a book back onto a high shelf, another under the arm
+          const e = 0.5 + 0.5 * Math.sin(it * 0.9 + this.seedPhase());
+          set('uArmR', -2.2 - 0.4 * e, 0, -0.1); set('lArmR', -0.3, 0, 0);
+          set('uArmL', -0.45, 0, 0.12); set('lArmL', -1.3, -0.3, 0);
+          set('head', -0.35, 0, 0);
+        } else if (act === 'argue') {
+          // making a point: jabbing a finger, then palms open (well?)
+          const c = (it * 0.5 + this.seedPhase()) % 2;
+          if (c < 1.2) {
+            const j = Math.max(0, Math.sin(c * Math.PI * 2.5)) * 0.25;
+            set('uArmR', -1.4 + j, 0, -0.1); set('lArmR', -0.15 - j, 0, 0);
+            set('uArmL', 0.05, 0, 0.1); set('lArmL', -0.3, 0, 0);
+            set('spine', 0.1, 0, 0); set('head', -0.08, 0, 0);
+          } else {
+            set('uArmL', -0.7, 0.3, 0.5); set('uArmR', -0.7, -0.3, -0.5);
+            set('lArmL', -0.9, 0, 0); set('lArmR', -0.9, 0, 0);
+            set('spine', -0.05, 0, 0); set('head', 0.05, 0, 0.08);
+          }
+          add('head', Math.sin(it * 2.3) * 0.05, Math.sin(it * 1.1) * 0.08, 0);
+        } else if (act === 'dance') {
+          // round the fire: stepping side to side, hands up
+          const ph = it * 2.6 + this.seedPhase(), sn = Math.sin(ph);
+          hipY = Math.abs(Math.sin(ph)) * 0.05 - 0.04;
+          set('hips', 0, sn * 0.25, 0); set('spine', 0, -sn * 0.1, sn * 0.12);
+          set('uArmL', -2.3 + Math.sin(ph * 2) * 0.3, 0, 0.5); set('uArmR', -2.3 - Math.sin(ph * 2) * 0.3, 0, -0.5);
+          set('lArmL', -0.4, 0, 0); set('lArmR', -0.4, 0, 0);
+          set('uLegL', -0.35 * Math.max(0, sn), 0, 0.05); set('lLegL', 0.7 * Math.max(0, sn), 0, 0);
+          set('uLegR', -0.35 * Math.max(0, -sn), 0, -0.05); set('lLegR', 0.7 * Math.max(0, -sn), 0, 0);
         } else if (act === 'pace') {
           // nervous fidget
           set('uArmL', -0.5, 0, 0.2); set('uArmR', -0.5, 0, -0.2);
@@ -997,7 +1117,7 @@
       add('neck', 0, this.look.yaw * 0.3, 0);
 
       // apply with damping (fighting snaps between poses much faster)
-      const k = 1 - Math.exp(-(s.fight ? 30 : 14) * dt);
+      const k = 1 - Math.exp(-(s.fight ? 30 : s.pk ? 24 : 14) * dt);
       for (let i = 1; i < BONES.length; i++) {
         const b = this.bones[i];
         b.rotation.x += (P[i * 3] - b.rotation.x) * k;
@@ -1009,11 +1129,47 @@
       const hips = this.bones[BI.hips];
       hips.position.y = this.bindPos[BI.hips].y + this.hipY / this.mesh.scale.y;
       hips.position.z = this.bindPos[BI.hips].z + this.hipZ;
-      this.mesh.rotation.x += (rootRx - this.mesh.rotation.x) * k;
       const lying = act === 'lie';
-      this.mesh.position.y += ((lying ? (s.seatY || 0.6) + 0.12 : 0) - this.mesh.position.y) * k;
-      this.mesh.position.z += ((lying ? 0.85 * this.scale : 0) - this.mesh.position.z) * k;
-      this.shadow.visible = !lying && !this.shadowFar;
+      if (s.pk) {
+        // a roll or a flip turns the whole body over about its middle (pkPivot up from the feet),
+        // set outright: easing towards it would unwind a full turn backwards
+        const th = Math.atan2(Math.sin(pkSpin), Math.cos(pkSpin)), c = pkPivot * this.scale;
+        this.mesh.rotation.x = th;
+        this.mesh.position.y = c * (1 - Math.cos(th));
+        this.mesh.position.z = -c * Math.sin(th);
+      } else {
+        this.mesh.rotation.x += (rootRx - this.mesh.rotation.x) * k;
+        this.mesh.position.y += ((lying ? (s.seatY || 0.6) + 0.12 : 0) - this.mesh.position.y) * k;
+        this.mesh.position.z += ((lying ? 0.85 * this.scale : 0) - this.mesh.position.z) * k;
+      }
+      // (no blob shadow in the air: it would hang under the feet)
+      this.shadow.visible = !lying && !this.shadowFar && !(s.pk && s.pk.air);
+    }
+    /**
+     * Free-running. s.pk = { move, t, air } with t running 0 → 1 through the move:
+     *   leap · drop · land · roll · vault · kong · climb · flip   (see PK_MOVES)
+     * Where the body goes (the arc, the landing) is the caller's: DV.Freerun moves the root.
+     */
+    parkourPose(pk, set) {
+      const keys = PK_MOVES[pk.move] || PK_MOVES.land;
+      const t = U.clamp(pk.t || 0, 0, 1);
+      let i = 0;
+      while (i < keys.length - 2 && t > keys[i + 1][0]) i++;
+      const a = keys[i], b = keys[i + 1];
+      const u = b[0] > a[0] ? U.clamp((t - a[0]) / (b[0] - a[0]), 0, 1) : 1;
+      const w = u * u * (3 - 2 * u);
+      const A = PK_POSES[a[1]], B = PK_POSES[b[1]];
+      for (const n of PK_BONES) {
+        const p = A[n] || ZERO3, q = B[n] || ZERO3;
+        set(n, p[0] + (q[0] - p[0]) * w, p[1] + (q[1] - p[1]) * w, p[2] + (q[2] - p[2]) * w);
+      }
+      const ea = a[2] || {}, eb = b[2] || {};
+      const sa = ea.sp || 0, sb = eb.sp === undefined ? sa : eb.sp;
+      return {
+        hipY: ((A.hy || 0) + ((B.hy || 0) - (A.hy || 0)) * w) * this.scaleY(),
+        spin: sa + (sb - sa) * u,
+        pivot: ea.pv || eb.pv || 0.5,
+      };
     }
     /**
      * The fighting family. s.fight = { move, ext, side, sway } where move is
@@ -1120,6 +1276,12 @@
       return { hipY };
     }
     // a fixed per-character phase so a crowd doesn't clap or cheer in unison
+    // a guitar across the body: the left hand on the neck, the right strumming
+    strumArms(set, it) {
+      set('uArmL', -0.9, 0, 0.55); set('lArmL', -1.35, 0.3, 0);
+      set('uArmR', -0.45, 0, -0.2); set('lArmR', -1.5 + Math.sin(it * 9) * 0.18, 0, 0);
+      set('head', 0.25 + Math.sin(it * 1.2) * 0.05, 0, 0.06);
+    }
     seedPhase() {
       if (this._ph === undefined) this._ph = Math.random() * Math.PI * 2;
       return this._ph;

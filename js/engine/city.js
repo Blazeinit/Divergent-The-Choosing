@@ -604,8 +604,10 @@
       const tint = e.tint || [1, 1, 1];
       B.box(e.x, e.z, e.w, e.d, 0, e.h, e.rot || 0, e.style || null, tint, e.seed || 0, e.roof ? { roof: e.roof } : {});
       if (e.parapet !== false && e.style && e.style !== 'glass') B.box(e.x, e.z, e.w + 0.5, e.d + 0.5, e.h, e.h + 0.6, e.rot || 0, null, mul(tint, 0.5), 0, {});
-      if (e.waterTower) waterTower(B, e.x + e.waterTower[0], e.z + e.waterTower[1], e.h + 0.6);
+      if (e.waterTower) waterTower(B, e.x + e.waterTower[0], e.z + e.waterTower[1], e.h + (e.parapet === false ? 0 : 0.6));
     }
+    // and anything else the zone wants standing up there (o.boxes: [{ x, z, w, d, y0, y1, rot, style, tint, roof }])
+    for (const b of o.boxes || []) B.box(b.x, b.z, b.w, b.d, b.y0 || 0, b.y1, b.rot || 0, b.style || null, b.tint || [0.5, 0.5, 0.5], b.seed || 0, b.roof ? { roof: b.roof } : {});
     if (hub && !o.noHubTower) theHub(B, hub[0], hub[1]); // (not when you're standing inside it)
     if (o.ferris) ferrisWheel(B, o.ferris[0], o.ferris[1], centre);
     if (o.track) elevatedTrack(B, o.track, xs, walk ? walk.sidewalk || 3 : 0);
@@ -1598,7 +1600,8 @@
   const City = {
     active: null,
     // o: { seed, campus:[x0,z0,x1,z1], gridX:[], gridZ:[], street, radius, hub:[x,z], marshX,
-    //      ferris:[x,z], track:{x0,x1,z0,z1,y,span}, keepClear:[[x0,z0,x1,z1]], haze, sky... }
+    //      ferris:[x,z], track:{x0,x1,z0,z1,y,span}, keepClear:[[x0,z0,x1,z1]],
+    //      extras:[{x,z,w,d,h,style,tint,parapet,waterTower}], boxes:[{x,z,w,d,y0,y1,...}], haze, sky... }
     build(o) {
       const t0 = performance.now();
       const B = generate(o);

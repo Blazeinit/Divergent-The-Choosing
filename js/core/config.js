@@ -52,6 +52,9 @@
     },
 
     INTERACT_RANGE: 2.1,
+    // the main menu's theme song: a YouTube video, streamed in YouTube's own player (js/ui/menuTheme.js);
+    // or file: a copy of your own (e.g. 'assets/audio/menu_theme.mp3'), which plays offline and from disk
+    MENU_THEME: { youtube: 'RmJCKRJx9Dc', file: null },
     SAVE_PREFIX: 'divergent_b1_',
     SAVE_SLOTS: 6,
   };
@@ -67,6 +70,7 @@
     textureFilter: 'retro', // 'retro' (nearest) | 'smooth'
     masterVolume: 0.8,
     musicVolume: 0.5,
+    menuTheme: true, // the main menu's theme song (streams from YouTube; the synth music otherwise)
     sfxVolume: 0.8,
     paVoice: false, // speech synthesis for PA announcements
     reverb: true, // room reverb on world sounds
