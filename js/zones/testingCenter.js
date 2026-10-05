@@ -66,7 +66,8 @@
       while (j1 + 1 < nz && rowFull(j1 + 1)) j1++;
       for (let jj = j; jj <= j1; jj++) for (let k = i; k <= i1; k++) free[jj * nx + k] = 0;
       const x0 = rx0 + i * G, x1 = rx0 + (i1 + 1) * G, z0 = rz0 + j * G, z1 = rz0 + (j1 + 1) * G;
-      out.push({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, w: x1 - x0, d: z1 - z0, h: H, style: 'institution', tint: [0.96, 0.96, 0.95], seed: 30 + out.length, parapet: false });
+      // (no top: the roof over the whole building is the zone's, see buildRoof)
+      out.push({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, w: x1 - x0, d: z1 - z0, h: H, style: 'institution', tint: [0.96, 0.96, 0.95], seed: 30 + out.length, parapet: false, noTop: true });
     }
     return out;
   }
@@ -687,7 +688,15 @@
       // (the layout is the city map's: the same streets, sectors and landmarks the world map shows)
       // Once your results are in you can walk out of the gate into it, all the way to the Fence.
       const CM = DV.CityMap;
-      const shell = outerShell(zone, CM.campus, [[-1, 61.5, 19, 76], [60, 63.5, 86, 76]]);
+      const neighbours = [[-1, 61.5, 19, 76], [60, 63.5, 86, 76]];
+      const shell = outerShell(zone, CM.campus, neighbours);
+      // the roof over it all, rooms and shell: a deck, the parapet, the stair's bulkhead over the
+      // closed stairwell, the plant, and a water tank you can see over the lobby from the plaza
+      const roof = zone.buildRoof({
+        y: 9, slab: 0.4, parapet: 0.9,
+        cover: shell.map((q) => [q.x - q.w / 2, q.z - q.d / 2, q.x + q.w / 2, q.z + q.d / 2]),
+        party: neighbours, bulkhead: [12, 12], tank: [48, 41],
+      });
       const signTex = () => DV.Tex.sign('APTITUDE TESTING CENTER — SECTOR 4', { w: 512, h: 48, bg: '#2a2824', color: '#e0d6b8', size: 24 });
       const city = DV.City.build({
         seed: CM.seed,
@@ -708,7 +717,7 @@
           ...shell,
         ],
         haze: 0x98a0a6,
-        exterior: zone.def.rooms.filter((r) => r.exterior).map((r) => [r.x0, r.z0, r.x1, r.z1]),
+        exterior: zone.def.rooms.filter((r) => r.exterior).map((r) => [r.x0, r.z0, r.x1, r.z1]).concat(roof.rects),
         districts: CM.districts,
         walk: {
           fence: CM.fence, wall: CM.wall, edge: CM.edge, gate: [CM.fenceGate.x, CM.fenceGate.z], sidewalk: CM.sidewalk, landmarks: CM.landmarks, homes: CM.homes,

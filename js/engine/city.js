@@ -607,7 +607,7 @@
     B.part = 'extras';
     for (const e of o.extras || []) {
       const tint = e.tint || [1, 1, 1];
-      B.box(e.x, e.z, e.w, e.d, 0, e.h, e.rot || 0, e.style || null, tint, e.seed || 0, e.roof ? { roof: e.roof } : {});
+      B.box(e.x, e.z, e.w, e.d, 0, e.h, e.rot || 0, e.style || null, tint, e.seed || 0, { roof: e.roof, noTop: e.noTop });
       if (e.parapet !== false && e.style && e.style !== 'glass') B.box(e.x, e.z, e.w + 0.5, e.d + 0.5, e.h, e.h + 0.6, e.rot || 0, null, mul(tint, 0.5), 0, {});
       if (e.waterTower) waterTower(B, e.x + e.waterTower[0], e.z + e.waterTower[1], e.h + (e.parapet === false ? 0 : 0.6));
     }
@@ -1709,7 +1709,8 @@
     active: null,
     // o: { seed, campus:[x0,z0,x1,z1], gridX:[], gridZ:[], street, radius, hub:[x,z], marshX,
     //      ferris:[x,z], track:{x0,x1,z0,z1,y,span}, keepClear:[[x0,z0,x1,z1]],
-    //      extras:[{x,z,w,d,h,style,tint,parapet,waterTower}], boxes:[{x,z,w,d,y0,y1,...}], haze, sky... }
+    //      extras:[{x,z,w,d,h,style,tint,parapet,waterTower,noTop}], boxes:[{x,z,w,d,y0,y1,...}],
+    //      exterior:[[x0,z0,x1,z1,y]] (the zone's open floors and roofs, for the cloud shadows), haze, sky... }
     build(o) {
       const t0 = performance.now();
       // (QA: City.auditNext asks the next walkable city to list everything it places)
@@ -1794,7 +1795,7 @@
       if (walk) for (const q of walk.open) shadeRects.push(q);
       if (shadeRects.length) {
         const sg = new Group();
-        for (const [x0, z0, x1, z1] of shadeRects) sg.quad([[x0, 0.02, z0], [x1, 0.02, z0], [x1, 0.02, z1], [x0, 0.02, z1]], null, [1, 1, 1], [0, 1, 0], 0);
+        for (const [x0, z0, x1, z1, y = 0] of shadeRects) sg.quad([[x0, y + 0.02, z0], [x1, y + 0.02, z0], [x1, y + 0.02, z1], [x0, y + 0.02, z1]], null, [1, 1, 1], [0, 1, 0], 0);
         if (walk) for (const [r0, r1, a0, a1] of walk.farm) {
           const C2 = o.centre, P = (rr, a) => [C2[0] + Math.cos(a) * rr, 0.2, C2[1] + Math.sin(a) * rr];
           sg.quad([P(r0, a0), P(r0, a1), P(r1, a1), P(r1, a0)], null, [1, 1, 1], [0, 1, 0], 0);
