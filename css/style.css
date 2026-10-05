@@ -125,6 +125,7 @@ button { font-family: inherit; }
 .bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #9fd27a, #4e8a37); }
 .bar.stamina > i { background: linear-gradient(180deg, #e8c46a, #9c7224); }
 .bar.fear > i { background: linear-gradient(180deg, #e07060, #8a2a1c); }
+.bar.notice > i { background: linear-gradient(180deg, #8fb6e3, #2f5f9e); }
 #hud-vitals .lbl { font-size: 10px; letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase; }
 #hud-vitals .buffs { font-size: 11px; color: var(--info); margin-top: 3px; }
 #hud-prompt {

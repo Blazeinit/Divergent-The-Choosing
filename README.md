@@ -161,6 +161,7 @@ js/
     checkpoint.js          The security arch: badge checks, the barrier arm, NPCs queueing to show badges
     soundscape.js          What you hear where you stand: reverb, indoor/outdoor layers, accents, one-shots
     wildlife.js            Pigeon flocks, crows and gulls, blowing litter, flags flying in the wind
+    order.js               Erudite's police: the Order Station's guards and vans, patrols, drones, stops, notice
     streetlife.js          Build 4: pedestrians by sector on the pavements and crossings, and traffic that
                            keeps right, queues, stops for you and honks
     extras.js              Build 4: the people a place is full of (the compound's members): sets by the hour,
@@ -283,6 +284,12 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
     - Amity picking apples, and dancing and singing round the fire.
   - **Cuts and captions:** each place is shot with a few camera moves. Between them the reel dips to black, with the next faction's mark and virtue. A place is built under the black the first time round, so you never see the hitch. Click a bowl (or press ← →) to cut straight to a faction.
   - **The theme song** is Paul van Dyk's *Nothing But You* (Cirrus Mix, Amaru deconstruction). It streams in SoundCloud's own player in a "Now Playing" window, with YouTube's as the backup. It starts on your first click, the synth music steps aside while it plays, and it fades out when you start. Its ♪ stops it, its ✕ turns it off, and Settings brings it back.
+- **Erudite's police.** The Office of Public Order: Erudite runs it, and the Dauntless walk it.
+  - **The Order Station** stands on Armitage Avenue at Clinton Street, in the empty north of the city. It's a concrete block with a band of blue glass, Erudite banners, a glass porch under a *PUBLIC ORDER* canopy and a curfew notice. A radio mast and a drone pad are on the roof, the drone shed is on the west, and on the east is a fenced motor pool with its vans, a gatehouse and a barrier arm. Guards stand at the door and the gate. It's on the world map.
+  - **Patrols** walk the pavements in twos: Dauntless in black with the Office's blue armband, sometimes with an Erudite supervisor and her tablet behind them. They wait at crossings, talk on the radio, tell you to step aside, and there are more of them after the 22:00 curfew.
+  - **Drones** fly the streets on their rounds, with rotors, lights, a shadow on the ground and a buzz as one passes. Now and then one comes down over somebody, you included, and scans them with a cone of blue light.
+  - **Talk to them** (E): ask about the patrols, who gives the orders and the drones. A Perception check gets an officer's private doubts, and the supervisor explains why Erudite runs it.
+  - **Stops:** a patrol may call you over for name and faction. Answer and you're on your way; stalling, lying badly (a Charisma check), staying silent, walking off or being out after curfew raises the Office's **notice** (a bar on the HUD). At 100 you're held for two hours at the station and released at its door.
 - **Free-running.** Characters can vault (speed and kong), leap gaps, drop, roll out of a landing, climb a wall and mantle onto it, and front-flip. Jumps fly true arcs under gravity, and a roll or flip turns the whole body over. There are new everyday actions too: handing things out, carrying, picking fruit, playing guitar, arguing, dancing, shelving books.
 - **Physics.**
   - **Loose things in the streets:** bins, newspaper boxes, traffic cones, crates and rubbish bags aren't bolted down. Walk into one and you shove it along; run into one and it goes over. They slide with friction and rock on the edge of their base, past the tipping point they fall, and they land, bounce, roll on their side, stop at walls, knock each other on, and settle. Cars knock them flying, and people walking past shove them aside.
@@ -430,7 +437,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 30 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 31 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**

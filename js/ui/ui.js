@@ -24,7 +24,7 @@
         '<div id="hud-loc" class="hud-box"><div class="loc"></div><div class="sub"></div><div class="clock"></div></div>' +
         '<div id="hud-compass" class="hud-box"><div class="strip"></div><div class="center"></div></div>' +
         '<div id="hud-quest" class="hud-box hidden"><div class="qt"></div><div class="qo"></div><div class="qd"></div></div>' +
-        '<div id="hud-vitals" class="hud-box"><div class="lbl">Stamina</div><div class="bar stamina"><i></i></div><div class="fearwrap hidden"><div class="lbl">Fear</div><div class="bar fear"><i></i></div></div><div class="buffs"></div></div>' +
+        '<div id="hud-vitals" class="hud-box"><div class="lbl">Stamina</div><div class="bar stamina"><i></i></div><div class="fearwrap hidden"><div class="lbl">Fear</div><div class="bar fear"><i></i></div></div><div class="noticewrap hidden"><div class="lbl">Order notice</div><div class="bar notice"><i></i></div></div><div class="buffs"></div></div>' +
         '<div id="hud-prompt" class="hud-box hidden"></div>' +
         '<div id="hud-hint" class="hud-box hidden"></div>' +
         '<div id="hud-sim" class="hud-box hidden">SIMULATION</div>' +
@@ -92,6 +92,10 @@
       const fearWrap = this.q('#hud-vitals .fearwrap');
       fearWrap.classList.toggle('hidden', !sim);
       if (sim) this.q('#hud-vitals .fear i').style.width = U.clamp((game.fear || 0) * 100, 0, 100) + '%';
+      // how much the Office of Public Order has noticed you (out in the city, once it's anything)
+      const nv = !sim && DV.Order && zone && zone.order ? DV.Order.notice() : 0;
+      this.q('#hud-vitals .noticewrap').classList.toggle('hidden', nv < 10);
+      if (nv >= 10) this.q('#hud-vitals .notice i').style.width = U.clamp(nv, 0, 100) + '%';
       // buffs
       const buffs = DV.State.data.player.buffs || {};
       const bl = [];
@@ -230,6 +234,8 @@
       if (DV.Chapter && DV.Chapter.active) others(DV.Chapter.barkSources(), 'ch:', 22);
       const street = DV.StreetLife && DV.StreetLife.active();
       if (street) others(street.barkSources(), 'st:', 18);
+      const order = DV.Order && DV.Order.active();
+      if (order) others(order.barkSources(), 'po:', 26);
       const zx = DV.World.current && DV.World.current.extras;
       if (zx) others(zx.barkSources(), 'ex:', 16);
       for (const e of Array.from(this.barksEl.children)) if (!live.has(e.dataset.id)) e.remove();

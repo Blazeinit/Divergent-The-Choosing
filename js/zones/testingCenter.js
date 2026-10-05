@@ -743,10 +743,13 @@
       const b = zone.def.bounds;
       const kit = DV.StreetKit.attach(zone, city, { skip: [CM.campus[0] - 6.5, b.z1 - 11, CM.campus[2] + 6.5, b.z1 + 6.5] });
       const life = DV.StreetLife.attach(zone, city, kit);
+      // Erudite's police: the patrols, the guards at the Order Station, the drones (js/game/order.js)
+      const order = DV.Order.attach(zone, city, life);
       ctx.update((dt) => {
         const cam = DV.Game && DV.Game.camera;
         if (cam) kit.update(cam.position.x, cam.position.z);
         life.update(dt);
+        order.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 
@@ -776,6 +779,7 @@
       // e.g. into a simulation: the train's sound (and the traffic's) must not keep running in there
       if (zone.city && zone.city.train && zone.city.train.sound) { zone.city.train.sound.stop(); zone.city.train.sound = null; }
       if (zone.streetLife) zone.streetLife.sleep();
+      if (zone.order) zone.order.sleep();
     },
   });
 })();

@@ -17,7 +17,7 @@
 
   const MAIN_STREETS = { 'Lake St': 1, 'Madison St': 1, 'North Ave': 1, 'Chicago Ave': 1, 'Van Buren St': 1, 'Halsted St': 1, 'State St': 1, 'Ashland Ave': 1, 'Western Ave': 1, 'Michigan Ave': 1, 'Kedzie Ave': 1 };
   const FACTIONS = ['abnegation', 'amity', 'candor', 'dauntless', 'erudite'];
-  const ICON = { seal: '◎', hub: '▲', candor: '⚖', erudite: '◉', abnegation: '✋', dauntless: '✦', wheel: '❂', tower: '▮', gate: '⛩', amity: '❀' };
+  const ICON = { seal: '◎', hub: '▲', candor: '⚖', erudite: '◉', abnegation: '✋', dauntless: '✦', wheel: '❂', tower: '▮', gate: '⛩', amity: '❀', order: '⛨' };
 
   const WM = {
     zoom: 1.7, // (it opens on the city; Fit shows everything to the Fence)
@@ -185,7 +185,7 @@
         const px = X(l.x), py = Y(l.z);
         if (px < -40 || py < -40 || px > w + 40 || py > h + 40) continue;
         const fac = FACTIONS.indexOf(l.icon) >= 0 ? DV.Factions.get(l.icon) : null;
-        icon(ICON[l.icon] || '◆', px, py, 15, fac && fac.accent ? fac.accent : '#e8d9b0');
+        icon(ICON[l.icon] || '◆', px, py, 15, fac && fac.accent ? fac.accent : l.icon === 'order' ? '#7fa6e0' : '#e8d9b0');
         label(l.name, px, py + 20, 11, true, '#e8dcc0');
         this._hits.push({ x: px, y: py, tip: l.name });
       }

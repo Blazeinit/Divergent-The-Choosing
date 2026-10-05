@@ -252,6 +252,7 @@
       if (pan) { g.connect(pan); pan.connect(this.beds.outIn); } else g.connect(this.beds.outIn);
       const srcs = [];
       if (kind === 'engine' || kind === 'bus') return this.engineMover(kind, g, pan, srcs);
+      if (kind === 'drone') return this.droneMover(g, pan, srcs);
       // kind === 'train': rumble of the cars, hiss of steel on steel, traction motor whine, wheel clacks
       const rumble = this.noiseSrc(this.brown, true);
       const rf = c.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 240;
@@ -296,6 +297,51 @@
           const t = c.currentTime;
           g.gain.setTargetAtTime(0.0001, t, 0.4);
           for (const s of srcs) { try { s.stop(t + 2); } catch (e) { /* already stopped */ } }
+        },
+      };
+    },
+
+    // an Order drone overhead: four rotors' whine (two notes a hair apart, beating), the air they
+    // push down (a soft rush), a wobble as it trims; it's up there, so its height counts in the distance
+    droneMover(g, pan, srcs) {
+      const A = this, c = this.ctx;
+      const bf = c.createBiquadFilter(); bf.type = 'bandpass'; bf.frequency.value = 900; bf.Q.value = 1.4;
+      const notes = [212, 217].map((f) => {
+        const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
+        o.connect(bf); o.start(); srcs.push(o); return o;
+      });
+      const og = c.createGain(); og.gain.value = 0.05; bf.connect(og);
+      const air = this.noiseSrc(this.white, true);
+      const af = c.createBiquadFilter(); af.type = 'lowpass'; af.frequency.value = 700;
+      const ag = c.createGain(); ag.gain.value = 0.25;
+      air.connect(af); af.connect(ag); air.start(); srcs.push(air);
+      // (into the mover's own gain, which mover() has already routed through the panner)
+      og.connect(g); ag.connect(g);
+      const out = g;
+      let dead = false;
+      return {
+        kind: 'drone',
+        update(x, z, speed, y) {
+          const cam = DV.Game && DV.Game.camera;
+          if (dead || !cam) return;
+          const dx = x - cam.position.x, dz = z - cam.position.z, dy = (y || 12) - cam.position.y, d = Math.hypot(dx, dz, dy);
+          const t = c.currentTime;
+          out.gain.setTargetAtTime(0.5 / (1 + Math.pow(d / 7, 1.7)), t, 0.2);
+          const wob = Math.sin(t * 3.1) * 4;
+          notes[0].frequency.setTargetAtTime(212 + speed * 3 + wob, t, 0.3);
+          notes[1].frequency.setTargetAtTime(217 + speed * 3 - wob, t, 0.3);
+          if (pan) {
+            cam.getWorldDirection(A._v);
+            const fx = A._v.x, fz = A._v.z, fl = Math.hypot(fx, fz) || 1, hd = Math.hypot(dx, dz);
+            pan.pan.setTargetAtTime(U.clamp((dx * -fz + dz * fx) / (fl * Math.max(hd, 0.001)), -1, 1) * Math.min(1, hd / 6) * 0.7, t, 0.1);
+          }
+        },
+        stop() {
+          if (dead) return;
+          dead = true;
+          const t = c.currentTime;
+          out.gain.setTargetAtTime(0.0001, t, 0.3);
+          for (const sN of srcs) { try { sN.stop(t + 1.5); } catch (e) { /* already stopped */ } }
         },
       };
     },
@@ -543,6 +589,12 @@
             this.burst(low ? 'lowpass' : 'bandpass', low ? 260 : 1400, low ? 0.8 : 1.2, low ? 0.09 : 0.05, (low ? 0.35 : 0.3) * v);
             break;
           }
+          case 'scan': // a drone looking at somebody: two rising chirps and a hum
+            this.tone(1250, 0.07, 'sine', 0.05 * v); this.tone(1650, 0.08, 'sine', 0.05 * v, 0.1); this.tone(110, 1.6, 'triangle', 0.025 * v, 0.2);
+            break;
+          case 'radio': // a patrol's radio: a squelch of static and the tail beep
+            this.burst('bandpass', 1800, 1.4, 0.16, 0.07 * v); this.burst('bandpass', 2600, 2, 0.09, 0.04 * v, 0.2); this.tone(1400, 0.06, 'square', 0.02 * v, 0.34);
+            break;
           case 'carhorn': { // a driver leaning on the horn: two short blasts (a bus: lower and longer)
             const low = !!opts.big;
             [0, 0.32].forEach((dt0) => [low ? 290 : 410, low ? 345 : 505].forEach((fq) => {

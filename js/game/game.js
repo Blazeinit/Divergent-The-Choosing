@@ -481,6 +481,7 @@
       if (!this.ctrl()) DV.Clock.update(dt); // simulations and chapters keep their own (story) time
       const bodies = DV.NPCs.bodies(DV.Player.x, DV.Player.z, 2);
       if (zone.streetLife) for (const b of zone.streetLife.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
+      if (zone.order) for (const b of zone.order.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
       if (zone.extras) for (const b of zone.extras.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
       const ctl = this.ctrl();
       if (ctl) for (const b of ctl.bodies()) if (Math.abs(b.x - DV.Player.x) < 2 && Math.abs(b.z - DV.Player.z) < 2) bodies.push(b);

@@ -1042,6 +1042,23 @@
   // a sign: a textured quad the build turns into its own little mesh (faction emblems, names)
   //   at: centre [x, y, z]; rot: facing (+z local); w, h; tex: () => THREE.Texture
   function sign(B, x, y, z, rot, w, h, tex, emit) { B.signs.push({ x, y, z, rot, w, h, tex, emit: !!emit }); }
+  // a few indexed planes as one geometry (positions, normals, uvs; indices offset)
+  function mergePlanes(geos) {
+    const P = [], N = [], T = [], I = [];
+    let base = 0;
+    for (const g of geos) {
+      P.push(...g.attributes.position.array); N.push(...g.attributes.normal.array); T.push(...g.attributes.uv.array);
+      for (const i of g.index.array) I.push(i + base);
+      base += g.attributes.position.count;
+    }
+    const m = new THREE.BufferGeometry();
+    m.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    m.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    m.setAttribute('uv', new THREE.Float32BufferAttribute(T, 2));
+    m.setIndex(I);
+    return m;
+  }
+  const ORDER_BANNER = () => DV.Tex.banner('erudite'); // (one picture, so the station's banners are one mesh)
   const LANDMARKS = {
     // Amity's headquarters out on the farms: a long meeting hall of warm timber, the great
     // greenhouse, cabins round a green with an old oak in the middle, and an arch over the road in
@@ -1112,6 +1129,77 @@
       B.box(gx, z, gw + 0.6, d + 0.6, 11.1, 11.8, 0, null, [0.14, 0.14, 0.15], 0, {});
       B.box(x - w / 2 + R / 2, z, R, d, 0, 18, 0, 'derelict', [0.6, 0.58, 0.56], 707);
       sign(B, gx, 8.5, z + d / 2 + 0.06, 0, 6, 6, () => DV.Tex.emblem('dauntless', '#e8502a', '#151515', 256));
+    },
+    // the Order Station: Erudite's police. A four-storey concrete office block with a
+    // band of blue glass, a glass porch under a canopy with PUBLIC ORDER on it, Erudite banners, a
+    // radio mast and a drone pad on the roof; the motor pool behind a fence on the east (the vans,
+    // the guards and the drones are js/game/order.js's), the drone shed on the west
+    order_station(B, l) {
+      const { x, z, w, d } = l;
+      const f = l.face || 1, fr = f > 0 ? 0 : Math.PI;
+      const conc = [0.8, 0.8, 0.82], blue = [0.42, 0.58, 0.86], dark = [0.16, 0.17, 0.19];
+      const front = z + f * (d / 2), mz = z - f * 3.5, md = 24, mw = 34, H = 14.4;
+      // the block, its cornice, and the glass band across the top floor
+      B.box(x - 1, mz, mw, md, 0, H, 0, 'office', conc, 731);
+      B.box(x - 1, mz, mw + 0.6, md + 0.6, H, H + 0.7, 0, null, mul(conc, 0.6), 0, {});
+      B.box(x - 1, mz + f * (md / 2 + 0.05), mw, 0.3, H - 3.4, H - 0.3, 0, 'glass', blue, 732, { solid: false });
+      B.box(x - 1, mz + f * (md / 2 + 0.25), mw + 0.4, 0.5, H - 3.6, H - 3.4, 0, null, dark, 0, { solid: false, bottom: true });
+      // the porch: blue glass, a deep canopy on two piers, steps up to it
+      const pz = mz + f * (md / 2 + 1.6);
+      B.box(x - 1, pz, 12, 3.2, 0, 4.4, 0, 'glass', mul(blue, 1.05), 733);
+      B.box(x - 1, pz + f * 2.4, 16, 5.2, 4.4, 5.0, 0, null, dark, 0, { solid: false, bottom: true });
+      for (const sd of [-1, 1]) B.box(x - 1 + sd * 7.4, pz + f * 4.4, 0.7, 0.7, 0, 4.4, 0, null, mul(conc, 0.9), 0, {});
+      B.box(x - 1, pz + f * 3.0, 9, 2.2, 0, 0.18, 0, null, mul(conc, 0.85), 0, { solid: false });
+      // the forecourt: a stripe of blue paving to the door, concrete planters each side
+      B.flat(x - 2.4, Math.min(pz + f * 4.1, front), x + 0.4, Math.max(pz + f * 4.1, front), 0.01, [0.3, 0.38, 0.52]);
+      for (const sd of [-1, 1]) B.box(x - 1 + sd * 12.5, front - f * 3, 5, 1.6, 0, 0.9, 0, null, mul(conc, 0.85), 0, {});
+      // the banners down the front, either side of the porch, and the flagpoles at the kerb
+      const banner = ORDER_BANNER;
+      for (const sd of [-1, 1]) {
+        sign(B, x - 1 + sd * 11, 9.4, mz + f * (md / 2 + 0.08), fr, 2.2, 5.6, banner);
+        B.box(x - 1 + sd * 16, front - f * 1.2, 0.2, 0.2, 0, 9, 0, null, [0.7, 0.7, 0.72], 0, {});
+        sign(B, x - 1 + sd * 16 + 0.7, 7.6, front - f * 1.2, fr + Math.PI / 2, 1.3, 2.4, banner);
+      }
+      sign(B, x - 1, 7.3, mz + f * (md / 2 + 0.07), fr, 3.4, 3.4, () => DV.Tex.emblem('erudite', '#dfe8f2', '#1f3d68', 256));
+      sign(B, x - 1, 4.72, pz + f * 5.03, fr, 12, 0.56, () => DV.Tex.sign('PUBLIC ORDER  ·  SECTOR ONE', { w: 512, h: 28, bg: '#14181e', color: '#cfe0f8', size: 20, border: false }), true);
+      // the notice board by the door: the curfew, in the Erudite way
+      sign(B, x - 1 + 4.4, 1.9, pz + f * 1.7, fr, 1.6, 1.1, () => DV.Tex.sign('CURFEW\n22:00–06:00', { w: 128, h: 88, bg: '#1f3d68', color: '#eef3fa', size: 22 }));
+      // on the roof: the radio mast, the drone pad, the plant
+      const ry = H + 0.7, rx0 = x - 1 + mw / 2 - 4, rz0 = mz - f * (md / 2 - 4);
+      B.box(rx0, rz0, 2.4, 2.4, ry, ry + 1.4, 0, null, dark, 0, {});
+      for (const [dx, dz] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) B.box(rx0 + dx, rz0 + dz, 0.14, 0.14, ry + 1.4, ry + 16, 0, null, [0.55, 0.55, 0.58], 0, {});
+      for (let k = 0; k < 6; k++) B.box(rx0, rz0, 1.1, 1.1, ry + 3 + k * 2.2, ry + 3.12 + k * 2.2, 0, null, [0.5, 0.5, 0.53], 0, { solid: false });
+      const pad = [x - 6, mz + f * 2], pr = 4.2;
+      B.flat(pad[0] - pr, pad[1] - pr, pad[0] + pr, pad[1] + pr, ry + 0.02, [0.18, 0.2, 0.24]);
+      for (let k = 0; k < 16; k++) {
+        const a = (k / 16) * Math.PI * 2, cx = pad[0] + Math.cos(a) * (pr - 0.7), cz = pad[1] + Math.sin(a) * (pr - 0.7);
+        B.flat(cx - 0.32, cz - 0.32, cx + 0.32, cz + 0.32, ry + 0.04, [0.32, 0.5, 0.9]);
+      }
+      B.box(x + 8, mz - f * 3, 5, 3.4, ry, ry + 1.8, 0, null, [0.46, 0.46, 0.48], 0, {});
+      B.box(x - 15, mz - f * 6, 3, 3, ry, ry + 2.6, 0, null, mul(conc, 0.7), 0, {});
+      // the drone shed on the west: a low block with a wide roller door onto the forecourt
+      const sx = x - w / 2 + 4.5;
+      B.box(sx, z - f * 2, 8, 22, 0, 5.2, 0, 'office', mul(conc, 0.95), 734);
+      B.box(sx, z - f * 2 + f * 11.05, 6, 0.1, 0, 3.8, 0, null, [0.26, 0.28, 0.3], 0, { solid: false });
+      // the motor pool on the east: a concrete barrier wall with steel rails on posts above it, a
+      // gatehouse, a striped barrier arm
+      const px0 = x + w / 2 - 9.5, px1 = x + w / 2 - 0.4, pz0 = z - d / 2 + 0.8, pz1 = front - 0.6;
+      for (const [ax, az, bx, bz] of [[px0, pz0, px1, pz0], [px1, pz0, px1, pz1], [px0, pz0, px0, pz1 - 7]]) {
+        const len = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(len / 3));
+        const cx = (ax + bx) / 2, cz = (az + bz) / 2, lw = Math.max(0.5, Math.abs(bx - ax)), ld = Math.max(0.5, Math.abs(bz - az));
+        B.box(cx, cz, lw, ld, 0, 1.0, 0, null, mul(conc, 0.78), 0, {});
+        for (let k = 0; k <= n; k++) B.box(ax + ((bx - ax) * k) / n, az + ((bz - az) * k) / n, 0.12, 0.12, 1.0, 2.7, 0, null, [0.5, 0.5, 0.52], 0, { solid: false });
+        for (const ry0 of [1.75, 2.55]) B.box(cx, cz, Math.max(0.08, Math.abs(bx - ax)), Math.max(0.08, Math.abs(bz - az)), ry0, ry0 + 0.08, 0, null, [0.46, 0.47, 0.5], 0, { solid: false });
+      }
+      B.box(px0 - 1.4, pz1 - 4, 2.2, 2.4, 0, 2.6, 0, null, mul(conc, 0.9), 0, { roof: dark });
+      B.box(px0 - 1.4, pz1 - 4, 2.6, 2.8, 2.6, 2.8, 0, null, dark, 0, { solid: false });
+      B.box(px0 - 0.1, pz1 - 1.2, 0.3, 0.3, 0, 1.1, 0, null, [0.3, 0.3, 0.3], 0, {});
+      for (let k = 0; k < 6; k++) B.box(px0 + 0.4 + k * 1.05, pz1 - 1.2, 1.05, 0.12, 1.0, 1.12, 0, null, k % 2 ? [0.85, 0.85, 0.85] : [0.75, 0.16, 0.12], 0, { solid: false });
+      // floodlights on the corners of the yard
+      for (const [lx, lz] of [[px0, pz0], [px1, pz0]]) {
+        B.box(lx, lz, 0.22, 0.22, 0, 7, 0, null, [0.4, 0.4, 0.42], 0, {});
+        B.box(lx, lz, 1.1, 0.5, 7, 7.5, 0, null, [0.2, 0.2, 0.22], 0, { solid: false });
+      }
     },
     // the Hancock: a dark tapering tower with two antennas, the zip line's top
     hancock(B, l) {
@@ -1594,13 +1682,21 @@
       u = (u + len) % 64;
     }
     if (gc.n) mk(gc, 'chainlink', { alphaTest: 0.5, side: THREE.DoubleSide });
-    // the landmarks' signs
+    // the landmarks' signs: one mesh for each picture, the ones close together that share it merged
+    // (the Testing Center's name on its three sides, a station's banners), drawn from their middle
+    const sets = [];
     for (const sgn of B.signs) {
-      const tex = sgn.tex();
-      const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.05, fog: true, color: new THREE.Color(L[0] * 0.95, L[1] * 0.95, L[2] * 0.95) });
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(sgn.w, sgn.h), m);
-      mesh.position.set(sgn.x, sgn.y, sgn.z);
-      mesh.rotation.y = sgn.rot;
+      const near = sets.find((q) => q.tex === sgn.tex && Math.hypot(q.at[0] - sgn.x, q.at[1] - sgn.z) < 70);
+      if (near) near.list.push(sgn); else sets.push({ tex: sgn.tex, at: [sgn.x, sgn.z], list: [sgn] });
+    }
+    for (const q of sets) {
+      const m = new THREE.MeshBasicMaterial({ map: q.tex(), transparent: true, alphaTest: 0.05, fog: true, color: new THREE.Color(L[0] * 0.95, L[1] * 0.95, L[2] * 0.95) });
+      const cx = q.list.reduce((a, g) => a + g.x, 0) / q.list.length, cz = q.list.reduce((a, g) => a + g.z, 0) / q.list.length;
+      const geos = q.list.map((g) => new THREE.PlaneGeometry(g.w, g.h).rotateY(g.rot).translate(g.x - cx, g.y, g.z - cz));
+      const geo = geos.length > 1 ? mergePlanes(geos) : geos[0];
+      if (geos.length > 1) for (const g of geos) g.dispose();
+      const mesh = new THREE.Mesh(geo, m);
+      mesh.position.set(cx, 0, cz);
       mesh.name = 'city_sign';
       group.add(mesh);
       out.signs.push(mesh);

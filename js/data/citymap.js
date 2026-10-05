@@ -83,6 +83,9 @@
       { id: 'hancock', name: 'The Hancock Building', x: 208, z: 246, w: 30, d: 30, icon: 'tower' },
       { id: 'fence_gate', name: 'The Fence Gate', x: -1065.6, z: 278, icon: 'gate' },
       { id: 'amity', name: 'Amity Headquarters', x: -720, z: 420, w: 84, d: 64, icon: 'amity', farm: true },
+      // the Office of Public Order: Erudite's police, Dauntless guards under Erudite command (js/game/order.js);
+      // its front faces Armitage Avenue
+      { id: 'order_station', name: 'Order Station', x: 208, z: -428, w: 54, d: 42, icon: 'order', face: 1 },
     ],
 
     // where each faction's families live: the point on the pavement outside the front door, and
