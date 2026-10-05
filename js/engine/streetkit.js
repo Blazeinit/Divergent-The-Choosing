@@ -26,17 +26,22 @@
   const SIG_HEADS = [[0, 3.05], [-4.05, 4.12]]; // where the heads are on a signal pole ([x, y], local)
   const PED_Y = 2.45;
   const HYDRANT = [0.72, 0.36, 0.12], BENCH = [0.42, 0.3, 0.2], BIN = [0.2, 0.27, 0.22], LAMP = [1.0, 0.95, 0.8];
+  const CONE = [0.95, 0.42, 0.1], WOOD = [0.55, 0.42, 0.26], WOOD_D = [0.4, 0.3, 0.18], MAIL = [0.14, 0.27, 0.55], FIRE = [0.7, 0.12, 0.08];
+  // what isn't bolted down: a body in the zone's physics, not part of a chunk's mesh
+  const LOOSE = { bin: 1, news: 1, cone: 1, crate: 1, bag: 1 };
 
   // how each sector dresses its streets (chances per slot)
   const DRESS = {
-    testing: { tree: 0.35, bare: 0.4, car: 0.22, bench: 0.12, bin: 0.2, news: 0.05, signal: 0.3 },
-    downtown: { tree: 0.25, bare: 0.3, car: 0.32, bench: 0.15, bin: 0.3, news: 0.18, signal: 0.6 },
-    erudite: { tree: 0.55, bare: 0.1, car: 0.26, bench: 0.25, bin: 0.25, news: 0.12, signal: 0.45 },
-    candor: { tree: 0.3, bare: 0.2, car: 0.26, bench: 0.15, bin: 0.25, news: 0.2, signal: 0.45 },
-    abnegation: { tree: 0.6, bare: 0.15, car: 0.05, bench: 0.2, bin: 0.12, news: 0, signal: 0.15 },
-    factionless: { tree: 0.25, bare: 0.85, car: 0.14, wreck: true, bench: 0.04, bin: 0.05, news: 0, signal: 0.2, broken: 0.5 },
-    dauntless: { tree: 0.12, bare: 0.7, car: 0.14, jeeps: true, bench: 0.04, bin: 0.1, news: 0, signal: 0.25, broken: 0.3 },
-    none: { tree: 0.3, bare: 0.5, car: 0.15, bench: 0.08, bin: 0.12, news: 0.04, signal: 0.25 },
+    // (and the rest: planters, bollards, bike racks, parking meters, mailboxes, phone booths, fire
+    // alarm posts, works on the pavement, rubbish bags, crates)
+    testing: { tree: 0.35, bare: 0.4, car: 0.22, bench: 0.12, bin: 0.2, news: 0.05, signal: 0.3, planter: 0.2, bollards: 0.2, rack: 0.25, meter: 0.2, mail: 0.2, phone: 0.04, fire: 0.1, works: 0.04, bags: 0.05 },
+    downtown: { tree: 0.25, bare: 0.3, car: 0.32, bench: 0.15, bin: 0.3, news: 0.18, signal: 0.6, planter: 0.4, bollards: 0.35, rack: 0.3, meter: 0.5, mail: 0.3, phone: 0.07, fire: 0.15, works: 0.08, bags: 0.15 },
+    erudite: { tree: 0.55, bare: 0.1, car: 0.26, bench: 0.25, bin: 0.25, news: 0.12, signal: 0.45, planter: 0.45, bollards: 0.2, rack: 0.45, meter: 0.35, mail: 0.25, phone: 0.05, fire: 0.12, works: 0.05, bags: 0.05 },
+    candor: { tree: 0.3, bare: 0.2, car: 0.26, bench: 0.15, bin: 0.25, news: 0.2, signal: 0.45, planter: 0.3, bollards: 0.3, rack: 0.2, meter: 0.45, mail: 0.3, phone: 0.06, fire: 0.12, works: 0.06, bags: 0.1 },
+    abnegation: { tree: 0.6, bare: 0.15, car: 0.05, bench: 0.2, bin: 0.12, news: 0, signal: 0.15, planter: 0.35, bollards: 0, rack: 0.35, meter: 0, mail: 0.15, phone: 0, fire: 0.08, works: 0.03, bags: 0 },
+    factionless: { tree: 0.25, bare: 0.85, car: 0.14, wreck: true, bench: 0.04, bin: 0.05, news: 0, signal: 0.2, broken: 0.5, planter: 0, bollards: 0.05, rack: 0, meter: 0.1, mail: 0.04, phone: 0.08, fire: 0.06, works: 0, bags: 0.6, crates: 0.25 },
+    dauntless: { tree: 0.12, bare: 0.7, car: 0.14, jeeps: true, bench: 0.04, bin: 0.1, news: 0, signal: 0.25, broken: 0.3, planter: 0, bollards: 0.15, rack: 0.05, meter: 0.1, mail: 0.08, phone: 0.06, fire: 0.1, works: 0.12, bags: 0.3, crates: 0.4 },
+    none: { tree: 0.3, bare: 0.5, car: 0.15, bench: 0.08, bin: 0.12, news: 0.04, signal: 0.25, planter: 0.15, bollards: 0.1, rack: 0.15, meter: 0.15, mail: 0.15, phone: 0.05, fire: 0.08, works: 0.04, bags: 0.1 },
   };
 
   /* ---------------- the pieces: each built once, standing at the origin, +z towards the road ---------------- */
@@ -137,6 +142,57 @@
       cylY(M, 0, 0, 0, 0.09, 0.07, 1.1, STEEL, 6);
       M.box(0.25, 0.07, 1.9, 0.12, 0.12, 3.2, STEEL);
       M.box(0.3, 0.15, 3.3, 0.3, 0.26, 0.9, [0.08, 0.08, 0.08]);
+    },
+    // the loose things (DV.Physics moves them: built standing on their base at the origin)
+    cone(M) {
+      M.box(0, 0.02, 0, 0.4, 0.04, 0.4, DARK);
+      cylY(M, 0, 0.04, 0, 0.17, 0.03, 0.68, CONE, 8);
+      cylY(M, 0, 0.36, 0, 0.1, 0.075, 0.1, [0.92, 0.92, 0.88], 8);
+    },
+    crate(M) {
+      M.box(0, 0.3, 0, 0.62, 0.6, 0.62, WOOD);
+      for (const y of [0.08, 0.52]) { M.box(0, y, 0.315, 0.64, 0.1, 0.02, WOOD_D); M.box(0, y, -0.315, 0.64, 0.1, 0.02, WOOD_D); }
+      M.box(0, 0.3, 0.316, 0.08, 0.5, 0.02, WOOD_D);
+    },
+    bag(M) {
+      const g = new THREE.IcosahedronGeometry(0.29, 0); g.scale(1, 0.85, 0.95); g.translate(0, 0.25, 0); M.add(g, [0.07, 0.075, 0.08]);
+      M.box(0, 0.52, 0, 0.08, 0.1, 0.08, [0.07, 0.075, 0.08]);
+    },
+    // the rest of what a street has
+    planter(M, v) {
+      M.box(0, 0.3, 0, 1.3, 0.6, 1.3, CONC);
+      M.box(0, 0.6, 0, 1.36, 0.06, 1.36, [0.6, 0.59, 0.56]);
+      M.box(0, 0.61, 0, 1.12, 0.03, 1.12, [0.2, 0.16, 0.12]);
+      const g = new THREE.IcosahedronGeometry(0.62, 0); g.scale(1, 0.75, 1); g.translate(0, 1.05, 0); M.add(g, LEAF[(v || 0) % LEAF.length]);
+    },
+    bollards(M) { for (const x of [-1.5, 0, 1.5]) { cylY(M, x, 0, 0, 0.11, 0.1, 0.9, DARK, 8); cylY(M, x, 0.9, 0, 0.1, 0.06, 0.06, DARK, 8); M.box(x, 0.7, 0, 0.23, 0.05, 0.23, [0.8, 0.62, 0.1]); } },
+    bikerack(M) {
+      for (const x of [-0.9, 0, 0.9]) {
+        for (const s of [-0.35, 0.35]) cylY(M, x + s, 0, 0, 0.03, 0.03, 0.8, STEEL, 6);
+        M.box(x, 0.8, 0, 0.76, 0.06, 0.06, STEEL);
+      }
+    },
+    meter(M) { cylY(M, 0, 0, 0, 0.05, 0.05, 1.05, STEEL, 6); M.box(0, 1.2, 0, 0.18, 0.32, 0.14, [0.3, 0.32, 0.33]); M.box(0, 1.25, 0.075, 0.12, 0.1, 0.01, [0.75, 0.78, 0.7]); M.box(0, 1.38, 0, 0.2, 0.05, 0.16, DARK); },
+    mailbox(M) {
+      for (const [x, z] of [[-0.22, -0.18], [0.22, -0.18], [-0.22, 0.18], [0.22, 0.18]]) M.box(x, 0.12, z, 0.06, 0.24, 0.06, MAIL);
+      M.box(0, 0.7, 0, 0.5, 0.9, 0.46, MAIL);
+      const g = new THREE.CylinderGeometry(0.23, 0.23, 0.5, 8, 1, false, 0, Math.PI); g.rotateZ(Math.PI / 2); g.rotateX(Math.PI / 2); g.translate(0, 1.15, 0); M.add(g, MAIL);
+      M.box(0, 0.98, 0.235, 0.32, 0.05, 0.02, [0.85, 0.85, 0.8]);
+    },
+    phonebooth(M) {
+      M.box(0, 0.03, 0, 1.0, 0.06, 1.0, CONC);
+      for (const [x, z] of [[-0.45, -0.45], [0.45, -0.45], [-0.45, 0.45], [0.45, 0.45]]) M.box(x, 1.15, z, 0.08, 2.2, 0.08, [0.22, 0.24, 0.26]);
+      M.box(0, 1.25, -0.46, 0.84, 1.9, 0.03, [0.24, 0.3, 0.33]);
+      for (const x of [-0.46, 0.46]) M.box(x, 1.25, 0, 0.03, 1.9, 0.84, [0.24, 0.3, 0.33]);
+      M.box(0, 2.3, 0, 1.0, 0.18, 1.0, [0.2, 0.22, 0.24]);
+      M.box(0, 2.3, 0.505, 0.7, 0.12, 0.01, [0.85, 0.8, 0.55], { emit: true });
+      M.box(0, 1.35, -0.4, 0.3, 0.45, 0.1, [0.15, 0.15, 0.16]);
+    },
+    firebox(M) { cylY(M, 0, 0, 0, 0.07, 0.06, 1.25, FIRE, 6); M.box(0, 1.35, 0, 0.24, 0.3, 0.18, FIRE); M.box(0, 1.55, 0, 0.12, 0.12, 0.12, [0.85, 0.75, 0.3]); },
+    // works on the pavement: a trench in the slabs, a barrier round it
+    barrier(M) {
+      for (const x of [-0.9, 0.9]) { M.box(x, 0.5, 0, 0.06, 1.0, 0.06, [0.85, 0.85, 0.82]); M.box(x, 0.03, 0, 0.12, 0.06, 0.5, DARK); }
+      for (let k = 0; k < 6; k++) M.box(-0.75 + k * 0.3, 0.82, 0, 0.3, 0.2, 0.03, k % 2 ? [0.88, 0.88, 0.85] : [0.8, 0.12, 0.08]);
     },
     busstop(M) {
       cylY(M, 0, 0, 0, 0.05, 0.05, 2.9, STEEL, 6);
@@ -274,6 +330,9 @@
       this.mat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true, color: new THREE.Color(U.clamp(L[0] * 0.95, 0.3, 1.2), U.clamp(L[1] * 0.95, 0.3, 1.2), U.clamp(L[2] * 0.95, 0.3, 1.2)) });
       this.signMat = new THREE.MeshBasicMaterial({ map: signAtlas().tex, fog: true, color: this.mat.color.clone() });
       this.roads = DV.Roads.build(city, (x, z, r) => this.blocked(x, z, r));
+      // what isn't bolted down (bins, newspaper boxes, cones, crates, rubbish bags)
+      this.physics = DV.Physics.world(zone, { mat: this.mat, piece: (k) => piece(k) });
+      zone.physics = this.physics;
       this.sigCorners = new Set();
       this.place();
     }
@@ -419,34 +478,65 @@
       // a point on the pavement `ins` in from the kerb, t along it; and the facing towards the road
       const P = (t, ins) => (sd.along === 'x' ? [t, sd.line - sd.out * ins] : [sd.line - sd.out * ins, t]);
       const face = sd.along === 'x' ? (sd.out > 0 ? 0 : Math.PI) : sd.out > 0 ? Math.PI / 2 : -Math.PI / 2;
+      // what's on this kerb already ([t, in from the kerb, half-length along it, half-depth]): nothing
+      // goes down on top of anything else
+      const used = [];
+      const free = (t, ins, hl, hd) => t - hl > sd.a + 0.4 && t + hl < sd.b - 0.4 && !used.some((u) => Math.abs(t - u[0]) < hl + u[2] + 0.15 && Math.abs(ins - u[1]) < hd + u[3] + 0.1);
+      const put = (name, t, ins, hl, hd, rot, opts) => {
+        if (!free(t, ins, hl, hd)) return false;
+        const [x, z] = P(t, ins);
+        if (!this.add(name, x, z, rot === undefined ? face : rot, Object.assign({ r: Math.max(hl, hd) }, opts))) return false;
+        used.push([t, ins, hl, hd]);
+        return true;
+      };
       // lamps every 28 m, alternating which end they start from
-      const lampAt = [];
       const off = 7 + r() * 6;
-      for (let t = sd.a + off; t < sd.b - 4; t += 28) {
-        const [x, z] = P(t, 0.55);
-        if (this.add(dz.broken && r() < dz.broken ? 'lamp_dead' : 'lamp', x, z, face, { r: 0.15 })) lampAt.push(t);
-      }
+      for (let t = sd.a + off; t < sd.b - 4; t += 28) put(dz.broken && r() < dz.broken ? 'lamp_dead' : 'lamp', t, 0.55, 0.2, 0.2);
       // trees between them
       for (let t = sd.a + 5; t < sd.b - 5; t += 9.5) {
-        if (lampAt.some((q) => Math.abs(q - t) < 3)) continue;
         if (r() > dz.tree) continue;
-        const [x, z] = P(t, 0.9);
-        const bare = r() < dz.bare;
-        this.add(bare ? (dz.broken && r() < 0.4 ? 'stump' : 'tree_bare') : 'tree', x, z, r() * 6.28, { v: Math.floor(r() * 4), r: 0.6 });
+        const bare = r() < dz.bare, v = Math.floor(r() * 4), rot = r() * 6.28;
+        put(bare ? (dz.broken && r() < 0.4 ? 'stump' : 'tree_bare') : 'tree', t, 0.9, 0.6, 0.6, rot, { v });
       }
-      // a hydrant near one end
-      if (r() < 0.6) { const [x, z] = P(sd.a + 3.5 + r() * 2, 0.45); this.add('hydrant', x, z, face, { r: 0.2 }); }
-      // benches, bins and newspaper boxes back by the building fronts
+      // a hydrant near one end, a mailbox and a fire alarm post near the other
+      if (r() < 0.6) put('hydrant', sd.a + 3.5 + r() * 2, 0.45, 0.22, 0.22);
+      if (r() < dz.mail) put('mailbox', sd.b - 5.5 - r() * 3, 0.6, 0.3, 0.3);
+      if (r() < dz.fire) put('firebox', sd.b - 9.5 - r() * 3, 0.4, 0.15, 0.15);
+      // benches, bins and newspaper boxes back by the building fronts (a bin with rubbish bags by it)
       for (let t = sd.a + 12; t < sd.b - 12; t += 14) {
         const q = r();
-        if (q < dz.bench) { const [x, z] = P(t, 2.55); this.add('bench', x, z, face, { r: 0.9 }); }
-        else if (q < dz.bench + dz.bin) { const [x, z] = P(t, 0.5); if (!lampAt.some((p) => Math.abs(p - t) < 1.5)) this.add('bin', x, z, face, { r: 0.3 }); }
-        else if (q < dz.bench + dz.bin + dz.news) { const [x, z] = P(t, 2.6); this.add('news', x, z, face, { r: 0.6 }); }
+        if (q < dz.bench) put('bench', t, 2.55, 0.95, 0.3);
+        else if (q < dz.bench + dz.bin) { if (put('bin', t, 0.5, 0.32, 0.32) && r() < dz.bags) put('bag', t + 0.75, 0.55, 0.3, 0.3, r() * 6.28); }
+        else if (q < dz.bench + dz.bin + dz.news) put('news', t, 2.6, 0.58, 0.3);
       }
-      // cars parked along the kerb, facing the way the traffic on this side goes
-      this.parkAlong(sd, dz);
+      // half way between those: planters, a bike rack, a phone booth; bollards by a door
+      for (let t = sd.a + 19; t < sd.b - 8; t += 14) {
+        const q = r();
+        if (q < dz.planter) put('planter', t, 2.4, 0.7, 0.7, face, { v: Math.floor(r() * 4) });
+        else if (q < dz.planter + dz.rack) put('bikerack', t, 1.25, 1.3, 0.2);
+        else if (q < dz.planter + dz.rack + dz.phone) put('phonebooth', t, 2.5, 0.55, 0.55);
+        else if (q < dz.planter + dz.rack + dz.phone + dz.bollards) put('bollards', t, 0.35, 1.65, 0.15);
+      }
+      // the ruins and the Dauntless sector: rubbish bags and crates against the walls
+      if (dz.crates || dz.bags > 0.25) for (let t = sd.a + 8 + r() * 6; t < sd.b - 6; t += 11 + r() * 8) {
+        if (r() < (dz.crates || 0)) { put('crate', t, 2.6, 0.35, 0.35, face + (r() - 0.5) * 0.6); if (r() < 0.5) put('crate', t + 0.75, 2.62, 0.35, 0.35, face + (r() - 0.5) * 0.6); }
+        else if (r() < dz.bags) for (let k = 0; k < 2 + Math.floor(r() * 3); k++) put('bag', t + k * 0.55, 2.55 + (k % 2) * 0.25, 0.3, 0.3, r() * 6.28);
+      }
+      // works on the pavement: a trench in the slabs, a barrier each side, cones round it
+      if (r() < dz.works && len > 30) {
+        const t = sd.a + len * (0.3 + r() * 0.4);
+        if (free(t, 1.5, 2.2, 0.85)) {
+          used.push([t, 1.5, 2.2, 0.85]);
+          const [ax, az] = P(t - 1.6, 1.0), [bx, bz] = P(t + 1.6, 2.0);
+          this.chunk(ax, az).paint.push([Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), 0.1, 0.09, 0.08]);
+          for (const s of [-1, 1]) this.add('barrier', ...P(t + s * 1.95, 1.5), face + Math.PI / 2, { r: 0.2, force: true });
+          for (const [dt2, di] of [[-2.2, 0.55], [2.2, 0.55], [-2.2, 2.45], [2.2, 2.45]]) this.add('cone', ...P(t + dt2, di), 0, { r: 0.2, force: true });
+        }
+      }
+      // cars parked along the kerb, facing the way the traffic on this side goes (meters by them)
+      this.parkAlong(sd, dz, put);
     }
-    parkAlong(sd, dz) {
+    parkAlong(sd, dz, put) {
       const r = this.r, CM = DV.CityMap;
       // which street is this kerb on, and which way does its traffic go on this side?
       const line = sd.along === 'x' ? nearestLine(CM.streets, 'z', sd.line + sd.out * 5) : nearestLine(CM.avenues, 'x', sd.line + sd.out * 5);
@@ -466,7 +556,11 @@
         const x = sd.along === 'x' ? t : sd.line + sd.out * inset, z = sd.along === 'x' ? sd.line + sd.out * inset : t;
         const rot = heading + (wreck ? (r() - 0.5) * 0.3 : (r() - 0.5) * 0.03);
         const car = { kind, seed: Math.floor(r() * 997), wreck, x, z, rot, w: info.width, l: info.length };
-        if (this.add('car', x, z, rot, { car, r: 1.2 })) { this.parked.push(car); t += info.length - 4.2; }
+        if (this.add('car', x, z, rot, { car, r: 1.2 })) {
+          this.parked.push(car);
+          if (!wreck && put && r() < dz.meter) put('meter', t, 0.35, 0.12, 0.12);
+          t += info.length - 4.2;
+        }
       }
     }
     cornerSign(x, z, ew, ns) {
@@ -483,6 +577,8 @@
       // the road paint, a hair above the asphalt (in the same mesh: no extra draw call)
       for (const q of c.paint) M.flat(q[0], q[1], q[2], q[3], 0.022, [q[4], q[5], q[6]]);
       for (const it of c.items) {
+        // (loose things are bodies in the physics, drawn by it)
+        if (LOOSE[it.name]) { if (!it.body) it.body = this.physics.add(it.name, it.x, it.z, it.rot); continue; }
         M.push(it.x, 0, it.z, it.rot);
         if (it.car) M.merge(DV.Vehicles.model(it.car.kind, { seed: it.car.seed, wreck: it.car.wreck }).geo);
         else M.merge(piece(it.name, it.name === 'tree' ? it.v : 0));
@@ -493,9 +589,13 @@
           const hx = (it.car.w * cc + it.car.l * ss) / 2, hz = (it.car.w * ss + it.car.l * cc) / 2;
           zone.colliders.add(it.x - hx, it.z - hz, it.x + hx, it.z + hz, { y1: 1.5, tag: 'vehicle' });
         } else {
-          const rad = { lamp: 0.12, lamp_dead: 0.12, signal: 0.1, sig_pole: 0.13, sig_post: 0.12, tree: 0.18, tree_bare: 0.17, stump: 0.2, hydrant: 0.18, bin: 0.28, signpost: 0.06, busstop: 0.06, bench: 0, news: 0.5, signal_down: 0 }[it.name];
-          if (rad) zone.colliders.add(it.x - rad, it.z - rad, it.x + rad, it.z + rad, { y1: it.name === 'hydrant' || it.name === 'stump' ? 0.7 : 3, tag: 'city', camera: false });
+          const rad = { lamp: 0.12, lamp_dead: 0.12, signal: 0.1, sig_pole: 0.13, sig_post: 0.12, tree: 0.18, tree_bare: 0.17, stump: 0.2, hydrant: 0.18, signpost: 0.06, busstop: 0.06, bench: 0, signal_down: 0, planter: 0.66, meter: 0.07, mailbox: 0.27, firebox: 0.08, phonebooth: 0.5 }[it.name];
+          const low = { hydrant: 0.7, stump: 0.7, planter: 1.1, mailbox: 1.35, meter: 1.4, firebox: 1.5 }[it.name];
+          if (rad) zone.colliders.add(it.x - rad, it.z - rad, it.x + rad, it.z + rad, { y1: low || 3, tag: 'city', camera: false });
           if (it.name === 'bench') zone.colliders.addRotated(it.x, it.z, 0.9, 0.25, it.rot, { y1: 0.5, tag: 'city', camera: false });
+          if (it.name === 'bollards') for (const s of [-1.5, 0, 1.5]) zone.colliders.add(it.x + Math.cos(it.rot) * s - 0.1, it.z - Math.sin(it.rot) * s - 0.1, it.x + Math.cos(it.rot) * s + 0.1, it.z - Math.sin(it.rot) * s + 0.1, { y1: 0.95, tag: 'city', camera: false });
+          if (it.name === 'bikerack') zone.colliders.addRotated(it.x, it.z, 1.3, 0.05, it.rot, { y1: 0.85, tag: 'city', camera: false });
+          if (it.name === 'barrier') zone.colliders.addRotated(it.x, it.z, 0.95, 0.06, it.rot, { y1: 1.0, tag: 'city', camera: false });
         }
       }
       if (M.count) {
@@ -560,6 +660,7 @@
         if (c.glow) c.glow.visible = vis && !!glowMats && glowMats.on > 0;
       }
       if (want) this.buildChunk(want);
+      this.physics.view(px, pz, this.hidden);
       if (this.bladesDirty) this.blades();
       if (this.bladeMesh) this.bladeMesh.visible = !this.hidden;
       this.updateSignals(px, pz);
@@ -624,6 +725,7 @@
         if (this.bladeMesh) { this.bladeMesh.geometry.dispose(); if (this.bladeMesh.parent) this.bladeMesh.parent.remove(this.bladeMesh); this.bladeMesh = null; }
         if (c.glow) { c.glow.children.forEach((o) => o.geometry.dispose()); if (c.glow.parent) c.glow.parent.remove(c.glow); }
       }
+      this.physics.dispose();
       this.mat.dispose();
       this.signMat.dispose();
       if (this.sig) { this.sig.mesh.geometry.dispose(); this.sig.halo.geometry.dispose(); }
@@ -649,6 +751,7 @@
       return g;
     },
     glowTexture() { return glowTex(false); },
+    piece, LOOSE,
     // how far on the lamps are (0 by day … 1 at night)
     lampsLevel() { return glowMats ? glowMats.on : 0; },
     // 0 (day) … 1 (night): every lamp in the zone, all at once

@@ -206,32 +206,41 @@
       } else this.y = ground;
       const feet = this.y - ground; // airborne: clear knee-high obstacles
 
-      // integrate + collide
-      let nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
+      // integrate + collide, in steps no longer than a third of your width: a slow frame (or a run)
+      // can't carry you through a thin wall, a fence or a post
+      let nx = this.x, nz = this.z;
       if (zone && !(dev && dev.noclip)) {
-        [nx, nz] = zone.colliders.resolveCircle(nx, nz, P.radius, 'player', feet);
-        if (ctx.npcs) {
-          for (const n of ctx.npcs) {
-            const dx = nx - n.x, dz = nz - n.z;
-            const rr = P.radius + (n.r || 0.28);
-            const d2 = dx * dx + dz * dz;
-            if (d2 < rr * rr && d2 > 1e-6) {
-              const d = Math.sqrt(d2);
-              nx = n.x + (dx / d) * rr;
-              nz = n.z + (dz / d) * rr;
+        const dx = this.vx * dt, dz = this.vz * dt, n = Math.min(24, Math.max(1, Math.ceil(Math.hypot(dx, dz) / (P.radius * 0.35))));
+        for (let k = 0; k < n; k++) {
+          let sx = nx + dx / n, sz = nz + dz / n;
+          [sx, sz] = zone.colliders.resolveCircle(sx, sz, P.radius, 'player', feet);
+          if (ctx.npcs) {
+            for (const o of ctx.npcs) {
+              const ox = sx - o.x, oz = sz - o.z;
+              const rr = P.radius + (o.r || 0.28);
+              const d2 = ox * ox + oz * oz;
+              if (d2 < rr * rr && d2 > 1e-6) {
+                const d = Math.sqrt(d2);
+                sx = o.x + (ox / d) * rr;
+                sz = o.z + (oz / d) * rr;
+              }
             }
+            [sx, sz] = zone.colliders.resolveCircle(sx, sz, P.radius, 'player', feet);
           }
-          [nx, nz] = zone.colliders.resolveCircle(nx, nz, P.radius, 'player', feet);
+          // never leave the map (the authored rooms, or the city's streets where there's one to walk)
+          if (!zone.walkable(sx, sz)) { this.vx = this.vz = 0; break; }
+          nx = sx; nz = sz;
         }
-        // never leave the map (the authored rooms, or the city's streets where there's one to walk)
-        if (!zone.walkable(nx, nz)) {
-          nx = this.lastSafe[0];
-          nz = this.lastSafe[1];
-          this.vx = this.vz = 0;
-        } else {
-          this.lastSafe[0] = nx;
-          this.lastSafe[1] = nz;
+        // (what you walked into takes your speed: no running on the spot against a wall)
+        if (dt > 0 && n > 0) {
+          const ax = (nx - this.x) / dt, az = (nz - this.z) / dt;
+          if (Math.hypot(ax, az) < Math.hypot(this.vx, this.vz) - 0.05) { this.vx = ax; this.vz = az; }
         }
+        this.lastSafe[0] = nx;
+        this.lastSafe[1] = nz;
+      } else {
+        nx = this.x + this.vx * dt;
+        nz = this.z + this.vz * dt;
       }
       const moved = Math.hypot(nx - this.x, nz - this.z);
       this.x = nx; this.z = nz;

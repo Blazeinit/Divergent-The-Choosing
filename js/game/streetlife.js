@@ -402,7 +402,10 @@
             e = ne;
           }
         }
+        const ox = p.x, oz = p.z;
         this.place(p);
+        // (how fast they're going, and which way: they shove loose things aside)
+        p.vx = dt > 0 ? (p.x - ox) / dt : 0; p.vz = dt > 0 ? (p.z - oz) / dt : 0;
         const moving = spd > 0.2;
         if (p.listen > 0) p.rot = U.dampAngle(p.rot, Math.atan2(P.x - p.x, P.z - p.z), 6, dt);
         else if (moving) p.rot = U.dampAngle(p.rot, p.wantRot, 7, dt);
@@ -541,13 +544,16 @@
         const d = Math.hypot(c.x - px, c.z - pz);
         if (d > CAR_FAR || (!c.turn && (l.dir > 0 ? c.s > l.s1 : c.s < l.s0))) { this.releaseCar(c); this.cars.splice(i, 1); continue; }
         // what's ahead of it: you, someone crossing, the car in front (or one turning across)
-        const hw = c.v.width / 2 + 0.55, look = c.v.length / 2 + 4 + c.speed * 1.3;
+        // (it looks far enough ahead to stop in, at a comfortable 5 m/s², with a beat to react)
+        const hw = c.v.width / 2 + 0.55, look = c.v.length / 2 + 4 + c.speed * 0.6 + (c.speed * c.speed) / 10;
+        // the most it can be doing with `gap` metres to stop in, braking at 5 m/s²
+        const stopIn = (gap) => (gap <= 0 ? 0 : Math.sqrt(2 * 5 * gap));
         let want = c.turn ? c.turn.vmax : c.top, forPlayer = false, held = false;
         c.why = null; // (what's holding it up: for the dev readout and the tests)
         const ahead = (x, z) => { const dx = x - c.x, dz = z - c.z, a = dx * c.hx + dz * c.hz, b = Math.abs(dx * c.hz - dz * c.hx); return b < hw ? a : -1; };
         const ap = ahead(P.x, P.z);
-        if (ap > 0 && ap < look) { want = ap < c.v.length / 2 + 2.5 ? 0 : Math.min(want, (ap - c.v.length / 2 - 2.5) * 1.2); forPlayer = true; c.why = 'you'; }
-        for (const p of this.peds) { const a = ahead(p.x, p.z); if (a > 0 && a < look) { want = Math.min(want, a < c.v.length / 2 + 2.5 ? 0 : (a - c.v.length / 2 - 2.5) * 1.2); c.why = 'someone crossing'; } }
+        if (ap > 0 && ap < look) { want = Math.min(want, stopIn(ap - c.v.length / 2 - 2.5)); forPlayer = true; c.why = 'you'; }
+        for (const p of this.peds) { const a = ahead(p.x, p.z); if (a > 0 && a < look) { want = Math.min(want, stopIn(a - c.v.length / 2 - 2.5)); c.why = 'someone crossing'; } }
         for (const o of this.cars) {
           if (o === c) continue;
           const a = ahead(o.x, o.z);
@@ -572,7 +578,8 @@
           }
         }
         const was = c.speed;
-        c.speed += U.clamp(want - c.speed, -6 * dt, 2.2 * dt);
+        // (it brakes as hard as 8 m/s² if it has to: someone stepping out in front of it)
+        c.speed += U.clamp(want - c.speed, -(forPlayer || c.why === 'someone crossing' ? 8 : 6) * dt, 2.2 * dt);
         if (c.speed < 0.05) c.speed = 0;
         c.brake = c.speed < was - 0.4 * dt || (c.speed < 0.2 && want < 0.2);
         if (c.turn) {
@@ -580,6 +587,7 @@
           if (c.turn.u >= c.turn.len) { c.lane = c.turn.lane; c.s = c.turn.endS; c.turn = null; c.planJ = null; c.plan = null; }
         } else c.s += l.dir * c.speed * dt;
         this.placeCar(c);
+        this.suspension(c, was, dt);
         // stood there in front of it? it'll let you know
         if (forPlayer && c.speed < 0.3) { c.stopped += dt; c.honk -= dt; if (c.stopped > 2.2 && c.honk <= 0) { DV.Audio.play('carhorn', { x: c.x, z: c.z, range: 60, big: c.kind === 'bus' }); c.honk = 5 + this.r() * 3; } }
         else c.stopped = 0;
@@ -591,6 +599,23 @@
         }
       }
       this.updateLamps();
+    }
+    // the body on its springs: the nose dips braking and lifts pulling away, it leans out of a turn
+    suspension(c, was, dt) {
+      if (!(dt > 0)) return;
+      const yaw = c.v.root.rotation.y, yr = c.yaw0 === undefined ? 0 : U.wrapAngle(yaw - c.yaw0) / dt;
+      c.yaw0 = yaw;
+      const acc = (c.speed - was) / dt;
+      const S = c.spr || (c.spr = { p: 0, vp: 0, r: 0, vr: 0 });
+      const tp = U.clamp(-acc * 0.005, -0.022, 0.026), tr = U.clamp(c.speed * yr * 0.009, -0.032, 0.032);
+      // (a spring a little under critical damping: one small settle after it stops)
+      const n = Math.ceil(dt / (1 / 120)), h = dt / n, W = 10, Z = 0.55;
+      for (let k = 0; k < n; k++) {
+        S.vp += (W * W * (tp - S.p) - 2 * Z * W * S.vp) * h; S.p += S.vp * h;
+        S.vr += (W * W * (tr - S.r) - 2 * Z * W * S.vr) * h; S.r += S.vr * h;
+      }
+      c.v.mesh.rotation.x = S.p;
+      c.v.mesh.rotation.z = S.r;
     }
     // tail and brake lights, indicators before and through a turn, headlights after dark
     updateLamps() {
@@ -686,6 +711,25 @@
       this.updatePeds(dt, px, pz, cam);
       this.updateCars(dt, px, pz);
       this.pushPlayer();
+      this.physics(dt);
+    }
+    // the loose things: you, the people walking past and the traffic push them about
+    physics(dt) {
+      const W = this.kit && this.kit.physics, Pl = DV.Player;
+      if (!W) return;
+      const R = DV.Config.PLAYER.radius, zone = this.zone;
+      const free = DV.Game && (DV.Game.state === 'playing' || DV.Game.state === 'cutscene') && Pl.state === 'free';
+      const me = free ? {
+        x: Pl.x, z: Pl.z, vx: Pl.vx, vz: Pl.vz, r: R, hp: 0.8,
+        // pushing something heavy takes it out of you
+        slow: (dx, dz, k) => { const vn = Pl.vx * dx + Pl.vz * dz; if (vn > 0) { const cut = Math.min(vn, k * 0.5); Pl.vx -= dx * cut; Pl.vz -= dz * cut; } },
+      } : null;
+      W.step(dt, { player: me, peds: this.shown === null ? [] : this.peds, cars: this.shown === null ? [] : this.cars });
+      // something that couldn't get out of your way (against a wall) moved you instead
+      if (me && (me.x !== Pl.x || me.z !== Pl.z)) {
+        const [nx, nz] = zone.colliders.resolveCircle(me.x, me.z, R, 'player', 0);
+        if (zone.walkable(nx, nz)) { Pl.x = nx; Pl.z = nz; Pl.syncModel(); }
+      }
     }
     // people you can bump into (the player's collision)
     bodies(px, pz, r) {
