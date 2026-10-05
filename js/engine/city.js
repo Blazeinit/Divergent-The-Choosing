@@ -147,7 +147,67 @@
       streaks(g, 256, 256, r, 90, 0.2);
     },
   };
-  const ORDER = ['office', 'brick', 'glass', 'derelict', 'institution'];
+  // Chicago greystone: pale limestone, tall windows with heavy lintels and sills, rusticated joints
+  STYLES.stone = {
+    bay: 3.0, floor: 3.4, lit: 0.08, win: [20 / 64, 12 / 64, 44 / 64, 50 / 64],
+    paint(g, r) {
+      g.fillStyle = '#a49e90'; g.fillRect(0, 0, 256, 256);
+      speckle(g, 256, 256, r, 2600, 0.12);
+      for (let y = 0; y < 256; y += 16) { g.fillStyle = 'rgba(60,56,50,0.22)'; g.fillRect(0, y, 256, 1); }
+      for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
+        const x = b * 64, y = f * 64;
+        g.fillStyle = '#8a8478'; g.fillRect(x + 16, y + 4, 32, 8); // lintel
+        g.fillStyle = '#b8b2a4'; g.fillRect(x + 18, y + 12, 28, 40);
+        g.fillStyle = '#23282b'; g.fillRect(x + 20, y + 13, 24, 37);
+        g.fillStyle = '#9a9488'; g.fillRect(x + 20, y + 30, 24, 2); // sash
+        g.fillStyle = 'rgba(150,165,170,0.2)'; g.fillRect(x + 20, y + 13, 24, 7);
+        g.fillStyle = '#7e786c'; g.fillRect(x + 15, y + 50, 34, 4); // sill
+      }
+      streaks(g, 256, 256, r, 60, 0.18);
+    },
+  };
+  // an industrial loft: dark brick piers between wide steel windows of small panes
+  STYLES.loft = {
+    bay: 4.2, floor: 4.0, lit: 0.05, win: [6 / 64, 10 / 64, 58 / 64, 48 / 64],
+    paint(g, r) {
+      g.fillStyle = '#5c3a2e'; g.fillRect(0, 0, 256, 256);
+      for (let y = 0; y < 256; y += 4) { g.fillStyle = 'rgba(30,18,14,0.45)'; g.fillRect(0, y, 256, 1); }
+      for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
+        const x = b * 64, y = f * 64;
+        g.fillStyle = '#3e4246'; g.fillRect(x + 6, y + 10, 52, 38);
+        g.fillStyle = '#20262a';
+        for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) g.fillRect(x + 8 + i * 12.5, y + 12 + j * 12, 11, 10);
+        if (r() < 0.25) { g.fillStyle = 'rgba(160,170,170,0.35)'; g.fillRect(x + 8 + Math.floor(r() * 4) * 12.5, y + 12 + Math.floor(r() * 3) * 12, 11, 10); } // a pane boarded or missing
+        g.fillStyle = '#8a7a66'; g.fillRect(x + 4, y + 48, 56, 4); // sill
+      }
+      streaks(g, 256, 256, r, 90, 0.22);
+    },
+  };
+  // painted signs on the blank side walls above lower roofs: a hundred years of faded adverts
+  const GHOST = ['GROCERY', 'FRESH BREAD', 'HOTEL ROSE', 'CITY ICE CO.', 'FURNITURE', 'STAR LAUNDRY', 'DRUGS · SODA', 'THE DAILY'];
+  STYLES.ghost = {
+    bay: 1, floor: 1, lit: 0, win: [0, 0, 0, 0], noShops: true,
+    paint(g, r) {
+      // 2 × 4 tiles of 128 × 64: brick, a faded panel, the words
+      for (let k = 0; k < 8; k++) {
+        const x = (k % 2) * 128, y = Math.floor(k / 2) * 64;
+        g.fillStyle = '#6e4234'; g.fillRect(x, y, 128, 64);
+        for (let yy = 0; yy < 64; yy += 4) { g.fillStyle = 'rgba(40,24,18,0.4)'; g.fillRect(x, y + yy, 128, 1); }
+        const panel = ['#d8d0b8', '#c8b088', '#9aa8a0', '#d0c8b0'][k % 4];
+        g.globalAlpha = 0.55 + r() * 0.2;
+        g.fillStyle = panel; g.fillRect(x + 6, y + 8, 116, 48);
+        g.fillStyle = ['#7a2a20', '#2a3a5a', '#3a4a2a', '#5a3a1a'][k % 4];
+        g.font = 'bold ' + (GHOST[k].length > 10 ? 15 : 19) + 'px Georgia, serif';
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(GHOST[k], x + 64, y + 30);
+        g.fillRect(x + 20, y + 44, 88, 3);
+        g.globalAlpha = 1;
+        // weathered: the brick showing through the paint
+        for (let i = 0; i < 140; i++) { g.fillStyle = 'rgba(110,66,52,' + (0.3 + r() * 0.5).toFixed(2) + ')'; g.fillRect(x + r() * 128, y + r() * 64, 2 + r() * 5, 1 + r() * 3); }
+      }
+    },
+  };
+  const ORDER = ['office', 'brick', 'glass', 'derelict', 'institution', 'stone', 'loft', 'ghost'];
 
   // tileable value noise → fbm (cloud shadows and the cloud deck share it)
   function noiseTexture(seed) {
@@ -237,11 +297,12 @@
     'void main() {',
     // (the seed is a whole number per building, but interpolating it across a face can leave it a
     // hair off, which the hash turns into a different window on every pixel: round it)
-    '  float sd = floor(vSeed + 0.5);',
+    '  float back = step(9999.5, vSeed);',
+    '  float sd = floor(mod(vSeed, 10000.0) + 0.5);',
     '  vec3 c = vCol * ambient;',
     '  if (useMap > 0.5) {',
     '    vec2 cell = floor(vUv); vec2 f = fract(vUv);',
-    '    if (street > 0.5 && cell.y < 0.5 && vWP.y > -0.2) {',
+    '    if (street > 0.5 && back < 0.5 && cell.y < 0.5 && vWP.y > -0.2) {',
     // the ground floor, seen from the pavement: a stone plinth, shop windows or boarded-up
     // ones, a door every few bays, a fascia over them; some shops lit at dusk
     '      float hb = hash(vec2(cell.x, sd)); float hs = hash(vec2(floor(cell.x / 3.0), sd + 7.0));',
@@ -363,11 +424,15 @@
       this.r = U.rng(seed);
       this.g = { plain: new Group() };
       for (const s of ORDER) this.g[s] = new Group();
+      // triangles by what they're for (city.stats.parts: where the budget goes)
+      this.part = 'other';
+      this.parts = {};
     }
     rand(a, b) { return a + (b - a) * this.r(); }
     // a box from y0 to y1; style = facade style or null (plain colour)
     box(cx, cz, w, d, y0, y1, rot, style, tint, seed, o) {
       o = o || {};
+      this.parts[this.part] = (this.parts[this.part] || 0) + 8 + (o.noTop ? 0 : 2) + (o.bottom ? 2 : 0);
       const g = this.g[style || 'plain'];
       const S = style ? STYLES[style] : null;
       const c = Math.cos(rot || 0), s = Math.sin(rot || 0);
@@ -393,8 +458,12 @@
           const u1 = lens[k] / S.bay;
           uv = [[0, y0 / S.floor], [u1, y0 / S.floor], [u1, y1 / S.floor], [0, y1 / S.floor]];
         }
-        g.quad([[A[0], y0, A[1]], [B[0], y0, B[1]], [B[0], y1, B[1]], [A[0], y1, A[1]]], uv, [lo, lo, hi, hi], [nx, 0, nz], seed);
+        // (o.shops: the faces that front a street; the rest, backs and party walls, get none)
+        const fs = o.shops && !o.shops.some((q) => q[0] * nx + q[1] * nz > 0.7) ? seed + 10000 : seed;
+        g.quad([[A[0], y0, A[1]], [B[0], y0, B[1]], [B[0], y1, B[1]], [A[0], y1, A[1]]], uv, [lo, lo, hi, hi], [nx, 0, nz], fs);
       }
+      // seen from below (awnings, landings, bays, cornices): the underside
+      if (o.bottom) this.g.plain.quad([[pts[0][0], y0, pts[0][1]], [pts[1][0], y0, pts[1][1]], [pts[2][0], y0, pts[2][1]], [pts[3][0], y0, pts[3][1]]], null, mul(tint, 0.42), [0, -1, 0], 0);
       if (!o.noTop) {
         const top = o.roof || mul(tint, 0.62);
         const rg = this.g.plain;
@@ -546,77 +615,115 @@
     return best ? { d: best, k: bk } : null;
   }
 
+  // A block, filled the way a city like this one actually filled up (the logic GTA IV's Liberty
+  // City and Mafia's Lost Heaven follow too): a lane down the middle of a deep block (the alley:
+  // bins, back stairs, the poles and their wires), lots of a standard width (7.6 m, the old
+  // 25-foot lot) fronting the street on each side of it, built right up to the pavement so each
+  // side of the street is one continuous wall. Neighbours keep roughly to each other's height;
+  // the corners stand taller (the bank, the hotel, the shop with flats over it). Where one
+  // building rises over the next, its blank side wall still carries an old painted sign.
   function fillBlock(B, b, ctx) {
     const r = B.r;
     const w = b[2] - b[0], d = b[3] - b[1];
     if (w < 8 || d < 8) return;
-    // split into lots along the longer side, two rows if deep
-    const along = w >= d ? 'x' : 'z';
-    const L = along === 'x' ? w : d, D = along === 'x' ? d : w;
-    const rows = D > 44 ? 2 : 1;
+    const ax = w >= d ? 'x' : 'z'; // the rows run along the longer side
+    const L = ax === 'x' ? w : d, D = ax === 'x' ? d : w;
+    const alley = D >= 32 ? 5.5 : 0;
+    const rows = alley || D > 26 ? 2 : 1;
+    const ld = (D - alley) / rows;
+    const bx = (b[0] + b[2]) / 2, bz = (b[1] + b[3]) / 2;
+    const big = ctx.hub ? Math.exp(-Math.pow(Math.hypot(bx - ctx.hub[0], bz - ctx.hub[1]) / 150, 2)) : 0;
     for (let row = 0; row < rows; row++) {
-      let t = 0;
-      while (t < L - 6) {
-        const lw = Math.min(L - t, 12 + r() * 22);
-        const ld = D / rows;
-        let lx, lz, lotW, lotD;
-        if (along === 'x') { lx = b[0] + t + lw / 2; lz = b[1] + ld * row + ld / 2; lotW = lw; lotD = ld; }
-        else { lz = b[1] + t + lw / 2; lx = b[0] + ld * row + ld / 2; lotW = ld; lotD = lw; }
+      const lots = [];
+      for (let t = 0; t < L - 0.5;) {
+        const mods = big > 0.3 ? 2 + Math.floor(r() * 4) : 1 + Math.floor(r() * r() * 4);
+        let lw = Math.min(L - t, mods * 7.6);
+        if (L - t - lw < 7) lw = L - t; // (the last lot takes what's left)
+        lots.push([t, lw]);
         t += lw;
-        lot(B, lx, lz, lotW, lotD, ctx);
+      }
+      // row 0 faces the street on the low side, row 1 the one on the high side
+      const f = row === 0 ? -1 : 1, face = ax === 'x' ? [0, f] : [f, 0];
+      const d0 = row === 0 ? (ax === 'x' ? b[1] : b[0]) : (ax === 'x' ? b[3] : b[2]) - ld;
+      const placed = [];
+      let prev = null;
+      lots.forEach(([t0, lw], i) => {
+        const a0 = (ax === 'x' ? b[0] : b[1]) + t0;
+        const lx = ax === 'x' ? a0 + lw / 2 : d0 + ld / 2, lz = ax === 'x' ? d0 + ld / 2 : a0 + lw / 2;
+        const info = { face, axis: ax, corner: i === 0 || i === lots.length - 1, cornerSide: i === 0 ? -1 : i === lots.length - 1 ? 1 : 0, prev, alley: !!alley, through: rows === 1 };
+        const res = lot(B, lx, lz, ax === 'x' ? lw : ld, ax === 'x' ? ld : lw, ctx, info);
+        prev = res && res.h ? res.h : null;
+        placed.push(res);
+      });
+      // a blank side wall over a lower neighbour: what's left of an old painted sign
+      for (let i = 0; i < placed.length; i++) for (const k of [-1, 1]) {
+        const A = placed[i], N = placed[i + k];
+        if (!A || !A.wall || i + k < 0 || i + k >= placed.length) continue;
+        const nh = N ? N.h : 0;
+        if (A.h - nh > 7 && r() < 0.5) ghostSign(B, A, k, nh, r);
       }
     }
+    if (alley) alleyway(B, b, ax, ld, r, big < 0.3);
   }
 
-  function lot(B, x, z, w, d, ctx) {
+  // one lot: a faction sector's own kind of building, an empty lot, or the city's: a walk-up, a
+  // loft, an office block or (downtown) a tower, sized to the neighbourhood and its neighbours
+  function lot(B, x, z, w, d, ctx, info) {
+    info = info || {};
     const r = B.r;
     const { centre, hub } = ctx;
     const dc = Math.hypot(x - centre[0], z - centre[1]);
     const dh = hub ? Math.hypot(x - hub[0], z - hub[1]) : 1e9;
-    if (hub && dh < 50) return; // the Hub's plaza
-    if (B.avoid && B.avoid.some((q) => x + w / 2 > q[0] && x - w / 2 < q[2] && z + d / 2 > q[1] && z - d / 2 < q[3])) return; // a landmark's ground
+    if (hub && dh < 50) return null; // the Hub's plaza
+    if (B.avoid && B.avoid.some((q) => x + w / 2 > q[0] && x - w / 2 < q[2] && z + d / 2 > q[1] && z - d / 2 < q[3])) return null; // a landmark's ground
     // a faction's sector builds its own way (fading out towards its edges)
     const dd = districtOf(ctx.o, x, z);
-    if (dd && SECTOR[dd.d.id] && r() < Math.min(1, dd.k * 2.4)) { SECTOR[dd.d.id](B, x, z, w, d, ctx); return; }
-    if (r() < 0.08) { // empty lot: rubble mound
+    if (dd && SECTOR[dd.d.id] && r() < Math.min(1, dd.k * 2.4)) { B.part = 'sector:' + dd.d.id; SECTOR[dd.d.id](B, x, z, w, d, ctx); return null; }
+    if (r() < 0.06) { // an empty lot: a rubble mound
       B.box(x, z, w * 0.6, d * 0.5, -0.05, 0.6 + r() * 1.6, r() * 3, null, [0.36, 0.35, 0.33], 0, {});
-      return;
+      return { h: 0 };
     }
     const seed = Math.floor(r() * 1000);
-    const bw = w - 1 - r() * 3, bd = d - 1 - r() * 3;
     const downtown = Math.exp(-Math.pow(dh / 150, 2));
     const far = U.clamp((dc - 90) / 240, 0, 1); // 0 next to the zone → 1 well away from it
-    let h, style;
-    if (downtown > 0.3 && r() < 0.85) {
-      h = 30 + downtown * (50 + r() * 150);
-      style = r() < 0.5 ? 'glass' : r() < 0.72 ? 'office' : 'derelict';
-    } else {
-      h = 8 + r() * 14 + far * r() * 24 + (r() < 0.05 * far ? 25 + r() * 40 : 0);
-      style = r() < 0.48 ? 'brick' : r() < 0.6 ? 'office' : 'derelict';
+    let h, type;
+    if (downtown > 0.3 && r() < 0.85) { h = 30 + downtown * (50 + r() * 150); type = h > 48 ? 'tower' : 'office'; }
+    else {
+      h = 9 + r() * 9 + far * r() * 18 + (r() < 0.05 * far ? 25 + r() * 40 : 0);
+      type = h > 30 ? 'office' : h > 17 ? (r() < 0.6 ? 'loft' : 'office') : 'walkup';
     }
     h = Math.min(h, 16 + far * 320); // the neighbourhood around the zone stays low
+    // a street wall, not a bar chart: close to the neighbour (towers excepted); corners stand taller
+    if (info.prev && type !== 'tower') h = U.lerp(info.prev, h, 0.5);
+    if (info.corner && type !== 'tower') h = Math.min(h * 1.15 + 3, 16 + far * 320 + 6);
+    const q = r();
+    const style = type === 'walkup' ? (q < 0.6 ? 'brick' : q < 0.9 ? 'stone' : 'derelict')
+      : type === 'loft' ? (q < 0.7 ? 'loft' : 'brick')
+      : type === 'office' ? (q < 0.55 ? 'office' : q < 0.85 ? 'stone' : 'derelict')
+      : q < 0.6 ? 'glass' : 'office';
     const k = 0.88 + r() * 0.16;
     const tint = [k * (1 + (r() - 0.5) * 0.05), k, k * (1 + (r() - 0.5) * 0.06)];
     const ruined = style === 'derelict' && r() < 0.5;
-    building(B, x, z, bw, bd, h, style, tint, seed, ruined);
+    // built up to the pavement; a yard behind (on the alley), towers and offices take the whole lot
+    let bx = x, bz = z, bw = w - 0.04, bd = d - 0.04;
+    if (info.face && type !== 'tower') {
+      const [fx, fz] = info.face, depth = (fx ? w : d) - (info.alley ? 0.8 + r() * 2.6 : 0.4 + r() * 1.2);
+      if (fx) { bw = depth; bx = x + fx * ((w - depth) / 2); } else { bd = depth; bz = z + fz * ((d - depth) / 2); }
+    }
+    const hb = building(B, bx, bz, bw, bd, h, style, tint, seed, ruined, Object.assign({ type }, info));
+    return { h: hb, x: bx, z: bz, w: bw, d: bd, axis: info.axis, tint, wall: !ruined && type !== 'tower' };
   }
 
-  // one building on its lot: a plain block with a cornice, a setback tower, or a ruin whose
-  // top floors are gone
-  function building(B, x, z, bw, bd, h, style, tint, seed, ruined) {
+  // one building: a block with its cornice (and a belt course over the shops), bays, awnings,
+  // fire escapes, and a roof with things on it; a tower on a podium; or a ruin whose top floors
+  // are gone. Returns how tall it came out.
+  function building(B, x, z, bw, bd, h, style, tint, seed, ruined, info) {
+    info = info || {};
     const r = B.r;
+    B.part = 'buildings';
     const S = STYLES[style];
     h = Math.max(S.floor * 2, Math.round(h / S.floor) * S.floor);
-    if (h > 50 && !ruined && r() < 0.6) {
-      // setback tower
-      const h1 = Math.round((h * (0.45 + r() * 0.2)) / S.floor) * S.floor;
-      B.box(x, z, bw, bd, 0, h1, 0, style, tint, seed);
-      const w2 = bw * (0.62 + r() * 0.2), d2 = bd * (0.62 + r() * 0.2);
-      B.box(x, z, w2, d2, h1, h, 0, style, tint, seed + 7);
-      B.box(x, z, w2 * 0.5, d2 * 0.5, h, h + 4, 0, null, [0.3, 0.3, 0.31], 0, {});
-      if (r() < 0.5) B.box(x + w2 * 0.2, z, 0.5, 0.5, h + 4, h + 18 + r() * 20, 0, null, [0.25, 0.25, 0.26], 0, {});
-      return;
-    }
+    if (h > 48 && !ruined && (info.type === 'tower' || r() < 0.6)) return tower(B, x, z, bw, bd, h, style, tint, seed);
     if (ruined) {
       // the top floors are gone: a jagged break and a skeleton of slabs and columns
       const solid = Math.max(S.floor * 2, Math.round((h * (0.35 + r() * 0.35)) / S.floor) * S.floor);
@@ -634,17 +741,163 @@
         const part = y > lowTop ? 0.45 + r() * 0.2 : 1;
         B.box(x + (y > lowTop ? bw * (1 - part) * 0.5 * (tops[0] === lowTop || tops[3] === lowTop ? 1 : -1) : 0), z, bw * part, bd, y - 0.45, y, 0, null, slab, 0, {});
       }
-      return;
+      return h;
     }
-    B.box(x, z, bw, bd, 0, h, 0, style, tint, seed);
-    // cornice / parapet
-    if (style === 'brick' || style === 'office') B.box(x, z, bw + 0.6, bd + 0.6, h, h + 0.7, 0, null, mul(tint, style === 'brick' ? 0.48 : 0.55), 0, {});
-    // broken roofline on derelicts
+    // shops on the street front (and round the corner on a corner lot); plain walls behind
+    let shops = null;
+    if (info.face) {
+      shops = [info.face];
+      if (info.through) shops.push([-info.face[0], -info.face[1]]); // (a shallow block: a street on both sides)
+      if (info.cornerSide) shops.push(info.axis === 'x' ? [info.cornerSide, 0] : [0, info.cornerSide]);
+    }
+    B.box(x, z, bw, bd, 0, h, 0, style, tint, seed, { shops });
+    const masonry = style === 'brick' || style === 'stone' || style === 'loft';
+    let top = h;
+    B.part = 'cornices';
+    if (masonry || style === 'office') {
+      // a belt course over the shopfronts, the cornice (and on the old ones a deeper one over it)
+      if (h > S.floor * 2.5) B.box(x, z, bw + 0.24, bd + 0.24, S.floor - 0.05, S.floor + 0.28, 0, null, mul(tint, style === 'stone' ? 0.8 : 0.6), 0, { noTop: true });
+      B.box(x, z, bw + 0.3, bd + 0.3, h, h + 0.55, 0, null, mul(tint, style === 'brick' || style === 'loft' ? 0.5 : 0.62), 0, {});
+      top = h + 0.55;
+      if (masonry && r() < 0.5) { B.box(x, z, bw + 0.9, bd + 0.9, h + 0.55, h + 0.85, 0, null, mul(tint, 0.44), 0, { bottom: true }); top = h + 0.85; }
+      // a loft's stepped parapet: the middle of the front stands up over the rest
+      if (style === 'loft' && info.face && r() < 0.6) {
+        const [fx, fz] = info.face, W = fx ? bd : bw;
+        B.box(x + fx * (bw / 2 - 0.25), z + fz * (bd / 2 - 0.25), fx ? 0.5 : W * 0.4, fx ? W * 0.4 : 0.5, top, top + 1.6, 0, null, mul(tint, 0.5), 0, {});
+      }
+    }
+    // the broken roofline of a derelict
     if (style === 'derelict') for (let k = 0; k < 3; k++) B.box(x + (r() - 0.5) * bw * 0.7, z + (r() - 0.5) * bd * 0.7, 1 + r() * 4, 1 + r() * 4, h, h + 1 + r() * 3, 0, null, [0.4, 0.39, 0.37], 0, {});
-    // rooftop clutter
-    if (style === 'brick' && r() < 0.35) waterTower(B, x + (r() - 0.5) * bw * 0.4, z + (r() - 0.5) * bd * 0.4, h + 0.7);
-    if (r() < 0.5) B.box(x + (r() - 0.5) * bw * 0.5, z + (r() - 0.5) * bd * 0.5, 2 + r() * 3, 1.5 + r() * 2, h, h + 1.6, 0, null, [0.42, 0.42, 0.42], 0, {});
-    if (style === 'glass' && h > 60) B.box(x, z, 0.5, 0.5, h, h + 14 + r() * 20, 0, null, [0.25, 0.25, 0.26], 0, {});
+    if (info.face) frontage(B, x, z, bw, bd, h, style, tint, seed, info);
+    roofTop(B, x, z, bw, bd, top, h, style);
+    return h;
+  }
+
+  // the front (and the back, on an alley): bays up a greystone, awnings over the shops, a
+  // tenement's fire escape; back porches and stairs down to the alley
+  function frontage(B, x, z, bw, bd, h, style, tint, seed, info) {
+    const r = B.r, S = STYLES[style], fl = S.floor;
+    B.part = 'frontage';
+    const [fx, fz] = info.face, W = fx ? bd : bw, D = fx ? bw : bd;
+    // a point on the front (side = 1) or the back (side = −1): u along the face, out from it
+    const at = (side) => (u, out) => [x + side * fx * (D / 2 + out) + (fx ? 0 : u), z + side * fz * (D / 2 + out) + (fz ? 0 : u)];
+    const front = at(1), lo = (a, b) => (fx ? [a, b] : [b, a]); // [w, d] of something a across the face, b deep
+    if ((style === 'stone' || style === 'brick') && h <= 26 && W >= 7 && r() < 0.5) {
+      const n = W >= 14 ? 2 : 1;
+      for (let i = 0; i < n; i++) {
+        const u = n === 1 ? (r() - 0.5) * (W - 4) * 0.5 : (i ? 1 : -1) * (W / 4);
+        const [px, pz] = front(u, 0.35), [sw, sd] = lo(0.7, 3.2);
+        B.box(px, pz, sw, sd, fl, h - 0.3, 0, style, tint, seed + 3 + i, { bottom: true });
+      }
+    }
+    if (style !== 'glass' && style !== 'derelict' && r() < 0.45) {
+      const cols = [[0.22, 0.3, 0.24], [0.42, 0.16, 0.14], [0.2, 0.22, 0.32], [0.5, 0.42, 0.3], [0.32, 0.29, 0.26], [0.36, 0.3, 0.12]];
+      const col = cols[Math.floor(r() * cols.length)], aw = Math.min(W - 1.2, 3 + r() * 4), u = (r() - 0.5) * Math.max(0, W - aw - 1);
+      let [px, pz] = front(u, 0.6), [sw, sd] = lo(1.2, aw);
+      B.box(px, pz, sw, sd, 2.78, 2.9, 0, null, col, 0, { bottom: true });
+      [px, pz] = front(u, 1.18); [sw, sd] = lo(0.06, aw);
+      B.box(px, pz, sw, sd, 2.46, 2.9, 0, null, mul(col, 0.8), 0, { noTop: true });
+    }
+    if ((style === 'brick' || style === 'derelict') && h >= fl * 3 && h <= 22 && r() < 0.15) fireEscape(B, front, fx, W, h, fl, r);
+    if (info.alley && (style === 'brick' || style === 'stone' || style === 'loft') && h <= 22 && r() < 0.3) fireEscape(B, at(-1), fx, W, h, fl, r);
+  }
+  // landings on each floor with a rail, and ladders down between them, zig-zagging
+  function fireEscape(B, at, fx, W, h, fl, r) {
+    const was = B.part;
+    B.part = 'fire escapes';
+    const u0 = (r() - 0.5) * Math.max(0, W - 5), ew = 3.4, col = [0.15, 0.15, 0.16];
+    const lo = (a, b) => (fx ? [a, b] : [b, a]);
+    let n = 0;
+    for (let y = fl; y < h - 1; y += fl, n++) {
+      let [px, pz] = at(u0, 0.55), [sw, sd] = lo(1.1, ew);
+      B.box(px, pz, sw, sd, y - 0.07, y + 0.03, 0, null, col, 0, { bottom: true });
+      [px, pz] = at(u0, 1.08); [sw, sd] = lo(0.04, ew);
+      B.box(px, pz, sw, sd, y + 0.03, y + 0.95, 0, null, col, 0, { noTop: true });
+      if (n > 0) {
+        const side = (n % 2 ? 1 : -1) * (ew / 2 - 0.45);
+        [px, pz] = at(u0 + side, 0.55); [sw, sd] = lo(0.05, 0.45);
+        B.box(px, pz, sw, sd, y - fl + 0.03, y - 0.07, 0, null, col, 0, { noTop: true });
+      }
+    }
+    B.part = was;
+  }
+  // the roof: the stair's bulkhead, plant, the water tower (half the old roofs have one), chimneys,
+  // a loft's skylights, an aerial
+  function roofTop(B, x, z, bw, bd, y, h, style) {
+    const r = B.r;
+    B.part = 'roofs';
+    const spot = (k) => [x + (r() - 0.5) * bw * k, z + (r() - 0.5) * bd * k];
+    if (bw > 6 && bd > 6 && r() < 0.4) { const [sx, sz] = spot(0.5); B.box(sx, sz, 2.4, 3, y, y + 2.7, 0, null, [0.42, 0.4, 0.38], 0, {}); }
+    if ((style === 'brick' && r() < 0.24) || (style === 'loft' && r() < 0.5) || (style === 'stone' && r() < 0.1)) { const [wx, wz] = spot(0.4); waterTower(B, wx, wz, y); }
+    const n = style === 'glass' || style === 'office' ? 1 + Math.floor(r() * 2) : r() < 0.35 ? 1 : 0;
+    for (let i = 0; i < n; i++) { const [px, pz] = spot(0.6); B.box(px, pz, 1.2 + r() * 2.5, 1 + r() * 2, y, y + 0.9 + r() * 1.2, 0, null, [0.46, 0.46, 0.45], 0, {}); }
+    if ((style === 'brick' || style === 'stone') && r() < 0.3) for (let i = 0; i < 1 + Math.floor(r() * 2); i++) B.box(x + (r() < 0.5 ? -1 : 1) * (bw / 2 - 0.7), z + (r() - 0.5) * bd * 0.7, 0.7, 0.9, y - 0.3, y + 1.5, 0, null, [0.45, 0.27, 0.2], 0, {});
+    if (style === 'loft') for (let i = 0; i < Math.min(3, Math.floor(bd / 8)); i++) B.box(x, z - bd / 2 + 3.5 + i * 7, bw * 0.5, 1.6, y, y + 0.55, 0, null, [0.3, 0.34, 0.36], 0, {});
+    if (r() < 0.15) { const [ax2, az2] = spot(0.7); B.box(ax2, az2, 0.08, 0.08, y, y + 3 + r() * 3, 0, null, [0.25, 0.25, 0.26], 0, {}); }
+    void h;
+  }
+  // downtown: a podium on the street, a tower set back from it, stepping in twice to a crown
+  function tower(B, x, z, bw, bd, h, style, tint, seed) {
+    const r = B.r, fl = STYLES[style].floor;
+    const pod = (3 + Math.floor(r() * 2)) * 3.4;
+    B.box(x, z, bw, bd, 0, pod, 0, r() < 0.6 ? 'stone' : 'office', mul(tint, 0.96), seed + 1);
+    B.box(x, z, bw + 0.3, bd + 0.3, pod, pod + 0.5, 0, null, mul(tint, 0.55), 0, {});
+    const set = 2 + r() * 3;
+    const w1 = Math.max(bw * 0.6, bw - set * 2), d1 = Math.max(bd * 0.6, bd - set * 2);
+    const h1 = Math.max(pod + fl * 4, Math.round((h * (0.6 + r() * 0.15)) / fl) * fl);
+    B.box(x, z, w1, d1, pod + 0.5, h1, 0, style, tint, seed);
+    const w2 = w1 * (0.74 + r() * 0.12), d2 = d1 * (0.74 + r() * 0.12), h2 = Math.max(h1 + fl * 2, Math.round((h * (0.86 + r() * 0.06)) / fl) * fl);
+    B.box(x, z, w2, d2, h1, h2, 0, style, tint, seed + 7);
+    const w3 = w2 * 0.76, d3 = d2 * 0.76;
+    B.box(x, z, w3, d3, h2, Math.max(h, h2 + fl), 0, style, tint, seed + 13);
+    const top = Math.max(h, h2 + fl);
+    B.box(x, z, w3 * 0.6, d3 * 0.6, top, top + 4, 0, null, [0.3, 0.3, 0.31], 0, {});
+    if (top > 90 && r() < 0.6) B.box(x + w3 * 0.15, z, 0.6, 0.6, top + 4, top + 18 + r() * 30, 0, null, [0.25, 0.25, 0.26], 0, {});
+    return top;
+  }
+  // an old painted sign on a blank side wall (k: which side, −1/+1 along the row; nh: the
+  // neighbour's roof, which it starts just above)
+  function ghostSign(B, A, k, nh, r) {
+    const along = A.axis, span = along === 'x' ? A.d : A.w;
+    const sw = Math.min(span - 2, 12);
+    if (sw < 5) return;
+    const y0 = nh + 1.2, y1 = Math.min(A.h - 1.2, y0 + sw * 0.5);
+    if (y1 - y0 < 2.5) return;
+    const t = Math.floor(r() * 8), col = t % 2, row = Math.floor(t / 2);
+    const u0 = col * 0.5 * 4, u1 = (col * 0.5 + 0.5) * 4, v0 = (1 - (row + 1) * 0.25) * 4, v1 = (1 - row * 0.25) * 4;
+    const tint = mul(A.tint, 0.95);
+    let p;
+    if (along === 'x') {
+      const px = A.x + k * (A.w / 2 + 0.04), c = A.z, a = c + (k > 0 ? 1 : -1) * sw / 2, b = c - (k > 0 ? 1 : -1) * sw / 2;
+      p = [[px, y0, a], [px, y0, b], [px, y1, b], [px, y1, a]];
+      B.g.ghost.quad(p, [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], [tint, tint, tint, tint], [k, 0, 0], 0);
+    } else {
+      const pz = A.z + k * (A.d / 2 + 0.04), c = A.x, a = c - (k > 0 ? 1 : -1) * sw / 2, b = c + (k > 0 ? 1 : -1) * sw / 2;
+      p = [[a, y0, pz], [b, y0, pz], [b, y1, pz], [a, y1, pz]];
+      B.g.ghost.quad(p, [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], [tint, tint, tint, tint], [0, 0, k], 0);
+    }
+  }
+  // the alley: dumpsters against the back walls, wooden poles carrying the wires down it
+  function alleyway(B, b, ax, ld, r, poles) {
+    B.part = 'alleys';
+    const a0 = ax === 'x' ? b[0] : b[1], a1 = ax === 'x' ? b[2] : b[3];
+    const c0 = (ax === 'x' ? b[1] : b[0]) + ld, c1 = c0 + 5.5;
+    const P = (s, t) => (ax === 'x' ? [s, t] : [t, s]);
+    const bin = [0.17, 0.25, 0.19], wood = [0.27, 0.21, 0.15];
+    for (let s = a0 + 6 + r() * 10; s < a1 - 6; s += 16 + r() * 22) {
+      const side = r() < 0.5, [x, z] = P(s, side ? c0 + 0.75 : c1 - 0.75);
+      const [w, d] = ax === 'x' ? [1.9, 1.2] : [1.2, 1.9];
+      B.box(x, z, w, d, 0, 1.3, 0, null, mul(bin, 0.85 + r() * 0.3), 0, {});
+    }
+    let last = null;
+    if (poles) for (let s = a0 + 4; s < a1 - 2; s += 36) {
+      const [x, z] = P(s, c0 + 0.35);
+      B.box(x, z, 0.26, 0.26, 0, 8.6, 0, null, wood, 0, {});
+      B.box(x, z, ax === 'x' ? 0.14 : 1.8, ax === 'x' ? 1.8 : 0.14, 7.9, 8.04, 0, null, wood, 0, { noTop: true });
+      // the wire, pole to pole
+      if (last !== null) { const [wx, wz] = P((last + s) / 2, c0 + 0.35); B.box(wx, wz, ax === 'x' ? s - last : 0.03, ax === 'x' ? 0.03 : s - last, 7.75, 7.78, 0, null, [0.08, 0.08, 0.08], 0, { noTop: true }); }
+      last = s;
+    }
   }
 
   /* ---------------- the faction sectors ---------------- */
@@ -1153,7 +1406,7 @@
             winRect: { value: new THREE.Vector4(...(S ? S.win : [0, 0, 0, 0])) },
             litChance: { value: S ? S.lit : 0 },
             street: { value: o.walk && !(S && S.noShops) ? 1 : 0 },
-            shabby: { value: k === 'derelict' ? 0.75 : k === 'brick' ? 0.3 : 0.12 },
+            shabby: { value: k === 'derelict' ? 0.75 : k === 'brick' || k === 'loft' ? 0.3 : 0.12 },
           }),
           vertexShader: VERT,
           fragmentShader: FRAG,
@@ -1287,7 +1540,7 @@
           const q = walk.campus;
           return !(x > q[0] && x < q[2] && z > q[1] && z < q[3]);
         },
-        stats: { buildMs: Math.round(performance.now() - t0), tris: B ? Object.keys(B.g).reduce((s, k) => s + B.g[k].idx.length / 3, 0) : 0 },
+        stats: { buildMs: Math.round(performance.now() - t0), tris: B ? Object.keys(B.g).reduce((s, k) => s + B.g[k].idx.length / 3, 0) : 0, parts: B ? B.parts : null },
         update(dt, camera) { City.update(this, dt, camera); },
         // sample how shaded by clouds a point is right now (0 = clear .. 1 = full shadow)
         cloudShadeAt(x, z) { return City.cloudShadeAt(this, x, z); },

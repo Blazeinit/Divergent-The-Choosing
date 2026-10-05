@@ -14,7 +14,7 @@ A browser-based, offline, single-player third-person 3D RPG prototype set in the
 
 In every faction, what your aptitude test really said catches up with you.
 
-**Build 4** opens the city. Once your results are in, the Testing Center's gate lets you out onto Lake Street, and from there you can walk the whole city on foot, all the way to the Fence. The streets have their real names and the HUD tells you which one you're on and which sector you're in. Each sector looks like the faction that lives there: the grey Abnegation rows, Erudite glass, Candor's offices, the Dauntless warehouses and the factionless ruins. People walk the pavements and traffic keeps to its lanes, stopping and honking when you step out in front of it. You can walk home to your own front door instead of taking the bus. The Map tab now has a **City** view. The day goes by outside: the sun crosses the sky, dusk lights the windows and the street lamps, and the crickets start up. **T** lets you wait anywhere you're free to: the day passes in a time-lapse and stops when someone needs you. The Dauntless compound is busy at every hour, and the weapons are proper models.
+**Build 4** opens the city. Once your results are in, the Testing Center's gate lets you out onto Lake Street, and from there you can walk the whole city on foot, all the way to the Fence. The streets have their real names and the HUD tells you which one you're on and which sector you're in. Each sector looks like the faction that lives there: the grey Abnegation rows, Erudite glass, Candor's offices, the Dauntless warehouses and the factionless ruins. The blocks are built the way a real city fills up: continuous street walls of brick walk-ups, greystones, lofts and offices, alleys behind them, and towers stepping up downtown. People walk the pavements and cross on the walk signal. Traffic keeps to its lanes, stops at red lights, turns at junctions, and honks when you step out in front of it. You can walk home to your own front door instead of taking the bus. The Map tab now has a **City** view. The day goes by outside: the sun crosses the sky, dusk lights the windows and the street lamps, and the crickets start up. **T** lets you wait anywhere you're free to: the day passes in a time-lapse and stops when someone needs you. The Dauntless compound is busy at every hour, and the weapons are proper models.
 
 Everything is built from HTML, CSS, JavaScript and Three.js. There is no build step, no npm, and no framework. All textures, characters, sounds and music are generated procedurally at runtime.
 
@@ -126,9 +126,10 @@ js/
                            call each, and the vertex-coloured mesh builder they share
     arms.js                Build 4: the pistol, the carbine and the throwing knife, built the same way
     props_street.js        Build 4: the bus shelter, stop and street signs, hydrants, news boxes, kerbs, road paint
+    roads.js               Build 4: the road network: junctions, their kerbs, and their signals' cycle
     streetkit.js           Build 4: street furniture along every kerb in 96 m chunks near you (lamps, trees,
                            benches, signs at the corners, parked cars), solid, darkening with the hour; the
-                           lamps' glow at night
+                           lamps' glow at night; road markings and the traffic signals (and their lamps)
     world.js               Zone definition → rooms, walls, doors, windows, lights, colliders, nav, spots;
                            indoor/outdoor fog blending
     city.js                The procedural city around a zone: street grid, towers, the Hub, the L and its
@@ -265,7 +266,16 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
   - **Landmarks:** the Merciless Mart, Erudite headquarters, the Abnegation council hall, the Dauntless compound, the Hancock, the Hub, the marsh and its Ferris wheel. The Fence rings the city with watchtowers and a gate to Amity's farmland.
   - **Streets** have pavements, kerbs, lanes and crossings. Street furniture is laid along every kerb, in chunks near you: lamps, trees, hydrants, benches, bins, news boxes, dead traffic signals, name signs at the corners and parked cars. Buildings, furniture and cars are solid.
   - **The Testing Center from outside** has a proper concrete exterior, and outer walls no longer show interior paint.
-- **Street life.** Pedestrians dressed for their sector walk the pavements and cross at corners when it's clear. Speak to one and they answer, and brush past a group and someone says something. Traffic keeps right (Lake Street is one-way under the L), queues, stops for you or for people crossing, and honks. Engines are positional sounds.
+- **Streets that work** (`DV.Roads`). Every junction inside the Fence has continental crossings on each arm, and stop lines where the traffic comes up to it. Two-way streets have the double yellow and dashed parking-lane lines. All of it is worn by sector: crisp downtown, half gone in the ruins. Working junctions have a signal pole on each corner, with the traffic's head on the far right corner and a second head on a mast arm over its lane. Walk signals face across each road, and the street-name blades hang on the poles. The signals run a cycle (green, amber, all-red, then the cross street), offset so a car at the limit meets a run of greens. The ruins' signals went dark years ago, and a third of the Dauntless sector's are down. At night every lamp glows.
+- **Traffic that obeys them.** Cars stop at the line on red (and on amber when they can do it without slamming the brakes), pull away on green, and slow down and look at a dead junction. They turn left and right into the cross street when there's room, and only turn left when nothing is coming the other way. They show brake lights, tail lights and headlights after dark, and indicate before a turn. People wait at the kerb for the white man.
+- **Buildings with a logic to them** (inspired by how GTA IV's Liberty City and Mafia's Lost Heaven are built). Each deep block has an alley down the middle with bins, back stairs and wooden poles carrying the wires. On each side, standard 7.6 m lots (the old 25-foot lot) front the street and are built right up to the pavement, so the street is one continuous wall. Neighbours keep close to each other's height, and the corners stand taller.
+  - **Walk-ups** in brick or Chicago greystone have bay windows, a belt course over the shops, a two-tier cornice, awnings and the odd fire escape.
+  - **Lofts** have big steel windows, stepped parapets, water towers and skylights.
+  - **Offices** have a stone base and a crown.
+  - **Downtown towers** stand on a podium, set back from the street and step in twice to a crown and spire.
+  - Shopfronts are only on the street side (and round the corner on a corner lot); backs and party walls are plain. A blank side wall rising over a lower roof still carries a faded painted sign. Roofs have stair bulkheads, plant, chimneys, aerials and Chicago's water towers.
+- **The L's columns stand on the pavement.** Where an avenue crosses under it, the deck spans the junction from a bent past each corner, the way the Loop does it, instead of standing in the road.
+- **Street life.** Pedestrians dressed for their sector walk the pavements and cross at corners on the walk signal (or, where the signals are dead, when it's clear). Speak to one and they answer, and brush past a group and someone says something. Traffic keeps right (Lake Street is one-way under the L), queues, stops for you or for people crossing, and honks. Engines are positional sounds.
 - **Vehicles** are low-poly models in the game's style (a bus, saloons, hatchbacks, vans, pickups, Dauntless jeeps): wheels and arches, glass and pillars, lights, doors on the kerb side, one draw call each. Lake Street has a proper bus stop: shelter, lit advert, timetable, pole, street sign, crossing and road paint.
 - **Walking home.** Instead of taking the bus you can walk to your family's front door in your sector (for Amity, a truck at the Fence gate). The objective marker points there once it's the nearer way.
 - **The world map.** The Map tab has a **City** view beside the local one: the Fence and its gate, the farmland, the marsh, every block tinted by sector, the main streets by name (all of them when zoomed in), the L, the landmarks, your home and the objective. You show as an arrow in the streets, or as a marker on the place you're in. Zoom, pan and hover for names. Sectors you've walked through are named brighter.
@@ -402,12 +412,15 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - The ambush: the struggle, the fight, the infirmary, and Josh expelled.
   - The cut on Day 6, then the fear simulation through to STAGE ONE COMPLETE.
 - **Build 3, the first week:** each of the four faction weeks is played start to finish, down to its banner, and a save made after it loads as free roam.
-- **Build 4, the city** (36 checks):
+- **Build 4, the city** (44 checks):
   - Out through the gate on foot and along the streets. Buildings, the Testing Center's walls, the shore and the Fence keep you in.
   - The HUD names the street and the sector. Street furniture stands clear of buildings and traffic lanes, and is solid.
   - People walk the pavements, dressed for their sector. They talk when spoken to and you can't walk through them.
   - One-way traffic on Lake Street keeps to its lanes and stops (and honks) for you. Nothing is drawn deep indoors.
   - The world map draws the city and where you are. A save made out in the streets loads back there, and the walk home ends at your own door.
+  - The L's columns all stand on a pavement, none in a road.
+  - Junctions have paint, poles and lamps. A signal is never green both ways, and the walk signal only shows with its green.
+  - Cars stop at the line on red and never run one. They turn at junctions and never drive into each other. People cross on the white man.
 - **Build 4, waiting and the clock** (31 checks):
   - The clock speed setting.
   - T opens the wait standing up. The keys work on the panel, and the time-lapse runs and ends by itself. Esc stops it early.
@@ -452,6 +465,7 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
 - **Persistence:** save → reload page → Continue restores state. Two playthroughs in one browser session also work.
 
 Bugs found and fixed during Build 4:
+- **The L's columns stood in the road.** Its bents were spaced every 15 m regardless of the streets crossing under it, so wherever one landed on an avenue its legs stood in the roadway and cut that avenue's traffic in two. They now stand on the pavement, and the deck spans each junction.
 - **The camera locked after the aptitude test.** Claire's results talk asked for the completion banner on a real-time timer. A player still reading her last lines got the banner on top of the conversation, and when the talk ended the camera was never handed back. Talking to her again was the only way out.
 - **Nothing happened after choosing a faction.** The ceremony waited for you to stand within 1.1 m of your place among the initiates. They stand shoulder to shoulder and you collide with them, so you could stop just short and wait forever, with the clock stopped. Getting close or pressing E now takes you the last step.
 - **The camera froze after the range.** The range finishes itself from inside its own update. The hand-back put the camera behind you, then the rest of that update put the aiming camera back. The activity framework now holds a finish requested mid-update until the update returns. That covers the bags, the knives, fights and the faction-week puzzles too.
@@ -496,7 +510,7 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 ## Known limitations
 
 - **Free roam.** The Testing Center (with the city outside it) and the Dauntless compound are the two places you live in. The other four factions' weeks are scripted chapters: you can walk around afterwards, but their headquarters aren't yet full districts with schedules.
-- **The city's buildings are outsides only.** Apart from the Testing Center you can't go into them, and the landmarks are exteriors for now. Traffic runs along each street's lanes and doesn't turn at junctions. People in the street have a line each, not conversations.
+- **The city's buildings are outsides only.** Apart from the Testing Center you can't go into them, and the landmarks are exteriors for now. Cars keep to one lane per direction (no overtaking or lane changes) and turn without giving way to people crossing on the same green (they stop for anyone in front of them). People in the street have a line each, not conversations.
 - **The hour only shows outside the Testing Center.** The compound is underground, and the story scenes keep the time of day they were made for.
 - **Waiting stops at midnight.** For the night, sleep. During a time-lapse the crowd catches up in jumps rather than walking.
 - **The ceremony is long.** The ceremony takes a few minutes if you let every name play. Hold Space to hurry it.
@@ -529,4 +543,4 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 8. **Audio pass.** Voiced key lines (or better speech synthesis), recorded ambience and adaptive music stems.
 9. **Accessibility.** Rebindable keys, gamepad support, a subtitle size option, a colour-blind-safe UI and reduced-motion settings.
 10. **Engineering.** Run `tools/qa` in CI on every push, and split the longer suites so they run in parallel.
-11. **The city, inside and out.** Enterable shops and stairwells, traffic that turns at junctions and stops at the Fence gate, and the city on the clock for every faction once their headquarters are districts.
+11. **The city, inside and out.** Enterable shops and stairwells, traffic that gives way properly and changes lanes, and the city on the clock for every faction once their headquarters are districts.
