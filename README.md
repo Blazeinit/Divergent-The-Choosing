@@ -294,7 +294,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
   - **Go to:** the city's landmarks, sectors and front doors, or the rooms of wherever you are. Shift+click on the City map goes there too.
   - **Story:** jump to a point in the story (results in with the gate open, the evening at home, the Choosing, Dauntless days 2–6, each first week).
   - **Time:** set the hour and the day, freeze the clock or run it ×6/×60.
-  - **You:** noclip, ×2/×4 speed and endless stamina.
+  - **You:** noclip, which flies through anything: **V** in game toggles it, WASD to move, Space up, C/Ctrl down, Shift faster, and turning it off lands you on the nearest ground you can stand on. Also ×2/×4 speed and endless stamina.
   - **World:** an info readout (zone, room, coordinates, time, frame cost, the street's numbers), hiding the HUD for screenshots, and emptying the streets.
   - **Quests & items:** finish the current objective, or give yourself any item.
 - **Weapons in the game's style.** A service pistol (slide, serrations, sights with dots, trigger guard, grip panels), a carbine, and a throwing knife with a diamond-section blade and cord-wrapped handle. The range pistol sits in your hands and comes up to your eye when you aim down the sights. The armoury rack holds real carbines and pistols.

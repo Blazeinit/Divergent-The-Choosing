@@ -69,7 +69,9 @@
       if (this.mode === 'follow' && target) {
         const ph = C.pivotHeight * (target.scale || 1) * (target.pivotScale || 1);
         // follow jumps only partly so the view doesn't bob
-        const tx = target.x, ty = (target.y || 0) * 0.6 + ph, tz = target.z;
+        // (flying with the dev menu's noclip: the camera goes where you go, through walls too)
+        const fly = DV.Dev && DV.Dev.on() && DV.Dev.flags.noclip;
+        const tx = target.x, ty = (target.y || 0) * (fly ? 1 : 0.6) + ph, tz = target.z;
         if (!this.initialized || this.pivot.distanceToSquared(new THREE.Vector3(tx, ty, tz)) > 9) this.pivot.set(tx, ty, tz);
         else {
           const k = 1 - Math.exp(-lambda * dt);
@@ -81,7 +83,7 @@
         const dir = new THREE.Vector3(-Math.sin(this.yaw) * cp, sp, -Math.cos(this.yaw) * cp);
         // collision
         let d = this.dist;
-        if (zone) {
+        if (zone && !fly) {
           const hit = zone.colliders.raycast(this.pivot.x, this.pivot.y, this.pivot.z, dir.x, dir.y, dir.z, d + 0.3);
           if (hit < d + 0.3) d = Math.max(0.35, hit - 0.3);
         }
@@ -89,7 +91,7 @@
         this.curDist = d < this.curDist ? U.damp(this.curDist, d, 30, dt) : U.damp(this.curDist, d, 4, dt);
         desiredPos = this.pivot.clone().addScaledVector(dir, this.curDist);
         // stay below ceilings and above floor
-        if (zone) {
+        if (zone && !fly) {
           const room = zone.roomAt(desiredPos.x, desiredPos.z);
           if (room && !room.exterior) desiredPos.y = Math.min(desiredPos.y, room.h - 0.2);
         }

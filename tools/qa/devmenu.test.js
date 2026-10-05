@@ -57,7 +57,19 @@ L.run('the developer menu', async (p, T, errs) => {
     return { z0, z1: DV.Player.z, speed: DV.Dev.flags.speed };
   });
   T.ok(wall.z1 < 70, 'noclip ×4: straight through the Testing Center\'s wall (z ' + wall.z0.toFixed(1) + ' → ' + wall.z1.toFixed(1) + ')', wall);
-  await ev(() => { DV.Dev.flags.noclip = false; DV.Dev.flags.speed = 1; });
+  // flying: up with Space, and V lands you on the nearest ground you could stand on
+  const fly = await ev(() => {
+    DV.Dev.flags.speed = 1;
+    DV.Input.keys.Space = true; QA.step(1.5); DV.Input.keys.Space = false;
+    const up = DV.Player.y;
+    QA.step(0.3);
+    return { up, held: DV.Player.y };
+  });
+  T.ok(fly.up > 8 && Math.abs(fly.held - fly.up) < 0.01, 'noclip flies: Space takes you up (' + fly.up.toFixed(1) + ' m) and you stay there', fly);
+  await p.keyboard.press('KeyV');
+  await p.waitForFunction(() => !DV.Input.pressed.KeyV, null, { timeout: 8000 }).catch(() => {});
+  const land = await ev(() => { QA.step(2); const P = DV.Player, z = DV.World.current; return { noclip: DV.Dev.flags.noclip, y: P.y, ok: z.walkable(P.x, P.z), room: (z.roomAt(P.x, P.z) || {}).id || null, x: P.x, z: P.z }; });
+  T.ok(!land.noclip && land.y < 0.05 && land.ok, 'V again: noclip off, down on ground you can stand on', land);
 
   // the readout, hiding the HUD, empty streets
   await press('Backquote');

@@ -9,13 +9,14 @@
      the evening at home, the Choosing, a Dauntless day, a first week). A jump
      patches the game you have loaded: don't save it over one you care about.
    - Time: the hour and the day, freeze the clock, run it fast.
-   - You: walk through walls (noclip), run faster, never tire.
+   - You: noclip (fly through anything: V in game), run faster, never tire.
    - World: an info readout (where, when, frame cost, the street's numbers),
      hide the HUD for screenshots, empty the streets.
    - Quests & items: finish the objective you're on, give yourself anything.
 
      DV.Dev.on()          → the setting
      DV.Dev.flags         → { noclip, speed, stamina, overlay, hideHud, noStreet, timeMul }
+     DV.Dev.toggleNoclip() → fly through anything (also V in game while the dev menu is on)
      DV.Dev.open()        → the panel (from the pause menu)
      DV.Dev.go(x, z)      → teleport to the nearest place you can stand
    ========================================================================== */
@@ -92,7 +93,7 @@
       // you
       section('You');
       r = row('');
-      toggle(r, 'Noclip (through walls)', 'noclip');
+      btn(r, 'Noclip: fly through anything (V)', (b) => { this.toggleNoclip(); b.classList.toggle('on', this.flags.noclip); }, this.flags.noclip);
       toggle(r, 'Never tire', 'stamina');
       r = row('Speed');
       radio(r, [[1, '×1'], [2, '×2'], [4, '×4']], 'speed');
@@ -162,6 +163,15 @@
       DV.Game.rig.yaw = P.rot; DV.Game.rig.follow(true);
       if (zone.streetKit) zone.streetKit.warm(at[0], at[1]);
       return true;
+    },
+    // noclip: fly through anything (Space up, C/Ctrl down, Shift faster); off again, you land on
+    // the nearest ground you could stand on
+    toggleNoclip() {
+      const P = DV.Player;
+      this.flags.noclip = !this.flags.noclip;
+      if (this.flags.noclip) { if (P.seat) { P.seat.occupant = null; P.seat = null; } P.state = 'free'; P.pinned = false; }
+      else { const y = P.y; this.go(P.x, P.z); if (y > 0.5) { P.y = Math.min(y, 6); P.onGround = false; P.vy = 0; } }
+      DV.UI.notify(this.flags.noclip ? 'Noclip on: fly with WASD, Space up, C down, Shift faster. V to land.' : 'Noclip off.');
     },
     goAndPlay(x, z, rot) {
       if (this.go(x, z, rot)) { DV.Menus.closeSide(); DV.Game.resume(); }

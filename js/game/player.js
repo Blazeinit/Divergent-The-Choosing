@@ -154,21 +154,23 @@
       if (this.state === 'locked') { mx = mz = 0; }
 
       const wantRun = ctx.enabled && (input.down('ShiftLeft') || input.down('ShiftRight')) && (mx || mz);
+      // the dev menu's noclip: fly, through anything (Space up, C or Ctrl down)
+      const dev = DV.Dev && DV.Dev.on() ? DV.Dev.flags : null, fly = !!(dev && dev.noclip);
       // crouch (toggle with C; sprinting stands you up) and jump (Space)
       this.justJumped = false;
-      if (ctx.enabled && input.consume('KeyC') && this.onGround) this.crouched = !this.crouched;
+      if (ctx.enabled && !fly && input.consume('KeyC') && this.onGround) this.crouched = !this.crouched;
+      if (fly) this.crouched = false;
       if (wantRun && this.crouched && !this.exhausted && this.stamina > 0) this.crouched = false;
-      if (ctx.enabled && !this.pinned && input.consume('Space')) this.tryJump(); // (pinned: Space hurries a ceremony along instead)
+      if (ctx.enabled && !fly && !this.pinned && input.consume('Space')) this.tryJump(); // (pinned: Space hurries a ceremony along instead)
       this.crouchK += ((this.crouched ? 1 : 0) - this.crouchK) * Math.min(1, dt * 9);
       const athletics = DV.Stats ? DV.Stats.skill('athletics') : 20;
       let canRun = !this.exhausted && this.stamina > 0;
       const running = wantRun && canRun && !this.crouched;
       const speedBonus = 1 + U.clamp((athletics - 20) / 200, 0, 0.18);
-      const dev = DV.Dev && DV.Dev.on() ? DV.Dev.flags : null;
-      const target = (this.crouched ? P.crouchSpeed : running ? P.runSpeed * speedBonus : P.walkSpeed) * this.moveScale * (dev ? dev.speed : 1);
+      const target = (fly ? (wantRun ? 16 : 7) : (this.crouched ? P.crouchSpeed : running ? P.runSpeed * speedBonus : P.walkSpeed) * this.moveScale) * (dev ? dev.speed : 1);
       const tvx = mx * target, tvz = mz * target;
       // little steering in the air
-      const a = 1 - Math.exp(-P.accel * (this.onGround ? 1 : 0.22) * dt);
+      const a = 1 - Math.exp(-P.accel * (this.onGround || fly ? 1 : 0.22) * dt);
       this.vx += (tvx - this.vx) * a;
       this.vz += (tvz - this.vz) * a;
       if (!mx && !mz && Math.hypot(this.vx, this.vz) < 0.05) { this.vx = 0; this.vz = 0; }
@@ -186,7 +188,13 @@
       // vertical: jumping and landing (ground is the room floor; 0 almost everywhere)
       const groundRoom = zone ? zone.roomAt(this.x, this.z) : null;
       const ground = (groundRoom && groundRoom.floorY) || 0;
-      if (!this.onGround) {
+      if (fly) {
+        const up = ctx.enabled ? (input.down('Space') ? 1 : 0) - (input.down('KeyC') || input.down('ControlLeft') || input.down('ControlRight') ? 1 : 0) : 0;
+        this.vy = up * (wantRun ? 14 : 7) * (dev.speed || 1);
+        this.y = Math.max(ground, this.y + this.vy * dt);
+        this.onGround = this.y <= ground + 0.01;
+        if (this.onGround) this.vy = 0;
+      } else if (!this.onGround) {
         this.vy -= P.gravity * dt;
         this.y += this.vy * dt;
         if (this.y <= ground) {
@@ -233,10 +241,10 @@
         this.rot = U.dampAngle(this.rot, want, P.turnRate, dt);
       }
       this.syncModel();
-      this.model.animate(dt, { speed: this.onGround ? this.speed : 0, action: !this.onGround ? 'jump' : this.crouchK > 0.5 ? 'sneak' : 'idle', lookYaw: ctx.lookYaw || 0 });
+      this.model.animate(dt, { speed: this.onGround && !fly ? this.speed : 0, action: !this.onGround && !fly ? 'jump' : this.crouchK > 0.5 ? 'sneak' : 'idle', lookYaw: ctx.lookYaw || 0 });
 
       // footsteps (quieter when sneaking)
-      if (this.speed > 0.3 && this.onGround) {
+      if (this.speed > 0.3 && this.onGround && !fly) {
         const ph = this.model.phase;
         const step = Math.floor(ph / Math.PI);
         if (step !== this.stepPhase) {
