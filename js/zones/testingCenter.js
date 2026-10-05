@@ -751,17 +751,21 @@
       // what's on the streets (the zone dresses its own stretch of Lake Street), and who's on them
       const b = zone.def.bounds;
       const kit = DV.StreetKit.attach(zone, city, { skip: [CM.campus[0] - 6.5, b.z1 - 11, CM.campus[2] + 6.5, b.z1 + 6.5] });
+      // the farms, and the ragged edge between them and the city, dressed (js/engine/farms.js)
+      const farms = DV.Farms.attach(zone, city);
       const life = DV.StreetLife.attach(zone, city, kit);
       // Erudite's police: the patrols, the guards at the Order Station, the drones (js/game/order.js)
       const order = DV.Order.attach(zone, city, life);
       // and people stopped doing something: stalls, buskers, a bread line, children playing (js/game/citylife.js)
       const scenes = DV.CityLife.attach(zone, city, life);
+      const farmLife = DV.FarmLife.attach(zone, farms, life);
       ctx.update((dt) => {
         const cam = DV.Game && DV.Game.camera;
-        if (cam) kit.update(cam.position.x, cam.position.z);
+        if (cam) { kit.update(cam.position.x, cam.position.z); farms.update(cam.position.x, cam.position.z, dt); }
         life.update(dt);
         order.update(dt);
         scenes.update(dt);
+        farmLife.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 

@@ -84,7 +84,14 @@
         // collision
         let d = this.dist;
         if (zone && !fly) {
-          const hit = zone.colliders.raycast(this.pivot.x, this.pivot.y, this.pivot.z, dir.x, dir.y, dir.z, d + 0.3);
+          // (not one ray but three: the way back, and a hand's width to each side of it, so the lens
+          // can't poke through a wall's corner or a thin wall beside the line)
+          const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
+          let hit = zone.colliders.raycast(this.pivot.x, this.pivot.y, this.pivot.z, dir.x, dir.y, dir.z, d + 0.3);
+          for (const [sx, sy] of [[0.25, 0], [-0.25, 0]]) {
+            const h2 = zone.colliders.raycast(this.pivot.x + rx * sx, this.pivot.y + sy, this.pivot.z + rz * sx, dir.x, dir.y, dir.z, d + 0.3);
+            if (h2 < hit) hit = h2;
+          }
           if (hit < d + 0.3) d = Math.max(0.35, hit - 0.3);
         }
         // fast in, slow out

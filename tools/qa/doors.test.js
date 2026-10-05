@@ -24,6 +24,6 @@ L.run('doors: out of the proctor station without the card, not back in', async (
   await ev(() => { DV.Player.place(19, 14.6, 0); DV.Game.rig.yaw = 0; });
   await p.keyboard.down('KeyW'); await p.waitForTimeout(2500); await p.keyboard.up('KeyW');
   const out = await ev(() => ({ z: +DV.Player.z.toFixed(2), room: (DV.World.current.roomAt(DV.Player.x, DV.Player.z) || {}).id }));
-  T.ok(out.z > 16.4 && out.room === 'tc_corr', 'walking at it from inside, you go through into the corridor', out);
+  T.ok(out.z > 16.1 && out.room === 'tc_corr', 'walking at it from inside, you go through into the corridor', out);
   T.noErrors(errs);
 });

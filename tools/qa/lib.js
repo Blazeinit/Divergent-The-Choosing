@@ -84,7 +84,21 @@ exports.helpers = (page) => page.evaluate(() => {
       return QA.node() || 'no dialogue';
     },
     view() { const v = DV.Dialogue.active && DV.Dialogue.active.view; return v ? v.nodeId + ' :: ' + v.text.slice(0, 90) + ' || ' + v.choices.map((c) => c.label + (c.enabled ? '' : '(x)')).join(' | ') : null; },
-    tp(x, z, rot) { DV.Player.place(x, z, rot || 0); },
+    // teleport; the camera comes too (behind you, the way you face: left where it was, it looks off at
+    // whatever it last looked at, and a screenshot shows nothing of where you are)
+    tp(x, z, rot) {
+      DV.Player.place(x, z, rot || 0);
+      const G = DV.Game;
+      if (G.state === 'playing' || G.state === 'menu') { G.rig.yaw = rot || 0; G.rig.pitch = 0.18; G.rig.follow(true); }
+    },
+    // frame a shot: stand at (x, z) with the camera behind you looking at (tx, tz), a little to one side
+    // so you're not in the way of what you're photographing (side: metres, + to the right)
+    shotAt(x, z, tx, tz, side) {
+      const dx = tx - x, dz = tz - z, d = Math.hypot(dx, dz) || 1, yaw = Math.atan2(dx, dz);
+      const px = x - (dz / d) * (side || 0), pz = z + (dx / d) * (side || 0);
+      DV.Player.place(px, pz, yaw);
+      DV.Game.rig.yaw = yaw + (side ? Math.atan2(side, d) * 0.5 : 0); DV.Game.rig.pitch = 0.12; DV.Game.rig.follow(true);
+    },
     skip(t) { QA.end(); DV.Clock.skipTo(DV.U.parseTime(t)); DV.NPCAI.syncAll(); return DV.Clock.str(); },
     q(id) { const q = DV.Quests.q(id); return q ? q.state : 'none'; },
     obj(id, o) { return DV.Quests.obj(id, o); },
@@ -177,9 +191,12 @@ exports.until = (page, cond, timeout, step) => page.waitForFunction(
   [cond.toString(), step || 0.25], { timeout: timeout || 30000, polling: 60 }
 ).then(() => true, () => false);
 
-exports.shot = (page, name) => {
+// a screenshot, once the camera has settled behind the player (it eases after a jump), with a long
+// timeout (software GL takes its time on a busy frame)
+exports.shot = async (page, name) => {
   fs.mkdirSync(OUT, { recursive: true });
-  return page.screenshot({ path: path.join(OUT, name + '.png') });
+  await page.waitForTimeout(450);
+  return page.screenshot({ path: path.join(OUT, name + '.png'), timeout: 120000 });
 };
 
 // tiny assertion collector

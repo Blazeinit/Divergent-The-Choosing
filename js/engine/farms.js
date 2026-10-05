@@ -278,7 +278,7 @@
     }
     // a lumpy ball (a crown of leaves, a bush): an icosahedron, squashed by sy
     ball(lx, y, lz, r, sy, col, band, detail) {
-      const g = new THREE.IcosahedronGeometry(r, detail || 0).toNonIndexed(), p = g.attributes.position.array, C = this.W(lx, y, lz), b = band || 'white', bw = BANDS[b][2];
+      const g = (() => { const ig = new THREE.IcosahedronGeometry(r, detail || 0); return ig.index ? ig.toNonIndexed() : ig; })(), p = g.attributes.position.array, C = this.W(lx, y, lz), b = band || 'white', bw = BANDS[b][2];
       for (let i = 0; i < p.length; i += 9) {
         const v = [0, 1, 2].map((k) => [C[0] + p[i + k * 3], C[1] + p[i + k * 3 + 1] * sy, C[2] + p[i + k * 3 + 2]]);
         const t = v.map((q) => [(q[0] + q[2]) / bw, bandV(b, U.clamp(0.5 + (q[1] - C[1]) / (2 * r * sy), 0, 1))]);
@@ -1006,11 +1006,25 @@
     }
     claim(q) { this.cellsOf(q, (k) => { let l = this.occ.get(k); if (!l) this.occ.set(k, (l = [])); l.push(q); }); }
     // the boxes an item takes up, in the world: [x0, z0, x1, z1, y1]
+    // what a piece stands on: [x0, z0, x1, z1, height, corners, which box it's of]. A box turned at an angle
+    // is a grid of little squares inside it (as the city does it), so its colliders hug it rather than
+    // being one bounding box that stands out into the field
     footprint(it) {
       const c = Math.cos(it.rot), s = Math.sin(it.rot), out = [];
+      const turned = Math.abs(s * c) >= 0.01;
+      let id = 0;
       for (const [lx, lz, w, d, h] of (FOOT[it.k] || (() => []))(it)) {
-        const x = it.x + lx * c + lz * s, z = it.z - lx * s + lz * c, ex = (Math.abs(w * c) + Math.abs(d * s)) / 2, ez = (Math.abs(w * s) + Math.abs(d * c)) / 2;
-        out.push([x - ex, z - ez, x + ex, z + ez, h]);
+        const P = (a, b) => [it.x + (lx + a) * c + (lz + b) * s, it.z - (lx + a) * s + (lz + b) * c];
+        const pts = [P(-w / 2, -d / 2), P(w / 2, -d / 2), P(w / 2, d / 2), P(-w / 2, d / 2)], parent = id++;
+        if (!turned) { const [cx, cz] = P(0, 0), ex = (Math.abs(w * c) + Math.abs(d * s)) / 2, ez = (Math.abs(w * s) + Math.abs(d * c)) / 2; out.push([cx - ex, cz - ez, cx + ex, cz + ez, h, pts, parent]); continue; }
+        let cell = Math.min(w, d) < 0.3 ? 0.3 : 0.6; // (thin things, a finer grid)
+        while (Math.ceil(w / cell) * Math.ceil(d / cell) > 256) cell *= 1.2;
+        const nw = Math.ceil(w / cell), nd = Math.ceil(d / cell), hw = w / nw / 2, hd = d / nd / 2, ac = Math.abs(c), as = Math.abs(s);
+        const inset = Math.min(hw, hd) * (ac + as - 1), ex = hw * ac + hd * as - inset, ez = hw * as + hd * ac - inset;
+        for (let i = 0; i < nw; i++) for (let j = 0; j < nd; j++) {
+          const [qx, qz] = P(-w / 2 + (2 * i + 1) * hw, -d / 2 + (2 * j + 1) * hd);
+          out.push([qx - ex, qz - ez, qx + ex, qz + ez, h, pts, parent]);
+        }
       }
       return out;
     }
@@ -1046,11 +1060,17 @@
       if (!ch) this.chunks[tier].set(key, (ch = { tier, cx: (i + 0.5) * size, cz: (j + 0.5) * size, items: [], mesh: null, built: false }));
       ch.items.push(it);
       this.items++;
-      const zone = this.zone, audit = this.city.audit;
+      const zone = this.zone, audit = this.city.audit, src = {};
       for (const q of fp || []) {
-        if (q[4] > 0.5) zone.colliders.add(q[0], q[1], q[2], q[3], { y1: q[4], tag: 'farm', camera: q[4] > 2.2 });
-        if (q[4] > 0.8) this.city.walk.solids.push(q.slice()); // (so the streets' furniture keeps off it)
-        if (audit) audit.push([q[0], q[1], q[2], q[3], 0, q[4], 'farms:' + it.k, 1]);
+        if (q[4] > 0.5) zone.colliders.add(q[0], q[1], q[2], q[3], { y1: q[4], tag: 'city', camera: q[4] > 2.2 }); // ('city': the QA checks these against the audit's footprints)
+        // (the solid's last number is its entry in the audit: what it was built for, so the QA that checks
+        // every collider stands inside it can find it; one entry for each box, however many squares it's made of)
+        if (audit && src[q[6]] === undefined) {
+          src[q[6]] = audit.length;
+          const xs = q[5].map((v) => v[0]), zs = q[5].map((v) => v[1]);
+          audit.push([Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), 0, q[4], 'farms:' + it.k, 1, q[5]]);
+        }
+        if (q[4] > 0.8) this.city.walk.solids.push([q[0], q[1], q[2], q[3], q[4], src[q[6]]]); // (so the streets' furniture keeps off it)
       }
       if (it.k === 'windpump') this.rotors.push([it.x + Math.sin(it.rot) * 0.75, 9.25, it.z + Math.cos(it.rot) * 0.75, it.rot, it.s * 6]);
       if (it.k === 'firebarrel') this.fires.push([it.x, 1.2, it.z, [1, 0.6, 0.25]]);
@@ -1116,13 +1136,18 @@
         if (fl.crop !== 'fallow' && fl.crop !== 'pasture' && fl.crop !== 'stubble') for (let k = 0; k < 2; k++) { const [x, z] = rr(); this.spots.push({ x, z, rot: along ? (r() < 0.5 ? Math.PI / 2 : -Math.PI / 2) : r() < 0.5 ? 0 : Math.PI, act: fl.crop === 'plough' ? 'sweep' : 'garden', where: 'field' }); }
         void n;
       });
-      // the hedgerows (thickened to fill the gap between the quarters), an oak in them now and then
+      // the hedgerows: on the verge, clear of the road (their strips as the farm layout gives them), with an
+      // oak in them now and then, set into the field a little way back
       for (const [x0, z0, x1, z1] of F.hedges) {
-        const along = x1 - x0 > z1 - z0, c = along ? (z0 + z1) / 2 + 0.2 : (x0 + x1) / 2 + 0.2;
-        const q = along ? [x0, c - 0.65, x1, c + 0.65] : [c - 0.65, z0, c + 0.65, z1];
-        this.put({ k: 'hedge', x: (q[0] + q[2]) / 2, z: (q[1] + q[3]) / 2, w: q[2] - q[0], d: q[3] - q[1], rot: 0 }, { force: true });
+        const along = x1 - x0 > z1 - z0, c = along ? (z0 + z1) / 2 : (x0 + x1) / 2;
+        this.put({ k: 'hedge', x: (x0 + x1) / 2, z: (z0 + z1) / 2, w: x1 - x0, d: z1 - z0, rot: 0 }, { force: true });
         const L = along ? x1 - x0 : z1 - z0;
-        for (let t = 10 + r() * 20; t < L - 6; t += 22 + r() * 30) if (r() < 0.45) { const x = along ? x0 + t : c, z = along ? c : z0 + t; this.put({ k: 'oak', x, z, rot: r() * 6, size: 0.75 + r() * 0.45 }, { force: true }); }
+        for (let t = 10 + r() * 20; t < L - 6; t += 22 + r() * 30) if (r() < 0.45) {
+          for (const o of [1.7, -1.7]) {
+            const x = along ? x0 + t : c + o, z = along ? c + o : z0 + t;
+            if (this.put({ k: 'oak', x, z, rot: r() * 6, size: 0.75 + r() * 0.45 }, { pad: 0.2 })) break;
+          }
+        }
       }
       // the orchards: fruit trees in rows; hives along one side of some; ladders and baskets out
       for (const o of F.orchards) {
@@ -1268,7 +1293,7 @@
       const scatter = (k, n, more, opts) => { for (let i = 0; i < n; i++) for (let t = 0; t < 6; t++) { const x = x0 + 2 + r() * (w - 4), z = z0 + 2 + r() * (d - 4); if (this.put(Object.assign({ k, x, z, rot: r() * 6.28 }, typeof more === 'function' ? more() : more || {}), opts || { pad: 0.5 })) break; } };
       const ground = (band, col) => this.add({ k: 'patch', x: cx, z: cz, rot: 0, s: 0, q: [x0 + 0.5, z0 + 0.5, x1 - 0.5, z1 - 0.5], band, col });
       // (the front fence, along the street side, with a gap for a gate)
-      const frontFence = (kind2) => { const L = W - 4; for (const sx of [-1, 1]) at(kind2, (sx * (L / 4 + 2.5)), D / 2 - 1, 0, { len: L / 2 - 3 }, { force: true }); };
+      const frontFence = (kind2) => { const L = W - 4; for (const sx of [-1, 1]) at(kind2, (sx * (L / 4 + 2.5)), D / 2 - 1, 0, { len: L / 2 - 3 }, { pad: 0.2 }); }; // (not forced: where a road crosses its line, the fence stops)
       if (kind === 'depot') {
         ground('gravel', [0.62, 0.6, 0.56]);
         const ww = Math.min(W - 10, 22 + r() * 14), dd = Math.min(D - 14, 14 + r() * 8);

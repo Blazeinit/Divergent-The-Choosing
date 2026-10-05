@@ -101,7 +101,7 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
   // the L's columns stand on the pavement, never in a road (the deck spans each junction from its corners)
   const lcols = await ev(() => {
     const CM = DV.CityMap, t = CM.track;
-    const cols = DV.World.current.city.walk.solids.filter((q) => q[2] - q[0] < 0.7 && q[3] - q[1] < 0.7 && q[1] > t.z0 - 0.2 && q[3] < t.z1 + 0.2);
+    const cols = DV.World.current.city.walk.solids.filter((q) => q[2] - q[0] < 0.7 && q[3] - q[1] < 0.7 && q[1] > t.z0 - 0.2 && q[3] < t.z1 + 0.2 && q[0] > t.x0 - 1 && q[2] < t.x1 + 1); // (along the L, not a farm's post past its end)
     const xs = [...new Set(cols.map((q) => (q[0] + q[2]) / 2))].sort((a, b) => a - b);
     let gap = 0;
     for (let i = 1; i < xs.length; i++) gap = Math.max(gap, xs[i] - xs[i - 1]);

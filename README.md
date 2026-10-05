@@ -323,6 +323,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
   - **Fields:** section roads of packed dirt carry on the city's grid between parcels. Each parcel is split into long strips of wheat, green crops, fresh ploughing, pasture and fallow, with hedgerows between them and orchards in rows.
   - **Farmsteads** stand where the roads meet: a farmhouse, a red barn, a silo and grain bins.
   - **Amity Headquarters,** west along Madison Street: the meeting hall, a greenhouse, a storehouse, the cabins in an arc, the great oak and an arch with the Amity sign.
+  - **Farm life:** cows, sheep, goats and chickens graze the pastures and yards, and farm hands work the fields and stead yards (you can talk to them). Animals and workers only wake near you, so the farmland costs nothing at a distance. Windpumps, field depots, camps and gardens fill the gaps between steads.
   - The HUD says **Amity Farmland**. Cars and pedestrians keep to the city's streets.
 - **The Fence, as the film shows it.** It isn't a fence at all: it's a wall right round the city and its farms, about 1.13 km out.
   - **The wall:** 18 m of poured concrete (formwork panels, rows of tie holes, rust and weather running down it). Buttresses climb its inner face, there's a ledge halfway up, vents low down, and a walkway along the top with a rail and a parapet.
@@ -446,7 +447,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 32 tests covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 34 test files covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**

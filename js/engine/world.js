@@ -241,6 +241,9 @@
       this.staticMesh = mesh;
       this.batch = null; // free arrays
       this.built = true;
+      // (the building itself, for hiding it when it's lost in the haze: its walls and its doors, and nothing
+      // that a zone's own build added since (a city, its people): they look after their own visibility)
+      this.coreChildren = [mesh].concat(this.doors.map((d) => d.root));
       DV.log('Zone', this.id, 'built in', Math.round(performance.now() - t0), 'ms', 'tris', batch.triCount);
       this.stats = { ms: Math.round(performance.now() - t0), tris: batch.triCount };
     }
@@ -1058,6 +1061,14 @@
     cullDetails(cam) {
       this.detailT = (this.detailT || 0) + 1;
       if (this.detailT % 6) return;
+      // far out in the open (the farms, the Fence), the building you started in is a smudge in the haze:
+      // don't draw all of it (hundreds of draw calls) for that
+      const fo = this.def.fogOutdoor, b = this.def.bounds;
+      if (fo && b && this.coreChildren) {
+        const dd = DV.Settings.get('drawDistance'), mul = dd === 'near' ? 0.7 : dd === 'far' ? 1.5 : 1;
+        const far = Math.hypot(cam.x - (b.x0 + b.x1) / 2, cam.z - (b.z0 + b.z1) / 2) > fo.far * mul * 1.5 + 60 && cam.y < 40;
+        if (far !== !!this.coreHidden) { this.coreHidden = far; for (const c of this.coreChildren) c.visible = !far; }
+      }
       for (const door of this.doors) {
         const on = Math.hypot(door.def.x - cam.x, door.def.z - cam.z) < 16;
         if (on === door.detailOn) continue;
