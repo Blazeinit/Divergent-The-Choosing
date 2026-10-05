@@ -1025,15 +1025,55 @@
   DV.Zone = Zone;
 
   /* ----------------------------- sky / backdrop ----------------------------- */
+  // The sky dome: the zone's three colours (overhead, horizon, below), with a pale band of haze
+  // along the horizon, a soft glow where the sun is behind the overcast, and stars when it's
+  // dark enough to see them. Drawn first, around the camera, no fog.
+  const SKY_VERT = [
+    'varying vec3 vDir;',
+    'void main() {',
+    '  vDir = normalize(position);',
+    '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+    '}',
+  ].join('\n');
+  const SKY_FRAG = [
+    'uniform vec3 top; uniform vec3 horizon; uniform vec3 ground; uniform vec3 sunDir; uniform vec3 sunCol;',
+    'uniform float glow; uniform float stars; uniform float haze;',
+    'varying vec3 vDir;',
+    'float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }',
+    'void main() {',
+    '  vec3 d = normalize(vDir);',
+    '  vec3 c = d.y >= 0.0 ? mix(horizon, top, pow(d.y, 0.6)) : mix(horizon, ground, min(1.0, -d.y * 3.0));',
+    // a band of haze where the sky meets the city
+    '  c = mix(c, horizon * 1.06 + 0.02, haze * exp(-abs(d.y) * 14.0));',
+    // the sun behind the cloud: a wide soft glow, a brighter core
+    '  float s = max(dot(d, normalize(sunDir)), 0.0);',
+    '  c += sunCol * glow * (0.55 * pow(s, 5.0) + 0.45 * pow(s, 48.0));',
+    // stars, high up, when it is dark
+    '  if (stars > 0.0 && d.y > 0.06) {',
+    '    vec3 cell = floor(d * 260.0);',
+    '    float h = hash(cell);',
+    '    float tw = step(0.9965, h) * (0.5 + 0.5 * hash(cell + 7.0));',
+    '    c += vec3(0.85, 0.88, 1.0) * tw * stars * smoothstep(0.06, 0.3, d.y);',
+    '  }',
+    '  gl_FragColor = vec4(c, 1.0);',
+    '}',
+  ].join('\n');
   function buildSky() {
     const g = new THREE.Group();
     g.name = 'sky';
-    const geo = new THREE.SphereGeometry(180, 16, 10);
-    const cols = [];
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) cols.push(1, 1, 1);
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false });
+    const geo = new THREE.SphereGeometry(180, 32, 16);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        top: { value: new THREE.Color(0x4a5868) }, horizon: { value: new THREE.Color(0x9aa2a8) }, ground: { value: new THREE.Color(0x3a3a3a) },
+        sunDir: { value: new THREE.Vector3(0.4, 0.5, 0.3) }, sunCol: { value: new THREE.Color(1, 0.96, 0.88) },
+        glow: { value: 0.2 }, stars: { value: 0 }, haze: { value: 0.35 },
+      },
+      vertexShader: SKY_VERT,
+      fragmentShader: SKY_FRAG,
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+    });
     const dome = new THREE.Mesh(geo, mat);
     dome.renderOrder = -10;
     g.add(dome);
@@ -1059,18 +1099,47 @@
     return g;
   }
   function setSkyColors(sky, top, horizon, ground) {
-    const dome = sky.userData.dome;
-    const pos = dome.geometry.attributes.position;
-    const col = dome.geometry.attributes.color;
-    const t = new THREE.Color(top), hz = new THREE.Color(horizon), gr = new THREE.Color(ground || horizon);
-    const c = new THREE.Color();
-    for (let i = 0; i < pos.count; i++) {
-      const y = pos.getY(i) / 180;
-      if (y >= 0) c.copy(hz).lerp(t, Math.pow(y, 0.6));
-      else c.copy(hz).lerp(gr, Math.min(1, -y * 3));
-      col.setXYZ(i, c.r, c.g, c.b);
+    const u = sky.userData.dome.material.uniforms;
+    u.top.value.set(top);
+    u.horizon.value.set(horizon);
+    u.ground.value.set(ground || horizon);
+    // a dark sky shows its stars
+    const lum = (c) => 0.3 * c.r + 0.59 * c.g + 0.11 * c.b;
+    u.stars.value = U.clamp((0.08 - lum(u.top.value)) / 0.06, 0, 1);
+  }
+
+  /* ----------------------------- the time of day ----------------------------- */
+  // Out of doors on the clock (zones with def.timeOfDay): the sky, the fog, the city's haze and
+  // its lit windows follow the hour. [minute, sky brightness, horizon tint, sun glow, stars,
+  // lit windows]. Daytime is the zone's own colours, untouched.
+  const TOD = [
+    [0, 0.16, [0.3, 0.33, 0.42], 0, 1, 1],
+    [330, 0.18, [0.32, 0.34, 0.44], 0, 0.9, 1],
+    [400, 0.62, [1.06, 0.84, 0.74], 0.55, 0.15, 0.6],
+    [470, 1, [1, 1, 1], 0.3, 0, 0.1],
+    [1020, 1, [1, 1, 1], 0.3, 0, 0.1],
+    [1110, 0.93, [1.1, 0.96, 0.84], 0.6, 0, 0.3],
+    [1170, 0.72, [1.18, 0.8, 0.64], 0.85, 0.02, 0.7],
+    [1230, 0.4, [0.66, 0.52, 0.56], 0.3, 0.35, 1],
+    [1290, 0.2, [0.32, 0.34, 0.44], 0, 0.9, 1],
+    [1440, 0.16, [0.3, 0.33, 0.42], 0, 1, 1],
+  ];
+  function todAt(m) {
+    for (let i = 0; i + 1 < TOD.length; i++) {
+      const a = TOD[i], b = TOD[i + 1];
+      if (m >= a[0] && m <= b[0]) {
+        const k = (m - a[0]) / (b[0] - a[0] || 1);
+        const L = (x, y) => x + (y - x) * k;
+        return { sky: L(a[1], b[1]), tint: [L(a[2][0], b[2][0]), L(a[2][1], b[2][1]), L(a[2][2], b[2][2])], glow: L(a[3], b[3]), stars: L(a[4], b[4]), lit: L(a[5], b[5]) };
+      }
     }
-    col.needsUpdate = true;
+    return { sky: 1, tint: [1, 1, 1], glow: 0.3, stars: 0, lit: 0.1 };
+  }
+  // the sun's way across the sky: up in the east at six, south at one, down in the west at eight
+  function sunAt(m, out) {
+    const t = U.clamp((m - 360) / 840, -0.15, 1.15);
+    const az = t * Math.PI, el = Math.max(-0.1, Math.sin(t * Math.PI) * 0.95);
+    return out.set(Math.cos(az) * Math.cos(el), Math.sin(el) + 0.04, Math.sin(az) * Math.cos(el)).normalize();
   }
 
   /* ------------------------------ World ------------------------------ */
@@ -1127,6 +1196,13 @@
       this.scene.background = new THREE.Color(fog.color);
       const sky = d.sky || {};
       setSkyColors(this.sky, sky.top || 0x4a5868, sky.horizon || 0x9aa2a8, sky.ground || 0x3a3a3a);
+      const su = this.sky.userData.dome.material.uniforms;
+      su.sunDir.value.fromArray((d.exterior && d.exterior.sunDir) || [0.4, 0.5, 0.3]);
+      su.glow.value = sky.glow !== undefined ? sky.glow : 0.22;
+      su.sunCol.value.set(sky.sun || 0xfff2dc);
+      this.base = { top: su.top.value.clone(), horizon: su.horizon.value.clone(), ground: su.ground.value.clone(), stars: su.stars.value, glow: su.glow.value, fog: new THREE.Color(fog.color), fogOut: fo ? new THREE.Color(fo.color) : null, lights: [this.ambient.intensity, this.hemi.intensity, this.dir.intensity] };
+      this.tod = null;
+      this.todLight = undefined;
       this.sky.userData.cyl.visible = sky.skyline !== false;
       this.sky.userData.cyl2.visible = sky.skyline !== false;
       this.sky.userData.cyl.material.color.setHex(sky.skylineTint || 0x8a9098);
@@ -1137,6 +1213,46 @@
       this.dir.intensity = cl.dir === undefined ? 0.5 : cl.dir;
       if (cl.dirColor) this.dir.color.setHex(cl.dirColor);
       else this.dir.color.setHex(0xfff4e0);
+      this.base.lights = [this.ambient.intensity, this.hemi.intensity, this.dir.intensity];
+    },
+    // the hour, out of doors (zones on the clock only): sky, fog, the city's haze, lit windows
+    timeOfDay(zone) {
+      if (!zone.def.timeOfDay || !this.base || !DV.Clock) return;
+      const m = DV.Clock.minutes();
+      if (this.tod && Math.abs(this.tod.m - m) < 0.5) return;
+      const T = todAt(m), B = this.base, u = this.sky.userData.dome.material.uniforms;
+      this.tod = Object.assign({ m }, T);
+      const tint = (c, base, k) => c.copy(base).multiplyScalar(k).multiply(new THREE.Color(T.tint[0], T.tint[1], T.tint[2]));
+      u.top.value.copy(B.top).multiplyScalar(T.sky * (T.sky < 1 ? 0.85 : 1));
+      tint(u.horizon.value, B.horizon, 0.35 + 0.65 * T.sky);
+      u.ground.value.copy(B.ground).multiplyScalar(T.sky);
+      u.glow.value = T.glow;
+      u.stars.value = Math.max(B.stars, T.stars);
+      sunAt(m, u.sunDir.value);
+      u.sunCol.value.setRGB(1, 0.9 + 0.08 * T.sky, 0.75 + 0.2 * T.sky);
+      const fb = this.fogBlend;
+      if (fb && B.fogOut) { tint(fb.b.c, B.fogOut, 0.3 + 0.7 * T.sky); tint(fb.a.c, B.fog, 0.6 + 0.4 * T.sky); fb.k = -1; }
+      const city = zone.city;
+      if (city) {
+        if (!city.baseHaze) city.baseHaze = city.shared.hazeColor.value.clone();
+        tint(city.shared.hazeColor.value, city.baseHaze, 0.3 + 0.7 * T.sky);
+        city.shared.ambient.value.setScalar(0.38 + 0.62 * T.sky);
+        city.shared.litAmt.value = T.lit;
+      }
+      if (zone.streetKit) zone.streetKit.dim(0.4 + 0.6 * T.sky);
+      if (city) {
+        // the streets themselves, the signs, and the clouds overhead
+        const k = 0.35 + 0.65 * T.sky;
+        for (const mt of (city.walk ? city.walk.mats : []).concat(city.walk ? city.walk.signs.map((q) => q.material) : [])) {
+          if (!mt.userData.base) mt.userData.base = mt.color.clone();
+          mt.color.copy(mt.userData.base).multiplyScalar(k);
+        }
+        const du = city.deck.material.uniforms;
+        if (!city.baseDeck) city.baseDeck = [du.lightCol.value.clone(), du.darkCol.value.clone()];
+        tint(du.lightCol.value, city.baseDeck[0], 0.25 + 0.75 * T.sky);
+        tint(du.darkCol.value, city.baseDeck[1], 0.25 + 0.75 * T.sky);
+      }
+      this.todLight = 0.45 + 0.55 * T.sky;
     },
     // remove a zone from the cache so it rebuilds next time (used by simulations)
     dispose(id) {
@@ -1151,6 +1267,7 @@
     },
     update(dt, camera) {
       if (this.sky && camera) this.sky.position.set(camera.position.x, 0, camera.position.z);
+      if (this.current) this.timeOfDay(this.current);
       const fb = this.fogBlend;
       if (fb && camera && this.current) {
         const room = this.current.roomAt(camera.position.x, camera.position.z);
@@ -1161,6 +1278,11 @@
         f.near = U.lerp(fb.a.near, fb.b.near, fb.k);
         f.far = U.lerp(fb.a.far, fb.b.far, fb.k);
         this.scene.background.copy(f.color);
+        // the evening light on people out of doors
+        if (this.todLight !== undefined && this.base && this.base.lights) {
+          const k = U.lerp(1, this.todLight, fb.k);
+          this.ambient.intensity = this.base.lights[0] * k; this.hemi.intensity = this.base.lights[1] * k; this.dir.intensity = this.base.lights[2] * k;
+        }
       }
       if (this.current) {
         this.current.update(dt);

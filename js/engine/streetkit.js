@@ -331,6 +331,14 @@
       }
       c.built = true;
     }
+    // the time of day: the furniture and parked cars darken with the light
+    dim(k) {
+      if (this.dimK === k) return;
+      this.dimK = k;
+      if (!this.baseCol) { this.baseCol = this.mat.color.clone(); this.baseSign = this.signMat.color.clone(); }
+      this.mat.color.copy(this.baseCol).multiplyScalar(k);
+      this.signMat.color.copy(this.baseSign).multiplyScalar(k);
+    }
     // call every frame with the camera's position: builds at most one chunk a frame
     update(px, pz) {
       let want = null, wd = 1e9;

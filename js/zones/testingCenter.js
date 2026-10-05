@@ -622,6 +622,7 @@
     fog: { color: 0x5a6067, near: 24, far: 95 },
     fogOutdoor: { color: 0x98a0a6, near: 45, far: 320 },
     sky: { top: 0x5b6773, horizon: 0x9ca3a9, ground: 0x585b5d, skyline: false },
+    timeOfDay: true, // the day goes by out there: afternoon light, sunset, dusk
     exterior: { sunDir: [0.35, 0.85, 0.4], sunColor: [0.42, 0.41, 0.38], ambient: [0.5, 0.52, 0.56] },
     charLight: { ambient: 0.5, hemi: 0.45, dir: 0.45 },
     rooms,

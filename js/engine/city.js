@@ -994,7 +994,7 @@
     const W = o.walk, L = W.light || [0.9, 0.9, 0.9];
     const c = o.centre || [(o.campus[0] + o.campus[2]) / 2, (o.campus[1] + o.campus[3]) / 2];
     const campus = o.campus, R = W.fence + 60, marshX = o.marshX || 1e9;
-    const out = { open: [], pads: B.pads, solids: B.solids, campus, limit: W.fence - 1.4, shore: marshX - 3.6, fence: W.fence, signs: [] };
+    const out = { open: [], pads: B.pads, solids: B.solids, campus, limit: W.fence - 1.4, shore: marshX - 3.6, fence: W.fence, signs: [], mats: [] };
     const mk = (g, key, opts) => {
       const base = DV.Mat.get(key);
       const m = new THREE.MeshBasicMaterial(Object.assign({ map: base.map, vertexColors: true, fog: true }, opts || {}));
@@ -1002,6 +1002,7 @@
       mesh.name = 'city_ground_' + key;
       mesh.frustumCulled = false;
       group.add(mesh);
+      out.mats.push(m);
       return mesh;
     };
     const wOf = (key) => { const t = DV.Mat.get(key).map; return (t && t.userData.world) || 1; };
