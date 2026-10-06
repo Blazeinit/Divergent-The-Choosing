@@ -29,6 +29,15 @@
     { id: 'd_bryce', base: null, range: 50, knives: 44, power: 0.6, style: 'brawler', bunk: 'bunk_n4_lo' },
     { id: 'd_joey', base: 'joey_brennan', range: 46, knives: 50, power: 0.5, style: 'novice', born: true, bunk: 'bunk_n2_lo' },
     { id: 'd_daniel', base: 'daniel_webb', range: 36, knives: 42, power: 0.3, style: 'novice', bunk: 'bunk_s3_lo' },
+    // the rest of the class: transfers and the born, from the same Choosing
+    { id: 'd_ruben', base: 'wo_castillo', range: 55, knives: 52, power: 0.62, style: 'brawler', bunk: 'bunk_n1_hi' },
+    { id: 'd_saskia', base: 'wo_brandt', range: 64, knives: 70, power: 0.45, style: 'cautious', bunk: 'bunk_n2_hi' },
+    { id: 'd_tomas', base: 'wo_ibarra', range: 44, knives: 40, power: 0.4, style: 'novice', bunk: 'bunk_n4_hi' },
+    { id: 'd_imani', base: 'wo_okafor', range: 52, knives: 48, power: 0.38, style: 'novice', bunk: 'bunk_s0_lo' },
+    { id: 'd_callum', base: 'wo_doyle', range: 74, knives: 66, power: 0.7, style: 'boxer', born: true, bunk: 'bunk_s0_hi' },
+    { id: 'd_priya', base: 'wo_nair', range: 68, knives: 60, power: 0.42, style: 'cautious', bunk: 'bunk_s1_lo' },
+    { id: 'd_wes', base: 'wo_calloway', range: 48, knives: 46, power: 0.66, style: 'brawler', bunk: 'bunk_s1_hi' },
+    { id: 'd_lena', base: 'wo_marlow', range: 80, knives: 74, power: 0.78, style: 'boxer', born: true, bunk: 'bunk_s2_lo' },
   ];
   const STAT = { // how they fight (strength, agility, resolve, perception, melee)
     d_ella: { strength: 6, agility: 8, resolve: 7, perception: 6, melee: 48 },
@@ -39,6 +48,14 @@
     d_bryce: { strength: 6, agility: 4, resolve: 4, perception: 3, melee: 30 },
     d_joey: { strength: 6, agility: 3, resolve: 4, perception: 4, melee: 25 },
     d_daniel: { strength: 3, agility: 4, resolve: 5, perception: 6, melee: 18 },
+    d_ruben: { strength: 6, agility: 5, resolve: 5, perception: 4, melee: 32 },
+    d_saskia: { strength: 4, agility: 6, resolve: 5, perception: 7, melee: 26 },
+    d_tomas: { strength: 4, agility: 4, resolve: 4, perception: 5, melee: 20 },
+    d_imani: { strength: 4, agility: 5, resolve: 7, perception: 5, melee: 22 },
+    d_callum: { strength: 7, agility: 6, resolve: 6, perception: 5, melee: 42 },
+    d_priya: { strength: 4, agility: 6, resolve: 5, perception: 7, melee: 26 },
+    d_wes: { strength: 7, agility: 4, resolve: 5, perception: 3, melee: 34 },
+    d_lena: { strength: 6, agility: 8, resolve: 7, perception: 6, melee: 46 },
   };
 
   /* ------------------------------ the week ------------------------------ */
@@ -67,7 +84,7 @@
   // where the class spends its free time (none of these are the members' usual places)
   const FREE = ['dorm_table_c0', 'dorm_table_c1', 'dorm_table_c2', 'dorm_table_c3', 'pit_bench_w_s0', 'pit_bench_w_s1', 'pit_bench_w_s2', 'pit_bench_e_s0', 'pit_bench_e_s1', 'pit_bench_e_s2',
     'rail0', 'rail1', 'rail3', 'hang0', 'hang1', 'hang2', 'hang3', 'hang4', 'hang5', 'hang6', 'hang7'];
-  const FIRST = 3, LAST = 6, CUT = 2;
+  const FIRST = 3, LAST = 6, CUT = 4; // (the bottom four of a class of sixteen)
 
   const I = {
     CLASS, PLAN, STAT, FIRST, LAST, CUT, FREE, MEALS,

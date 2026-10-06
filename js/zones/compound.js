@@ -30,8 +30,8 @@
     for (let k = 0; k < 4; k++) B.box(m, 0.47, 0.6 + k * 0.28, 0.3, 0.03, 0.03, 0.3);
     ctx.collide(-0.48, -1.0, 0.48, 1.0, { y1: 2.0 });
     if (p.id) {
-      ctx.spot(p.id + '_lo', 0, 0.15, Math.PI, 'lie', { seatY: 0.43, approachLocal: [0.85, 0.3] });
-      ctx.spot(p.id + '_hi', 0, 0.15, Math.PI, 'lie', { seatY: 1.43, approachLocal: [0.85, 0.3] });
+      ctx.spot(p.id + '_lo', 0, 0.15, 0, 'lie', { seatY: 0.43, approachLocal: [0.85, 0.3] });
+      ctx.spot(p.id + '_hi', 0, 0.15, 0, 'lie', { seatY: 1.43, approachLocal: [0.85, 0.3] });
       if (p.mine) {
         const [x, z] = ctx.toWorld(0.75, 0.2);
         ctx.interact({ id: 'my_bunk', kind: 'action', action: 'sleep', x, y: 0.8, z, radius: 1.3, get label() { return DV.Initiation && DV.Initiation.canSleep() ? 'Sleep' : 'Rest'; }, name: 'Your Bunk' });

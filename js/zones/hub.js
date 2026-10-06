@@ -19,11 +19,13 @@
   const P = (r, deg) => [C.x + r * Math.sin(deg * R), C.z + r * Math.cos(deg * R)];
   const faceC = (x, z) => Math.atan2(C.x - x, C.z - z);
   const SECTIONS = { abnegation: -68, amity: -34, candor: 0, dauntless: 34, erudite: 68 }; // centre angle of each faction's seats
-  const ROWS = [9.0, 10.5, 12.0];
+  const ROWS = [9.0, 10.5, 12.0, 13.5]; // (four rows to a section: the hall is full, as in the film)
+  const ROW_SEATS = [4, 5, 6, 7];
   const AISLES = [-48, -15, 15, 48];
   const BOWLS = { abnegation: 20.0, erudite: 21.5, dauntless: 23.0, candor: 24.5, amity: 26.0 }; // x along the table
   const TABLE_Z = 12.2, STAND_Z = 13.35;
-  const CAND_ROWS = [6.0, 7.0];
+  const CAND_ROWS = [5.4, 6.3, 7.2];
+  const CAND_SEATS = [3, 4, 5]; // seats to a bench segment, by row
   const CAND_SEGS = [[-45, -19], [-11, 11], [19, 45]];
   const INIT_R = 7.95;
 
@@ -31,7 +33,7 @@
   function sectionSeats(f) {
     const c = SECTIONS[f], out = [];
     ROWS.forEach((r, ri) => {
-      const n = ri === 0 ? 4 : 5;
+      const n = ROW_SEATS[ri];
       for (let i = 0; i < n; i++) {
         const deg = c - 13 + (26 * i) / (n - 1);
         const [x, z] = P(r, deg);
@@ -44,8 +46,9 @@
   function candidateSeats() {
     const out = [];
     CAND_ROWS.forEach((r, ri) => {
-      for (const [a, b] of CAND_SEGS) for (let i = 0; i < 3; i++) {
-        const deg = a + ((b - a) * (i + 0.5)) / 3;
+      const n = CAND_SEATS[ri];
+      for (const [a, b] of CAND_SEGS) for (let i = 0; i < n; i++) {
+        const deg = a + ((b - a) * (i + 0.5)) / n;
         const [x, z] = P(r, deg);
         out.push({ x, z, rot: faceC(x, z), r, deg, row: ri });
       }
@@ -54,8 +57,10 @@
   }
   // where each faction's new initiates stand, in front of their section
   function initiateSpot(f, k) {
-    const deg = SECTIONS[f] + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 6;
-    const [x, z] = P(INIT_R, deg);
+    // two staggered rows in front of the section, fanning out from its middle
+    const row = k % 2, j = Math.floor(k / 2);
+    const deg = SECTIONS[f] + (j % 2 ? 1 : -1) * Math.ceil(j / 2) * 5.4 + (row ? 2.7 : 0);
+    const [x, z] = P(INIT_R + row * 0.6, deg);
     return { x, z, rot: faceC(x, z), deg };
   }
   const nearestAisle = (deg) => AISLES.reduce((a, b) => (Math.abs(b - deg) < Math.abs(a - deg) ? b : a));
@@ -261,6 +266,18 @@
       react: (fl) => (fl.bird_returned ? { line: 'Lucy lets her blood fall on the earth — and then holds up a little carved bird, and finds you, and grins.', nod: true, say: 'Thank you!' } : { line: 'Lucy chooses the earth. Her free hand keeps closing on nothing, as if she\'s holding something that isn\'t there.' }),
     },
   ];
+  // the rest of the hall's candidates: sixteen more people from the same Aptitude Day, who go where their blood takes them
+  const WALKONS = [
+    ['castillo', 'Ruben Castillo', 'candor', 'dauntless', 'm'], ['brandt', 'Saskia Brandt', 'erudite', 'dauntless', 'f'], ['ibarra', 'Tomas Ibarra', 'amity', 'dauntless', 'm'],
+    ['okafor', 'Imani Okafor', 'abnegation', 'dauntless', 'f'], ['doyle', 'Callum Doyle', 'dauntless', 'dauntless', 'm'], ['nair', 'Priya Nair', 'erudite', 'dauntless', 'f'],
+    ['calloway', 'Wes Calloway', 'candor', 'dauntless', 'm'], ['marlow', 'Lena Marlow', 'dauntless', 'dauntless', 'f'],
+    ['thorne', 'Abel Thorne', 'abnegation', 'abnegation', 'm'], ['ashby', 'Edith Ashby', 'abnegation', 'abnegation', 'f'], ['lund', 'Greta Lund', 'erudite', 'erudite', 'f'],
+    ['vickers', 'Anselm Vickers', 'erudite', 'erudite', 'm'], ['pratt', 'Oren Pratt', 'candor', 'candor', 'm'], ['sloane', 'Dina Sloane', 'candor', 'candor', 'f'],
+    ['fontaine', 'Willa Fontaine', 'amity', 'amity', 'f'], ['alder', 'Rowan Alder', 'amity', 'amity', 'm'],
+  ];
+  for (const [id, name, from, to, sex] of WALKONS) CANDIDATES.push({ id: 'wo_' + id, name, last: name.split(' ')[1], from, to, sex });
+  // (called in reverse alphabetical order by last name)
+  CANDIDATES.sort((a, b) => (b.last < a.last ? -1 : b.last > a.last ? 1 : 0));
   // the flags these choices read
   function storyFlags() {
     const F = (n) => !!DV.State.flag(n);
@@ -315,8 +332,8 @@
       for (const f of Object.keys(SECTIONS)) {
         const seats = sectionSeats(f);
         const keep = f === up ? [1, 2] : [];
-        const spots = seats.filter((s, i) => keep.indexOf(i) < 0 && (i * 7 + f.length) % 10 < 7).map((s) => ({ x: s.x, z: s.z, rot: s.rot, action: f === 'dauntless' ? 'idle' : 'sit', seatY: 0.45 }));
-        Ch.sections[f] = Ch.crowd(spots, { faction: f, prefix: f + '_', seed: 'choosing', adults: true });
+        const spots = seats.filter((s, i) => keep.indexOf(i) < 0 && (i * 7 + f.length) % 10 < 9).map((s) => ({ x: s.x, z: s.z, rot: s.rot, action: f === 'dauntless' ? 'idle' : 'sit', seatY: 0.45 }));
+        Ch.sections[f] = Ch.crowd(spots, { faction: f, prefix: f + '_', seed: 'choosing', adults: true, noShadow: true });
         if (f === up) {
           const mom = Ch.actor({ id: 'mom', name: 'Mom', app: DV.Build2.parentApp('mom'), x: seats[1].x, z: seats[1].z, rot: seats[1].rot, action: f === 'dauntless' ? 'idle' : 'sit' });
           const dad = Ch.actor({ id: 'dad', name: 'Dad', app: DV.Build2.parentApp('dad'), x: seats[2].x, z: seats[2].z, rot: seats[2].rot, action: f === 'dauntless' ? 'idle' : 'sit' });

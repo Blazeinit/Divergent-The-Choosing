@@ -663,7 +663,7 @@
     B.box(m, 0, 0.45, -1.0, 0.92, 0.55, 0.04);
     B.box(ctx.M('fabric_blue'), 0, 0.625, 0.35, 0.87, 0.02, 1.2);
     ctx.collide(-0.46, -1.02, 0.46, 1.02, { y1: 0.9 });
-    if (p.id) ctx.spot(p.id, 0, 0.1, Math.PI, 'lie', { seatY: 0.62 });
+    if (p.id) ctx.spot(p.id, 0, 0.1, 0, 'lie', { seatY: 0.62 }); // (head to the pillow end: a lying figure's head is toward its local -z)
   });
   def('curtain', (ctx, p, B) => {
     const len = p.len || 2.2;
