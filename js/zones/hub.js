@@ -191,15 +191,24 @@
     const fill = new THREE.Group();
     fill.position.y = 0.12;
     const rnd = U.rng('bowl' + f);
+    // (the bowl's contents are lumps of one colour: each colour is merged into a single mesh, one draw call)
     const lump = (col, s, n, flat) => {
       const m = new THREE.MeshBasicMaterial({ color: col, fog: true });
+      const pos = [];
+      const tmp = new THREE.Object3D();
       for (let i = 0; i < n; i++) {
-        const b = new THREE.Mesh(new THREE.BoxGeometry(s * (0.7 + rnd() * 0.6), s * (flat ? 0.3 : 0.6 + rnd() * 0.5), s * (0.7 + rnd() * 0.6)), m);
+        const g = new THREE.BoxGeometry(s * (0.7 + rnd() * 0.6), s * (flat ? 0.3 : 0.6 + rnd() * 0.5), s * (0.7 + rnd() * 0.6)).toNonIndexed();
         const a = rnd() * 6.28, r = rnd() * 0.24;
-        b.position.set(Math.cos(a) * r, rnd() * 0.03, Math.sin(a) * r);
-        b.rotation.set(rnd(), rnd() * 3, rnd());
-        fill.add(b);
+        tmp.position.set(Math.cos(a) * r, rnd() * 0.03, Math.sin(a) * r);
+        tmp.rotation.set(rnd(), rnd() * 3, rnd());
+        tmp.updateMatrix();
+        g.applyMatrix4(tmp.matrix);
+        pos.push(...g.attributes.position.array);
+        g.dispose();
       }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      fill.add(new THREE.Mesh(geo, m));
       return m;
     };
     let glow = null;

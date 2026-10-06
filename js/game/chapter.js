@@ -291,7 +291,7 @@
         if (adult) app.height = (app.height || 1) * 1.05;
         const used = this._crowdNames || (this._crowdNames = new Set());
         const A = this.actor({ id: (opts.prefix || 'x') + i, name: DV.Names.person(f, sex, (opts.seed || 'crowd') + ':' + f + ':' + i, used), app, x: sp.x, z: sp.z, rot: sp.rot || 0, action: sp.action || opts.action || 'idle', faction: f, crowd: true, seatY: sp.seatY });
-        if (opts.noShadow && A.model.shadow) A.model.shadow.visible = false; // (a seated crowd needs no blob shadows: one draw call each saved)
+        if (opts.noShadow) { A.model.noShadow = true; A.model.shadow.visible = false; } // (a seated crowd needs no blob shadows: one draw call each saved)
         out.push(A);
       });
       return out;

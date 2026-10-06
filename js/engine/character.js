@@ -1143,7 +1143,7 @@
         this.mesh.position.z += ((lying ? 0.85 * this.scale : 0) - this.mesh.position.z) * k;
       }
       // (no blob shadow in the air: it would hang under the feet)
-      this.shadow.visible = !lying && !this.shadowFar && !(s.pk && s.pk.air);
+      this.shadow.visible = !this.noShadow && !lying && !this.shadowFar && !(s.pk && s.pk.air);
     }
     /**
      * Free-running. s.pk = { move, t, air } with t running 0 → 1 through the move:

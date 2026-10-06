@@ -58,8 +58,8 @@ L.run('Build 2: home & the Choosing', async (p, T, errs) => {
   T.ok(cer, 'morning: the Choosing Ceremony');
   const c0 = await ev(() => { const C = DV.Chapter; return { leaning: DV.State.data.story.leaning, day: DV.Clock.day(), t: DV.Clock.str(), actors: C.actors.length, order: C.order.map((x) => x.last).join(','), daniel: C.cands.find((a) => a.id === 'daniel_webb').cand.to, jenna: C.cands.find((a) => a.id === 'jenna_morales').cand.to, seated: DV.Player.state === 'sitting' && DV.Player.pinned }; });
   T.ok(c0.leaning === 'dauntless' && c0.day === 2 && c0.t === '10:00', 'day 2, 10:00 — and your leaning is remembered', c0);
-  T.ok(c0.actors > 50 && c0.seated, 'the hall is full (' + c0.actors + ' people) and you are seated among the candidates');
-  T.ok(/Young,Webb,Ward,Tester,Russo/.test(c0.order), 'names are called in reverse alphabetical order, yours included: ' + c0.order.split(',').slice(0, 6).join(', ') + '…');
+  T.ok(c0.actors > 130 && c0.seated, 'the hall is full (' + c0.actors + ' people) and you are seated among the candidates');
+  T.ok(/Young,Webb,Ward,Vickers,Thorne,Tester/.test(c0.order), 'names are called in reverse alphabetical order, yours included: ' + c0.order.split(',').slice(0, 6).join(', ') + '…');
   T.ok(c0.daniel === 'dauntless' && c0.jenna === 'candor', 'Daniel faces the coals because you got him to his test; Jenna stays Candor', c0);
   // hurry along to your turn
   const turn = await ev(() => until(() => DV.Chapter.myTurn, 6000) && { init: DV.Chapter.initCount, pinned: DV.Player.pinned });
