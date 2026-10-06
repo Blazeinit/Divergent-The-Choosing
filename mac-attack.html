@@ -2,21 +2,28 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0a0710">
 <title>Mac Attack</title>
 <style>
-  html,body{margin:0;background:#0a0710;height:100%;display:flex;align-items:center;justify-content:center;font-family:monospace}
-  canvas{max-width:100vw;max-height:100vh;background:#1b0f0f;cursor:pointer}
+  html,body{margin:0;height:100%;background:#0a0710;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;font-family:monospace}
+  body{display:flex;align-items:center;justify-content:center;position:fixed;inset:0}
+  canvas{width:min(100vw,calc(100vh * 900 / 560));width:min(100vw,calc(100dvh * 900 / 560));aspect-ratio:900/560;height:auto;touch-action:none;cursor:pointer;display:block}
+  #rot{display:none;position:fixed;inset:0;background:#0a0710ee;color:#ffd54a;z-index:9;align-items:center;justify-content:center;flex-direction:column;text-align:center;font:bold 20px system-ui,sans-serif;pointer-events:none}
+  #rot i{font-size:64px;font-style:normal;display:block;animation:r 2s infinite ease-in-out}
+  @keyframes r{0%,30%{transform:rotate(0)}70%,100%{transform:rotate(90deg)}}
+  @media (pointer:coarse) and (orientation:portrait){#rot{display:flex}}
 </style>
 </head>
 <body>
 <canvas id="c" width="900" height="560"></canvas>
+<div id="rot"><div><i>📱</i>Rotate your phone<br><span style="font-size:14px;color:#fff">Mac Attack plays in landscape</span></div></div>
 <script>
 // MAC ATTACK — Bangkok, 2am. Ring the bell, buy the bar a round, then pay every tab FAST.
 // Pay quickly = admirers repay you more than the bill. Pay slowly = you lose money.
 // Go broke (or finish the night poorer) and security throws you out.
 const cv = document.getElementById('c'), g = cv.getContext('2d');
-const SC = 2, W = 900, H = 560, CUR = '฿';
+const TOUCH = matchMedia('(pointer:coarse)').matches, SC = TOUCH ? 1.5 : 2, W = 900, H = 560, CUR = '฿';
 let ROUNDS = 4, START_CASH = 10000;
 
 let state = 'title';           // title | wait | tab | summary | kick | over
@@ -722,12 +729,12 @@ function draw() {
     g.translate(W / 2, H / 2); const z = 1 + bellAnim * .025; g.scale(z, z); g.translate(-W / 2, -H / 2);
     drawBar(); drawCounter();
     macSprite(426, 288, 'flex', { noLegs: true }); glow(470, 235, 70, '#3dff7a', .18);
-    if (state === 'wait') { txt('RING THE BELL!', 640, 224 + Math.sin(t * 5) * 3, 17, '#ffd54a', 'center', '#ff9a00'); txt('click it / press SPACE', 640, 242 + Math.sin(t * 5) * 3, 12, '#fff', 'center'); }
+    if (state === 'wait') { txt('RING THE BELL!', 640, 224 + Math.sin(t * 5) * 3, 17, '#ffd54a', 'center', '#ff9a00'); txt((TOUCH ? 'tap the bell' : 'click it / press SPACE'), 640, 242 + Math.sin(t * 5) * 3, 12, '#fff', 'center'); }
     g.restore(); g.save();
     if (shake > 0) g.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
     hud();
     for (let i = 0; i < bills.length; i++) drawTab(bills[i], i);
-    if (state === 'tab') txt('CLICK a tab (or press 1-8) — pay fast to earn more!  Hit ' + CUR + '0 and you\'re OUT.', W / 2, 388, 13, '#ffd54a', 'center', '#000');
+    if (state === 'tab') txt((TOUCH ? 'TAP a tab' : 'CLICK a tab (or press 1-8)') + ' — pay fast to earn more!  Hit ' + CUR + '0 and you\'re OUT.', W / 2, 388, 13, '#ffd54a', 'center', '#000');
     drawFX();
     if (['title', 'intro', 'summary', 'clear'].includes(state)) overlay();
   }
@@ -753,7 +760,7 @@ function overlay() {
     txt('♥ ♥ ♥', W / 2, 372, 20, '#ff4d6d', 'center', '#ff0033');
     if (saved) { button('CONTINUE  (stage ' + (saved.stage + 1) + ')', 130, 420, 300, 54, continueCamp, 18); button('NEW GAME', 470, 420, 300, 54, newCampaign, 18); }
     else button('NEW GAME', W / 2 - 150, 420, 300, 54, newCampaign, 20);
-    txt('TEST KEYS:  E = skip to ending   N = clear stage   F = fail stage', W / 2, 505, 12, '#aaa', 'center');
+    if (!TOUCH) txt('TEST KEYS:  E = skip to ending   N = clear stage   F = fail stage', W / 2, 505, 12, '#aaa', 'center');
   } else if (state === 'intro') {
     txt('STAGE ' + (camp.stage + 1) + ' / ' + STAGES.length, W / 2, 112, 15, '#ffd54a', 'center');
     big(ST.name, 168, '#fff6b0', '#ffb300', '#ff9a00', ST.name.length > 16 ? 46 : 58);
@@ -889,7 +896,8 @@ function canvasPos(e) {
 }
 cv.addEventListener('pointermove', e => { mouse = canvasPos(e); });
 cv.addEventListener('pointerdown', e => {
-  const [x, y] = canvasPos(e); mouse = [x, y];
+  e.preventDefault(); const [x, y] = canvasPos(e); mouse = [x, y];
+  if (TOUCH && !document.fullscreenElement && document.documentElement.requestFullscreen) { try { document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e2) {} }
   for (const b of btns) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { b.fn(); return; }
   if (state === 'tab') {
     for (let i = 0; i < bills.length; i++) if (x >= billX(bills[i].slot) && x <= billX(bills[i].slot) + 100 && y >= 400 && y <= 530) { pay(i); return; }
