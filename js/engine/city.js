@@ -351,11 +351,10 @@
     '      vec3 win = mix(glass, mix(shut, board, step(0.5, hb)), boarded);',
     '      float lit = step(0.72, hs) * (1.0 - boarded) * litAmt;',
     '      win = mix(win, vec3(0.95, 0.78, 0.48) * mix(0.82, 1.0, step(0.62, p.y)), lit * 0.85);',
-    // the shop's name: three letters to a bay across the middle of it, a few pixels gone from each
-    '      float fy = (p.y - 0.79) / 0.16, lx = (bay + p.x) * 6.0, li = floor(lx), lf = fract(lx), len = 6.0 + floor(hs * 9.0);',
-    '      float gx = floor((lf - 0.2) / 0.2), gy = floor((fy - 0.22) / 0.11);',
-    '      float letters = step(0.25, hs) * step(9.0 - len * 0.5, lx) * step(lx, 9.0 + len * 0.5) * step(0.2, lf) * step(lf, 0.79) * step(0.22, fy) * step(fy, 0.76);',
-    '      letters *= step(0.1, hash(vec2(li, shop + sd + 2.0))) * step(0.38, hash(vec2(gx + gy * 3.0 + li * 0.37, li + shop * 7.0 + sd)));',
+    // the shop's name: a clean painted line of lettering across the fascia, broken into words
+    '      float fy = (p.y - 0.79) / 0.16, lx = (bay + p.x) * 6.0, li = floor(lx), len = 6.0 + floor(hs * 9.0);',
+    '      float letters = step(0.25, hs) * step(9.0 - len * 0.5, lx) * step(lx, 9.0 + len * 0.5) * step(0.4, fy) * step(fy, 0.6);',
+    '      letters *= step(0.12, fract(lx * 0.5 + hash(vec2(shop, sd)) * 3.0)) * step(0.1, hash(vec2(floor(lx * 0.5), shop + sd + 2.0)));',
     '      vec3 letterCol = mix(vec3(0.86, 0.82, 0.68), vec3(0.95, 0.76, 0.32), step(0.6, hs));',
     '      c = stone;',
     '      c = mix(c, fascia * ambient, step(0.79, p.y) * step(p.y, 0.95));',

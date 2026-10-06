@@ -11,6 +11,7 @@
   const U = DV.U;
   const G = DV.Config.GRID;
   const T = 0.2; // wall thickness
+  const SEE_IN = 26; // how far off the inside of a building is still drawn, from outside it (a window shows no more)
   const NG = DV.NavGrid;
   const OPEN_AIR = -2; // a batch "room" for things out in the weather over the rooms (the roof)
 
@@ -244,6 +245,7 @@
       // (the building itself, for hiding it when it's lost in the haze: its walls and its doors, and nothing
       // that a zone's own build added since (a city, its people): they look after their own visibility)
       this.coreChildren = [mesh].concat(this.doors.map((d) => d.root));
+      this.shellScan(mesh);
       DV.log('Zone', this.id, 'built in', Math.round(performance.now() - t0), 'ms', 'tris', batch.triCount);
       this.stats = { ms: Math.round(performance.now() - t0), tris: batch.triCount };
     }
@@ -1056,19 +1058,116 @@
       }
     }
 
+    /* What someone outside the building can see of it. The batched level is one mesh per material
+       (a hundred and more draw calls), and most of those materials only exist inside the walls: floors,
+       ceilings, furniture, signs, the rooms' paint. The doors between rooms and the little lights are
+       hidden behind the walls too. So the inside of the building is only drawn for someone inside it, or
+       close enough outside (the plaza, looking in through the glass) to see it: each of those things
+       is dropped once it's further off than a window shows (see coreLod). The windows go dark with
+       distance, so the building doesn't turn to glass and show the sky through it. */
+    shellScan(root) {
+      if (!this.def.fogOutdoor) return;
+      const nav = this.nav, W = this.W, H = this.H, bh = this.def.buildingHeight || 8;
+      const ceil = new Float32Array(W * H);
+      const box = [1e9, 1e9, -1e9, -1e9];
+      for (const r of this.rooms) {
+        if (r.exterior || r.noCeiling) continue;
+        box[0] = Math.min(box[0], r.x0); box[1] = Math.min(box[1], r.z0); box[2] = Math.max(box[2], r.x1); box[3] = Math.max(box[3], r.z1);
+      }
+      for (let k = 0; k < W * H; k++) {
+        const ri = nav.room[k];
+        if (ri < 0) continue;
+        const r = this.rooms[ri];
+        if (!r.exterior && !r.noCeiling) ceil[k] = r.h;
+      }
+      // is (x, y, z) inside a room with a ceiling, under it?
+      const under = (x, y, z) => {
+        if (Math.abs(y - bh) < 0.03) return true; // (the tops of the walls: under the roof deck)
+        const i = Math.floor((x - this.bx0) / G), j = Math.floor((z - this.bz0) / G);
+        if (i < 0 || j < 0 || i >= W || j >= H) return false;
+        const h = ceil[j * W + i];
+        // (between a ceiling and the roof deck is inside the roof too: nothing out there sees it)
+        return h > 0 && y <= Math.max(h, bh) + 0.02;
+      };
+      // the things only the inside has: { show(v), rect: [x0, z0, x1, z1] (where it is), on }
+      const items = [];
+      const add = (rect, show) => items.push({ rect, show, on: true });
+      let glass = null;
+      for (const m of root.children) {
+        if (m.material.name === 'white:glass') { glass = m; continue; }
+        const p = m.geometry.attributes.position.array;
+        let ext = false;
+        for (let i = 0; !ext && i < p.length; i += 9) ext = !under((p[i] + p[i + 3] + p[i + 6]) / 3, (p[i + 1] + p[i + 4] + p[i + 7]) / 3, (p[i + 2] + p[i + 5] + p[i + 8]) / 3);
+        if (ext) continue;
+        if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+        const q = m.geometry.boundingBox;
+        add([q.min.x, q.min.z, q.max.x, q.max.z], (v) => { m.visible = v; });
+      }
+      // a door with a room on both sides is inside the building
+      for (const d of this.doors) {
+        const f = d.horizontal ? [0, 0.5] : [0.5, 0];
+        if (under(d.def.x - f[0], 1, d.def.z - f[1]) && under(d.def.x + f[0], 1, d.def.z + f[1])) add([d.def.x - d.w / 2, d.def.z - d.w / 2, d.def.x + d.w / 2, d.def.z + d.w / 2], (v) => { d.root.visible = v && !this.coreHidden; });
+      }
+      for (const pk of this.pickups) if (under(pk.x, 0.5, pk.z)) add([pk.x, pk.z, pk.x, pk.z], (v) => { pk.cullIn = !v; pk.mesh.visible = v && !pk.disabled; });
+      // whatever else the zone put straight into its group while it was built, standing in a room
+      const skip = new Set([root].concat(this.doors.map((d) => d.root), this.pickups.map((q) => q.mesh)));
+      const bb = new THREE.Box3();
+      for (const c of this.group.children) {
+        if (skip.has(c)) continue;
+        c.updateWorldMatrix(true, true);
+        bb.setFromObject(c);
+        if (!bb.isEmpty() && bb.max.y < 6 && under(bb.min.x, 0.5, bb.min.z) && under(bb.max.x, 0.5, bb.max.z) && under(bb.min.x, 0.5, bb.max.z) && under(bb.max.x, 0.5, bb.min.z)) add([bb.min.x, bb.min.z, bb.max.x, bb.max.z], (v) => { c.visible = v && !this.coreHidden; });
+      }
+      // the windows: their own material (the bus shelter's glass is the same one), dark from a way off
+      let win = null;
+      if (glass) {
+        win = { mesh: glass, base: glass.material, mat: glass.material.clone(), k: 0, near: new THREE.Color(glass.material.color), far: new THREE.Color(0x3d494f) };
+        win.mat.name = 'window';
+        glass.material = win.mat;
+      }
+      this.shell = { box, items, win, stats: { items: items.length } };
+    }
+    // the building as it's drawn from here: out at the haze's far end none of it; from outside, only
+    // what a window shows. Every limit has a margin the other way (it comes back a little before it
+    // goes), so nothing flickers at a threshold.
+    coreLod(cam) {
+      const fo = this.def.fogOutdoor, b = this.def.bounds, sh = this.shell;
+      if (!fo || !b || !this.coreChildren) return;
+      const dd = DV.Settings.get('drawDistance'), mul = dd === 'near' ? 0.7 : dd === 'far' ? 1.5 : 1;
+      const far = cam.y < 40 && Math.hypot(cam.x - (b.x0 + b.x1) / 2, cam.z - (b.z0 + b.z1) / 2) > fo.far * mul + 60 + (this.coreHidden ? -14 : 0);
+      if (far !== !!this.coreHidden) {
+        this.coreHidden = far;
+        for (const c of this.coreChildren) c.visible = !far;
+        // (the doors are in with the building; the shell's items follow it)
+        if (sh) for (const it of sh.items) it.show(it.on);
+      }
+      if (!sh) return;
+      const room = this.roomAt(cam.x, cam.z), inside = !!room && !room.exterior && cam.y < room.h + 0.3;
+      for (const it of sh.items) {
+        const r = it.rect, d = Math.hypot(Math.max(r[0] - cam.x, 0, cam.x - r[2]), Math.max(r[1] - cam.z, 0, cam.z - r[3]));
+        const on = inside || d < (it.on ? SEE_IN : SEE_IN - 4);
+        if (on !== it.on) { it.on = on; it.show(on); }
+      }
+      // the windows: clear from near, dark from far (the rooms behind them have stopped being drawn)
+      if (sh.win) {
+        const d = Math.hypot(Math.max(sh.box[0] - cam.x, 0, cam.x - sh.box[2]), Math.max(sh.box[1] - cam.z, 0, cam.z - sh.box[3]));
+        const k = inside ? 0 : Math.round(U.clamp((d - (SEE_IN - 14)) / 12, 0, 1) * 20) / 20;
+        if (k !== sh.win.k) {
+          sh.win.k = k;
+          sh.win.mat.opacity = U.lerp(sh.win.base.opacity, 0.97, k);
+          sh.win.mat.color.copy(sh.win.near).lerp(sh.win.far, k);
+        }
+      }
+    }
+
     // door handles, windows, frames and status lamps are separate little meshes:
     // only draw them near the camera (they're a few pixels wide past ~16m)
     cullDetails(cam) {
       this.detailT = (this.detailT || 0) + 1;
       if (this.detailT % 6) return;
       // far out in the open (the farms, the Fence), the building you started in is a smudge in the haze:
-      // don't draw all of it (hundreds of draw calls) for that
-      const fo = this.def.fogOutdoor, b = this.def.bounds;
-      if (fo && b && this.coreChildren) {
-        const dd = DV.Settings.get('drawDistance'), mul = dd === 'near' ? 0.7 : dd === 'far' ? 1.5 : 1;
-        const far = Math.hypot(cam.x - (b.x0 + b.x1) / 2, cam.z - (b.z0 + b.z1) / 2) > fo.far * mul * 1.5 + 60 && cam.y < 40;
-        if (far !== !!this.coreHidden) { this.coreHidden = far; for (const c of this.coreChildren) c.visible = !far; }
-      }
+      // don't draw all of it (hundreds of draw calls) for that; from the street, only its shell
+      this.coreLod(cam);
       for (const door of this.doors) {
         const on = Math.hypot(door.def.x - cam.x, door.def.z - cam.z) < 16;
         if (on === door.detailOn) continue;
@@ -1103,7 +1202,7 @@
     refreshPickups(zs) {
       for (const pk of this.pickups) {
         const taken = !!(zs && zs.taken[pk.pickup.id]);
-        pk.mesh.visible = !taken;
+        pk.mesh.visible = !taken && !pk.cullIn;
         pk.disabled = taken;
       }
     }

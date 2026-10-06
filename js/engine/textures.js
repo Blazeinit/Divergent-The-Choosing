@@ -824,28 +824,34 @@
     poster(kind) {
       const key = 'poster:' + kind;
       if (cache[key]) return cache[key];
-      const w = 64, h = 96;
+      const w = 128, h = 192;
       const cv = makeCanvas(w, h);
       const c = cv.getContext('2d');
+      // restrained civic notices: paper, ink, one colour, a mark, a line of type
       const posters = {
-        factions: ['#e7e1cf', '#2a2a2a', 'FIVE FACTIONS\nONE CITY'],
-        test: ['#2f5f9e', '#e8eef5', 'THE TEST\nIS A GUIDE'],
-        quiet: ['#8d8d86', '#20201e', 'PLEASE\nREMAIN\nQUIET'],
-        safety: ['#c4432c', '#f5ead8', 'REPORT\nUNUSUAL\nBEHAVIOR'],
-        harvest: ['#c9762a', '#fff4d8', 'AMITY\nHARVEST\nFESTIVAL'],
-        choose: ['#1b1b1b', '#f0efe9', 'FACTION\nBEFORE\nBLOOD'],
+        factions: ['#d9d5c7', '#23272a', '#5b6b78', ['FIVE FACTIONS', 'ONE CITY'], 'seal'],
+        test: ['#c9d0d6', '#1c2a3a', '#3c5f86', ['THE TEST', 'IS A GUIDE'], 'erudite'],
+        quiet: ['#cfcdc4', '#26282a', '#6f7374', ['PLEASE', 'REMAIN QUIET'], 'abnegation'],
+        safety: ['#d6d2c4', '#2a2422', '#8a3a30', ['REPORT ANYTHING', 'UNUSUAL'], 'dauntless'],
+        harvest: ['#d8d0b8', '#2e2a20', '#8a6a34', ['AMITY HARVEST', 'FESTIVAL'], 'amity'],
+        choose: ['#1d1f21', '#e4e1d8', '#8a8f94', ['FACTION', 'BEFORE BLOOD'], 'seal'],
+        dauntless: ['#1d1f21', '#e4e1d8', '#8a3a30', ['DAUNTLESS', 'HOLD THE LINE'], 'dauntless'],
       };
       const p = posters[kind] || posters.factions;
       c.fillStyle = p[0]; c.fillRect(0, 0, w, h);
-      const ecv = makeCanvas(40, 40);
-      emblem(kind === 'harvest' ? 'amity' : kind === 'test' ? 'erudite' : kind === 'safety' ? 'dauntless' : kind === 'quiet' ? 'abnegation' : 'seal', ecv.getContext('2d'), 40, 40, p[1]);
-      c.drawImage(ecv, 12, 6);
-      c.fillStyle = p[1]; c.font = 'bold 10px Arial'; c.textAlign = 'center';
-      p[2].split('\n').forEach((ln, i) => c.fillText(ln, w / 2, 58 + i * 11));
-      c.strokeStyle = p[1]; c.strokeRect(2, 2, w - 4, h - 4);
-      noise(c, w, h, U.rng(key), 22);
+      c.fillStyle = p[2]; c.fillRect(0, 0, w, 10); c.fillRect(0, h - 10, w, 10);
+      const ecv = makeCanvas(72, 72);
+      emblem(p[4], ecv.getContext('2d'), 72, 72, p[2] === '#8a8f94' ? '#e4e1d8' : p[2], null);
+      c.drawImage(ecv, (w - 72) / 2, 28);
+      c.strokeStyle = p[1]; c.lineWidth = 2; c.strokeRect(6, 6, w - 12, h - 12);
+      c.fillStyle = p[1]; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.font = 'bold 15px Georgia, "Times New Roman", serif';
+      p[3].forEach((ln, i) => { let sz = 15; c.font = 'bold ' + sz + 'px Georgia, "Times New Roman", serif'; while (sz > 9 && c.measureText(ln).width > w - 24) { sz--; c.font = 'bold ' + sz + 'px Georgia, "Times New Roman", serif'; } c.fillText(ln, w / 2, 124 + i * 20); });
+      c.fillRect(24, 168, w - 48, 2);
+      noise(c, w, h, U.rng(key), 8);
       const tex = new THREE.CanvasTexture(cv);
       Tex.finalize(tex, { wrap: 'clamp' });
+      tex.magFilter = THREE.LinearFilter;
       cache[key] = tex;
       return tex;
     },
