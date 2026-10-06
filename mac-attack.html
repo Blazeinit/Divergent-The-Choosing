@@ -58,12 +58,12 @@ const ding = () => { beep(1568, .6, 'sine', .12); setTimeout(() => beep(2093, .5
 // ---------- game flow ----------
 // ---------- campaign data ----------
 const STAGES = [
-  { name: 'SIAM NIGHTS BAR', short: 'SIAM NIGHTS', place: 'Bangkok', stake: 10000, target: 2500, rounds: 4, extra: 0, lifeM: 1, amtM: 1, theme: 0, build: 'Hut & Veggie Patch' },
-  { name: 'PATONG BEACH BAR', short: 'PATONG BEACH', place: 'Phuket', stake: 12000, target: 3500, rounds: 5, extra: 0, lifeM: 1, amtM: 1.1, theme: 1, build: 'Chicken Coop & Fence' },
-  { name: 'TIKI NIGHT MARKET', short: 'NIGHT MARKET', place: 'Chiang Mai', stake: 14000, target: 4500, rounds: 5, extra: 1, lifeM: .98, amtM: 1.15, theme: 2, build: 'Red Barn, Rice Field & Tractor' },
-  { name: 'SKYLINE LOUNGE', short: 'SKYLINE', place: 'Pattaya', stake: 17000, target: 6000, rounds: 6, extra: 1, lifeM: .96, amtM: 1.25, theme: 3, build: 'Farmhouse, Pond & Trees' },
-  { name: 'AQUA POOL CLUB', short: 'AQUA CLUB', place: 'Koh Samui', stake: 20000, target: 8000, rounds: 6, extra: 1, lifeM: .94, amtM: 1.35, theme: 4, build: 'Luxury Villa & Gardens' },
-  { name: 'ROYAL CASINO VIP', short: 'ROYAL CASINO', place: 'Bangkok', stake: 25000, target: 10000, rounds: 7, extra: 2, lifeM: .92, amtM: 1.5, theme: 5, build: 'The Mansion, Pool & Gates' },
+  { name: 'SIAM NIGHTS BAR', short: 'SIAM NIGHTS', place: 'Bangkok', stake: 10000, target: 5500, rounds: 4, extra: 0, lifeM: 1, amtM: 1, theme: 0, build: 'Hut & Veggie Patch' },
+  { name: 'PATONG BEACH BAR', short: 'PATONG BEACH', place: 'Phuket', stake: 12000, target: 7500, rounds: 5, extra: 0, lifeM: 1, amtM: 1.1, theme: 1, build: 'Chicken Coop & Fence' },
+  { name: 'TIKI NIGHT MARKET', short: 'NIGHT MARKET', place: 'Chiang Mai', stake: 14000, target: 10000, rounds: 5, extra: 1, lifeM: .98, amtM: 1.15, theme: 2, build: 'Red Barn, Rice Field & Tractor' },
+  { name: 'SKYLINE LOUNGE', short: 'SKYLINE', place: 'Pattaya', stake: 17000, target: 13500, rounds: 6, extra: 1, lifeM: .96, amtM: 1.25, theme: 3, build: 'Farmhouse, Pond & Trees' },
+  { name: 'AQUA POOL CLUB', short: 'AQUA CLUB', place: 'Koh Samui', stake: 20000, target: 18000, rounds: 6, extra: 1, lifeM: .94, amtM: 1.35, theme: 4, build: 'Luxury Villa & Gardens' },
+  { name: 'ROYAL CASINO VIP', short: 'ROYAL CASINO', place: 'Bangkok', stake: 25000, target: 24000, rounds: 7, extra: 2, lifeM: .92, amtM: 1.5, theme: 5, build: 'The Mansion, Pool & Gates' },
 ];
 const THEMES = [
   { wall: ['#4a1c2a', '#2a0f18', '#120609'], neon: '#ff4fa3', neon2: '#ffd54a', L: ['CHANG', '#39ff6a', '#0b2a12'], R: ['SINGHA', '#ff5148', '#2a0808'], cone: '255,190,100' },
@@ -73,7 +73,7 @@ const THEMES = [
   { wall: ['#0b6b78', '#08454f', '#032126'], neon: '#5affea', neon2: '#ffffff', L: ['LEO', '#ffb300', '#2a1a00'], R: ['CHANG', '#39ff6a', '#0b2a12'], cone: '140,255,240' },
   { wall: ['#5a0f18', '#350a10', '#16040a'], neon: '#ffd54a', neon2: '#ff4040', L: ['SINGHA', '#ff5148', '#2a0808'], R: ['CHANG', '#39ff6a', '#0b2a12'], cone: '255,215,120' },
 ];
-const TIPS = ['Pay while the bar is green — that\'s up to 1.5x back!', 'A tab in the red pays under 1x. Click early!', 'Keep a combo: fast pays stack up to +50%.', 'Number keys are faster than the mouse.', 'A late tab costs 125%. Never let one expire.', 'Only ring the bell when you\'re ready.'];
+const TIPS = ['Pay while the bar is green — that\'s up to 1.35x back!', 'A tab in the red pays under 1x. Click early!', 'Keep a combo: fast pays stack up to +50%.', 'Number keys are faster than the mouse.', 'A late tab costs 140%. Never let one expire.', 'Only ring the bell when you\'re ready.'];
 const SAVEKEY = 'macattack_save_v1';
 const defaultCamp = () => ({ stage: 0, invested: 0, stars: [], strikes: 3, fails: 0 });
 function saveCamp() { try { localStorage.setItem(SAVEKEY, JSON.stringify(camp)); } catch (e) {} }
@@ -95,7 +95,7 @@ function toFarm() {
   setTimeout(() => { ding(); shake = 6; }, 1400);
 }
 function stageClear() {
-  const profit = cash - START_CASH, r = profit / ST.target, stars = r >= 1.9 ? 3 : r >= 1.4 ? 2 : 1;
+  const profit = cash - START_CASH, r = profit / ST.target, stars = r >= 1.5 ? 3 : r >= 1.25 ? 2 : 1;
   clearInfo = { profit, stars }; camp.invested += profit; camp.stars[camp.stage] = stars; camp.stage++; saveCamp();
   state = 'clear'; [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, .25, 'triangle', .1), i * 140));
   for (let i = 0; i < 60; i++) coin(450, 150);
@@ -121,7 +121,7 @@ function primary() {
 function ringBell() {
   if (state !== 'wait') { if (state !== 'tab') primary(); return; }
   round++; roundNet = 0; bellAnim = 1; shake = 6; ding();
-  const n = Math.min(2 + round + ST.extra, 8), life = Math.max(3, (7.5 - round * .4) * ST.lifeM);
+  const n = Math.min(2 + round + ST.extra, 8), life = Math.max(2.6, (6.8 - round * .4) * ST.lifeM);
   const slots = [0, 1, 2, 3, 4, 5, 6, 7].sort(() => Math.random() - .5).slice(0, n);   // random tab positions
   for (let i = 0; i < n; i++) {
     const amt = Math.round((200 + Math.random() * 1100) * (1 + round * .18) * ST.amtM / 50) * 50;
@@ -141,10 +141,10 @@ function checkBroke() { if (state === 'tab' && cash <= 0) startKick('bankrupt');
 function pay(i) {
   const b = bills[i]; if (!b || b.done || state !== 'tab') return;
   const frac = Math.max(0, b.left / b.life);
-  const mult = .6 + .9 * frac;                       // 1.5x (instant) .. 0.6x (last second)
-  const fast = frac > .45;
+  const mult = .55 + .8 * frac;                      // 1.35x (instant) .. 0.55x (last second)
+  const fast = frac > .55;
   combo = fast ? combo + 1 : 0;
-  const bonus = 1 + .1 * Math.min(combo - 1, 5) * (fast ? 1 : 0);
+  const bonus = 1 + .05 * Math.min(combo - 1, 5) * (fast ? 1 : 0);
   const back = Math.round(b.amt * mult * bonus);
   cash += back - b.amt; roundNet += back - b.amt;
   b.done = true; b.res = back - b.amt;
@@ -156,7 +156,7 @@ function pay(i) {
   checkBroke();
 }
 function expire(b) {
-  const loss = Math.round(b.amt * 1.25);              // late fee
+  const loss = Math.round(b.amt * 1.4);               // late fee
   cash -= loss; roundNet -= loss; combo = 0; shake = 8; b.done = true; b.res = -loss; b.late = true;
   floatText(billX(b.slot) + 50, 360, '-' + CUR + loss + ' LATE', '#ff4040');
   beep(120, .3, 'sawtooth', .08, .5);
@@ -490,7 +490,7 @@ function drawTab(b, i) {
   txt(CUR + b.amt, x + w / 2, y + 42, 26, '#1a1a1a', 'center');
   for (let k = 0; k < 3; k++) fillRR(x + 12, y + 54 + k * 9, 76 - (k % 2) * 26, 3, 1.5, 'rgba(0,0,0,.2)');
   if (!b.done) {
-    const mult = .6 + .9 * frac, c = frac > .45 ? '#2ecc71' : frac > .2 ? '#f39c12' : '#e74c3c';
+    const mult = .55 + .8 * frac, c = frac > .55 ? '#2ecc71' : frac > .2 ? '#f39c12' : '#e74c3c';
     fillRR(x + 8, y + 90, 84, 9, 4.5, 'rgba(0,0,0,.25)'); fillRR(x + 8, y + 90, Math.max(2, 84 * frac), 9, 4.5, c);
     glow(x + 8 + 84 * frac, y + 94, 16, c, .6);
     txt('PAYS ' + mult.toFixed(2) + 'x', x + w / 2, y + 122, 14, mult >= 1 ? '#157a37' : '#b03a2e', 'center');
@@ -763,7 +763,7 @@ function overlay() {
     txt('FLEX  •  PAY  •  BUILD THE MANSION', W / 2, 198, 15, '#ff7ac6', 'center', '#ff2d95');
     panel(130, 220, 640, 168);
     txt('Flex across 6 Thai venues. Every baht of profit builds Mac\'s farm.', W / 2, 252, 15, '#eee', 'center');
-    txt('Pay tabs FAST = up to 1.5x back.  Slow or late = you bleed cash.', W / 2, 280, 15, '#7CFF7C', 'center');
+    txt('Pay tabs FAST = up to 1.35x back.  Slow or late = you bleed cash.', W / 2, 280, 15, '#7CFF7C', 'center');
     txt('Hit each stage\'s profit goal. Go broke or miss it and security throws you out.', W / 2, 308, 15, '#ff9b9b', 'center');
     txt('3 strikes and the bank repossesses the farm.', W / 2, 336, 15, '#ffd54a', 'center');
     txt('♥ ♥ ♥', W / 2, 372, 20, '#ff4d6d', 'center', '#ff0033');
