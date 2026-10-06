@@ -271,7 +271,8 @@
         if (r) m.rotation.set(r[0], r[1], r[2]);
         model.attach(bone, m);
       }
-      const name = o.child ? (sex === 'f' ? 'Girl' : 'Boy') : role === 'vendor' && sc.kind === 'stall_fruit' ? 'Fruit Seller' : role === 'vendor' && sc.kind === 'newsstand' ? 'Newsseller' : role === 'vendor' && sc.kind === 'bread' ? 'Abnegation Volunteer' : role === 'vendor' && sc.kind === 'busker' ? 'Busker' : DV.Factions.name(f) + ' ' + (sex === 'f' ? 'woman' : 'man');
+      const title = o.child ? '' : role === 'vendor' && sc.kind === 'stall_fruit' ? 'Fruit seller' : role === 'vendor' && sc.kind === 'newsstand' ? 'Newsseller' : role === 'vendor' && sc.kind === 'bread' ? 'Abnegation volunteer' : role === 'vendor' && sc.kind === 'busker' ? 'Busker' : '';
+      const name = (o.child ? DV.Names.first(f, sex, sc.id + ':' + sc.people.length) : DV.Names.person(f, sex, sc.id + ':' + sc.people.length)) + (title ? ' \u00b7 ' + title : '');
       const p = { id: sc.id + ':' + sc.people.length, model, app, f, role, name, x, z, x0: x, z0: z, rot, rot0: rot, action, bark: null, lodT: 0, phase: o.phase || 0, child: !!o.child };
       p.headY = () => (o.child ? 1.0 : 1.62 * (app.height || 1));
       p.it = { id: 'cl:' + p.id, kind: 'action', x, y: 1.1, z, radius: 1.8, label: 'Talk to', name, onUse: () => this.talk(sc, p) };

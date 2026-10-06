@@ -250,7 +250,7 @@
         const app = DV.Character.fromFaction(f, sex, 'street:' + f + ':' + (this.modelN = (this.modelN || 0) + 1), { age });
         const model = DV.Character.create(app);
         this.zone.group.add(model.root);
-        m = { model, f, sex, age, app, busy: false, name: FACTION_NAME[f] + ' ' + (age < 20 ? (sex === 'f' ? 'girl' : 'boy') : sex === 'f' ? 'woman' : 'man') };
+        m = { model, f, sex, age, app, busy: false, name: age < 20 ? DV.Names.first(f, sex, 'st' + this.modelN) : DV.Names.person(f, sex, 'st' + this.modelN) };
         this.pool.push(m);
       }
       return m || null;

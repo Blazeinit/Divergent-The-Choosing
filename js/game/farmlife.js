@@ -176,7 +176,7 @@
       const m = this.model(f);
       m.busy = true; m.model.root.visible = !this.kit.hidden;
       const w = { id: 'fw' + sp.id, sp, m, f, model: m.model, x: sp.x, z: sp.z, rot: sp.rot, act: sp.act, bark: null, lodT: 0, t: this.r() * 6, listen: 0, k: Math.floor(this.r() * 6) };
-      w.name = (f === 'amity' ? 'Amity' : f === 'abnegation' ? 'Abnegation' : 'Factionless') + (m.sex === 'f' ? ' woman' : ' man');
+      w.name = DV.Names.person(f, m.sex === 'f' ? 'f' : 'm', 'farm:' + w.id);
       w.headY = () => 1.62 * (m.app.height || 1);
       w.it = { id: 'farm:' + w.id, kind: 'action', x: w.x, y: 1.1, z: w.z, radius: 1.9, label: 'Talk to', name: w.name, onUse: () => this.talk(w) };
       this.zone.interactables.push(w.it);

@@ -289,7 +289,8 @@
         const adult = sp.adult !== false && opts.adults;
         const app = DV.Character.fromFaction(f, sex, (opts.seed || 'crowd') + ':' + f + ':' + i, adult ? { age: 22 + ((i * 7) % 38) } : undefined);
         if (adult) app.height = (app.height || 1) * 1.05;
-        out.push(this.actor({ id: (opts.prefix || 'x') + i, app, x: sp.x, z: sp.z, rot: sp.rot || 0, action: sp.action || opts.action || 'idle', faction: f, crowd: true, seatY: sp.seatY }));
+        const used = this._crowdNames || (this._crowdNames = new Set());
+        out.push(this.actor({ id: (opts.prefix || 'x') + i, name: DV.Names.person(f, sex, (opts.seed || 'crowd') + ':' + f + ':' + i, used), app, x: sp.x, z: sp.z, rot: sp.rot || 0, action: sp.action || opts.action || 'idle', faction: f, crowd: true, seatY: sp.seatY }));
       });
       return out;
     },

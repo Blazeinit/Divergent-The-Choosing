@@ -42,7 +42,7 @@
       const app = DV.Character.fromFaction(p.faction || this.def.faction, sex, 'extra:' + this.zone.id + ':' + p.id, { age });
       p.model = DV.Character.create(app);
       p.app = app;
-      p.name = (this.def.title || 'Dauntless') + ' ' + (sex === 'f' ? 'woman' : 'man');
+      p.name = DV.Names.person(p.faction || this.def.faction, sex, 'extra:' + this.zone.id + ':' + p.id);
       this.zone.group.add(p.model.root);
       p.model.root.visible = false;
       if (p.walk) { p.x = p.walk[0][0]; p.z = p.walk[0][1]; }
