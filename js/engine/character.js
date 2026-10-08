@@ -1099,6 +1099,21 @@
           set('lArmL', -1.5 + Math.sin(it * 6) * 0.15, -0.5, 0); set('lArmR', -1.5, 0.5, 0);
           set('head', 0.25 + Math.sin(it * 0.8) * 0.1, 0, 0);
         }
+        // standing about: the weight shifts from one leg to the other, and every few seconds a small
+        // thing people do (a look round, a glance at the wrist, a hand to the back of the neck, a stretch)
+        if (act === 'idle' && speed <= 0.05 && !s.talking && !s.fight && !s.still) {
+          const sp = this.seedPhase(), w = Math.sin(it * 0.21 + sp * 3);
+          add('hips', 0, 0, w * 0.045); add('spine', 0, 0, -w * 0.035); add('chest', 0, 0, -w * 0.015);
+          if (w > 0) { add('uLegL', -0.06 * w, 0, 0); add('lLegL', 0.14 * w, 0, 0); } else { add('uLegR', 0.06 * w, 0, 0); add('lLegR', -0.14 * w, 0, 0); }
+          const cyc = ((it * 0.085 + sp) % 1 + 1) % 1, win = (a, b) => (cyc > a && cyc < b ? Math.sin(((cyc - a) / (b - a)) * Math.PI) : 0);
+          const look = win(0.02, 0.12), wrist = win(0.4, 0.47), neck = win(0.7, 0.77), stretch = win(0.9, 0.95);
+          if (look) add('head', 0.03 * look, Math.sin(cyc * 60) * 0.5 * look, 0);
+          if (wrist) { add('uArmL', -0.75 * wrist, 0, 0.1 * wrist); add('lArmL', -1.3 * wrist, 0.6 * wrist, 0); add('head', 0.35 * wrist, 0.15 * wrist, 0); }
+          if (neck) { add('uArmR', -2.0 * neck, 0, -0.35 * neck); add('lArmR', -1.7 * neck, 0.3 * neck, 0); add('head', 0.12 * neck, 0, 0); }
+          if (stretch) { add('uArmL', -0.3 * stretch, 0, 0.5 * stretch); add('uArmR', -0.3 * stretch, 0, -0.5 * stretch); add('spine', -0.12 * stretch, 0, 0); add('head', -0.2 * stretch, 0, 0); }
+        }
+        // asleep: a slow breath
+        if (act === 'lie') add('chest', Math.sin(it * 1.3) * 0.04, 0, 0);
         if (s.talking && !/^sit/.test(act) && act !== 'work' && act !== 'lie' && act !== 'recline') {
           add('uArmR', -0.35 - Math.max(0, Math.sin(it * 3.1)) * 0.5, 0, -0.1);
           add('lArmR', -0.6 - Math.sin(it * 4.3) * 0.3, 0, 0);

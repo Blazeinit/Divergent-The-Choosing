@@ -78,7 +78,7 @@ L.run('the campaign: every episode played through', async (p, T, errs) => {
   await setup('candor');
   await ev(() => { DV.Chapter.load('week_candor', { step: 'end', instant: true, noFadeIn: true, noTitle: true }); QA.step(2); DV.State.data.world.day = 7; DV.State.data.world.time = DV.U.parseTime('08:00'); });
   const offer = await ev(() => { B.use('rosa_talk'); const c = DV.Dialogue.active.view.choices.find((x) => /The case/.test(x.label)); DV.Dialogue.choose(c.index); return true; });
-  await p.waitForTimeout(600);
+  await L.until(p, () => !!document.querySelector('.panel.modal .body'), 8000);
   T.ok(await ev(() => !!document.querySelector('.panel.modal .body') && /Hollis/.test(document.querySelector('.panel.modal .body').textContent)), 'Rosa offers the case: a card with the summary and the day');
   await ev(() => document.querySelector('.panel.modal .b-yes').click());
   T.ok(await L.until(p, () => DV.Chapter.id === 'camp_c1' && DV.Game.state === 'playing', 30000), 'taking it fades into the first chapter, on the right day (' + 'Day 7' + ')');

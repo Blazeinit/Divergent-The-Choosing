@@ -19,6 +19,8 @@
   const adult = (f, sex, seed, age, h) => { const a = DV.Character.fromFaction(f, sex, seed, { age: age || 40 }); a.height = (a.height || 1) * (h || 1.04); return a; };
   const flag = (n) => !!DV.State.flag(n);
 
+  const ACTS = { 2: 'ACT II\nFACTION BEFORE BLOOD', 3: 'ACT III\nTHE CIRCLE CLOSES', 4: 'ACT IV\nTHE CONTINUITY VOTE' };
+
   /* ------------------------------ what you've seen ------------------------------ */
   const prog = (id) => { const s = K().st(); s.prog = s.prog || {}; return s.prog[id] || (s.prog[id] = { seen: {}, risk: null, outcome: null }); };
   const seen = (id, k) => !!prog(id).seen[k];
@@ -180,7 +182,26 @@
         });
         if (E.setup) E.setup(Ch, zone);
         if (needMet() && !prog(E.id).risk && !E.risk) { /* nothing to wait for */ }
-        Ch.after(1.2, () => { if (E.open) Ch.scene(E.id + '_' + E.open.actor, { speaker: E.actors[E.open.actor].name, faction: E.actors[E.open.actor].faction }); else DV.UI.narrate(E.hint, 5); });
+        // the first time in: an establishing shot (and the act's title card when a new act begins)
+        const pr = prog(E.id);
+        const after = () => { if (E.open) Ch.scene(E.id + '_' + E.open.actor, { speaker: E.actors[E.open.actor].name, faction: E.actors[E.open.actor].faction }); else DV.UI.narrate(E.hint, 5); };
+        if (!pr.intro) {
+          pr.intro = true;
+          const st = K().st(), act = (K().episode(E.id) || {}).act || 2;
+          const card = act > (st.cardAct || 1) ? ACTS[act] : null;
+          if (card) st.cardAct = act;
+          const W = E.zone.w, D = E.zone.d, H = E.zone.outdoor ? 7.5 : Math.min(2.7, (E.zone.h || 3.2) - 0.45);
+          const focus = (E.things && E.things[0]) || E.finale;
+          Ch.cut(true);
+          Ch.shot([0.8, H, 0.8], [W / 2, 0.6, D / 2], true);
+          Ch.seq([
+            () => { if (card) DV.UI.narrate(card, 4.4); else DV.UI.narrate(E.title.toUpperCase(), 3.2); return card ? 4.2 : 3.0; },
+            () => { Ch.shot([U.clamp(focus.x + 2.6, 0.6, W - 0.6), 1.7, U.clamp(focus.z + 2.6, 0.6, D - 0.6)], [focus.x, 0.9, focus.z]); return 2.6; },
+            () => { Ch.cut(false); FW().placePlayer(SP.x, SP.z, SP.rot || 0); },
+            () => 0.6,
+            after,
+          ], 'intro');
+        } else Ch.after(1.2, after);
       },
       update(Ch) {
         const pr = prog(E.id);

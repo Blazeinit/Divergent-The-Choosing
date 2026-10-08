@@ -153,6 +153,7 @@
       // tear down whatever was running
       if (DV.Dialogue.isActive()) DV.Dialogue.end(true);
       this.clearScene();
+      if (this.cutscene) { this.cutscene = false; DV.UI.letterbox(false); } // (a set piece cut off mid-shot doesn't leave its bars behind)
       if (DV.Sim && DV.Sim.active) DV.Sim.cleanup();
       const zoneId = typeof s.zone === 'function' ? s.zone(opts) : s.zone;
       const prev = DV.World.current && DV.World.current.id;
