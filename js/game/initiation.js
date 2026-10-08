@@ -430,26 +430,26 @@
         // three lanes, the rest waiting their turn at the line; swap every 25 minutes
         for (let m = t0, r = 0; m < t1; m += 25, r++) {
           const k = (idx + r * 3) % n;
-          out.push(k < 3 ? { t: at(m), do: 'go', to: 'lane' + k, act: 'aim' } : { t: at(m), do: 'go', to: 'line' + (k % 8), act: 'arms_crossed' });
+          out.push(k < 3 ? { t: at(m), do: 'go', to: 'lane' + k, act: 'aim' } : { t: at(m), do: 'go', to: 'line' + (k % 16), act: 'arms_crossed' });
         }
       } else if (b.kind === 'bags') {
         for (let m = t0, r = 0; m < t1; m += 30, r++) {
           const k = (idx + r * 4) % n;
-          out.push(k < 4 ? { t: at(m), do: 'go', to: 'bag' + k, act: 'bagwork' } : k < 5 ? { t: at(m), do: 'go', to: 'weights0' } : { t: at(m), do: 'go', to: 'line' + (k % 8), act: 'idle' });
+          out.push(k < 4 ? { t: at(m), do: 'go', to: 'bag' + k, act: 'bagwork' } : k < 5 ? { t: at(m), do: 'go', to: 'weights0' } : { t: at(m), do: 'go', to: 'line' + (k % 16), act: 'idle' });
         }
       } else if (b.kind === 'knives') {
         for (let m = t0, r = 0; m < t1; m += 20, r++) {
           const k = (idx + r * 2) % n;
-          out.push(k < 2 ? { t: at(m), do: 'go', to: 'knife' + k, act: 'throwing' } : { t: at(m), do: 'go', to: 'line' + (k % 8), act: 'arms_crossed' });
+          out.push(k < 2 ? { t: at(m), do: 'go', to: 'knife' + k, act: 'throwing' } : { t: at(m), do: 'go', to: 'line' + (k % 16), act: 'arms_crossed' });
         }
       } else if (b.kind === 'spar' || b.kind === 'fight') {
-        const spots = ['ringside0', 'ringside1', 'ringside2', 'ringside3', 'ringside4', 'ringside5', 'ring_bench_s0', 'ring_bench_s1', 'ring_bench_s2', 'ring_bench_s3', 'side_bench_s0', 'side_bench_s1'];
+        const spots = ['ringside0', 'ringside1', 'ringside2', 'ringside3', 'ringside4', 'ringside5', 'ringside6', 'ringside7', 'ringside8', 'ringside9', 'ring_bench_s0', 'ring_bench_s1', 'ring_bench_s2', 'ring_bench_s3', 'side_bench_s0', 'side_bench_s1'];
         out.push({ t: at(t0 - 5), do: 'go', to: spots[idx % spots.length], act: spots[idx % spots.length].indexOf('bench') >= 0 ? 'sit' : 'arms_crossed' });
       } else if (b.kind === 'cut') {
-        out.push({ t: at(t0 - 5), do: 'go', to: 'line' + (idx % 8), act: 'idle' });
+        out.push({ t: at(t0 - 5), do: 'go', to: 'line' + (idx % 16), act: 'idle' });
       } else if (b.kind === 'fear') {
         // waiting their turn in a line in the training hall, the Simulation Room door across the way
-        out.push({ t: at(t0 - 5), do: 'go', to: 'line' + (idx % 8), act: 'arms_crossed' });
+        out.push({ t: at(t0 - 5), do: 'go', to: 'line' + (idx % 16), act: 'arms_crossed' });
       }
       return out;
     },

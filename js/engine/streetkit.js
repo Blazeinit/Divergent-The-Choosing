@@ -19,7 +19,7 @@
   const DV = window.DV;
   const U = DV.U;
 
-  const CHUNK = 96, BUILD_R = 210, SHOW_R = 240;
+  const CHUNK = 96, BUILD_R = 290, SHOW_R = 320; // (the markings reach as far as the haze lets you see)
   const STEEL = [0.24, 0.24, 0.25], DARK = [0.13, 0.13, 0.14], CONC = [0.55, 0.54, 0.51], BARK = [0.3, 0.24, 0.18];
   const LEAF = [[0.32, 0.38, 0.22], [0.36, 0.4, 0.24], [0.4, 0.38, 0.22], [0.28, 0.33, 0.22]];
   const SIG = [0.13, 0.15, 0.12]; // signal housings: the city's old dark green
@@ -665,7 +665,7 @@
       for (const c of this.chunks.values()) {
         const d = Math.hypot(c.cx - px, c.cz - pz);
         if (!c.built) { if (d < BUILD_R && d < wd) { wd = d; want = c; } continue; }
-        const vis = d < SHOW_R && !this.hidden;
+        const vis = d < (c.mesh && c.mesh.visible ? SHOW_R + 24 : SHOW_R) && !this.hidden; // (a margin the other way: no flicker at the edge)
         if (c.mesh) c.mesh.visible = vis;
         if (c.glow) c.glow.visible = vis && !!glowMats && glowMats.on > 0;
       }

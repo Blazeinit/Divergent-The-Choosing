@@ -2008,7 +2008,7 @@
           uniforms: Object.assign({}, shared, {
             lightCol: { value: new THREE.Color(o.cloudLight || 0xc9cdd1) },
             darkCol: { value: new THREE.Color(o.cloudDark || 0x7d838a) },
-            cover: { value: o.cover === undefined ? 0.06 : o.cover },
+            cover: { value: o.cover === undefined ? 0.12 : o.cover },
           }),
           vertexShader: VERT,
           fragmentShader: DECK_FRAG,
@@ -2057,7 +2057,7 @@
       }
 
       // low clouds drifting between the towers
-      const puffs = o.puffs === undefined ? 18 : o.puffs;
+      const puffs = o.puffs === undefined ? 26 : o.puffs;
       let scud = null;
       const scudState = [];
       if (puffs) {

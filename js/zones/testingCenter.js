@@ -621,7 +621,7 @@
     facade: 'facade',
     // indoors a short grey fog; outside it opens up into a light haze that matches the city's
     fog: { color: 0x5a6067, near: 24, far: 95 },
-    fogOutdoor: { color: 0x98a0a6, near: 45, far: 320 },
+    fogOutdoor: { color: 0x8e969c, near: 36, far: 300 }, // (a heavier haze: the city is smog and low cloud by day)
     sky: { top: 0x5b6773, horizon: 0x9ca3a9, ground: 0x585b5d, skyline: false },
     timeOfDay: true, // the day goes by out there: afternoon light, sunset, dusk
     exterior: { sunDir: [0.35, 0.85, 0.4], sunColor: [0.42, 0.41, 0.38], ambient: [0.5, 0.52, 0.56] },
@@ -716,7 +716,10 @@
           { x: 73, z: 69.625, w: 26, d: 12.25, h: 12.8, style: 'brick', tint: [1.0, 0.95, 0.9], seed: 12, waterTower: [7, 0] },
           ...shell,
         ],
-        haze: 0x98a0a6,
+        haze: 0x8e969c,
+        hazeK: 0.0049,
+        cover: 0.17,
+        puffs: 34,
         exterior: zone.def.rooms.filter((r) => r.exterior).map((r) => [r.x0, r.z0, r.x1, r.z1]).concat(roof.rects),
         districts: CM.districts,
         walk: {
@@ -759,6 +762,8 @@
       // and people stopped doing something: stalls, buskers, a bread line, children playing (js/game/citylife.js)
       const scenes = DV.CityLife.attach(zone, city, life);
       const farmLife = DV.FarmLife.attach(zone, farms, life);
+      const osl = (CM.landmarks || []).find((l) => l.id === 'order_station');
+      DV.Ambiance.attach(ctx, zone, { hub: CM.hub, order: osl ? [osl.x, osl.z] : null });
       ctx.update((dt) => {
         const cam = DV.Game && DV.Game.camera;
         if (cam) { kit.update(cam.position.x, cam.position.z); farms.update(cam.position.x, cam.position.z, dt); }

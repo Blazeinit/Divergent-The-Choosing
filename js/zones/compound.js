@@ -649,10 +649,14 @@
       line0: { x: 21, z: -26.2, rot: 0, act: 'idle' }, line1: { x: 22.2, z: -26.4, rot: 0, act: 'idle' }, line2: { x: 23.4, z: -26.2, rot: 0, act: 'idle' },
       line3: { x: 24.6, z: -26.4, rot: 0, act: 'idle' }, line4: { x: 25.8, z: -26.2, rot: 0, act: 'idle' }, line5: { x: 27, z: -26.4, rot: 0, act: 'idle' },
       line6: { x: 28.2, z: -26.2, rot: 0, act: 'idle' }, line7: { x: 29.4, z: -26.4, rot: 0, act: 'idle' },
+      // (a second lineup in front of the range wall, for a class of sixteen)
+      line8: { x: 23, z: -32.6, rot: 0, act: 'idle' }, line9: { x: 24.2, z: -32.6, rot: 0, act: 'idle' }, line10: { x: 25.4, z: -32.6, rot: 0, act: 'idle' }, line11: { x: 26.6, z: -32.6, rot: 0, act: 'idle' },
+      line12: { x: 23.6, z: -33.6, rot: 0, act: 'idle' }, line13: { x: 24.8, z: -33.6, rot: 0, act: 'idle' }, line14: { x: 26, z: -33.6, rot: 0, act: 'idle' }, line15: { x: 27.2, z: -33.6, rot: 0, act: 'idle' },
       // around the ring
       ringside0: { x: 28.4, z: -24.6, rot: 2.6, act: 'arms_crossed' }, ringside1: { x: 30.2, z: -24.2, rot: Math.PI, act: 'arms_crossed' },
       ringside2: { x: 35, z: -24.2, rot: Math.PI, act: 'arms_crossed' }, ringside3: { x: 37.4, z: -26.3, rot: -2.2, act: 'arms_crossed' },
       ringside4: { x: 37.6, z: -30.4, rot: -1.6, act: 'arms_crossed' }, ringside5: { x: 27.6, z: -29.6, rot: 1.6, act: 'arms_crossed' },
+      ringside6: { x: 28.2, z: -32.4, rot: 0.8, act: 'arms_crossed' }, ringside7: { x: 36.8, z: -32.4, rot: -0.8, act: 'arms_crossed' }, ringside8: { x: 38.1, z: -29, rot: -1.6, act: 'arms_crossed' }, ringside9: { x: 27.1, z: -27.6, rot: 1.6, act: 'arms_crossed' },
       ring_a: { x: 32.5, z: -26.4, rot: Math.PI, act: 'idle' }, ring_b: { x: 32.5, z: -30.4, rot: 0, act: 'idle' },
       knife0: { x: 37.9, z: -38.4, rot: Math.PI / 2, act: 'idle' }, knife1: { x: 37.9, z: -36.2, rot: Math.PI / 2, act: 'idle' },
       // the Pit

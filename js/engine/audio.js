@@ -594,6 +594,15 @@
           case 'scan': // a drone looking at somebody: two rising chirps and a hum
             this.tone(1250, 0.07, 'sine', 0.05 * v); this.tone(1650, 0.08, 'sine', 0.05 * v, 0.1); this.tone(110, 1.6, 'triangle', 0.025 * v, 0.2);
             break;
+          case 'siren': { // far off across the city: a two-tone wail rising and falling, muffled by distance
+            const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
+            f.type = 'lowpass'; f.frequency.value = 900;
+            o.type = 'sawtooth';
+            for (let k = 0; k < 4; k++) { o.frequency.setValueAtTime(520, t + k * 1.6); o.frequency.linearRampToValueAtTime(780, t + k * 1.6 + 0.8); o.frequency.linearRampToValueAtTime(520, t + k * 1.6 + 1.6); }
+            g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.035 * v, t + 1.2); g.gain.setValueAtTime(0.035 * v, t + 4.8); g.gain.linearRampToValueAtTime(0.0001, t + 6.4);
+            o.connect(f); f.connect(g); g.connect(this._dest || this.sfxBus); o.start(t); o.stop(t + 6.5);
+            break;
+          }
           case 'radio': // a patrol's radio: a squelch of static and the tail beep
             this.burst('bandpass', 1800, 1.4, 0.16, 0.07 * v); this.burst('bandpass', 2600, 2, 0.09, 0.04 * v, 0.2); this.tone(1400, 0.06, 'square', 0.02 * v, 0.34);
             break;
