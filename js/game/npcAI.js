@@ -9,6 +9,8 @@
    ========================================================================== */
 (function () {
   'use strict';
+  // poses that belong to the furniture: a chair, a desk, a bed. Nobody turns on the spot in them
+  const fixedPose = (a) => /^sit/.test(a || '') || a === 'work' || a === 'lie' || a === 'recline' || a === 'type';
   const DV = window.DV;
   const U = DV.U;
   const NC = DV.Config.NPC;
@@ -215,6 +217,7 @@
         npc.x = snap ? spot.x : npc.x;
         npc.z = snap ? spot.z : npc.z;
         npc.rot = spot.rot;
+        npc.rotTarget = spot.rot; // (seated or lying, they keep the seat's or the bed's way round)
         npc.action = act === 'idle' ? spot.act : act;
         npc.seatY = spot.seatY || 0.45;
       } else {
@@ -339,17 +342,17 @@
             npc.x = U.lerp(npc.seatFrom[0], s.x, npc.seatT);
             npc.z = U.lerp(npc.seatFrom[1], s.z, npc.seatT);
             npc.rot = U.dampAngle(npc.rot, s.rot, 10, dt);
-          } else if (npc.rotTarget !== undefined && npc.action !== 'sit') {
+          } else if (npc.rotTarget !== undefined && !fixedPose(npc.action)) {
             npc.rot = U.dampAngle(npc.rot, npc.rotTarget, 5, dt);
           }
           // face conversation partner
           if (npc.talkPartner) {
             const p = DV.NPCs.get(npc.talkPartner);
-            if (p && p.present && U.dist(p.x, p.z, npc.x, npc.z) < 3.5 && npc.action !== 'sit') npc.rotTarget = U.yawTo(npc.x, npc.z, p.x, p.z);
+            if (p && p.present && U.dist(p.x, p.z, npc.x, npc.z) < 3.5 && !fixedPose(npc.action)) npc.rotTarget = U.yawTo(npc.x, npc.z, p.x, p.z);
           }
           break;
         case 'talking':
-          npc.rot = U.dampAngle(npc.rot, U.yawTo(npc.x, npc.z, player.x, player.z), npc.action === 'sit' || npc.action === 'work' ? 0 : 6, dt);
+          npc.rot = U.dampAngle(npc.rot, U.yawTo(npc.x, npc.z, player.x, player.z), fixedPose(npc.action) ? 0 : 6, dt);
           break;
         case 'queued': // standing in the reception line
           if (npc.rotTarget !== undefined) npc.rot = U.dampAngle(npc.rot, npc.rotTarget, 5, dt);
