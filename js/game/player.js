@@ -106,7 +106,7 @@
       this.x = spot.x; this.z = spot.z;
       this.rot = spot.rot;
       this.vx = this.vz = 0;
-      this.action = spot.act === 'recline' ? 'recline' : 'sit';
+      this.action = spot.act === 'recline' || spot.act === 'lie' ? spot.act : 'sit'; // (a bed is lain on, along it, not sat on)
       this.syncModel();
     },
     standUp() {
@@ -116,7 +116,11 @@
       this.state = 'free';
       this.seat = null;
       this.action = 'idle';
-      if (s) {
+      if (s && s.ax === undefined && s.act === 'lie') {
+        // off the side of the bed (straight ahead is the rest of the mattress)
+        if (s.approach) { this.x = s.approach[0]; this.z = s.approach[1]; }
+        else { this.x = s.x + Math.cos(s.rot) * 0.85; this.z = s.z - Math.sin(s.rot) * 0.85; }
+      } else if (s) {
         this.x = s.ax !== undefined ? s.ax : s.x + Math.sin(s.rot) * 0.6;
         this.z = s.az !== undefined ? s.az : s.z + Math.cos(s.rot) * 0.6;
       }
