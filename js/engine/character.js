@@ -843,9 +843,16 @@
         set('lArmR', -U.lerp(0.28, 1.35, run) - Math.max(0, sn) * 0.25, 0, 0);
         set('spine', U.lerp(0.04, 0.2, run), sn * 0.06, 0);
         set('chest', 0, -sn * 0.1, 0);
-        set('hips', 0, sn * 0.08, 0);
+        // the pelvis drops toward the swinging leg; the head stays level
+        // and steady while the shoulders counter-turn under it
+        set('hips', 0, sn * 0.08, cs * U.lerp(0.035, 0.02, run));
+        add('spine', 0, 0, -cs * U.lerp(0.03, 0.015, run));
         hipY = -Math.abs(cs) * U.lerp(0.025, 0.05, run) + 0.01;
-        set('head', -U.lerp(0.02, 0.12, run), 0, 0);
+        hipZ = U.lerp(0, -0.04, run);
+        set('head', -U.lerp(0.02, 0.12, run), sn * 0.05, 0);
+        // heel strike, then the toe-off
+        add('footL', Math.max(0, Math.sin(ph - 0.6)) * -0.18 * (1 + run), 0, 0);
+        add('footR', Math.max(0, Math.sin(ph - 0.6 + Math.PI)) * -0.18 * (1 + run), 0, 0);
         if (act === 'carry') {
           // a crate held in both arms in front, leaning back against the weight
           set('uArmL', -0.55, 0, 0.12); set('uArmR', -0.55, 0, -0.12);
@@ -968,7 +975,16 @@
           set('spine', Math.sin(it * 1.7) * 0.04, 0, Math.sin(it * 1.3) * 0.05);
         } else if (act === 'lie') {
           rootRx = -Math.PI / 2;
+          // asleep on the back: the head propped on the pillow, the feet falling
+          // open, knees soft, and (for some) a hand resting on the chest
+          set('head', 0.22, 0, 0);
+          set('uLegL', -0.06, 0, 0.05); set('uLegR', -0.06, 0, -0.05);
+          set('lLegL', 0.1, 0, 0); set('lLegR', 0.1, 0, 0);
+          set('footL', 0.6, 0.3, 0); set('footR', 0.6, -0.3, 0);
           set('uArmL', 0, 0, 0.12); set('uArmR', 0, 0, -0.12);
+          const v = Math.floor(this.seedPhase() * 7) % 3;
+          if (v === 1) { set('uArmR', -0.3, 1.2, -0.1); set('lArmR', -1.5, 0, 0); }
+          else if (v === 2) { set('uArmL', -0.3, 1.2, 0.1); set('lArmL', -1.5, 0, 0); set('head', 0.22, 0.35, 0); }
         } else if (act === 'sneak') {
           // crouched, still
           hipY = -0.34 * this.scaleY();

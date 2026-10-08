@@ -493,7 +493,7 @@
       FW().placePlayer(24, 7.6, 2.49);
       DV.Quests.setObj('week_candor', 'verdict', 'done');
       Ch.rosa.place(23.5, 11.8, 0.6); Ch.rosa.action = 'arms_crossed';
-      const seats = [[25.4, 4.2, 0], [26.6, 4.2, 0], [25.4, 5.8, Math.PI], [26.6, 5.8, Math.PI], [22.4, 2.4, Math.PI / 2], [29.6, 7.9, -Math.PI / 2]];
+      const seats = [[25.4, 4.2, 0], [26.6, 4.2, 0], [25.4, 5.8, Math.PI], [26.6, 5.8, Math.PI], [21.3, 1.6, Math.PI / 2], [30.7, 8.5, -Math.PI / 2]]; // (the last two lie on their bunks, along them, head to the pillow)
       Ch.peerActors = Ch.peers.map((p, i) => Ch.actor({ id: p.id, name: p.name, faction: 'candor', app: p.app, x: seats[i][0], z: seats[i][1], rot: seats[i][2], action: i < 4 ? 'sit' : 'lie', seatY: i < 4 ? 0.45 : 0.62 }));
       this.peerTalk(Ch);
       if (!FW().was('game_played')) {
