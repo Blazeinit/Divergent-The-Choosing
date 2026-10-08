@@ -265,11 +265,26 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
    - **Amity.** Ruth's orchard is dying and she blames Tom's sluice. Hear them both, walk the channel and dig out the culvert. Then help the circle find common ground, and eat the bread at supper (or don't).
    - Each week ends with **FIRST WEEK COMPLETE**, your standing, and what your test caught up with.
 
+13. **The Chalk Year (the campaign).** When the first week (or Stage One) ends, the city's six chalk-circle murders become your case. Your mentor offers it (Rosa, Dr. Park, Joan, Mary, Dana Cole), and the Tab menu gains a **Case** page: what you know, the proof you hold, who trusts you, your notes.
+   - **Act II — Faction Before Blood:** your own faction's case, two chapters (Dauntless *Night Duty* and *The Night Log*; Candor *The Sister* and *Sealed*; Erudite *Lot Thirty-Three* and *The Calibration Room*; Abnegation *The Tally* and *The Sweep*; Amity *The Dispensary* and *The Night Truck*). Each has a scene to read, people who know more than they say, someone coming (get away from the evidence before they arrive) and a choice with a price: keep the proof, or hand it to someone you trust.
+   - **Act III — The Circle Closes:** the seventh circle (someone you met on Aptitude Day), the meeting under the tracks (everyone who trusts you brings their proof; name the leak), and the night of the scan (warn four families before the patrol's torch reaches their doors).
+   - **Act IV — The Continuity Vote:** the Council in the Hub. Present your proof, take the Dean's offer, walk out with Ezra, take the gate, or say nothing. Five endings: *Open Air*, *The Quiet*, *Under the Tracks*, *Beyond the Fence* and *The Quiet Passes*. If it comes to a vote, it plays out on screen: ten councillors, the hands counted aloud one by one, the Dean's answer. Then the epilogue (who got out, who died, what you proved) and the end credits roll.
+   - The full story bible is in `docs/CAMPAIGN.md`.
+
 **Side quests:** *The Wooden Bird* (Lucy, Amity; a social quest about a lost carving and a gruff custodian), *Cold Feet* (Daniel, Abnegation; talk a frightened candidate into going back to his test before noon), *Paper Trail* (Martha; a sealed envelope you can deliver, read or open), *Initiation Starts Early* (Nate, Dauntless; steal the guard's coffee without being seen), *Protocol D* (Jenna, Candor; what are the staff hiding?) and *Finders Keepers* (lost property).
 
 ---
 
 ## Implemented features
+
+**Build 5: The Chalk Year**
+- **A campaign after initiation** (see *How a run plays*, 13): a director (`js/game/campaign.js`) that tracks acts, episodes, proof, clues, trust, who has died and the ending; fourteen episodes (`js/zones/camp_episodes.js`, `js/zones/camp_content.js`), each a chapter with its own small zone, an establishing shot, an act title card, people to talk to, evidence to read, a risk and a choice; the **Case** page in the Tab menu.
+- **More people.** The Choosing Ceremony holds twice the people (134: four rows to each faction's section, 36 candidates) in the same draw-call budget. The Dauntless class is sixteen (the cut is the bottom four). Every person has a name: crowds, pavement people, farm hands, extras in the Pit.
+- **A watched city.** Heavier haze and more cloud; the city PA by day and night (curfew, scans, "report unusual behaviour"); searchlights sweeping the cloud from the Hub after dark; sirens far off at night. Street markings and furniture now reach as far as the haze.
+- **Finer surfaces.** Paving slabs with bevels and joints, asphalt with aggregate, tar seams and patches, brick a shade apart per brick, facade tiles drawn at twice the size with a per-brick and per-block finish, anisotropic filtering on the streets. Posters redrawn as restrained civic notices; shop fascias carry a clean line of lettering.
+- **Round wheels** with proper arches on every vehicle.
+- **People feel more alive:** weight shifts and small idle habits when standing about; a walk with a pelvis that drops and turns, a steady head and a heel-to-toe roll; sleepers on their backs with the head on the pillow, the feet falling open and sometimes a hand on the chest, breathing slowly. Sleepers and sitters keep the bed's or the chair's way round (nobody lies sideways, off the end of a bunk, or turns over to face you).
+- **Cheaper to draw:** the inside of a building is only drawn near it (a street view went from 277 draw calls to 146).
 
 **Build 4: The City**
 - **The main menu, redone,** in the game's own look: the serif logo with the five-faction seal and *Faction before blood* under it, the buttons on a bronze-framed plate, a caption panel for what's playing, and along the bottom **the bowls of the Choosing**: grey stones, burning coals, water, glass and earth, with the city's skyline for the city. It works from the keyboard too.
@@ -447,7 +462,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 34 test files covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 39 test files covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**
@@ -455,6 +470,12 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - No two people book the same spot at the same time.
   - Every dialogue target node exists, all quest references are valid and every interactable can be reached.
   - All 13 story and simulation zones build.
+- **Build 5, the campaign** (`campaign`, `camp-all`, `camp-walk`, `weeks-walk`, `beds`):
+  - The case opens when the first week ends; the mentor offers it; taking it fades into the chapter on the story's day; the banner at the end brings you home with the next chapter on offer.
+  - Every one of the fourteen episodes is played through by a bot (everything looked at, everyone talked to, the risk survived, the choice made); standing in the work when someone arrives is caught, and costs trust.
+  - The hearing ends all five ways, each with its closing scene (the vote counted hand by hand, or the way you leave), the epilogue and the end credits, which a click skips; proof, clues, trust and the dead survive a save.
+  - Everything in every episode, and in every step of every first week, can be walked to with real movement and collision.
+  - Sixteen sleepers in the Dauntless dormitory lie along their bunks, head to the pillow, and stay that way.
 - **Build 3, combat and training:**
   - A fight takes over the game.
   - A bot that guards and punishes beats a novice by knockout, only holding block loses to a boxer, and holding Q yields.
@@ -606,11 +627,11 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 
 ---
 
-## Build 5 recommendations
+## Next build recommendations
 
-1. **Stage Two in full.** Turn the Dauntless fear landscape into a run of simulations, one fear per day, each with its own way out, and show your fears in the Pit's ranking. Make Divergent awareness a skill that risks discovery the more you use it.
-2. **The other four headquarters as districts.** Give the Merciless Mart, Erudite headquarters, the Abnegation sector and the Amity farm the same treatment as the compound: schedules, sleeping, daily routines, and a second and third week each.
-3. **Payoffs.** Act on the flags this build records:
+1. **Stage Two in full.** Turn the Dauntless fear landscape into a run of simulations, one fear per day, each with its own way out, and show your fears in the Pit's ranking.
+2. **The other four headquarters as districts.** Give the Merciless Mart, Erudite headquarters, the Abnegation sector and the Amity farm the compound's treatment: schedules, sleeping, daily routines between the campaign's chapters.
+3. **Payoffs, further.** The campaign already reads most of the first weeks' flags; carry them into a second year:
    - Rosa protecting you, Dr. Park as an ally, and the red page in your pocket.
    - Ezra's washer, Joan's list, and Mary's doubts about the bread.
    - Hollis spared or sentenced, Josh expelled, and Daniel cut or saved.

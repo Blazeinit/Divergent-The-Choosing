@@ -887,7 +887,7 @@
         set('spine', 0, 0, -Math.sin(it * 0.35) * 0.025);
         set('uLegL', 0, 0, 0.02);
         set('uLegR', 0, 0, -0.02);
-        if (act === 'sit' || act === 'work' || act === 'recline' || act === 'sit_clap' || act === 'sit_cheer' || act === 'sit_touch' || act === 'sit_fold' || act === 'sit_slump' || act === 'sit_strum') {
+        if (act === 'sit' || act === 'work' || act === 'recline' || act === 'sit_clap' || act === 'sit_cheer' || act === 'sit_touch' || act === 'sit_fold' || act === 'sit_slump' || act === 'sit_strum' || act === 'sit_vote') {
           const sy = s.seatY || 0.45;
           hipY = sy + 0.08 - 0.95 * this.scaleY();
           hipZ = -0.06;
@@ -929,6 +929,10 @@
             set('lArmL', -0.3, 0, 0); set('lArmR', -0.3, 0, 0);
             set('spine', 0.22 + Math.sin(it * 0.9) * 0.05, 0, Math.sin(it * 0.6) * 0.06);
             set('head', 0.35 + Math.sin(it * 0.7) * 0.08, 0, Math.sin(it * 0.5) * 0.1);
+          } else if (act === 'sit_vote') {
+            set('uArmR', -2.85, 0, -0.1); set('lArmR', -0.15, 0, 0);
+            set('uArmL', -0.4, 0, 0.1); set('lArmL', -0.8, 0, 0);
+            set('head', -0.08, 0, 0);
           } else if (act === 'sit_strum') {
             this.strumArms(set, it);
           } else if (act === 'sit_cheer') {
@@ -1035,6 +1039,10 @@
           set('uArmR', -2.6, 0, -0.3); set('lArmR', -0.4 + Math.sin(it * 8) * 0.4, 0, 0);
         } else if (act === 'point') {
           set('uArmR', -1.5, 0, -0.1); set('lArmR', -0.1, 0, 0);
+        } else if (act === 'vote') {
+          // a hand up to be counted, chin up
+          set('uArmR', -2.85, 0, -0.1); set('lArmR', -0.15, 0, 0);
+          set('head', -0.08, 0, 0);
         } else if (act === 'mop' || act === 'garden' || act === 'sweep') {
           set('spine', 0.35 + Math.sin(it * 2) * 0.1, 0, 0);
           set('uArmL', -0.8 + Math.sin(it * 2) * 0.3, 0, 0.1); set('uArmR', -0.9 + Math.sin(it * 2) * 0.3, 0, -0.1);

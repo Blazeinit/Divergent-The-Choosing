@@ -85,9 +85,8 @@ L.run('the campaign: every episode played through', async (p, T, errs) => {
   T.eq(await ev(() => DV.Clock.day()), 7, 'the clock is the story\'s');
   const rr = await play('camp_c1'); const ff = await finish('camp_c1', 0);
   T.ok(ff.done && ff.banner, 'the chapter ends on a banner', ff);
-  await p.waitForTimeout(1800);
-  await ev(() => document.getElementById('banner').click());
-  T.ok(await L.until(p, () => DV.Chapter.id === 'week_candor' && DV.Chapter.step === 'end' && DV.Game.state === 'playing', 30000), 'and the banner brings you back to your headquarters');
+  // (the banner ignores clicks for its first moment and 1.5 s of real time can be slow to pass under load: keep clicking until it goes)
+  T.ok(await L.until(p, () => { const b = document.getElementById('banner'); if (b && b.classList.contains('on')) b.click(); return DV.Chapter.id === 'week_candor' && DV.Chapter.step === 'end' && DV.Game.state === 'playing'; }, 30000), 'and the banner brings you back to your headquarters');
   T.eq(await ev(() => DV.Campaign.next().id), 'camp_c2', 'where the next chapter of the case is on offer');
   T.eq(await ev(() => DV.Clock.day()), 7, 'on the same day');
 
@@ -128,13 +127,22 @@ L.run('the campaign: every episode played through', async (p, T, errs) => {
       const c = DV.Dialogue.active && DV.Dialogue.active.view.choices.find((x) => x.enabled && re.test(x.label));
       if (!c) return { missing: true, labels: DV.Dialogue.active && DV.Dialogue.active.view.choices.map((x) => x.label) };
       DV.Dialogue.choose(c.index);
-      for (let i = 0; i < 60 && DV.UI.modalOpen !== 'reading'; i++) QA.step(0.1);
+      // the last scene plays out first (the vote, counted hand by hand, or the way you leave)
+      let hands = 0, cut = false;
+      for (let i = 0; i < 450 && DV.UI.modalOpen !== 'reading'; i++) { QA.step(0.1); cut = cut || DV.Chapter.cutscene; hands = Math.max(hands, (DV.Chapter.cast.council || []).filter((a) => /vote$/.test(a.action)).length); }
       const read = document.querySelector('#reading .panel-title') && document.querySelector('#reading .panel-title').textContent;
       if (DV.UI.modalOpen === 'reading') DV.UI.closeReading();
-      for (let i = 0; i < 40 && !document.getElementById('banner'); i++) QA.step(0.1);
-      return { ending: DV.Campaign.st().ending, read, banner: !!document.getElementById('banner') };
+      const ec = document.querySelector('#endcredits:not(.out)'); // (the last ending's roll may still be fading out)
+      const credits = !!ec && /THE CHALK YEAR/.test(ec.textContent);
+      return { credits, ending: DV.Campaign.st().ending, read, banner: !!document.getElementById('banner'), hands, cut, council: (DV.Chapter.cast.council || []).length };
     }, labels[opt].source);
-    T.ok(res.ending === want && res.banner, 'the hearing, ' + opt + ' → ' + want + ' (' + (res.read || '') + ')', res);
+    T.ok(res.ending === want && res.credits && res.cut, 'the hearing, ' + opt + ' → ' + want + ' (' + (res.read || '') + '): a closing scene, the epilogue, and the credits roll', res);
+    if (opt === 'present') T.ok(res.council === 10 && res.hands >= 7, 'the vote is counted on screen: ' + res.hands + ' of ' + res.council + ' hands go up against the Act', res);
+    if (opt === 'the_quiet_passes') T.ok(res.hands === 2, 'say nothing, and only two hands go up', res);
+    await L.until(p, () => { const e = document.querySelector('#endcredits:not(.out)'); return e && e.dataset.armed === '1'; }, 8000);
+    const pre = await ev(() => { const e = document.querySelectorAll('#endcredits:not(.out)'); const r = { n: e.length, armed: e[0] && e[0].dataset.armed, out: e[0] && e[0].className, modal: DV.UI.modalOpen, banner: !!document.getElementById('banner') }; if (e[0]) e[0].click(); return r; });
+    const okb = await L.until(p, () => !!document.getElementById('banner'), 8000);
+    T.ok(okb, '…which a click skips, to the closing banner', okb ? undefined : Object.assign(pre, await ev(() => ({ after: document.querySelectorAll('#endcredits').length, modal: DV.UI.modalOpen, state: DV.Game.state, ending: DV.Campaign.st().ending, ep: DV.Campaign.st().ep.camp_z1 }))));
     await ev(() => { const b = document.getElementById('banner'); if (b) b.remove(); DV.UI.modalOpen = null; });
   }
   T.noErrors(errs);

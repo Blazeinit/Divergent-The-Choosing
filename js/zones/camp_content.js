@@ -438,6 +438,32 @@
     },
   });
 
+
+  /* ------------------------------ the end credits ------------------------------ */
+  // a slow roll over black, the way a film ends; click or a key skips it
+  function rollCredits(def, then) {
+    const K2 = K(), st = K2.st();
+    const cast = Object.keys(K2.ALLIES).map((id) => K2.ALLIES[id].name + (K2.isDead(id) ? '  ·  in memory' : ''));
+    const L = [['h', 'DIVERGENT'], ['s', 'THE CHOOSING'], ['g', ''], ['h2', 'THE CHALK YEAR'], ['s', def.name], ['g', ''],
+      ['t', 'You, as yourself'], ['t', DV.State.data.player.name], ['g', ''], ['t', 'With'], ...cast.map((c) => ['n', c]), ['g', ''],
+      ['t', 'And'], ['n', 'Dean Ottoline Vance'], ['n', 'Dr. Alan Pierce'], ['n', 'Lt. Corbin Dray'], ['n', 'Dana Cole'], ['g', ''],
+      ['t', 'The families who got out on the night of the scan'], ['n', String(st.saved || 0)], ['g', ''],
+      ['t', 'The proof on the table'], ...Object.keys(st.pieces).map((k) => ['n', K2.PIECES[k].name]), ['g', ''],
+      ['q', 'Faction before blood.'], ['g', ''], ['s', 'To be continued']];
+    const el = document.createElement('div');
+    el.id = 'endcredits';
+    el.innerHTML = '<div class="roll">' + L.map(([k, t]) => '<div class="c-' + k + '">' + DV.U.esc(t) + '</div>').join('') + '</div><div class="skip">Click or press any key to skip</div>';
+    DV.UI.root.appendChild(el);
+    DV.Audio.setMusic('calm');
+    let done = false;
+    const end = () => { if (done) return; done = true; window.removeEventListener('keydown', kh, true); el.classList.add('out'); setTimeout(() => el.remove(), 900); then(); };
+    const kh = (e) => { e.preventDefault(); end(); };
+    setTimeout(() => { el.onclick = end; window.addEventListener('keydown', kh, true); el.dataset.armed = '1'; }, 600); // (a click in the first moment is the one that closed the epilogue: don't let it skip the roll too)
+    setTimeout(end, 42000);
+    return el;
+  }
+  DV.CampEp.rollCredits = rollCredits;
+
   /* ======================================================================== ACT IV */
   const votes = () => {
     const C2 = K(), st = C2.st(); let v = 2;
@@ -449,12 +475,12 @@
   E('camp_z1', {
     where: 'THE COUNCIL CHAMBER · THE HUB',
     zone: { id: 'camp_council', name: 'The Council Chamber', region: 'The Hub, 20th floor', w: 30, d: 20, floor: 'terrazzo', wall: 'concrete_panel', ceiling: 'ceiling_concrete', amb: [0.5, 0.5, 0.52], lightColor: [1, 0.97, 0.9], intensity: 0.85, spawn: { x: 15, z: 18.2, rot: Math.PI },
-      props: [{ type: 'lectern', x: 15, z: 3 }, { type: 'table', x: 15, z: 6.6, w: 5.2, d: 1.0, chairs: 0, top: 'metal_dark' }, { type: 'bench', x: 6, z: 11, rotDeg: 90, len: 5, seatable: false }, { type: 'bench', x: 6, z: 15, rotDeg: 90, len: 5, seatable: false }, { type: 'bench', x: 24, z: 11, rotDeg: -90, len: 5, seatable: false }, { type: 'bench', x: 24, z: 15, rotDeg: -90, len: 5, seatable: false }, { type: 'floor_emblem', x: 15, z: 11, size: 5 }] },
+      props: [{ type: 'lectern', x: 15, z: 4.7 }, { type: 'table', x: 15, z: 6.6, w: 5.2, d: 1.0, chairs: 0, top: 'metal_dark' }, { type: 'bench', x: 6, z: 11, rotDeg: 90, len: 5, seatable: false }, { type: 'bench', x: 6, z: 15, rotDeg: 90, len: 5, seatable: false }, { type: 'bench', x: 24, z: 11, rotDeg: -90, len: 5, seatable: false }, { type: 'bench', x: 24, z: 15, rotDeg: -90, len: 5, seatable: false }, { type: 'floor_emblem', x: 15, z: 11, size: 5 }] },
     music: 'ceremony', start: 'The Council votes on the Continuity Act in the Choosing Hall. Dean Vance will speak first. You will have a minute.',
     goal: 'Take your place before the Council', goalAt: { x: 15, z: 8 }, endGoal: 'Speak to the Dean', done: 'The vote was taken.',
     hint: 'The Council chamber. The Dean is at the lectern. Everyone has come.', banner: '',
     actors: {
-      vance: { name: 'Dean Ottoline Vance', faction: 'erudite', sex: 'f', age: 58, x: 15, z: 4.2, rot: 0, talk: { intro: '[A woman in a pale suit with a voice that makes the room lean in.] I am told you have been asking questions. Good. A city ought to ask them. I would like to answer yours before you ask the Council\'s.', opts: [
+      vance: { name: 'Dean Ottoline Vance', faction: 'erudite', sex: 'f', age: 58, x: 15, z: 3.9, rot: 0, talk: { intro: '[A woman in a pale suit with a voice that makes the room lean in.] I am told you have been asking questions. Good. A city ought to ask them. I would like to answer yours before you ask the Council\'s.', opts: [
         { q: 'What is Series 7?', a: 'A kindness. A way to give a frightened people a quiet night. Nobody has been harmed by a quiet night. [She does not blink.]', fx: { clue: ['vance_kindness', 'The Dean calls Series 7 "a kindness" and has not said the word "lot".'] } },
         { q: 'Who are the circles?', a: 'The Chalker\'s victims. A tragedy. We have asked for more drones and the Order to prevent a seventh. We have had a seventh. [She sighs.] That is why the Act is needed.', fx: {} },
         { q: 'You need me, don\'t you.', if: () => div(), a: 'I need people like you to be safe. Under my roof, with the right care. Nobody else can promise that. [She smiles.] Think about it.', fx: { flag: 'camp_vance_offer' } }] } },
@@ -474,6 +500,14 @@
         { q: 'Walk out with Ezra.', if: () => K().comes('ezra'), fx: { out: 'under_the_tracks' } },
         { q: 'Leave by the gate, with the proof and the people.', if: () => K().eligible('beyond_the_fence'), fx: { out: 'beyond_the_fence' } },
         { q: 'Say nothing.', fx: { out: 'the_quiet_passes' } }] },
+    // the Council: eight on the benches, with Aaron and Pierce at the table, ten votes in all
+    setup(Ch) {
+      const f = ['abnegation', 'abnegation', 'candor', 'amity', 'abnegation', 'dauntless', 'abnegation', 'erudite'];
+      const sp = f.map((fa, i) => { const L = i < 4, k = i % 4; return { x: L ? 6.1 : 23.9, z: 9.3 + k * 1.15 + (k > 1 ? 1.5 : 0), rot: L ? Math.PI / 2 : -Math.PI / 2, faction: fa, action: 'sit', seatY: 0.45 }; });
+      const seated = Ch.crowd(sp, { adults: true, seed: 'council', prefix: 'cl', noShadow: true });
+      // in the order the hands go up: Aaron first; Pierce, if it comes to it, last of all
+      Ch.cast.council = [Ch.cast.aaron, seated[0], seated[4], seated[2], seated[6], seated[1], seated[3], seated[5], seated[7], Ch.cast.pierce].filter(Boolean);
+    },
     finish(Ch, out) {
       let id = out;
       if (out === 'present') id = K().eligible('open_air') && votes() >= 7 ? 'open_air' : 'the_quiet_passes';
@@ -481,7 +515,59 @@
       const def = K().ENDINGS[id];
       const dead = K().st().dead.map((d) => (K().ALLIES[d] ? K().ALLIES[d].name : d));
       const lines = [def.line, '', (K().st().saved || 0) + ' families got out on the night of the scan.', dead.length ? 'Dead: ' + dead.join(', ') + '.' : 'Nobody who trusted you died.', 'Proof held: ' + K().count() + '. Votes: ' + votes() + ' of 10.', '', 'THE CHALK YEAR · to be continued.'];
-      DV.UI.showReading('THE CHALK YEAR — ' + def.name.toUpperCase(), lines.join('\n'), () => K().complete('camp_z1', id, { l1: 'THE CHALK YEAR', l2: def.name.toUpperCase(), l3: 'Click or press any key to keep exploring · the story goes on', banner: true }));
+      const epilogue = () => DV.UI.showReading('THE CHALK YEAR — ' + def.name.toUpperCase(), lines.join('\n'), () => rollCredits(def, () => K().complete('camp_z1', id, { l1: 'THE CHALK YEAR', l2: def.name.toUpperCase(), l3: 'Click or press any key to keep exploring · the story goes on', banner: true })));
+      // the last scene, played out before the epilogue: the vote counted hand by hand, or the way you leave
+      const vance = Ch.cast.vance, beats = [];
+      Ch.cut(true);
+      DV.Player.place(15, 7.7, Math.PI); // (on the floor of the chamber, the table between you and the Dean)
+      if (out === 'present' || out === 'the_quiet_passes') {
+        const pass = id === 'open_air';
+        const n = out === 'present' ? Math.min(pass ? 10 : 6, votes()) : 2;
+        const NUM = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+        const council = Ch.cast.council || [];
+        beats.push(() => {
+          Ch.shot([15, 4.4, 18.8], [15, 0.9, 8.5]);
+          Ch.say(vance, out === 'present' ? 'Thank you. [Not a flicker.] The Council will vote. Those against the Continuity Act: raise your hand.' : 'Nothing? [She lets the silence run.] Then the Council will vote. Those against the Act.', 4.6);
+          return 4.8;
+        });
+        for (let k = 0; k < n; k++) {
+          beats.push(() => {
+            if (k === 1) Ch.shot([10.4, 1.9, 13.2], [6.1, 1.0, 11.6]);
+            if (k === 4) Ch.shot([19.6, 1.9, 13.2], [23.9, 1.0, 11.6]);
+            if (k === 8) Ch.shot([12.6, 2.0, 9.6], [15, 1.3, 4.4]);
+            const a = council[k]; if (a) a.action = /^sit/.test(a.action) ? 'sit_vote' : 'vote';
+            Ch.voice('Clerk', NUM[k] + '.', 1.0);
+            DV.Audio.play('click', { volume: 0.35 });
+            return k < 6 ? 1.0 : 1.35; // (the count slows as it gets close)
+          });
+        }
+        beats.push(() => {
+          Ch.shot([16.7, 1.8, 7.9], [15, 1.5, 3.9]);
+          Ch.voice('Clerk', NUM[n - 1] + ' against, ' + (n === 10 ? 'none' : NUM[9 - n].toLowerCase()) + ' for. ' + (pass ? 'The Continuity Act is defeated.' : 'Seven were needed. The Continuity Act carries.'), 4.2);
+          return 4.4;
+        });
+        beats.push(() => {
+          for (const a of council) if (a) a.action = /^sit/.test(a.action) ? 'sit' : 'idle';
+          Ch.say(vance, pass ? 'Then the city has chosen. [She closes her folder, very slowly.] For now.' : 'Then it is done. [She smiles at you, kindly.] Go home. Sleep well. Everyone will.', 4.2);
+          return 4.6;
+        });
+      } else {
+        const CODA = {
+          the_quiet: ['[The Dean comes down from the lectern and lays a pale hand on your shoulder.] You will be safe now. You have my word.', [16.2, 1.7, 7.8], [15, 1.4, 5.2]],
+          under_the_tracks: ['[You turn your back on the Council. Ezra is already at the door. Nobody stops you. Not yet.]', [15, 3.2, 3.4], [15, 1.0, 17]],
+          beyond_the_fence: ['[You leave them still shouting. By dark you are at the gate, with the proof and the people who trusted you.]', [15, 3.2, 3.4], [15, 1.0, 17]],
+        };
+        const c = CODA[out] || CODA.under_the_tracks;
+        beats.push(() => {
+          Ch.shot(c[1], c[2]);
+          if (out === 'the_quiet') Ch.say(vance, c[0], 4.6); else DV.UI.narrate(c[0], 4.6);
+          if (out !== 'the_quiet') Ch.walkPlayer([[15, 12], [15, 18.6]], 1.25);
+          return 5.0;
+        });
+      }
+      beats.push(() => { DV.UI.fade(1, 900); return 1.0; });
+      beats.push(() => { Ch.cut(false); DV.UI.fade(0, 900); epilogue(); });
+      Ch.seq(beats, 'finale');
     },
   });
 })();
