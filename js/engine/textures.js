@@ -314,23 +314,53 @@
     blotches(c, w, h, r, 8, 'rgba(40,30,25,0.4)', 4, 12);
     noise(c, w, h, r, 26);
   });
-  def('pavement', 128, 128, 3.0, (c, w, h, r) => {
-    c.fillStyle = '#7f7c75'; c.fillRect(0, 0, w, h);
-    noise(c, w, h, r, 22);
-    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
-      c.fillStyle = 'rgba(' + (r() > 0.5 ? '255,255,250' : '20,20,18') + ',' + r() * 0.07 + ')';
-      c.fillRect(i * 32, j * 32, 32, 32);
+  // paving slabs, each laid a shade apart: bevelled edges catching the light, the joints dark with dirt,
+  // the odd crack across a slab, gum trodden flat, a stain where something stood
+  def('pavement', 256, 256, 3.0, (c, w, h, r) => {
+    c.fillStyle = '#7d7a73'; c.fillRect(0, 0, w, h);
+    const n = 4, s = w / n;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const v = 0.9 + r() * 0.18, x = i * s, y = j * s;
+      c.fillStyle = U.rgbToCss(0.49 * v, 0.48 * v, 0.455 * v); c.fillRect(x, y, s, s);
+      for (let k = 0; k < 160; k++) { c.fillStyle = ['#6c6964', '#8f8c85', '#5f5d58', '#9c9890'][Math.floor(r() * 4)]; c.fillRect(x + Math.floor(r() * s), y + Math.floor(r() * s), 1, 1); }
+      c.fillStyle = 'rgba(255,255,250,0.13)'; c.fillRect(x + 2, y + 2, s - 4, 1); c.fillRect(x + 2, y + 2, 1, s - 4); // the bevel, lit
+      c.fillStyle = 'rgba(0,0,0,0.16)'; c.fillRect(x + 2, y + s - 3, s - 4, 1); c.fillRect(x + s - 3, y + 2, 1, s - 4); // and in shade
+      if (r() < 0.22) { c.strokeStyle = 'rgba(35,34,30,0.55)'; c.lineWidth = 1; c.beginPath(); let px = x + r() * s, py = y + 3; c.moveTo(px, py); for (let q = 0; q < 5; q++) { px = U.clamp(px + (r() - 0.5) * 16, x + 2, x + s - 2); py += s / 5.5; c.lineTo(px, py); } c.stroke(); }
+      if (r() < 0.35) for (let q = 0; q < 3; q++) { c.fillStyle = 'rgba(205,203,196,0.55)'; c.beginPath(); c.arc(x + 6 + r() * (s - 12), y + 6 + r() * (s - 12), 1.5, 0, 6.3); c.fill(); } // gum
     }
-    grid(c, w, h, 4, 4, '#55534e', 1);
-    blotches(c, w, h, r, 6, 'rgba(40,40,30,0.18)', 6, 20);
-    cracks(c, w, h, r, 3, 'rgba(30,30,25,0.4)');
+    c.fillStyle = '#4a4843';
+    for (let i = 0; i <= n; i++) { c.fillRect(i * s - 1, 0, 2, h); c.fillRect(0, i * s - 1, w, 2); } // the joints
+    blotches(c, w, h, r, 5, 'rgba(40,38,30,0.16)', 10, 34);
+    noise(c, w, h, r, 10);
   });
-  def('asphalt', 128, 128, 5.0, (c, w, h, r) => {
-    c.fillStyle = '#3d3d3e'; c.fillRect(0, 0, w, h);
-    speckle(c, w, h, r, 1500, ['#2e2e2f', '#4c4c4d', '#555556', '#262627'], 1);
-    blotches(c, w, h, r, 6, 'rgba(15,15,15,0.3)', 10, 30);
-    cracks(c, w, h, r, 6, 'rgba(20,20,20,0.6)');
+
+  // asphalt: a dense aggregate with a few light chips, sealed tar seams where it was cut and patched,
+  // patches of a different age, oil, and a fine web of cracks
+  def('asphalt', 256, 256, 5.0, (c, w, h, r) => {
+    c.fillStyle = '#3b3b3c'; c.fillRect(0, 0, w, h);
+    speckle(c, w, h, r, 6500, ['#2b2b2c', '#48484a', '#525255', '#232324', '#3f3e3d'], 1);
+    speckle(c, w, h, r, 220, ['#6c6b68', '#77736c', '#5f5e5b'], 1);
+    blotches(c, w, h, r, 7, 'rgba(14,14,15,0.3)', 14, 44);
+    // a patch, laid later: a shade darker and smoother, with a crisp edge
+    for (let k = 0; k < 2; k++) {
+      const pw = 40 + r() * 70, ph = 30 + r() * 50, px = r() * (w - pw), py = r() * (h - ph);
+      c.fillStyle = 'rgba(22,22,23,0.35)'; c.fillRect(px, py, pw, ph);
+      c.strokeStyle = 'rgba(12,12,12,0.6)'; c.lineWidth = 1; c.strokeRect(px + 0.5, py + 0.5, pw, ph);
+    }
+    // tar seams: wavy black lines with a faint sheen beside them
+    for (let k = 0; k < 3; k++) {
+      let x = r() * w, y = 0; c.lineWidth = 2;
+      c.strokeStyle = 'rgba(12,12,12,0.75)'; c.beginPath(); c.moveTo(x, y);
+      const pts = [[x, y]];
+      while (y < h) { x += (r() - 0.5) * 22; y += 10 + r() * 14; c.lineTo(x, y); pts.push([x, y]); }
+      c.stroke();
+      c.strokeStyle = 'rgba(110,110,112,0.18)'; c.lineWidth = 1; c.beginPath(); pts.forEach(([a, b], i) => (i ? c.lineTo(a + 2, b) : c.moveTo(a + 2, b))); c.stroke();
+    }
+    blotches(c, w, h, r, 3, 'rgba(8,8,10,0.4)', 6, 16); // oil
+    cracks(c, w, h, r, 14, 'rgba(16,16,16,0.6)');
+    noise(c, w, h, r, 8);
   });
+
   def('grass', 64, 64, 2.0, (c, w, h, r) => {
     c.fillStyle = '#4b5e30'; c.fillRect(0, 0, w, h);
     speckle(c, w, h, r, 900, ['#3e5127', '#5a6f38', '#6b7c40', '#36451f', '#7b7a44'], 1);
@@ -354,20 +384,26 @@
     speckle(c, w, h, r, 700, ['#4a3828', '#6d5640', '#3b2c20', '#7a6650'], 1);
     noise(c, w, h, r, 14);
   });
-  def('brick', 128, 128, 2.4, (c, w, h, r) => {
-    c.fillStyle = '#5d5a55'; c.fillRect(0, 0, w, h);
+  // brick: each one a shade apart, the mortar set back (dark), a lit top edge, chips, soot at the foot
+  def('brick', 256, 256, 2.4, (c, w, h, r) => {
+    c.fillStyle = '#4f4a44'; c.fillRect(0, 0, w, h);
     const bh = 8, bw = 24;
     for (let y = 0; y < h; y += bh) {
       const off = (y / bh) % 2 ? bw / 2 : 0;
       for (let x = -bw; x < w + bw; x += bw) {
-        const v = 0.85 + r() * 0.3;
-        c.fillStyle = U.rgbToCss(0.52 * v, 0.27 * v, 0.2 * v);
+        const v = 0.78 + r() * 0.38, hue = r();
+        c.fillStyle = U.rgbToCss((0.5 + hue * 0.06) * v, (0.26 + hue * 0.03) * v, (0.19 + (1 - hue) * 0.03) * v);
         c.fillRect(x + off + 1, y + 1, bw - 2, bh - 2);
+        c.fillStyle = 'rgba(255,220,200,0.08)'; c.fillRect(x + off + 1, y + 1, bw - 2, 1);
+        c.fillStyle = 'rgba(0,0,0,0.14)'; c.fillRect(x + off + 1, y + bh - 2, bw - 2, 1);
+        if (r() < 0.12) { c.fillStyle = 'rgba(70,64,58,0.7)'; c.fillRect(x + off + 1 + Math.floor(r() * (bw - 6)), y + 1, 3, 2); } // a chip
       }
     }
-    noise(c, w, h, r, 18);
-    blotches(c, w, h, r, 5, 'rgba(20,20,20,0.25)', 8, 26);
+    for (let i = 0; i < 900; i++) { c.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,230,210,0.07)'; c.fillRect(Math.floor(r() * w), Math.floor(r() * h), 1, 1); }
+    noise(c, w, h, r, 10);
+    blotches(c, w, h, r, 5, 'rgba(20,20,20,0.2)', 10, 36);
   });
+
   def('facade', 128, 192, 9.0, (c, w, h, r) => {
     // exterior concrete facade: v=0 is the ground. upper floors have dark windows.
     c.fillStyle = '#8b877e'; c.fillRect(0, 0, w, h);
@@ -707,7 +743,7 @@
       tex.wrapT = opts.wrap === 'clamp' || opts.wrap === 'repeatX' || opts.clampV ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
       tex.magFilter = Tex.filterMode();
       tex.minFilter = THREE.LinearMipmapLinearFilter;
-      tex.anisotropy = 1;
+      tex.anisotropy = Tex.aniso || 1; // (the renderer sets this: streets stay sharp at a low angle)
       tex.needsUpdate = true;
       return tex;
     },

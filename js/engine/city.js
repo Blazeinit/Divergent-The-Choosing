@@ -130,6 +130,32 @@
       },
     },
   };
+  // the full-size finishing pass over a facade tile (see the maps in build)
+  function facadeDetail(g, W, style, r) {
+    const img = g.getImageData(0, 0, W, W), d = img.data;
+    const hash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7 + style.length * 17.3) * 43758.5453; return v - Math.floor(v); };
+    const bricky = style === 'brick' || style === 'loft' || style === 'ghost';
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      let R = d[i], G = d[i + 1], B = d[i + 2];
+      const lum = (R + G + B) / 3;
+      let k = 1 + (r() - 0.5) * (lum < 60 ? 0.05 : 0.11);
+      if (bricky && R > G + 16 && R > B + 20) {
+        const row = Math.floor(y / 8), off = row % 2 ? 12 : 0, bx = Math.floor((x + off) / 24);
+        k *= 0.84 + 0.3 * hash(bx, row);
+        const yy = y % 8, xx = (x + off) % 24;
+        if (yy === 1) k *= 1.1;
+        if (yy === 7) k *= 0.86;
+        if (xx === 23) k *= 0.88;
+      } else if (lum > 95 && Math.abs(R - G) < 18 && Math.abs(G - B) < 22) {
+        // stone and concrete: a tone per block, and the odd pit
+        k *= 0.94 + 0.12 * hash(Math.floor(x / 64), Math.floor(y / 32) + 9);
+        if (r() < 0.006) k *= 0.62;
+      }
+      d[i] = U.clamp(R * k, 0, 255); d[i + 1] = U.clamp(G * k, 0, 255); d[i + 2] = U.clamp(B * k, 0, 255);
+    }
+    g.putImageData(img, 0, 0);
+  }
   // the Testing Center's own outside: concrete panels, a ribbon of narrow windows on each floor
   STYLES.institution = {
     bay: 3.6, floor: 3.6, lit: 0.02, win: [0.06, 0.52, 0.94, 0.7], noShops: true,
@@ -1968,8 +1994,13 @@
       };
       const maps = {};
       for (const s of ORDER) {
-        const c = canvas(256, 256);
-        STYLES[s].paint(c.getContext('2d'), U.rng(31 + ORDER.indexOf(s)));
+        // painted at 256 and drawn at 512, then finished at full size: each brick and block its own
+        // shade, a lit top edge, mortar set back, grain and pitting in the concrete
+        const c = canvas(512, 512), g = c.getContext('2d');
+        g.save(); g.scale(2, 2);
+        STYLES[s].paint(g, U.rng(31 + ORDER.indexOf(s)));
+        g.restore();
+        facadeDetail(g, 512, s, U.rng(77 + ORDER.indexOf(s)));
         maps[s] = tex(c);
       }
       const mats = {};

@@ -31,6 +31,7 @@
     init() {
       const canvas = document.getElementById('game-canvas');
       this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+      DV.Tex.aniso = Math.min(4, this.renderer.capabilities.getMaxAnisotropy ? this.renderer.capabilities.getMaxAnisotropy() : 1);
       this.renderer.setPixelRatio(1);
       this.renderer.outputEncoding = THREE.LinearEncoding;
       this.scene = new THREE.Scene();
