@@ -32,12 +32,12 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
   });
 
   /* ---------------- out of the gate, along the streets ---------------- */
-  // (over the crossing to the far pavement under the L, and along it: the road's for the traffic)
+  // (over the crossing to the far pavement, and along it: the road's for the traffic)
   // (the scenes on the pavements stand where they like: these walks want the pavements clear)
   await ev(() => { if (DV.World.current.cityLife) DV.World.current.cityLife.off = true; });
-  // (down the clear lane between the L's two rows of columns)
+  // (along the wide pavement where the L's columns used to stand)
   const out = await ev(() => { QA.tp(40, 72, 0); const a = walkLine(40, 88.9, 20); const b = walkLine(118, 88.9, 40); return { a, b, place: DV.World.current.placeName(DV.Player.x, DV.Player.z), room: !!DV.World.current.roomAt(DV.Player.x, DV.Player.z) }; });
-  T.ok(out.a.d < 0.6 && out.b.d < 0.6 && !out.room, 'out through the gate, over the road and east along Lake Street under the L, past the end of the Testing Center\'s own map', out);
+  T.ok(out.a.d < 0.6 && out.b.d < 0.6 && !out.room, 'out through the gate, over the road and east along Lake Street, past the end of the Testing Center\'s own map', out);
   T.ok(/Lake St/.test(out.place.name) && out.place.sub === 'Testing District', 'the HUD names the street and the sector (' + out.place.name + ' · ' + out.place.sub + ')');
   const south = await ev(() => { walkLine(101.6, 88.9, 10); return walkLine(101.6, 140, 30); });
   T.ok(south.d < 0.6, 'and south down Halsted Street, on the pavement', south);
@@ -98,17 +98,15 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
   T.ok(farm.fields > 200 && farm.orchards > 10 && farm.steads > 10 && farm.badFields === 0, 'Amity\'s farmland inside the Fence: ' + farm.fields + ' fields, ' + farm.orchards + ' orchards, ' + farm.steads + ' farms, the section roads (' + farm.roads + ')', farm);
   T.ok(farm.walked.d < 0.6 && /Amity Farmland/.test(farm.place.sub) && farm.amityInside, 'you can walk out of the city onto the farms (' + farm.place.name + ' · ' + farm.place.sub + '), and Amity\'s headquarters is inside the Fence', farm);
 
-  // the L's columns stand on the pavement, never in a road (the deck spans each junction from its corners)
-  const lcols = await ev(() => {
-    const CM = DV.CityMap, t = CM.track;
-    const cols = DV.World.current.city.walk.solids.filter((q) => q[2] - q[0] < 0.7 && q[3] - q[1] < 0.7 && q[1] > t.z0 - 0.2 && q[3] < t.z1 + 0.2 && q[0] > t.x0 - 1 && q[2] < t.x1 + 1); // (along the L, not a farm's post past its end)
-    const xs = [...new Set(cols.map((q) => (q[0] + q[2]) / 2))].sort((a, b) => a - b);
-    let gap = 0;
-    for (let i = 1; i < xs.length; i++) gap = Math.max(gap, xs[i] - xs[i - 1]);
-    const lane = (z) => (CM.lake.road[0] < z && z < CM.lake.road[1]);
-    return { n: cols.length, inRoad: cols.filter((q) => CM.avenues.some((a) => Math.abs((q[0] + q[2]) / 2 - a.x) < a.w / 2 + 0.3) || lane((q[1] + q[3]) / 2)).length, gap: +gap.toFixed(1) };
+  // nothing stands in a road: no column, post, pillar or street furniture inside any carriageway
+  const inRoad = await ev(() => {
+    const z = DV.World.current, roads = DV.CityMap.roadNet().roads.filter((q) => q.kind !== 'out').map((q) => q.r);
+    const hit = (x, zz, m) => roads.some((q) => x > q[0] + m && x < q[2] - m && zz > q[1] + m && zz < q[3] - m);
+    const bad = z.city.walk.solids.filter((q) => hit((q[0] + q[2]) / 2, (q[1] + q[3]) / 2, 0.3)).map((q) => q.slice(0, 4).map((v) => +(+v).toFixed(1)));
+    for (const c of z.streetKit.chunks.values()) for (const it of c.items) if (hit(it.x, it.z, 0.4) && !/paint|car|manhole|drain|cone|barrier|signal/.test(it.name)) bad.push([it.name, +it.x.toFixed(1), +it.z.toFixed(1)]);
+    return { n: bad.length, bad: bad.slice(0, 8), train: !!z.city.train };
   });
-  T.ok(lcols.n > 100 && lcols.inRoad === 0 && lcols.gap < 22, 'the L\'s columns all stand on the pavement, none in a road (longest span ' + lcols.gap + ' m)', lcols);
+  T.ok(inRoad.n === 0 && !inRoad.train, 'nothing stands in a road (no stray pillar, post or column; no elevated railway)', inRoad);
   function DV_HOUSE_FACE() { return -309.6 + 0.8 + 0.01; } // (the house's front wall, east of the pavement point)
 
   /* ---------------- nothing in the road ---------------- */
@@ -162,7 +160,7 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     return { chunks: built.length, items: items.length, names, bad, inLane: inLane.slice(0, 6), parked: k.parked.length };
   });
   T.ok(kit.chunks > 4 && kit.names.lamp > 10 && kit.names.car > 3 && kit.names.signpost > 2, 'street furniture round you: ' + JSON.stringify(kit.names));
-  T.ok(kit.bad.length === 0, 'none of it stands inside a building or the L\'s columns', kit.bad);
+  T.ok(kit.bad.length === 0, 'none of it stands inside a building', kit.bad);
   T.ok(kit.inLane.length === 0, 'parked cars (' + kit.parked + ' in the city) are all at the kerb, clear of the traffic lanes', kit.inLane);
   const lamp = await ev(() => {
     const k = DV.World.current.streetKit;
@@ -259,7 +257,7 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     return { lakeDirs: lake.map((l) => l.dir), stopped, minGap: +minGap.toFixed(2), honks, droveOn: x0 - car.x, inside, kind: car.kind };
   });
   T.ok(!cars.none, 'traffic comes down Lake Street', cars);
-  T.ok(cars.lakeDirs && cars.lakeDirs.every((d) => d === -1), 'Lake Street is one-way, westbound, under the L');
+  T.ok(cars.lakeDirs && cars.lakeDirs.every((d) => d === -1), 'Lake Street is one-way, westbound');
   T.ok(cars.stopped && cars.minGap > 0.5, 'a ' + cars.kind + ' stops for you standing in the road (' + cars.minGap + ' m short)', cars);
   T.ok(cars.honks >= 1, 'and leans on the horn (' + cars.honks + ')');
   T.ok(cars.droveOn > 5, 'step aside and it drives on (' + (cars.droveOn || 0).toFixed(1) + ' m)');

@@ -708,7 +708,6 @@
         hub: CM.hub,
         marshX: CM.marshX,
         ferris: CM.ferris,
-        track: CM.track,
         keepClear: [[-8, 92, 88, 144]],
         extras: [
           // (their cornices stop at the plaza's fence line, z 76)

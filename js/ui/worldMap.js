@@ -111,11 +111,6 @@
       // landmark footprints
       g.fillStyle = '#1b1c1f';
       for (const l of CM.landmarks) if (l.w && !l.outside) g.fillRect(X(l.x - l.w / 2), Y(l.z - l.d / 2), l.w * s, l.d * s);
-      // the L along Lake Street
-      const tr = CM.track, tz = (tr.z0 + tr.z1) / 2;
-      g.strokeStyle = '#8f8472'; g.lineWidth = Math.max(1.5, 4.6 * s); g.setLineDash([6, 4]);
-      g.beginPath(); g.moveTo(X(tr.x0), Y(tz)); g.lineTo(X(tr.x1), Y(tz)); g.stroke();
-      g.setLineDash([]);
       // the Circle Line, underground: its loop, station to station
       if (DV.Metro) {
         const SS = DV.Metro.STATIONS;
@@ -244,7 +239,7 @@
       g.fillStyle = '#a39a89'; g.fillRect(w - 24 - bar * s, h - 26, bar * s, 2);
       g.font = font(11); g.textAlign = 'right'; g.fillText(bar + ' m', w - 24, h - 32);
       g.textAlign = 'left';
-      g.fillText('▲ you   ⌂ home   ★ objective   ◎ ▲ ⚖ ◉ ✋ ✦ landmarks   — — the L   ⊖ the Circle Line   ○ the Fence', 12, h - 12);
+      g.fillText('▲ you   ⌂ home   ★ objective   ◆ waypoint   ◎ ▲ ⚖ ◉ ✋ ✦ landmarks   ⊖ the Circle Line   ○ the Fence', 12, h - 12);
     },
 
     // what's under the cursor

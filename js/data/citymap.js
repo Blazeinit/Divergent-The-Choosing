@@ -21,7 +21,7 @@
     [-166, 'Damen Ave'], [-90, 'Ashland Ave'], [-14, 'Racine Ave'], [94, 'Halsted St'], [170, 'Clinton St'],
     [246, 'Wells St'], [322, 'State St'], [398, 'Michigan Ave'],
   ];
-  // east–west streets (z = const), north to south; Lake Street runs under the L, past the gate
+  // east–west streets (z = const), north to south; Lake Street runs past the gate
   const STREETS = [
     [-524, 'Belmont Ave'], [-460, 'Fullerton Ave'], [-396, 'Armitage Ave'], [-332, 'North Ave'], [-268, 'Division St'],
     [-204, 'Chicago Ave'], [-140, 'Grand Ave'], [-76, 'Kinzie St'], [-12, 'Fulton St'], [83.5, 'Lake St', 17],
@@ -46,7 +46,8 @@
     sidewalk: 3.2, // pavement between the kerb and the building fronts
     // the Testing Center's own grounds (the city leaves them to the zone; round them, pavement)
     campus: [-2, 0, 82, 76],
-    // the L: one line along Lake Street, columns along the far pavement
+    // the old L along Lake Street: the line is gone from the city (the Circle Line runs underground); its route
+    // is kept for the Dauntless ride, which builds its own city round it
     track: { x0: -720, x1: 720, z0: 86.6, z1: 91.2, y: 7.4, span: 15 },
     avenues: AVENUES.map(([x, name, w]) => ({ x, name, w: w || 12 })),
     streets: STREETS.map(([z, name, w]) => ({ z, name, w: w || 12 })),

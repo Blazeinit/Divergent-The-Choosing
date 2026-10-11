@@ -102,6 +102,14 @@
       g.translate(x, y, z);
       this.add(g, c);
     }
+    // a turned part (a tyre, a rim): a lathe profile [[radius, along the axle], ...] spun round an axle
+    // along x, its +along end facing side (+1 / -1), centred at (x, y, z)
+    lathe(x, y, z, prof, side, c, seg) {
+      const g = new THREE.LatheGeometry(prof.map(([r, a]) => new THREE.Vector2(r, a)), seg || 22);
+      g.rotateZ(-side * Math.PI / 2);
+      g.translate(x, y, z);
+      this.add(g, c);
+    }
     // append a built (non-indexed, vertex-coloured) geometry, placed by the current transform
     // and tinted by k ([r, g, b] or a number)
     merge(geo, k) {
@@ -125,7 +133,7 @@
 
   const hex = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
   const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
-  const GLASS = [0.1, 0.12, 0.14], GLASS_HI = [0.22, 0.27, 0.31], TYRE = [0.07, 0.07, 0.075], TYRE_OUT = [0.13, 0.13, 0.135], WELL = [0.025, 0.025, 0.03], HUB = [0.55, 0.56, 0.57];
+  const GLASS = [0.1, 0.12, 0.14], GLASS_HI = [0.22, 0.27, 0.31], TYRE = [0.07, 0.07, 0.075], TYRE_OUT = [0.16, 0.16, 0.165], WELL = [0.025, 0.025, 0.03], HUB = [0.55, 0.56, 0.57];
   const TRIM = [0.13, 0.13, 0.14], CHROME = [0.66, 0.67, 0.68], HEAD = [1.0, 0.97, 0.86], TAIL = [0.75, 0.08, 0.06], AMBER = [0.95, 0.62, 0.15];
   // the city's cars are old: faded paint, mostly
   const PAINT = [0x6e7b72, 0x8a8478, 0x5a6470, 0x7a5a4a, 0x9a9488, 0x4a5550, 0x8f7a5a, 0x5e5e62, 0x9aa0a4, 0x6a4a44, 0x3e4a5a, 0xa89a7a];
@@ -147,7 +155,11 @@
       const flat = opts && opts.wreck && side === 1 && z === axles[0];
       const ry = flat ? r * 0.8 : r;
       // the wheel arch: a round-topped well cut into the side (dark), with a trim lip round it
-      const well = new THREE.ExtrudeGeometry(archShape(R, r), { depth: 0.208, bevelEnabled: false, curveSegments: 10 });
+      // (with the wheel's own disc cut out of it: the rim sits back behind the body line, and a solid well would hide it)
+      const wsh = archShape(R, r), hole = new THREE.Path();
+      hole.absarc(0, ry, ry * 0.93, 0, Math.PI * 2, true);
+      wsh.holes.push(hole);
+      const well = new THREE.ExtrudeGeometry(wsh, { depth: 0.208, bevelEnabled: false, curveSegments: 16 });
       well.rotateY(side * Math.PI / 2);
       well.translate(side * (W / 2 - 0.2), 0, z);
       M.add(well, WELL);
@@ -155,9 +167,32 @@
       lip.rotateY(side * Math.PI / 2);
       lip.translate(side * (W / 2 + 0.004), 0, z);
       M.add(lip, TRIM);
-      M.wheel(x, ry, z, ry, w, TYRE_OUT, 18);
-      M.wheel(x + side * (w / 2 + 0.006), ry, z, r * 0.55, 0.012, opts && opts.wreck ? [0.35, 0.28, 0.22] : HUB, 12);
-      M.wheel(x + side * (w / 2 + 0.012), ry, z, r * 0.18, 0.012, TRIM, 8); // the centre cap
+      // the tyre: a rounded sidewall, a squared-off shoulder, the tread (and the bead down to the rim)
+      const h = w / 2, ri = ry * 0.6;
+      M.lathe(x, ry, z, [[ri, -h * 0.9], [ry * 0.82, -h], [ry * 0.95, -h * 0.86], [ry, -h * 0.55], [ry, h * 0.55], [ry * 0.95, h * 0.86], [ry * 0.82, h], [ri, h * 0.9]], side, TYRE_OUT, 24);
+      // the rim: a steel dish set back in the tyre, a chrome ring and a hubcap (rust on a wreck), lug nuts
+      const steel = opts && opts.wreck ? [0.35, 0.28, 0.22] : HUB, cap = opts && opts.wreck ? [0.3, 0.25, 0.2] : CHROME;
+      // (the steel face: a ring set back in the rim, facing out, and the rim's inner wall round it)
+      for (const flip of [0, 1]) {
+        const ring = new THREE.RingGeometry(ri * 0.48, ri * 0.98, 18, 1);
+        ring.rotateY(side * Math.PI / 2 + flip * Math.PI);
+        ring.translate(x + side * h * 0.84, ry, z);
+        M.add(ring, flip ? WELL : mix(steel, [0.2, 0.2, 0.21], 0.15));
+      }
+      const wall = new THREE.CylinderGeometry(ri * 0.99, ri * 0.99, h * 0.14, 18, 1, true);
+      wall.rotateZ(Math.PI / 2);
+      const wall2 = wall.clone(); // (seen from inside: the same cylinder turned inside out)
+      wall2.scale(1, 1, -1);
+      for (const g of [wall, wall2]) { g.translate(x + side * h * 0.91, ry, z); M.add(g, mix(steel, [0.1, 0.1, 0.1], 0.45)); }
+      M.lathe(x, ry, z, [[ri * 0.5, h * 0.86], [0.001, h * 0.9]], side, steel, 16); // (profiles run outside-in, or the faces look inward)
+      M.lathe(x, ry, z, [[ri * 1.04, h * 0.95], [ri * 0.98, h * 0.97], [ri * 0.93, h * 0.9]], side, cap, 18);
+      M.lathe(x, ry, z, [[ri * 0.33, h * 0.9], [ri * 0.26, h * 0.96], [0.001, h * 1.0]], side, cap, 12); // the centre cap
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2;
+        M.box(x + side * h * 0.9, ry + Math.cos(a) * ri * 0.4, z + Math.sin(a) * ri * 0.4, 0.03, 0.035, 0.035, TRIM);
+      }
+      // the inside of the wheel: a dark drum behind the rim
+      M.wheel(x - side * h * 0.2, ry, z, ri * 0.8, w * 0.5, WELL, 12);
       wheels.push({ x, z, r });
     }
     void body;
