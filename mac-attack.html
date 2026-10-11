@@ -80,7 +80,8 @@ const THEMES = [
 ];
 const TIPS = ['Pay while the bar is green — that\'s up to 1.35x back!', 'A tab in the red pays under 1x. Click early!', 'Keep a combo: fast pays stack up to +50%.', 'Number keys are faster than the mouse.', 'A late tab costs 140%. Never let one expire.', 'Only ring the bell when you\'re ready.'];
 const SAVEKEY = 'macattack_save_v1';
-const defaultCamp = (d = 1) => ({ stage: 0, invested: 0, stars: [], strikes: 3, fails: 0, diff: d });
+const defaultCamp = (d = 1) => ({ stage: 0, invested: 0, stars: [], strikes: 3, fails: 0, diff: d, flags: {} });
+const flag = f => !!(camp && camp.flags && camp.flags[f]);
 const DIFF = [
   { name: 'EASY', life: 1, target: 1, late: 1.4, vip: 0, mult: .75, desc: 'Relaxed timers, no VIP tabs' },
   { name: 'NORMAL', life: .88, target: 1.2, late: 1.5, vip: .15, mult: 1, desc: 'The real night out: VIP tabs, rush hours, bigger goals' },
@@ -89,11 +90,11 @@ const D = () => DIFF[camp && camp.diff != null ? camp.diff : 1];
 const EVENTS = [
   { name: 'ARVO RUSH', sub: 'Timers -25%', life: .75, col: '#ff5148' }, { name: 'BIG SPENDERS', sub: 'Bills +50%', amt: 1.5, col: '#ffd54a' },
   { name: 'FULL HOUSE, MATE', sub: 'One extra tab', extra: 1, col: '#ff7ac6' }, { name: "BEER O'CLOCK", sub: 'Payouts +10%', pay: .1, col: '#7CFF7C' }];
-const payMult = (b, frac) => (b.vip ? .5 + 1.0 * frac : .55 + .8 * frac) + (evt && evt.pay ? evt.pay : 0) + (perk === 'gold' ? .08 : 0) - (state === 'tab' && isDay() ? (sun >= 1 ? .1 : sun > .7 ? .04 : 0) : 0);
+const payMult = (b, frac) => (b.vip ? .5 + 1.0 * frac : .55 + .8 * frac) + (evt && evt.pay ? evt.pay : 0) + (perk === 'gold' ? .08 : 0) - (state === 'tab' && isDay() ? (sun >= 1 ? .1 : sun > .7 ? .04 : 0) : 0) + (feverT > 0 && state === 'tab' ? .1 : 0);
 // ---------- leaderboard (stored on this device) ----------
 const LBKEY = 'macattack_lb_v1';
 function loadLB() { try { const a = JSON.parse(localStorage.getItem(LBKEY)); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
-function runScore() { const st = camp.stars.reduce((a, b) => a + (b || 0), 0); return Math.round((Math.max(0, camp.invested) + st * 1000 + Math.min(camp.stage, STAGES.length) * 500) * D().mult); }
+function runScore() { const hb = flag('honest') ? 3000 : 0; const st = camp.stars.reduce((a, b) => a + (b || 0), 0); return Math.round((hb + Math.max(0, camp.invested) * (flag('deal') ? .85 : 1) + st * 1000 + Math.min(camp.stage, STAGES.length) * 500) * D().mult); }
 function saveScore(win) {
   if (savedScore) return; let name = '', last = ''; try { last = localStorage.getItem('macattack_name') || ''; } catch (e) {}
   try { name = (prompt('Name for the leaderboard (max 10 letters):', last) || '').trim().slice(0, 10); } catch (e) {}
@@ -110,8 +111,8 @@ function loadCamp() { try { const s = JSON.parse(localStorage.getItem(SAVEKEY));
 
 // ---------- game flow ----------
 function prepStage() {
-  ST = STAGES[camp.stage]; GOAL = Math.round(ST.target * D().target / 100) * 100; evt = null; ROUNDS = ST.rounds; START_CASH = ST.stake;
-  cash = START_CASH + roadBonus; dispCash = cash; slowLeft = perk === 'thongs' ? 2 : 1; slowT = 0; sun = 0; sunCd = 0; shoutLeft = 1; monkey = null; monkeyAt = 0; windUsed = false; shake = 0; round = 0; combo = 0; bills = []; floats = []; parts = []; spawnQ = []; bellAnim = 0; roundNet = 0;
+  ST = STAGES[camp.stage]; GOAL = Math.round(ST.target * D().target / 100) * 100; if (camp.stage === 1 && flag('bet')) GOAL = Math.round(GOAL * 1.15 / 100) * 100; evt = null; ROUNDS = ST.rounds; START_CASH = ST.stake;
+  cash = START_CASH + roadBonus + (camp.stage === 5 && flag('deal') ? 8000 : 0); dispCash = cash; slowLeft = perk === 'thongs' ? 2 : 1; slowT = 0; feverT = 0; stat = { paid: 0, best: 0, late: 0, perfect: 0, monkeys: 0, shouts: 0 }; sun = 0; sunCd = 0; shoutLeft = 1; monkey = null; monkeyAt = 0; windUsed = false; shake = 0; round = 0; combo = 0; bills = []; floats = []; parts = []; spawnQ = []; bellAnim = 0; roundNet = 0;
 }
 function goIntro() { prepStage(); state = 'intro'; }
 function startStage() { prepStage(); state = 'wait'; }
@@ -126,7 +127,7 @@ function toFarm() {
 function stageClear() {
   const profit = cash - START_CASH, r = profit / GOAL, stars = r >= 1.5 ? 3 : r >= 1.25 ? 2 : 1;
   unlock('first'); if (stars === 3) unlock('star3'); if (windUsed) unlock('wind');
-  clearInfo = { profit, stars }; camp.invested += profit; camp.stars[camp.stage] = stars; camp.stage++; saveCamp();
+  clearInfo = { profit, stars, stat: Object.assign({}, stat) }; camp.invested += profit; camp.stars[camp.stage] = stars; if (camp.stage === 1 && flag('bet')) { camp.invested += 4000; clearInfo.bonus = 4000; } camp.stage++; saveCamp();
   roadBonus = 0; perk = null; if (!tutDone) { tutDone = true; try { localStorage.setItem('macattack_tut', '1'); } catch (e) {} }
   state = 'clear'; [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, .25, 'triangle', .1), i * 140));
   for (let i = 0; i < 60; i++) coin(450, 150);
@@ -150,7 +151,7 @@ function primary() {
   else if (state === 'ending') { if (endT < 15.5) endT = 15.5; else toTitle(); }
   else if (state === 'fail') { failInfo.repo ? newCampaign(camp.diff) : startStage(); }
   else if (state === 'diff') newCampaign(1);
-  else if (state === 'lb' || state === 'ach') closeLB();
+  else if (state === 'lb' || state === 'ach' || state === 'howto') closeLB();
   else if (state === 'vsintro') beginVS();
   else if (state === 'story') storyAdvance();
   else if (state === 'vsend') openVSRematch();
@@ -194,7 +195,8 @@ function pay(i) {
   b.done = true; b.res = back - b.amt;
   const x = billX(b.slot) + 50;
   if (frac > .85) floatText(x, 312, 'PERFECT!', '#7ae7ff');
-  if (combo === 5) floatText(450, 250, 'FLEX FEVER!', '#ff8a00');
+  if (combo >= 5 && feverT <= 0) { feverT = 8; floatText(450, 250, 'FLEX FEVER! +0.1x', '#ff8a00'); tip('fever', 'Combo x5 = FLEX FEVER: every payout gets +0.1x for 8 seconds!'); }
+  stat.paid++; stat.best = Math.max(stat.best, combo);
   floatText(x, 360, (b.res >= 0 ? '+' : '-') + CUR + Math.abs(b.res), b.res >= 0 ? '#7CFF7C' : '#ff6b6b');
   if (combo > 1) floatText(x, 335, 'COMBO x' + combo, '#ffd54a');
   for (let k = 0; k < (b.res >= 0 ? 14 : 4); k++) coin(x, 420);
@@ -205,7 +207,7 @@ function pay(i) {
 function expire(b) {
   let loss = Math.round(b.amt * D().late);          // late fee
   if (perk === 'bouncer' && !waived) { waived = true; loss = b.amt; floatText(billX(b.slot) + 50, 330, 'FEE WAIVED', '#7ae7ff'); }
-  rAll = false; vib([80, 40, 80]); cash -= loss; roundNet -= loss; combo = 0; shake = 8; b.done = true; b.res = -loss; b.late = true;
+  stat.late++; rAll = false; vib([80, 40, 80]); cash -= loss; roundNet -= loss; combo = 0; shake = 8; b.done = true; b.res = -loss; b.late = true;
   floatText(billX(b.slot) + 50, 360, '-' + CUR + loss + ' LATE', '#ff4040');
   beep(120, .3, 'sawtooth', .08, .5);
 }
@@ -216,6 +218,8 @@ function coin(x, y) { parts.push({ x, y, vx: (Math.random() - .5) * 6, vy: -Math
 function update(dt) {
   for (const o of toasts) o.t -= dt; toasts = toasts.filter(o => o.t > 0);
   if (state === 'tab') { if (isDay() && !paused) sun = Math.min(1, sun + dt * .045); sunCd = Math.max(0, sunCd - dt); if (monkeyAt && t >= monkeyAt && !monkey) { spawnMonkey(); monkeyAt = 0; } if (monkey) updateMonkey(dt); }
+  if (feverT > 0 && state === 'tab') feverT -= dt; if (tipT > 0) tipT -= dt; if (state === 'summary') { summaryT -= dt; if (summaryT <= 0) primary(); }
+  if (state === 'tab') { if (monkey && monkey.x < 0) tip('monkey', 'A monkey bandit! Tap it (or press B) before it steals your cash.'); if (isDay() && sun > .5) tip('sun', 'You are burning! Use SUNSCREEN (C) before payouts drop.'); if (bills.filter(b => !b.done).length >= 4) tip('shout', 'Swamped? SHOUT (X) pays every open tab at once \u2014 once per stage.'); if (bills.some(b => b.vip && !b.done)) tip('vip', 'Gold VIP tabs: double the bill, shorter timer, bigger payout.'); if (evt) tip('evt', 'Round events change the rules for a single round.'); }
   if (evt) evtT -= dt; if (state === 'story' && story) { const L = story.lines[sIdx]; if (sChars < L.t.length) { const b = Math.floor(sChars); sChars += dt * 48; if (Math.floor(sChars) % 3 === 0 && Math.floor(sChars) !== b) beep(300 + Math.random() * 60, .03, 'square', .015); } } if (state === 'vs') updateVS(dt); if (slowT > 0) slowT -= dt; if (state === 'travel') updateTravel(dt);
   t += dt; bellAnim = Math.max(0, bellAnim - dt * 1.5); shake = Math.max(0, shake - dt * 25); dispCash += (cash - dispCash) * Math.min(1, dt * 8);
   while (spawnQ.length && spawnQ[0].at <= t) {
@@ -225,10 +229,10 @@ function update(dt) {
     for (const b of bills) if (!b.done) { b.left -= (slowT > 0 ? dt * .2 : dt); if (b.left <= 0) expire(b); }
     checkBroke();
     if (state === 'tab' && !spawnQ.length && bills.length && bills.every(b => b.done)) {
-      if (rAll && rN >= 3) { const bon = Math.round(rSum * .05 / 10) * 10; cash += bon; roundNet += bon; floatText(450, 230, 'PERFECT ROUND +' + CUR + bon.toLocaleString(), '#7ae7ff'); unlock('perfect'); }
+      if (rAll && rN >= 3) { const bon = Math.round(rSum * .05 / 10) * 10; cash += bon; roundNet += bon; floatText(450, 230, 'PERFECT ROUND +' + CUR + bon.toLocaleString(), '#7ae7ff'); unlock('perfect'); stat.perfect++; }
       bills = []; evt = null;
       if (round >= ROUNDS) { if (cash >= START_CASH + GOAL) stageClear(); else startKick('poor'); }
-      else state = 'summary';
+      else { state = 'summary'; summaryT = 6; }
     }
   }
   if (state === 'kick') {
@@ -799,6 +803,7 @@ function draw() {
   else if (state === 'ending') drawEnding();
   else if (state === 'lb') drawLB();
   else if (state === 'ach') drawAch();
+  else if (state === 'howto') drawHow();
   else if (state === 'story') drawStory();
   else if (state === 'travel') drawTravel();
   else if (state === 'perk') drawPerk();
@@ -806,24 +811,20 @@ function draw() {
   else {
     g.translate(W / 2, H / 2); const z = 1 + bellAnim * .025; g.scale(z, z); g.translate(-W / 2, -H / 2);
     drawBar(); drawCounter();
-    if (vsIs()) vsMacs(); else { macSprite(426, 288, 'flex', { noLegs: true, skin: sunSkin() }); glow(470, 235, 70, '#3dff7a', .18); drawMonkey(); }
+    if (vsIs()) vsMacs(); else { if (feverT > 0 && state === 'tab') glow(426, 250, 150, '#ff8a00', .3 + .15 * Math.sin(t * 10)); macSprite(426, 288, 'flex', { noLegs: true, skin: sunSkin() }); glow(470, 235, 70, '#3dff7a', .18); drawMonkey(); }
     if (state === 'wait') { txt('RING THE BELL!', 640, 224 + Math.sin(t * 5) * 3, 17, '#ffd54a', 'center', '#ff9a00'); txt((TOUCH ? 'tap the bell' : 'click it / press SPACE'), 640, 242 + Math.sin(t * 5) * 3, 12, '#fff', 'center'); }
     g.restore(); g.save();
     if (shake > 0) g.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
     if (vsIs()) vsHud(); else hud();
     if (isDay() && (state === 'tab' || state === 'wait')) { txt('SUNBURN', 18, 108, 10, '#ffb08a'); fillRR(70, 101, 90, 8, 4, 'rgba(255,255,255,.15)'); fillRR(70, 101, Math.max(2, 90 * sun), 8, 4, sun > .7 ? '#ff4030' : '#ffb347'); }
     if (perk) txt('PERK: ' + PERKS.find(p => p.id === perk).name, 18, 92, 11, '#7ae7ff');
-    if (state === 'tab' || state === 'wait') {
-      button('II  PAUSE', 14, 344, 104, 34, togglePause, 12);
-      if (state === 'tab' && isDay()) button(sunCd > 0 ? 'SUNSCREEN ...' : 'SUNSCREEN' + (TOUCH ? '' : ' (C)'), 14, 304, 140, 34, useSunscreen, 12);
-      if (state === 'tab') button(shoutLeft > 0 ? 'SHOUT!' + (TOUCH ? '' : ' (X)') : 'SHOUT USED', W - 150, 304, 136, 34, useShout, 12);
-      if (state === 'tab') button(slowLeft > 0 ? 'SLOW-MO' + (TOUCH ? '' : ' (S)') : 'SLOW-MO USED', W - 150, 344, 136, 34, useSlow, 12);
-    }
+    abilityBar();
     if (slowT > 0) { g.fillStyle = 'rgba(80,160,255,.13)'; g.fillRect(0, 0, W, H); txt('SLOW-MO', W / 2, 160, 26, '#7ae7ff', 'center', '#2a8aff', DISP); }
+    feverHud(); drawTip();
     if (!tutDone && camp.stage === 0 && round === 1 && state === 'tab') txt('TIP: pay the GREENEST bars first \u2014 they pay the most!', W / 2, 372, 13, '#7ae7ff', 'center', '#000');
     if (evt && state === 'tab') { txt(evt.name, W / 2, 62, 12, evt.col, 'center', evt.col); if (evtT > 0) { g.globalAlpha = Math.min(1, evtT); panel(W / 2 - 170, 84, 340, 50); txt(evt.name + '!', W / 2, 110, 24, evt.col, 'center', evt.col, DISP); txt(evt.sub, W / 2, 127, 12, '#fff', 'center'); g.globalAlpha = 1; } }
     for (let i = 0; i < bills.length; i++) drawTab(bills[i], i);
-    if (state === 'tab') txt((TOUCH ? 'TAP a tab' : 'CLICK a tab (or press 1-8)') + ' — pay fast to earn more!  Hit ' + CUR + '0 and you\'re OUT.', W / 2, 388, 13, '#ffd54a', 'center', '#000');
+    if (state === 'tab' && !tutDone && tipT <= 0) txt((TOUCH ? 'TAP a tab' : 'CLICK a tab (or press 1-8)') + ' — pay fast to earn more!  Hit ' + CUR + '0 and you\'re OUT.', W / 2, 388, 13, '#ffd54a', 'center', '#000');
     drawFX();
     if (['title', 'diff', 'intro', 'summary', 'clear'].includes(state)) overlay();
     if (state === 'vsintro' || state === 'vsend') vsOverlay();
@@ -844,19 +845,13 @@ function big(s, y, c1, c2, glowc, size = 64) {
 function overlay() {
   g.fillStyle = 'rgba(6,3,10,.78)'; g.fillRect(0, 0, W, H); glow(W / 2, 230, 420, '#7a1f5a', .35);
   if (state === 'title') {
-    big('MAC ATTACK', 165, '#fff6b0', '#c77700', '#ff9a00', 78);
-    txt('FLEX  •  PAY  •  BUILD THE MANSION', W / 2, 198, 15, '#ff7ac6', 'center', '#ff2d95');
-    panel(130, 220, 640, 168);
-    txt('Flex across 6 Thai venues. Every baht of profit builds Mac\'s farm.', W / 2, 252, 15, '#eee', 'center');
-    txt('Pay tabs FAST = up to 1.35x back.  Slow or late = you bleed cash.', W / 2, 280, 15, '#7CFF7C', 'center');
-    txt('Hit each stage\'s profit goal. Go broke or miss it and security throws you out.', W / 2, 308, 15, '#ff9b9b', 'center');
-    txt('3 strikes and the bank repossesses the farm.', W / 2, 336, 15, '#ffd54a', 'center');
-    txt('♥ ♥ ♥', W / 2, 372, 20, '#ff4d6d', 'center', '#ff0033');
-    if (saved) { button('CONTINUE  (stage ' + (saved.stage + 1) + ')', 130, 404, 300, 54, continueCamp, 18); button('NEW GAME', 470, 404, 300, 54, openDiff, 18); }
-    else button('NEW GAME', W / 2 - 150, 404, 300, 54, openDiff, 20);
-    button('\u2605 LEADERBOARD', 50, 472, 260, 44, openLB, 14); button('MEDALS', 330, 472, 240, 44, openAch, 14); button('2-PLAYER DUEL', 590, 472, 260, 44, openVS, 14);
+    big('MAC ATTACK', 150, '#fff6b0', '#c77700', '#ff9a00', 84);
+    txt('FLEX  \u2022  PAY  \u2022  BUILD THE MANSION', W / 2, 185, 15, '#ff7ac6', 'center', '#ff2d95');
+    const items = (saved ? [['CONTINUE  (stage ' + (saved.stage + 1) + ')', continueCamp], ['NEW GAME', openDiff]] : [['NEW GAME', openDiff]]).concat([['2-PLAYER DUEL', openVS], ['\u2605 LEADERBOARD', openLB], ['MEDALS', openAch], ['HOW TO PLAY', openHow]]);
+    items.forEach((it, i) => button(it[0], 170 + (i % 2) * 290, 225 + Math.floor(i / 2) * 66, 270, 52, it[1], i === 0 ? 19 : 16));
+    const ms = Object.keys(achSet).length; txt(ms + ' / ' + ACH.length + ' medals  \u2022  3 strikes and the bank takes the farm', W / 2, 462, 12, '#aaa', 'center');
     button('SOUND: ' + (muted ? 'OFF' : 'ON'), W - 150, H - 46, 130, 32, toggleMute, 11); button('STORY: ' + (storyOn ? 'ON' : 'OFF'), 20, H - 46, 130, 32, toggleStory, 11);
-    if (!TOUCH) txt('TEST KEYS:  E = skip to ending   N = clear stage   F = fail stage', W / 2, 545, 12, '#aaa', 'center');
+    if (!TOUCH) txt('TEST KEYS:  E = ending   N = clear stage   F = fail stage', W / 2, 545, 11, '#777', 'center');
   } else if (state === 'diff') {
     big('CHOOSE YOUR NIGHT', 120, '#fff6b0', '#ffb300', '#ff9a00', 56);
     DIFF.forEach((d, i) => { const y = 160 + i * 106; button(d.name + '   \u00d7' + d.mult + ' score', 170, y, 560, 58, () => newCampaign(i), 20); txt(d.desc, W / 2, y + 82, 13, '#ddd', 'center'); });
@@ -865,25 +860,27 @@ function overlay() {
     txt('STAGE ' + (camp.stage + 1) + ' / ' + STAGES.length, W / 2, 112, 15, '#ffd54a', 'center');
     big(ST.name, 168, '#fff6b0', '#ffb300', '#ff9a00', ST.name.length > 16 ? 46 : 58);
     txt('⚑ ' + ST.place + ', Thailand', W / 2, 198, 16, '#ff7ac6', 'center', '#ff2d95');
-    panel(190, 220, 520, 150);
+    panel(190, 220, 520, 178);
     txt('GOAL     +' + CUR + GOAL.toLocaleString() + ' profit in ' + ST.rounds + ' rounds', 220, 255, 17, '#7CFF7C');
     txt('WAD      ' + CUR + ST.stake.toLocaleString() + ' to flex with', 220, 282, 17, '#fff');
     txt('BUILD    ' + ST.build, 220, 309, 17, '#ffd54a');
     txt('STRIKES  ', 220, 342, 17, '#fff'); hearts(318, 345); txt('MODE  ' + D().name, 500, 342, 17, '#ff9b9b');
-    button('START THE NIGHT', W / 2 - 160, 410, 320, 54, primary, 20);
+    txt('HAZARDS  ' + ['Monkey bandits'].concat(isDay() ? ['Sunburn'] : []).concat(D().vip > 0 ? ['VIP tabs'] : []).join(' \u2022 '), 220, 376, 15, '#ffb08a');
+    button('START THE NIGHT', W / 2 - 160, 422, 320, 54, primary, 20);
   } else if (state === 'summary') {
     txt('ROUND ' + round + ' / ' + ROUNDS + ' SETTLED', W / 2, 190, 40, '#fff', 'center', '#ffd54a', DISP);
     panel(230, 215, 440, 150);
     txt((roundNet >= 0 ? '+' : '-') + CUR + Math.abs(roundNet), W / 2, 272, 44, roundNet >= 0 ? '#7CFF7C' : '#ff6b6b', 'center', roundNet >= 0 ? '#1aff5a' : '#ff1a1a', DISP);
     txt('Cash  ' + CUR + Math.round(cash).toLocaleString(), W / 2, 308, 19, '#fff', 'center');
     const pf = cash - START_CASH; txt('Profit ' + (pf >= 0 ? '+' : '-') + CUR + Math.abs(Math.round(pf)).toLocaleString() + '  /  goal +' + CUR + GOAL.toLocaleString(), W / 2, 338, 15, pf >= GOAL ? '#7CFF7C' : '#ffd54a', 'center');
-    button('NEXT ROUND', W / 2 - 130, 400, 260, 52, primary, 20);
+    button('NEXT ROUND (' + Math.max(1, Math.ceil(summaryT)) + ')', W / 2 - 130, 400, 260, 52, primary, 20);
   } else if (state === 'clear') {
-    big('STAGE CLEAR!', 170, '#fff6b0', '#ffb300', '#ffd54a', 72);
-    txt('★'.repeat(clearInfo.stars) + '☆'.repeat(3 - clearInfo.stars), W / 2, 240, 54, '#ffd54a', 'center', '#ff9a00');
-    panel(220, 262, 460, 110);
-    txt('Profit  +' + CUR + Math.round(clearInfo.profit).toLocaleString(), W / 2, 304, 30, '#7CFF7C', 'center', '#1aff5a');
-    txt('goes straight into Mac\'s farm', W / 2, 340, 15, '#fff', 'center');
+    big('STAGE CLEAR!', 125, '#fff6b0', '#ffb300', '#ffd54a', 66);
+    txt('\u2605'.repeat(clearInfo.stars) + '\u2606'.repeat(3 - clearInfo.stars), W / 2, 192, 46, '#ffd54a', 'center', '#ff9a00');
+    panel(190, 210, 520, 170);
+    txt('Profit  +' + CUR + Math.round(clearInfo.profit).toLocaleString(), W / 2, 252, 30, '#7CFF7C', 'center', '#1aff5a');
+    txt("goes straight into Mac's farm", W / 2, 274, 13, '#fff', 'center'); if (clearInfo.bonus) txt('+' + CUR + clearInfo.bonus.toLocaleString() + ' wager won from Chai!', W / 2, 294, 12, '#ffd54a', 'center', '#ff9a00');
+    const cs = clearInfo.stat || stat; [['TABS PAID', cs.paid], ['BEST COMBO', 'x' + cs.best], ['PERFECT RDS', cs.perfect], ['LATE TABS', cs.late], ['MONKEYS', cs.monkeys], ['SHOUTS', cs.shouts]].forEach((r, i) => { const x = 250 + (i % 3) * 200, y = 312 + Math.floor(i / 3) * 40; txt(String(r[1]), x, y, 20, '#fff', 'center'); txt(r[0], x, y + 14, 9, '#ffd54a', 'center'); });
     button('BUILD THE FARM', W / 2 - 160, 410, 320, 54, primary, 20);
   }
 }
@@ -895,6 +892,7 @@ function failOverlay() {
   const short = Math.max(0, GOAL - fi.profit);
   txt(fi.reason === 'bankrupt' ? 'You ran out of baht in round ' + fi.round + ' of ' + ST.rounds + '.' : 'You finished ' + ST.rounds + ' rounds ' + CUR + Math.round(short).toLocaleString() + ' short of the goal.', W / 2, 212, 16, '#fff', 'center');
   txt('Security tossed you out. Damages: ' + (fi.penalty ? '-' + CUR + fi.penalty.toLocaleString() + ' from the farm fund' : 'none (no farm yet)'), W / 2, 240, 13, '#ff9b9b', 'center');
+  txt('Tabs paid ' + stat.paid + '  \u2022  Best combo x' + stat.best + '  \u2022  Late tabs ' + stat.late, W / 2, 262, 12, '#bbb', 'center');
   txt('STRIKES', W / 2 - 80, 285, 14, '#ffd54a', 'right'); hearts(W / 2 - 66, 288);
   txt(fi.repo ? 'Three strikes. The bank takes the farm — the campaign resets.' : 'Strikes left: ' + camp.strikes + '.  Lose them all and the bank takes the farm.', W / 2, 318, 13, fi.repo ? '#ff6b6b' : '#ddd', 'center');
   txt('TIP: ' + fi.tip, W / 2, 348, 13, '#7CFF7C', 'center');
@@ -946,24 +944,30 @@ function drawLB() {
 function drawEnding() {
   const e = endT;
   if (e < 9.5) {
-    const dism = e < 4.5 ? 6 : Math.max(0, 6 - Math.floor((e - 4.5) * 1.6));
+    const dism = 6;
     if (dism !== endTier) { endTier = dism; beep(180, .15, 'square', .1, .6); shake = 4; for (let i = 0; i < 12; i++) coin(300 + Math.random() * 300, 330); }
     drawFarm(dism, 99);
-    const wx = e < 3.3 ? 980 - (e - .3) / 3 * 410 : 570, wp = e < .3 ? 980 : wx, wpose = e < 3.3 ? 'walk' : e < 4.5 ? 'flex' : 'cheer';
+    const wx = e < 3.3 ? 980 - (e - .3) / 3 * 410 : (e > 7.4 ? 570 + (e - 7.4) * 160 : 570), wp = e < .3 ? 980 : wx, wpose = e > 7.4 ? 'walk' : e < 3.3 ? 'walk' : e < 4.5 ? 'flex' : 'cheer';
     const walkOff = e > 6.2, mx = walkOff ? 330 - (e - 6.2) * 170 : 330;
-    if (e > 4.5 && e < 8.6) {                                           // moving van
+    if (false) {
       const vx = e < 5.4 ? 1000 - (e - 4.5) / .9 * 290 : 710; g.save(); g.translate(vx, 505); ell(0, 40, 90, 10, 'rgba(0,0,0,.3)'); fillRR(-80, -60, 120, 90, 6, '#f4f4f4'); fillRR(40, -30, 50, 60, 8, '#d81b60'); fillRR(52, -22, 28, 20, 4, '#bfe8ff');
       txt('MOVERS', -20, -10, 16, '#d81b60', 'center'); ell(-50, 32, 15, 15, '#111'); ell(-50, 32, 6, 6, '#999'); ell(60, 32, 15, 15, '#111'); ell(60, 32, 6, 6, '#999'); g.restore();
     }
     macSprite(mx, 438, e < 3.3 ? 'flex' : walkOff ? 'walk' : 'scared', { facing: walkOff ? -1 : 1, gait: 6, mouth: e > 5 ? 'frown' : undefined, holdR: walkOff ? suitcase : (e < 3.3 ? (hx, hy) => cashFan(hx + 2, hy - 3, -.7) : null) });
-    actor(wp, 440, .92, { pose: wpose, facing: -1, ph: 1, skin: '#f1c27d', shirt: '#d81b60', pants: '#2a2a3a', shoes: '#c0392b', hair: '#7a2a12', hairStyle: 'long', fx: 'plain', holdR: papers, mouth: 'smirk', brow: -.4 });
+    if (e > 3.0) { const mxp = Math.min(150, -100 + (e - 3.0) * 125), wk = e < 5 ? 'walk' : 'idle'; actor(mxp, 440, .92, Object.assign({ pose: wk, facing: 1, ph: 3, noLegs: false, fx: 'plain', mouth: 'frown', brow: 1 }, CHARS.malee)); actor(mxp - 46, 452, .56, Object.assign({ pose: wk, facing: 1, ph: 5, fx: 'plain' }, CHARS.fon)); }
+    actor(wp, 440, .92, { pose: wpose, facing: e > 7.4 ? 1 : -1, ph: 1, skin: '#f1c27d', shirt: '#d81b60', pants: '#2a2a3a', shoes: '#c0392b', hair: '#7a2a12', hairStyle: 'long', fx: 'plain', holdR: papers, mouth: 'smirk', brow: -.4 });
     if (e > .9 && e < 3.1) bubble(wx, 322, 'Surprise, darling!');
-    else if (e > 3.3 && e < 5.4) bubble(570, 322, "I'm taking EVERYTHING.");
-    if (e > 3.5 && e < 6.2) bubble(mx, 335, 'WHAT?!');
-    else if (e > 6.4 && e < 8.5) bubble(mx, 335, 'I only wanted a farm...');
-    if (e > 4.2 && e < 6.8) { g.save(); g.translate(W / 2, 215); g.rotate(-.06); g.globalAlpha = Math.min(1, (e - 4.2) * 4); fillRR(-250, -46, 500, 78, 8, 'rgba(0,0,0,.7)'); txt('ALL ASSETS → WIFE', 0, 10, 46, '#ff3b6e', 'center', '#ff0033', DISP); g.restore(); }
-    const v = camp.invested * (1 - Math.max(0, Math.min(1, (e - 4.5) / 3.7)));
-    panel(10, 10, 250, 80); txt("MAC'S FARM", 24, 36, 22, '#ffd54a', 'left', '#ff9a00', DISP); txt('FARM VALUE', 24, 54, 10, '#fff'); txt(CUR + Math.round(v).toLocaleString(), 24, 78, 22, v > 0 ? '#7CFF7C' : '#ff4d6d', 'left', v > 0 ? '#1aff5a' : '#ff0033');
+    else if (e > 3.3 && e < 5.0) bubble(570, 322, "I'm taking EVERYTHING.");
+    else if (e > 6.6 && e < 7.4) bubble(570, 322, 'The DEED... is in HER name?!');
+    if (e > 5.0 && e < 6.5) bubble(170, 322, flag('honest') ? 'Hello, Kylie. He told me about you.' : 'Mac...? Who is SHE?');
+    else if (e > 6.6 && e < 8.6) bubble(250, 322, flag('deal') ? 'The deed is mine. And you sold a cut to CHAI?!' : 'The deed is in MY name. Khwai and I earned this farm.');
+    if (e > 7.5) drawBuffalo(Math.max(790, 1050 - (e - 7.5) * 260), 480, .85, e > 8.3, true);
+    if (e > 8.4 && e < 9.3) bubble(790, 372, 'Moo.');
+    if (e > 3.5 && e < 5.0) bubble(mx, 335, 'WHAT?!');
+    else if (e > 6.7 && e < 8.5) bubble(mx, 335, 'I only wanted a farm...');
+    if (e > 6.6 && e < 8.4) { g.save(); g.translate(W / 2, 215); g.rotate(-.06); g.globalAlpha = Math.min(1, (e - 6.6) * 4); fillRR(-250, -46, 500, 78, 8, 'rgba(0,0,0,.7)'); txt('ALL ASSETS → MALEE', 0, 10, 46, '#ff3b6e', 'center', '#ff0033', DISP); g.restore(); }
+    const v = camp.invested;
+    panel(10, 10, 250, 80); txt(e > 6.6 ? "MALEE'S FARM" : "MAC'S FARM", 24, 36, 22, '#ffd54a', 'left', '#ff9a00', DISP); txt(e > 6.6 ? 'NEW OWNER' : 'FARM VALUE', 24, 54, 10, '#fff'); txt(CUR + Math.round(v).toLocaleString(), 24, 78, 22, '#7CFF7C', 'left', '#1aff5a');
     drawFX();
     if (e > 8.4) { g.globalAlpha = Math.min(1, (e - 8.4) / .9); g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
   }
@@ -983,10 +987,11 @@ function drawEnding() {
     big('THE END', 190, '#fff6b0', '#ffb300', '#ff9a00', 92);
     panel(160, 208, 580, 160);
     txt('Mac flew home to Australia with nothing but his shades.', W / 2, 238, 16, '#fff', 'center');
-    txt('He built a ' + CUR + Math.round(camp.invested).toLocaleString() + ' farm mansion. His wife kept all of it.', W / 2, 262, 13, '#ffd54a', 'center');
+    txt('He built a ' + CUR + Math.round(camp.invested).toLocaleString() + ' farm mansion. Malee kept all of it \u2014 and Khwai.', W / 2, 262, 13, '#ffd54a', 'center');
+    txt((camp.log && camp.log.length ? 'Your choices: ' + camp.log.join(' \u2022 ') : ''), W / 2, 376, 9.5, '#9aa', 'center');
     txt('Stars \u2605 ' + camp.stars.reduce((a, b) => a + b, 0) + ' / ' + STAGES.length * 3 + '   \u2022   Mode ' + D().name, W / 2, 285, 13, '#fff', 'center');
     txt('FINAL SCORE  ' + runScore().toLocaleString(), W / 2, 332, 28, '#7CFF7C', 'center', '#1aff5a', DISP);
-    txt('(and next time, a prenup)', W / 2, 355, 12, '#bbb', 'center');
+    txt(flag('honest') ? 'At least he told Malee the truth. Fon still calls him on Sundays. Kylie flew home alone.' : 'Kylie flew home alone too. Next time: honesty, and read what you sign.', W / 2, 355, 11, '#bbb', 'center');
     button(savedScore ? 'SAVED \u2713' : 'SAVE SCORE', 190, 392, 240, 48, () => saveScore(true), 16); button('LEADERBOARD', 470, 392, 240, 48, openLB, 16);
     button('PLAY AGAIN', W / 2 - 130, 452, 260, 48, primary, 18);
   }
@@ -1049,7 +1054,7 @@ const PERKS = [
   { id: 'wind', name: 'SECOND WIND', desc: 'Survive one bankruptcy (restart at ' + CUR + '1,500)' }];
 function leaveFarm() { if (camp.stage > 0) startTravel(); else startPerk(); }
 function startPerk() { perkChoices = PERKS.slice().sort(() => Math.random() - .5).slice(0, 3); state = 'perk'; }
-function choosePerk(p) { perk = p.id; startStory('s' + camp.stage, goIntro); }
+function choosePerk(p) { perk = p.id; startStory('s' + camp.stage, () => startStory('m' + camp.stage, goIntro)); }
 function drawPerk() {
   g.fillStyle = lg(0, 0, 0, H, ['#12082a', '#2a0f3a', '#0a0710']); g.fillRect(0, 0, W, H); glow(W / 2, 150, 420, '#7a1f5a', .4);
   big('PICK A PERK', 100, '#fff6b0', '#ffb300', '#ff9a00', 58);
@@ -1098,7 +1103,7 @@ const ACH = [
   { id: 'star3', name: 'TRIPLE CROWN', desc: 'Earn 3 stars on a stage' }, { id: 'roadmax', name: 'ROAD WARRIOR', desc: 'Max out a road bonus' },
   { id: 'speed', name: 'SPEED DEMON', desc: 'Pay a tab in under half a second' }, { id: 'home', name: 'HOMEWARD BOUND', desc: 'Reach the ending' },
   { id: 'brutal', name: 'BRUTAL BARON', desc: 'Finish the game on Brutal' }, { id: 'monkey', name: 'MONKEY BUSINESS', desc: 'Swat a monkey bandit' }, { id: 'crikey', name: 'CRIKEY!', desc: 'Tap a spider on the road trip' }, { id: 'shout', name: 'YOUR SHOUT, MATE', desc: 'Pay every tab at once with a Shout' },
-  { id: 'buffalo', name: 'BUFFALO WHISPERER', desc: 'Pat Khwai the buffalo on the road' }, { id: 'wind', name: 'NINE LIVES', desc: 'Use Second Wind and still clear the stage' }];
+  { id: 'honest', name: 'HONEST ABE', desc: 'Tell Malee the truth about Kylie' }, { id: 'twotimer', name: 'TWO-TIMER', desc: 'Keep lying to both families' }, { id: 'buffalo', name: 'BUFFALO WHISPERER', desc: 'Pat Khwai the buffalo on the road' }, { id: 'wind', name: 'NINE LIVES', desc: 'Use Second Wind and still clear the stage' }];
 let achSet = {}, toasts = [], vipPaid = 0, rAll = true, rSum = 0, rN = 0;
 try { achSet = JSON.parse(localStorage.getItem('macattack_ach')) || {}; } catch (e) {}
 function unlock(id) {
@@ -1110,8 +1115,8 @@ function drawAch() {
   g.fillStyle = lg(0, 0, 0, H, ['#12082a', '#2a0f3a', '#0a0710']); g.fillRect(0, 0, W, H); glow(W / 2, 120, 420, '#7a1f5a', .4);
   big('MEDALS', 90, '#fff6b0', '#ffb300', '#ff9a00', 60); txt(Object.keys(achSet).length + ' / ' + ACH.length + ' unlocked', W / 2, 114, 13, '#bbb', 'center');
   panel(90, 130, 720, 340);
-  ACH.forEach((a, i) => { const col = Math.floor(i / 7), x = 110 + col * 350, y = 142 + (i % 7) * 46, on = achSet[a.id]; fillRR(x, y, 330, 40, 9, on ? 'rgba(255,213,74,.14)' : 'rgba(255,255,255,.05)');
-    txt(on ? '\u2605' : '\u2606', x + 22, y + 28, 22, on ? '#ffd54a' : '#555', 'center', on ? '#ff9a00' : null); txt(a.name, x + 44, y + 17, 13, on ? '#fff' : '#888'); txt(a.desc, x + 44, y + 33, 10, on ? '#7ae7ff' : '#666'); });
+  ACH.forEach((a, i) => { const col = Math.floor(i / 8), x = 110 + col * 350, y = 138 + (i % 8) * 41, on = achSet[a.id]; fillRR(x, y, 330, 37, 9, on ? 'rgba(255,213,74,.14)' : 'rgba(255,255,255,.05)');
+    txt(on ? '\u2605' : '\u2606', x + 20, y + 26, 20, on ? '#ffd54a' : '#555', 'center', on ? '#ff9a00' : null); txt(a.name, x + 40, y + 15, 12, on ? '#fff' : '#888'); txt(a.desc, x + 40, y + 29, 9.5, on ? '#7ae7ff' : '#666'); });
   button('BACK', W / 2 - 80, 488, 160, 44, closeLB, 16);
 }
 function drawToasts() { toasts.forEach((o, i) => { const a = Math.min(1, o.t, 3.2 - o.t + .01) ; g.globalAlpha = Math.max(0, Math.min(1, o.t * 2)); panel(W / 2 - 170, 62 + i * 54, 340, 46); txt('★ MEDAL UNLOCKED', W / 2, 80 + i * 54, 10, '#ffd54a', 'center'); txt(o.name, W / 2, 100 + i * 54, 17, '#fff', 'center', '#ff9a00'); g.globalAlpha = 1; }); }
@@ -1195,7 +1200,7 @@ function openVSRematch() { openVS(); beginVS(); }
 // ---------- NARRATIVE MODE: story scenes between stages ----------
 let story = null, sIdx = 0, sChars = 0, sNext = null, storyOn = true;
 try { storyOn = localStorage.getItem('macattack_story') !== '0'; } catch (e) {}
-const BF = (t) => ({ w: 'buffalo', t }), N = (t) => ({ w: 'nar', t }), M = (t) => ({ w: 'mac', t }), K = (t) => ({ w: 'kylie', t }), NO = (t) => ({ w: 'noi', t }), CH_ = (t) => ({ w: 'chai', t });
+const MAL = (t, ph) => ({ w: 'malee', t, ph }), CF = (w, t, f, ph) => ({ w, t, if: f, ph }), CN = (w, t, f) => ({ w, t, ifnot: f }), CHOICE = (w, t, ch) => ({ w, t, ch }), BF = (t) => ({ w: 'buffalo', t }), N = (t) => ({ w: 'nar', t }), M = (t) => ({ w: 'mac', t }), K = (t) => ({ w: 'kylie', t }), NO = (t) => ({ w: 'noi', t }), CH_ = (t) => ({ w: 'chai', t });
 const STORY = {
   prologue: { back: 'plot', other: null, lines: [
     N('Mac Dunmore, sheep-shearer from Wagga Wagga, Australia, just landed in Thailand with ฿10,000 and one enormous dream.'),
@@ -1221,10 +1226,12 @@ const STORY = {
   b3: { back: 'farm', other: 'buffalo', lines: [
     BF('A red barn and a rice field. Now I feel at home. Also, I am hungry.'),
     M('Stay out of the rice, Khwai.'),
-    BF('No promises. A buffalo has needs.')] },
+    BF('No promises. A buffalo has needs.'),
+    BF('Also: the woman who brings you mango rice. Her cooking: excellent. Your honesty: pending.')] },
   b4: { back: 'farm', other: 'buffalo', lines: [
     BF('A real farmhouse. A pond. Ducks! I like the ducks.'),
     BF('But a word of advice from an old buffalo: a house this big attracts visitors. Not all of them bring mangoes.'),
+    BF('And a little girl at the gate has started calling you "Pa". Interesting. Wagga is a long way from here, Mac.'),
     M("You worry too much, mate. It's all gonna be sweet as.")] },
   b5: { back: 'farm', other: 'buffalo', lines: [
     BF('A villa. The farm looks like a hotel now.'),
@@ -1232,6 +1239,40 @@ const STORY = {
     BF('Mm. I will keep the gate warm. And Mac... check who holds the deed.'),
     M('The deed? Yeah, yeah. Kylie has copies.'),
     BF('...Moo.')] },
+  m2: { back: 'bar', other: 'malee', lines: [
+    MAL('Three hundred baht for mango sticky rice. Farang price.'),
+    M("Three hundred?! Back home that's... wait. Strewth, this is bloody delicious."),
+    CHOICE('malee', 'So? Pay up, farang. Or are you going to haggle?', [['Haggle her down to \u0e3f150', 'haggle', 'Haggled with Malee'], ['Pay full price, smiling', 'gentle', 'Paid Malee full price']]),
+    CF('mac', 'One-fifty, and I tell everyone in Wagga about your rice.', 'haggle'),
+    CF('malee', 'Ha! Two hundred. And yes, you WILL tell them. Deal.', 'haggle'),
+    CF('mac', 'Here, keep the change, love. Best rice of my life.', 'gentle'),
+    CF('malee', 'A man who pays full price AND smiles? Careful. I might like you.', 'gentle'),
+    MAL('I know. And your shirt is free advertising for my stall. I should be charging YOU.'),
+    M("She's sharper than a shearing blade, this one."),
+    N("Her name was Malee. She ran the best stall in the market \u2014 and by the end of the week, Mac had forgotten to call home.")] },
+  m3: { back: 'farm', other: 'malee', lines: [
+    MAL("Your farm is next to my aunt's rice paddy. Khwai keeps eating her rice, by the way."),
+    M("Sorry about the buffalo."),
+    MAL("Don't apologise. Come to dinner on Sunday. And wear the loud shirt."),
+    MAL('Oh \u2014 the bank needs the farm deed in a Thai name. Sign here. It is only paperwork.'),
+    M('Anything for you, love.'),
+    N('Dinner became Sunday lunch. Sunday lunch became a habit. Somewhere in Australia, a phone rang and rang.')] },
+  m4: { back: 'farm', other: 'malee', lines: [
+    N('Months passed in a blur of mango rice and farm work. Then, one rainy morning...'),
+    MAL('Mac. This is Fon. She has your nose \u2014 and your terrible taste in shirts.'),
+    M('...Crikey. I have a daughter.'),
+    CHOICE('malee', 'I need to ask you something, and I want the truth. Is there anyone else, Mac? Anyone at all?', [['Tell her about Kylie', 'honest'], ['Tell her there is nobody', 'lie']]),
+    CF('mac', "There's Kylie. My wife in Australia. I should've told you the day we met.", 'honest'),
+    CF('malee', '...I see. Thank you for telling me. That is the only reason I am still standing here.', 'honest'),
+    CF('mac', "Nobody, love. Only you and Fon. I swear.", 'lie'),
+    CF('malee', 'Good. Because I would hate to find out another way.', 'lie'),
+    N('Mac now had two families, on opposite sides of the world \u2014 and a very big secret.')] },
+  m5: { back: 'bar', other: 'chai', lines: [
+    CH_('Two families, Mac? One in Wagga, one by the farm. Oh, I know everything.'),
+    M('Keep your voice down, mate!'),
+    MAL('Fon wants to know when you are home. Say goodnight to her.', true),
+    M("Night, sweetheart. Daddy's almost done."),
+    N('Two phones. Two time zones. One very bad plan.')] },
   s0: { back: 'bar', other: 'noi', lines: [
     NO('You are the loud farang with the cash fan? Welcome to Siam Nights. I am Auntie Noi.'),
     M("Pleased to meet ya, Auntie. I'm here to buy the whole bar a round."),
@@ -1241,6 +1282,9 @@ const STORY = {
   s1: { back: 'bar', other: 'chai', lines: [
     CH_("A farmer? At Patong? My yacht is bigger than your whole plot of land."),
     M("Nice boat, mate. I'll have these tabs paid before you finish that fancy cocktail."),
+    CHOICE('chai', 'A little wager, farmer. Double or nothing on your night. Care to bet?', [['Take the bet (goal +15%, \u0e3f4,000 prize)', 'bet', 'Bet against Chai'], ['Decline politely', 'polite', 'Declined Chai\'s bet']]),
+    CF('mac', "You're on, mate.", 'bet'), CF('chai', 'Splendid. Pay fast, farmer. My money is watching.', 'bet'),
+    CF('mac', "Nah, mate. I'll beat you fair and square.", 'polite'), CF('chai', 'Hm. A farmer with manners. How refreshing.', 'polite'),
     K("How's the farm going?? Maybe we put the mansion in BOTH our names? :)"),
     M("Sweet as! She's the best."),
     CH_('Hm. We shall see, farmer. Chai always gets the last laugh.')] },
@@ -1253,7 +1297,10 @@ const STORY = {
   s3: { back: 'bar', other: 'chai', lines: [
     CH_('Last chance to quit, Mac. The Skyline Lounge eats farmers alive.'),
     M("I've wrestled a bull in Wagga. Your rooftop doesn't scare me."),
-    K("Send me copies of everything, love. I'll keep them safe. All of it."),
+    CHOICE('nar', 'Your phone buzzes. It is Kylie, again.', [['Answer the call', 'answer', 'Answered Kylie'], ['Let it ring', 'ignore', 'Ignored Kylie']]),
+    CF('kylie', 'There you are! I miss you. Send me copies of everything, love. I will keep them safe. All of it.', 'answer'),
+    CF('mac', 'Miss you too, Ky.', 'answer'),
+    CF('nar', 'The phone rang out. A voicemail pinged: "Call me back. We need to talk about the paperwork."', 'ignore'),
     N("Mac didn't notice the odd little tone in her voice.")] },
   s4: { back: 'bar', other: 'noi', lines: [
     NO('Your wife called the bar. She asked how rich you are. Twice.'),
@@ -1262,19 +1309,28 @@ const STORY = {
     M("The mansion is so close I can smell the fresh paint. Let's pour one for the pool club.")] },
   s5: { back: 'bar', other: 'chai', lines: [
     CH_('Final table, Mac. Everything you have built rides on tonight.'),
+    CHOICE('chai', 'Take \u0e3f8,000 from me tonight. In return I take 15% of your farm. Business?', [['Take the deal (+\u0e3f8,000 now)', 'deal', 'Took Chai\'s deal'], ['Refuse', 'refuse', 'Refused Chai\'s deal']]),
+    CF('mac', 'Pleasure doing business, mate.', 'deal'), CF('chai', 'The pleasure is entirely mine.', 'deal'),
+    CF('mac', 'Not a chance. The farm is not for sale.', 'refuse'), CF('chai', 'Principled. Foolish. But principled.', 'refuse'),
     M("All I ever wanted was that mansion. Let's go."),
     K("Come home after, babe. I have a little surprise for you."),
     N('...Mac really should have asked what kind of surprise.')] },
 };
 function startStory(id, next) { story = STORY[id]; if (!storyOn || !story) { story = null; next(); return; } sIdx = 0; sChars = 0; sNext = next; state = 'story'; }
-function storyAdvance() { if (!story) return; const L = story.lines[sIdx]; if (sChars < L.t.length) { sChars = L.t.length; return; } sIdx++; sChars = 0; beep(520, .05, 'triangle', .05); if (sIdx >= story.lines.length) { const n = sNext; story = null; n(); } }
+const skipLn = q => (q.if && !flag(q.if)) || (q.ifnot && flag(q.ifnot));
+function nextLine() { sIdx++; sChars = 0; while (sIdx < story.lines.length && skipLn(story.lines[sIdx])) sIdx++; }
+function pickChoice(i) { const L = story.lines[sIdx]; if (!L.ch) return; camp.flags = camp.flags || {}; camp.log = camp.log || []; L.ch.forEach(c => delete camp.flags[c[1]]); const c = L.ch[i]; camp.flags[c[1]] = true; if (c[2]) camp.log.push(c[2]); if (c[1] === 'honest') unlock('honest'); if (c[1] === 'lie') unlock('twotimer'); saveCamp(); beep(660, .1, 'triangle', .08); advanceAfter(); }
+function advanceAfter() { nextLine(); if (sIdx >= story.lines.length) { const n = sNext; story = null; n(); } }
+function storyAdvance() { if (!story) return; const L = story.lines[sIdx]; if (sChars < L.t.length) { sChars = L.t.length; return; } if (L.ch) return; sIdx++; sChars = 0; while (sIdx < story.lines.length && skipLn(story.lines[sIdx])) sIdx++; beep(520, .05, 'triangle', .05); if (sIdx >= story.lines.length) { const n = sNext; story = null; n(); } }
 function skipStory() { const n = sNext; story = null; n(); }
 function toggleStory() { storyOn = !storyOn; try { localStorage.setItem('macattack_story', storyOn ? '1' : '0'); } catch (e) {} }
 const CHARS = {
+  malee: { skin: '#d9a066', shirt: '#ff7a45', hair: '#111', hairStyle: 'long', pants: '#2a2a3a', shoes: '#333' },
+  fon: { skin: '#d9a066', shirt: '#ffd54a', hair: '#111', hairStyle: 'bun', pants: '#3a5a9a', shoes: '#fff' },
   noi: { skin: '#c9976a', shirt: '#2e8b57', hair: '#d8d8d8', hairStyle: 'bun', pants: '#333', shoes: '#444' },
   chai: { skin: '#d9a066', shirt: '#f4f4f4', hair: '#111', hairStyle: 'short', shades: true, chain: true, pants: '#333', shoes: '#111' },
   kylie: { skin: '#f1c27d', shirt: '#d81b60', hair: '#7a2a12', hairStyle: 'long', pants: '#333', shoes: '#111' }};
-const SNAME = { mac: 'MAC', kylie: 'KYLIE (on the phone)', noi: 'AUNTIE NOI', chai: 'CHAI', buffalo: 'KHWAI THE BUFFALO', nar: '' }, SCOL = { mac: '#ff9a1f', kylie: '#ff6fae', noi: '#5fe0a0', chai: '#c9b6ff', buffalo: '#cdbf9a', nar: '#ddd' };
+const SNAME = { mac: 'MAC', kylie: 'KYLIE (on the phone)', noi: 'AUNTIE NOI', chai: 'CHAI', malee: 'MALEE', buffalo: 'KHWAI THE BUFFALO', nar: '' }, SCOL = { mac: '#ff9a1f', kylie: '#ff6fae', noi: '#5fe0a0', chai: '#c9b6ff', malee: '#ffb066', buffalo: '#cdbf9a', nar: '#ddd' };
 function wrapText(s, w, size) { g.font = `bold ${size}px ${UI}`; const out = []; let cur = ''; for (const wd of s.split(' ')) { const tst = cur ? cur + ' ' + wd : wd; if (g.measureText(tst).width > w && cur) { out.push(cur); cur = wd; } else cur = tst; } out.push(cur); return out; }
 function drawStory() {
   if (!story) return; const L = story.lines[sIdx], typing = sChars < L.t.length;
@@ -1286,15 +1342,17 @@ function drawStory() {
     if (story.other === 'buffalo') { g.save(); g.globalAlpha = L.w === 'buffalo' ? 1 : .8; drawBuffalo(700, 474, 1.3, typing && L.w === 'buffalo', true); g.restore(); }
     else if (story.other) { const o = story.other; g.save(); g.globalAlpha = L.w === o ? 1 : .72; actor(690, 470, 1.7, Object.assign({ pose: 'idle', noLegs: true, fx: 'plain', facing: -1, ph: 2, mouth: L.w === o ? mouth : 'smile' }, CHARS[o])); g.restore(); }
   }
-  if (L.w === 'kylie' || (story.back === 'plot' && sIdx === 2)) {
-    const cx = 760, cy = 175; g.save(); g.beginPath(); g.arc(cx, cy, 80, 0, TAU); g.clip(); fillRR(cx - 80, cy - 80, 160, 160, 0, lg(0, cy - 80, 0, cy + 80, ['#ffd1e6', '#ff8fbf'])); actor(cx, cy + 92, 1.5, Object.assign({ pose: 'idle', noLegs: true, fx: 'plain', ph: 4, mouth }, CHARS.kylie)); g.restore();
-    g.strokeStyle = '#ff6fae'; g.lineWidth = 5; g.beginPath(); g.arc(cx, cy, 80, 0, TAU); g.stroke(); txt('☎ Kylie (calling from Australia)', cx, cy + 108, 12, '#ffd1e6', 'center', '#000');
+  const phone = L.w === 'kylie' || L.ph || (story.back === 'plot' && sIdx === 2), who = L.w === 'malee' ? 'malee' : 'kylie';
+  if (phone) {
+    const cx = 760, cy = 175; g.save(); g.beginPath(); g.arc(cx, cy, 80, 0, TAU); g.clip(); fillRR(cx - 80, cy - 80, 160, 160, 0, lg(0, cy - 80, 0, cy + 80, ['#ffd1e6', '#ff8fbf'])); actor(cx, cy + 92, 1.5, Object.assign({ pose: 'idle', noLegs: true, fx: 'plain', ph: 4, mouth }, CHARS[who])); g.restore();
+    g.strokeStyle = who === 'malee' ? '#ffb066' : '#ff6fae'; g.lineWidth = 5; g.beginPath(); g.arc(cx, cy, 80, 0, TAU); g.stroke(); txt(who === 'malee' ? '☎ Malee (calling from the farm)' : '☎ Kylie (calling from Australia)', cx, cy + 108, 12, '#ffd1e6', 'center', '#000');
   }
   panel(40, 404, 820, 136, 14);
-  if (L.w !== 'nar') { fillRR(56, 388, Math.max(110, SNAME[L.w].length * 11 + 30), 30, 8, SCOL[L.w]); txt(SNAME[L.w], 70, 409, 14, '#111'); }
+  if (L.w !== 'nar') { const nm = SNAME[L.w] + (L.ph && L.w !== 'kylie' ? ' (on the phone)' : ''); fillRR(56, 388, Math.max(110, nm.length * 11 + 30), 30, 8, SCOL[L.w]); txt(nm, 70, 409, 14, '#111'); }
   const lines = wrapText(L.t, 780, 17); let left = Math.floor(sChars);
   lines.forEach((ln, i) => { const part = ln.slice(0, Math.max(0, left)); left -= ln.length + 1; txt(part, 60, 446 + i * 26, 17, L.w === 'nar' ? '#ddd' : '#fff'); });
-  if (!typing && Math.floor(t * 2) % 2) txt('▼', 836, 526, 14, '#ffd54a', 'center');
+  if (L.ch && !typing) { const n = L.ch.length, bw = (840 - (n - 1) * 16) / n; L.ch.forEach((c, i) => button((i + 1) + '.  ' + c[0], 30 + i * (bw + 16), 336, bw, 44, () => pickChoice(i), 13)); }
+  else if (!typing && Math.floor(t * 2) % 2) txt('▼', 836, 526, 14, '#ffd54a', 'center');
   txt((sIdx + 1) + ' / ' + story.lines.length, 60, 528, 10, '#999');
   button('SKIP STORY »', W - 170, 16, 150, 34, skipStory, 12);
   txt(TOUCH ? 'tap to continue' : 'click / SPACE to continue', W / 2, 24, 12, '#ddd', 'center', '#000');
@@ -1305,7 +1363,7 @@ const isDay = () => ST && (ST.theme === 1 || ST.theme === 4);
 const sunSkin = () => { const k = isDay() ? sun : 0, a = [224, 172, 105], b = [226, 70, 52]; return 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',') + ')'; };
 function spawnMonkey() { monkey = { x: -40, y: 290, hit: false, spin: 0, stole: false, vy: 0 }; floatText(450, 200, 'MONKEY BANDIT!', '#ff8a00'); beep(700, .1, 'square', .06); beep(520, .1, 'square', .06); }
 function swatMonkey() {
-  if (!monkey || monkey.hit || state !== 'tab') return; monkey.hit = true; monkey.vy = -9; const bounty = Math.round(GOAL * .03 / 10) * 10; cash += bounty; roundNet += bounty;
+  if (!monkey || monkey.hit || state !== 'tab') return; monkey.hit = true; stat.monkeys++; monkey.vy = -9; const bounty = Math.round(GOAL * .03 / 10) * 10; cash += bounty; roundNet += bounty;
   floatText(monkey.x, 250, 'BONK! +' + CUR + bounty.toLocaleString(), '#7CFF7C'); shake = 6; kaching(); unlock('monkey'); for (let i = 0; i < 10; i++) coin(monkey.x, monkey.y);
 }
 function updateMonkey(dt) {
@@ -1327,7 +1385,7 @@ function drawMonkey() {
 }
 function useShout() {
   if (state !== 'tab' || paused || shoutLeft <= 0) return; const open = bills.filter(b => !b.done); if (!open.length) return;
-  shoutLeft--; rAll = false; for (const b of open) { b.done = true; b.res = 0; floatText(billX(b.slot) + 50, 360, 'SHOUT!', '#ffd54a'); } shake = 8; floatText(450, 220, "YOUR SHOUT, MATE!", '#ffd54a'); [392, 523, 659, 784].forEach((f, i) => tone(f, .2, 'triangle', .1, i * .07)); unlock('shout');
+  shoutLeft--; stat.shouts++; rAll = false; for (const b of open) { b.done = true; b.res = 0; floatText(billX(b.slot) + 50, 360, 'SHOUT!', '#ffd54a'); } shake = 8; floatText(450, 220, "YOUR SHOUT, MATE!", '#ffd54a'); [392, 523, 659, 784].forEach((f, i) => tone(f, .2, 'triangle', .1, i * .07)); unlock('shout');
 }
 function useSunscreen() { if (state !== 'tab' || paused || !isDay() || sunCd > 0 || sun < .05) return; sun = 0; sunCd = 5; floatText(120, 330, 'SPF 50+!', '#ffe27a'); beep(900, .15, 'sine', .08); }
 // ---------- road-trip pickups: tinnies, roos, and the dreaded huntsman ----------
@@ -1392,6 +1450,46 @@ function drawBuffalo(x, y, s, talk, flip) {
 }
 const BUFF_LINES = ['Moo-ve over, farang!', 'You drive faster than a buffalo.', 'I have seen your tab. It is... large.', 'Pat me for luck. Gently.', 'Water buffalo. Not "cow". Respect.', 'Is that a kangaroo? Tell it I said hi.'];
 let buff = null;
+// ---------- polish: ability bar, fever, stats, tips, how-to ----------
+let feverT = 0, summaryT = 0, tipT = 0, tipMsg = '', tipSeen = {}, stat = { paid: 0, best: 0, late: 0, perfect: 0, monkeys: 0, shouts: 0 };
+try { tipSeen = JSON.parse(localStorage.getItem('macattack_tips')) || {}; } catch (e) {}
+function tip(key, msg) { if (tipSeen[key]) return; tipSeen[key] = 1; try { localStorage.setItem('macattack_tips', JSON.stringify(tipSeen)); } catch (e) {} tipMsg = msg; tipT = 5.5; }
+function abBtn(cx, cy, label, key, ready, frac, fn, icon) {
+  const r = 24, hov = mouse[0] >= cx - r && mouse[0] <= cx + r && mouse[1] >= cy - r && mouse[1] <= cy + r + 12; btns.push({ x: cx - r, y: cy - r, w: r * 2, h: r * 2 + 14, fn });
+  g.save(); g.shadowColor = ready ? '#ff9a00' : '#000'; g.shadowBlur = hov ? 22 : 10; ell(cx, cy + (hov && mdown ? 2 : 0), r, r, ready ? lg(0, cy - r, 0, cy + r, hov ? ['#fff0a0', '#f0a800'] : ['#ffd54a', '#d98e00']) : 'rgba(40,30,40,.9)'); g.restore();
+  g.strokeStyle = ready ? 'rgba(90,50,0,.8)' : 'rgba(255,255,255,.2)'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, r - 1, 0, TAU); g.stroke();
+  if (frac < 1) { g.strokeStyle = '#7ae7ff'; g.lineWidth = 4; g.beginPath(); g.arc(cx, cy, r + 4, -Math.PI / 2, -Math.PI / 2 + TAU * frac); g.stroke(); }
+  g.save(); g.translate(cx, cy); g.strokeStyle = ready ? '#2a1500' : '#777'; g.fillStyle = g.strokeStyle; g.lineWidth = 2.6; g.lineCap = 'round'; icon(); g.restore();
+  txt(label + (TOUCH || !key ? '' : ' ' + key), cx, cy + r + 12, 9, ready ? '#fff' : '#888', 'center', '#000');
+}
+const icPause = () => { g.fillRect(-7, -8, 5, 16); g.fillRect(2, -8, 5, 16); };
+const icClock = () => { g.beginPath(); g.arc(0, 1, 11, 0, TAU); g.stroke(); g.beginPath(); g.moveTo(0, 1); g.lineTo(0, -6); g.moveTo(0, 1); g.lineTo(5, 4); g.stroke(); g.fillRect(-3, -15, 6, 3); };
+const icShout = () => { g.beginPath(); g.moveTo(-12, -7); g.lineTo(12, -7); g.lineTo(12, 7); g.lineTo(2, 7); g.lineTo(-5, 13); g.lineTo(-4, 7); g.lineTo(-12, 7); g.closePath(); g.stroke(); g.fillRect(-1.5, -4, 3, 6); g.fillRect(-1.5, 4, 3, 2); };
+const icSun = () => { g.beginPath(); g.arc(0, 0, 6, 0, TAU); g.fill(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.beginPath(); g.moveTo(Math.cos(a) * 9, Math.sin(a) * 9); g.lineTo(Math.cos(a) * 14, Math.sin(a) * 14); g.stroke(); } };
+function abilityBar() {
+  if (state !== 'tab' && state !== 'wait') return;
+  abBtn(36, 336, 'PAUSE', 'P', true, 1, togglePause, icPause);
+  if (state !== 'tab') return;
+  if (isDay()) abBtn(96, 336, 'SUNSCREEN', 'C', sunCd <= 0 && sun >= .05, sunCd > 0 ? 1 - sunCd / 5 : 1, useSunscreen, icSun);
+  abBtn(W - 96, 336, 'SLOW-MO', 'S', slowLeft > 0 && slowT <= 0, slowT > 0 ? slowT / 2.5 : 1, useSlow, icClock);
+  abBtn(W - 36, 336, 'SHOUT', 'X', shoutLeft > 0, 1, useShout, icShout);
+  if (slowLeft > 1) txt('x' + slowLeft, W - 80, 316, 11, '#7ae7ff', 'center');
+}
+function feverHud() { if (feverT > 0 && state === 'tab') { panel(W - 170, 80, 160, 22, 8); fillRR(W - 164, 88, 148 * (feverT / 8), 8, 4, '#ff8a00'); txt('FLEX FEVER +0.1x', W - 90, 98, 9, '#fff', 'center'); } }
+function drawTip() { if (tipT > 0) { g.globalAlpha = Math.min(1, tipT); panel(W / 2 - 290, 352, 580, 34, 10); txt('TIP  ' + tipMsg, W / 2, 374, 12, '#7ae7ff', 'center'); g.globalAlpha = 1; } }
+function drawHow() {
+  g.fillStyle = lg(0, 0, 0, H, ['#12082a', '#2a0f3a', '#0a0710']); g.fillRect(0, 0, W, H); glow(W / 2, 120, 420, '#7a1f5a', .4);
+  big('HOW TO PLAY', 90, '#fff6b0', '#ffb300', '#ff9a00', 58); panel(70, 115, 760, 360);
+  const rows = [['฿', 'Ring the bell. Tabs appear. PAY them fast — a green bar pays up to 1.35x back, a red bar loses you money.'],
+    ['!', 'A late tab costs the bill plus a fee. Hit ฿0 (or miss the stage goal) and security throws you out.'],
+    ['★', 'Combo x5 starts FLEX FEVER: +0.1x on every payout for 8 seconds. VIP tabs are bigger, shorter and riskier.'],
+    ['▶', 'Abilities: SLOW-MO (S) • SHOUT pays every tab at once (X) • SUNSCREEN on beach venues (C) • swat monkeys (B).'],
+    ['⌂', 'Hit each stage\'s profit goal to build Mac\'s farm. Three strikes and the bank repossesses it.'],
+    ['⌨', TOUCH ? 'Tap the tabs. Rotate your phone to landscape.' : 'Click a tab or press 1-8 • P pause • M mute • Space rings the bell.']];
+  rows.forEach((r, i) => { const y = 148 + i * 54; fillRR(88, y, 38, 38, 10, 'rgba(255,213,74,.18)'); txt(r[0], 107, y + 27, 20, '#ffd54a', 'center'); wrapText(r[1], 660, 14).forEach((ln, k) => txt(ln, 142, y + 16 + k * 18, 14, '#eee')); });
+  button('BACK', W / 2 - 80, 488, 160, 44, closeLB, 16);
+}
+function openHow() { if (state !== 'howto') lbReturn = state; state = 'howto'; }
 function post(nb) {
   // bloom: downsample, square (threshold-ish), add back
   if (!nb) {
@@ -1447,11 +1545,12 @@ addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); ringBell(); }
   // test hotkeys: E = jump to the ending, N = force-clear current stage, F = force-fail current stage
   if (state !== 'title' || e.code === 'KeyE') {
-    if (e.code === 'KeyE') { camp = { stage: STAGES.length, invested: 61300, stars: [3, 2, 3, 2, 3, 2], strikes: 3, fails: 0, diff: 1 }; clearInfo = null; startEnding(); }
+    if (e.code === 'KeyE') { camp = { stage: STAGES.length, invested: 61300, stars: [3, 2, 3, 2, 3, 2], strikes: 3, fails: 0, diff: 1, flags: {}, log: [] }; clearInfo = null; startEnding(); }
     else if (e.code === 'KeyN' && ['wait', 'tab', 'summary', 'intro'].includes(state)) { if (state === 'intro') prepStage(); bills = []; spawnQ = []; cash = START_CASH + GOAL * 2; stageClear(); }
     else if (e.code === 'KeyF' && ['wait', 'tab', 'summary'].includes(state)) { cash = 0; endReason = 'bankrupt'; startKick('bankrupt'); }
   }
   if (state === 'vs' && e.code in VSCODE) { vsPay(bills.findIndex(b => b.slot === VSCODE[e.code] && !b.done)); return; }
+  { const n0 = parseInt(e.key); if (state === 'story' && story && story.lines[sIdx].ch && sChars >= story.lines[sIdx].t.length && n0 >= 1 && n0 <= story.lines[sIdx].ch.length) { pickChoice(n0 - 1); return; } }
   const n = parseInt(e.key); if (state === 'tab' && n >= 1 && n <= 8) pay(bills.findIndex(b => b.slot === n - 1 && !b.done));
 });
 
