@@ -1434,17 +1434,33 @@
   ].join('\n');
   const SKY_FRAG = [
     'uniform vec3 top; uniform vec3 horizon; uniform vec3 ground; uniform vec3 sunDir; uniform vec3 sunCol;',
-    'uniform float glow; uniform float stars; uniform float haze;',
+    'uniform float glow; uniform float stars; uniform float haze; uniform float time; uniform float clouds;',
     'varying vec3 vDir;',
     'float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }',
+    'float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+    'float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y); }',
+    'float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * vn(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }',
     'void main() {',
     '  vec3 d = normalize(vDir);',
-    '  vec3 c = d.y >= 0.0 ? mix(horizon, top, pow(d.y, 0.6)) : mix(horizon, ground, min(1.0, -d.y * 3.0));',
-    // a band of haze where the sky meets the city
+    // the gradient: a little brighter low down (the light scattered through the haze), deep overhead
+    '  vec3 c = d.y >= 0.0 ? mix(horizon, top, pow(d.y, 0.55)) : mix(horizon, ground, min(1.0, -d.y * 3.0));',
     '  c = mix(c, horizon * 1.06 + 0.02, haze * exp(-abs(d.y) * 14.0));',
-    // the sun behind the cloud: a wide soft glow, a brighter core
-    '  float s = max(dot(d, normalize(sunDir)), 0.0);',
+    // the sun: a wide soft glow, a brighter core, and (when it's low and the cloud thins) the disc
+    '  vec3 sd = normalize(sunDir);',
+    '  float s = max(dot(d, sd), 0.0);',
     '  c += sunCol * glow * (0.55 * pow(s, 5.0) + 0.45 * pow(s, 48.0));',
+    // the cloud: a drifting layer, lit on the side towards the sun, dark beneath; thinning to the horizon
+    '  float cov = 0.0;',
+    '  if (clouds > 0.0 && d.y > 0.0) {',
+    '    vec2 uv = d.xz / (d.y + 0.14) * 1.4 + vec2(time * 0.010, time * 0.0035);',
+    '    float n = fbm(uv);',
+    '    cov = smoothstep(1.05 - clouds, 1.4 - clouds, n) * smoothstep(0.0, 0.22, d.y);',
+    '    float lit = clamp((n - fbm(uv - sd.xz * 0.12)) * 4.0 + 0.55, 0.0, 1.0);',
+    '    vec3 cLit = horizon * 1.1 + sunCol * glow * 0.22, cDark = mix(top, horizon, 0.35) * 0.66;',
+    '    vec3 cc = mix(cDark, cLit, lit) + sunCol * glow * pow(s, 10.0) * (1.0 - cov) * 0.9;',
+    '    c = mix(c, cc, cov * 0.92);',
+    '  }',
+    '  c += sunCol * smoothstep(0.99935, 0.9997, s) * clamp(glow * 1.6 - 0.25, 0.0, 1.0) * (1.0 - cov);',
     // stars, high up, when it is dark
     '  if (stars > 0.0 && d.y > 0.06) {',
     '    vec3 cell = floor(d * 260.0);',
@@ -1463,7 +1479,7 @@
       uniforms: {
         top: { value: new THREE.Color(0x4a5868) }, horizon: { value: new THREE.Color(0x9aa2a8) }, ground: { value: new THREE.Color(0x3a3a3a) },
         sunDir: { value: new THREE.Vector3(0.4, 0.5, 0.3) }, sunCol: { value: new THREE.Color(1, 0.96, 0.88) },
-        glow: { value: 0.2 }, stars: { value: 0 }, haze: { value: 0.35 },
+        glow: { value: 0.2 }, stars: { value: 0 }, haze: { value: 0.35 }, time: { value: 0 }, clouds: { value: 0.5 },
       },
       vertexShader: SKY_VERT,
       fragmentShader: SKY_FRAG,
@@ -1597,6 +1613,7 @@
       su.sunDir.value.fromArray((d.exterior && d.exterior.sunDir) || [0.4, 0.5, 0.3]);
       su.glow.value = sky.glow !== undefined ? sky.glow : 0.22;
       su.sunCol.value.set(sky.sun || 0xfff2dc);
+      su.clouds.value = sky.clouds !== undefined ? sky.clouds : 0.55;
       this.base = { top: su.top.value.clone(), horizon: su.horizon.value.clone(), ground: su.ground.value.clone(), stars: su.stars.value, glow: su.glow.value, fog: new THREE.Color(fog.color), fogOut: fo ? new THREE.Color(fo.color) : null, lights: [this.ambient.intensity, this.hemi.intensity, this.dir.intensity] };
       this.tod = null;
       this.todLight = undefined;
@@ -1666,7 +1683,7 @@
       delete this.zones[id];
     },
     update(dt, camera) {
-      if (this.sky && camera) this.sky.position.set(camera.position.x, 0, camera.position.z);
+      if (this.sky && camera) { this.sky.position.set(camera.position.x, 0, camera.position.z); this.sky.userData.dome.material.uniforms.time.value += dt; }
       if (this.current) this.timeOfDay(this.current);
       const fb = this.fogBlend;
       if (fb && camera && this.current) {

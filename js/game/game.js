@@ -34,6 +34,7 @@
       DV.Tex.aniso = Math.min(4, this.renderer.capabilities.getMaxAnisotropy ? this.renderer.capabilities.getMaxAnisotropy() : 1);
       this.renderer.setPixelRatio(1);
       this.renderer.outputEncoding = THREE.LinearEncoding;
+      this.renderer.info.autoReset = false; // (reset once a frame: the frame is drawn in two passes)
       this.scene = new THREE.Scene();
       // far plane reaches the hazy city edge, the marsh and the Ferris wheel
       this.camera = new THREE.PerspectiveCamera(DV.Config.CAMERA.fov, 16 / 9, 0.08, 1100);
@@ -368,7 +369,7 @@
       DV.World.update(dt, this.camera);
       DV.Soundscape.update(dt);
       DV.Cursor.update(this);
-      this.renderer.render(this.scene, this.camera);
+      DV.Post.render(this.renderer, this.scene, this.camera, dt); // (the film look over it: js/engine/post.js)
       DV.Input.endFrame();
     },
 
