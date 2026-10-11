@@ -80,11 +80,14 @@ L.run('side quests, menus, save/load', async (p, T, errs) => {
   // sit and wait an hour
   await ev(() => { QA.tp(30, 33); DV.Game.sitOn(DV.World.current.spot('hb_w3a_s3')); });
   const t0 = await ev(() => DV.Clock.minutes());
-  await p.keyboard.press('KeyT'); await p.waitForTimeout(300);
+  await p.keyboard.press('KeyT');
+  // (the key is read on the next game frame: in a slow software-rendered frame that's more than a moment)
+  await p.waitForFunction(() => !!document.querySelector('#waitmenu .btn'), null, { timeout: 8000 }).catch(() => {});
   // the wait menu keeps the mouse captured, so click through the in-game cursor
   T.eq(await ev(() => QA.click('#waitmenu .btn', 'Wait')), 'ok', 'Wait clicked with the in-game cursor');
   // (the hour goes by in a time-lapse)
-  await p.waitForFunction(() => DV.Game.state === 'playing' && !DV.Wait.running, null, { timeout: 15000 }).catch(() => {});
+  // (right after the click it may not have started yet: wait for the clock itself, then for it to finish)
+  await p.waitForFunction((t0) => DV.Clock.minutes() - t0 >= 59 && DV.Game.state === 'playing' && !DV.Wait.running, t0, { timeout: 25000 }).catch(() => {});
   T.ok(await ev((t0) => DV.Clock.minutes() - t0 >= 59, t0), 'waiting on a bench passes the hour');
   // save, reload, continue
   T.ok(await ev(() => DV.Save.write('2').ok), 'saved to slot 2');
