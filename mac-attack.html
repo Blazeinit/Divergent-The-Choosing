@@ -39,7 +39,7 @@ let cash, round, combo, bills, floats, parts, bellAnim, t = 0, roundNet, best = 
 let travT = 0, coinsT = [], roadBonus = 0, roadCap = 0, travSpawn = 0, tSay = 0, macCheer = 0, perk = null, perkChoices = [], windUsed = false, slowLeft = 1, slowT = 0, waived = false, paused = false, muted = false, tutDone = false;
 try { muted = localStorage.getItem('macattack_muted') === '1'; tutDone = localStorage.getItem('macattack_tut') === '1'; } catch (e) {}
 let GOAL = 5500, evt = null, evtT = 0, lbReturn = 'title', lbNew = -1, savedScore = false;
-let farmT = 99, farmShown = 0, fwAcc = 0, fw = [], camp, saved = null, ST, failInfo = null, clearInfo = null, btns = [], mouse = [0, 0];
+let farmT = 99, farmShown = 0, fwAcc = 0, fw = [], camp, saved = null, ST, failInfo = null, clearInfo = null, btns = [], mouse = [0, 0], mdown = false, fadeT = 0, lastDrawState = '', grainC = null, grainN = 0;
 let shake = 0, dispCash = 10000, endReason = 'win', kickT = 0, kickFlags = {}, coinAcc = 0, manPos = [426, 200];
 try { best = +localStorage.getItem('macattack_best') || 0; } catch (e) {}
 
@@ -87,9 +87,9 @@ const DIFF = [
   { name: 'BRUTAL', life: .76, target: 1.45, late: 1.75, vip: .28, mult: 1.6, desc: 'Tight timers, huge goals, savage late fees' }];
 const D = () => DIFF[camp && camp.diff != null ? camp.diff : 1];
 const EVENTS = [
-  { name: 'RUSH HOUR', sub: 'Timers -25%', life: .75, col: '#ff5148' }, { name: 'BIG SPENDERS', sub: 'Bills +50%', amt: 1.5, col: '#ffd54a' },
-  { name: 'PACKED HOUSE', sub: 'One extra tab', extra: 1, col: '#ff7ac6' }, { name: 'HAPPY HOUR', sub: 'Payouts +10%', pay: .1, col: '#7CFF7C' }];
-const payMult = (b, frac) => (b.vip ? .5 + 1.0 * frac : .55 + .8 * frac) + (evt && evt.pay ? evt.pay : 0) + (perk === 'gold' ? .08 : 0);
+  { name: 'ARVO RUSH', sub: 'Timers -25%', life: .75, col: '#ff5148' }, { name: 'BIG SPENDERS', sub: 'Bills +50%', amt: 1.5, col: '#ffd54a' },
+  { name: 'FULL HOUSE, MATE', sub: 'One extra tab', extra: 1, col: '#ff7ac6' }, { name: "BEER O'CLOCK", sub: 'Payouts +10%', pay: .1, col: '#7CFF7C' }];
+const payMult = (b, frac) => (b.vip ? .5 + 1.0 * frac : .55 + .8 * frac) + (evt && evt.pay ? evt.pay : 0) + (perk === 'gold' ? .08 : 0) - (state === 'tab' && isDay() ? (sun >= 1 ? .1 : sun > .7 ? .04 : 0) : 0);
 // ---------- leaderboard (stored on this device) ----------
 const LBKEY = 'macattack_lb_v1';
 function loadLB() { try { const a = JSON.parse(localStorage.getItem(LBKEY)); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
@@ -111,11 +111,11 @@ function loadCamp() { try { const s = JSON.parse(localStorage.getItem(SAVEKEY));
 // ---------- game flow ----------
 function prepStage() {
   ST = STAGES[camp.stage]; GOAL = Math.round(ST.target * D().target / 100) * 100; evt = null; ROUNDS = ST.rounds; START_CASH = ST.stake;
-  cash = START_CASH + roadBonus; dispCash = cash; slowLeft = 1; slowT = 0; windUsed = false; shake = 0; round = 0; combo = 0; bills = []; floats = []; parts = []; spawnQ = []; bellAnim = 0; roundNet = 0;
+  cash = START_CASH + roadBonus; dispCash = cash; slowLeft = perk === 'thongs' ? 2 : 1; slowT = 0; sun = 0; sunCd = 0; shoutLeft = 1; monkey = null; monkeyAt = 0; windUsed = false; shake = 0; round = 0; combo = 0; bills = []; floats = []; parts = []; spawnQ = []; bellAnim = 0; roundNet = 0;
 }
 function goIntro() { prepStage(); state = 'intro'; }
 function startStage() { prepStage(); state = 'wait'; }
-function newCampaign(d = 1) { vipPaid = 0; roadBonus = 0; perk = null; camp = defaultCamp(d); savedScore = false; lbNew = -1; saveCamp(); farmT = 99; farmShown = 0; clearInfo = null; state = 'farm'; }
+function newCampaign(d = 1) { vipPaid = 0; roadBonus = 0; perk = null; camp = defaultCamp(d); savedScore = false; lbNew = -1; saveCamp(); farmT = 99; farmShown = 0; clearInfo = null; state = 'farm'; startStory('prologue', () => { state = 'farm'; }); }
 function continueCamp() { roadBonus = 0; perk = null; camp = JSON.parse(JSON.stringify(saved)); farmT = 99; farmShown = camp.invested; clearInfo = null; state = 'farm'; }
 function toTitle() { saved = loadCamp(); state = 'title'; }
 function toFarm() {
@@ -144,7 +144,7 @@ function primary() {
   else if (state === 'intro') startStage();
   else if (state === 'summary') state = 'wait';
   else if (state === 'clear') toFarm();
-  else if (state === 'farm') { if (camp.stage >= STAGES.length) startEnding(); else if (camp.stage > 0) startTravel(); else startPerk(); }
+  else if (state === 'farm') { if (camp.stage >= STAGES.length) startEnding(); else startStory('b' + camp.stage, leaveFarm); }
   else if (state === 'travel') startPerk();
   else if (state === 'perk') choosePerk(perkChoices[0]);
   else if (state === 'ending') { if (endT < 15.5) endT = 15.5; else toTitle(); }
@@ -152,13 +152,14 @@ function primary() {
   else if (state === 'diff') newCampaign(1);
   else if (state === 'lb' || state === 'ach') closeLB();
   else if (state === 'vsintro') beginVS();
+  else if (state === 'story') storyAdvance();
   else if (state === 'vsend') openVSRematch();
   else if (state === 'kick') { if (kickT > 2) enterFail(); }
 }
 function ringBell() {
   if (state === 'vs') { if (vsPhase === 'between') vsT = 0; return; }
   if (state !== 'wait') { if (state !== 'tab') primary(); return; }
-  rAll = true; rSum = 0; rN = 0; slowLeft = 1; waived = false; round++; roundNet = 0; bellAnim = 1; shake = 6; ding();
+  rAll = true; rSum = 0; rN = 0; slowLeft = perk === 'thongs' ? 2 : 1; waived = false; vegieUsed = false; monkey = null; monkeyAt = round >= 1 && Math.random() < .4 ? t + 2 + Math.random() * 2.5 : 0; round++; roundNet = 0; bellAnim = 1; shake = 6; ding();
   evt = round >= 2 && Math.random() < .55 ? EVENTS[Math.floor(Math.random() * EVENTS.length)] : null; evtT = 3;
   const E = evt || {}, DF = D();
   const n = Math.min(2 + round + ST.extra + (E.extra || 0), 8), life = Math.max(2.3, (6.8 - round * .4) * ST.lifeM * DF.life * (E.life || 1) * (perk === 'time' ? 1.25 : 1));
@@ -166,8 +167,10 @@ function ringBell() {
   for (let i = 0; i < n; i++) {
     const vip = round >= 2 && Math.random() < DF.vip;
     const amt = Math.round((200 + Math.random() * 1100) * (1 + round * .18) * ST.amtM * (E.amt || 1) * (vip ? 2 : 1) / 50) * 50;
-    spawnQ.push({ at: t + .1 + Math.random() * 1.8, amt, vip, life: Math.max(2.2, life * (.7 + Math.random() * .75) * (vip ? .8 : 1)), slot: slots[i] });
+    const items = makeItems(amt, vip);
+    spawnQ.push({ at: t + .1 + Math.random() * 1.8, amt, vip, items, life: Math.max(2.2, life * (.7 + Math.random() * .75) * (vip ? .8 : 1) * itemLife(items)), slot: slots[i] });
   }
+  if (perk === 'mates' && spawnQ.length) { const it = spawnQ[Math.floor(Math.random() * spawnQ.length)]; it.amt = Math.max(50, Math.round(it.amt / 100) * 50); it.mate = true; it.items = makeItems(it.amt, it.vip); }
   spawnQ.sort((a, b) => a.at - b.at);
   state = 'tab';
   for (let i = 0; i < 25; i++) coin(450, 120);
@@ -184,7 +187,7 @@ function pay(i) {
   const frac = Math.max(0, b.left / b.life);
   const mult = payMult(b, frac);                    // 1.35x (instant) .. 0.55x (last second); VIP 1.5x .. 0.5x
   const fast = frac > .55;
-  combo = fast ? combo + 1 : 0;
+  combo = fast ? combo + 1 : (perk === 'vegie' && !vegieUsed ? (vegieUsed = true, combo) : 0);
   const bonus = 1 + (perk === 'combo' ? .1 : .05) * Math.min(combo - 1, 5) * (fast ? 1 : 0);
   const back = Math.round(b.amt * mult * bonus);
   cash += back - b.amt; roundNet += back - b.amt;
@@ -212,10 +215,11 @@ function coin(x, y) { parts.push({ x, y, vx: (Math.random() - .5) * 6, vy: -Math
 
 function update(dt) {
   for (const o of toasts) o.t -= dt; toasts = toasts.filter(o => o.t > 0);
-  if (evt) evtT -= dt; if (state === 'vs') updateVS(dt); if (slowT > 0) slowT -= dt; if (state === 'travel') updateTravel(dt);
+  if (state === 'tab') { if (isDay() && !paused) sun = Math.min(1, sun + dt * .045); sunCd = Math.max(0, sunCd - dt); if (monkeyAt && t >= monkeyAt && !monkey) { spawnMonkey(); monkeyAt = 0; } if (monkey) updateMonkey(dt); }
+  if (evt) evtT -= dt; if (state === 'story' && story) { const L = story.lines[sIdx]; if (sChars < L.t.length) { const b = Math.floor(sChars); sChars += dt * 48; if (Math.floor(sChars) % 3 === 0 && Math.floor(sChars) !== b) beep(300 + Math.random() * 60, .03, 'square', .015); } } if (state === 'vs') updateVS(dt); if (slowT > 0) slowT -= dt; if (state === 'travel') updateTravel(dt);
   t += dt; bellAnim = Math.max(0, bellAnim - dt * 1.5); shake = Math.max(0, shake - dt * 25); dispCash += (cash - dispCash) * Math.min(1, dt * 8);
   while (spawnQ.length && spawnQ[0].at <= t) {
-    const s = spawnQ.shift(); bills.push({ amt: s.amt, vip: s.vip, owner: s.owner, life: s.life, left: s.life, slot: s.slot, done: false }); beep(900, .05, 'triangle', .05);
+    const s = spawnQ.shift(); bills.push({ t0: t, amt: s.amt, vip: s.vip, items: s.items, mate: s.mate, owner: s.owner, life: s.life, left: s.life, slot: s.slot, done: false }); beep(900, .05, 'triangle', .05);
   }
   if (state === 'tab') {
     for (const b of bills) if (!b.done) { b.left -= (slowT > 0 ? dt * .2 : dt); if (b.left <= 0) expire(b); }
@@ -338,7 +342,7 @@ function actor(x, y, s, o) {
     case 'ko': aL = [-34, -4]; aR = [34, -2]; fL = [-12, 58]; fR = [16, 56]; eyes = 'x'; mouth = 'frown'; brow = 1; bob = sn(tt * 3) * .8; break;
     case 'walk': { const p = tt * (o.gait || 7); fL = [sn(p) * 17 * wm, 60 - Math.max(0, cs(p)) * 10]; fR = [-sn(p) * 17 * wm, 60 - Math.max(0, -cs(p)) * 10];
       aL = [-27 * wm - sn(p) * 6, -2 - cs(p) * 7]; aR = [27 * wm + sn(p) * 6, -2 + cs(p) * 7]; bob = Math.abs(cs(p)) * 2.5; lean = .04; break; }
-    case 'sit': bob = sn(tt * 14) * 1.1; fL = [40, 44]; fR = [30, 46]; aL = [-20, -2]; aR = [46, -64 + sn(tt * 4) * 7 - (macCheer > 0 ? 14 : 0)]; mouth = macCheer > 0 ? 'cheer' : 'smile'; look = [2, 0]; break;
+    case 'sit': bob = sn(tt * 14) * 1.1; fL = [40, 44]; fR = [30, 46]; aL = [-20, -2]; aR = [46, -64 + sn(tt * 4) * 7 - (macCheer > 0 ? 14 : 0)]; mouth = macScare > 0 ? 'scream' : macCheer > 0 ? 'cheer' : 'smile'; brow = macScare > 0 ? 1 : 0; look = [2, 0]; break;
     case 'guardIdle': aL = [11 * wm, -24]; aR = [-11 * wm, -26]; bob = sn(tt * 1.6) * 1.1; mouth = 'flat'; brow = -.8; look = [2, 0]; break;
   }
   if (o.mouth) mouth = o.mouth; if (o.brow !== undefined) brow = o.brow; if (o.tL) aL = o.tL; if (o.tR) aR = o.tR;
@@ -468,6 +472,7 @@ function drawBar() {
   // exit door
   fillRR(790, 172, 86, 118, 4, '#2a1608'); fillRR(797, 179, 72, 111, 3, lg(797, 0, 869, 0, ['#6b3a18', '#4a2610']));
   ell(851, 240, 4, 4, '#ffd54a'); fillRR(800, 150, 66, 18, 4, '#0b5a1c'); txt('EXIT', 833, 164, 13, '#8dff9d', 'center', '#2dff6a');
+  for (const fx of [315, 585]) { g.strokeStyle = '#222'; g.lineWidth = 3; g.beginPath(); g.moveTo(fx, 0); g.lineTo(fx, 16); g.stroke(); const bw = 14 + 62 * Math.abs(Math.cos(t * 7)); ell(fx, 20, bw, 3.5, 'rgba(25,15,15,.75)'); ell(fx, 19, 6, 5, '#555'); }
   // pendant lamps + light cones
   for (const lx of [180, 450, 720]) {
     g.save(); g.globalCompositeOperation = 'lighter';
@@ -488,6 +493,7 @@ function drawCounter() {
   g.fillStyle = lg(0, 283, 0, 312, ['#e0a560', '#a86a30', '#6a3d1a']); g.fillRect(0, 283, W, 29);
   g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(0, 285, W, 2);
   for (const lx of [180, 450, 720]) glow(lx, 297, 120, '#ffd9a0', .25);
+  g.save(); for (const sx of [140, 300, 540, 790]) for (let i = 0; i < 4; i++) { const k = ((t * .5 + i * .25 + sx) % 1), a = (1 - k) * .1; ell(sx + Math.sin(t * 2 + i * 2) * 5, 282 - k * 40, 5 + k * 9, 4 + k * 6, `rgba(255,255,255,${a})`); } g.restore();
   glassOfBeer(140, 297, 1.1); glassOfBeer(300, 297, 1.1); glassOfBeer(540, 300, 1.1); glassOfBeer(790, 297, 1.1);
   fillRR(0, 312, W, 248, 0, lg(0, 312, 0, 560, ['#4a2a15', '#2a150a', '#150a05']));
   for (let i = 0; i < 24; i++) { g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(i * 38, 312, 2, 248); }
@@ -530,6 +536,7 @@ function panel(x, y, w, h, r = 14) {
 function drawTab(b, i) {
   const x = billX(b.slot), y = 400, frac = Math.max(0, b.left / b.life), w = 100, h = 132;
   g.save();
+  { const ag = t - (b.t0 || 0), k = Math.min(1, Math.max(0, ag / .45)), e = 1 - Math.pow(1 - k, 3); if (k < 1) { g.globalAlpha = e; g.translate(0, -(1 - e) * 180 + Math.sin(ag * 28) * 3 * (1 - k)); } }
   if (b.done) g.globalAlpha = .4; else g.translate(0, Math.sin(t * 3 + i) * 1.5);
   g.shadowColor = 'rgba(0,0,0,.65)'; g.shadowBlur = 16; g.shadowOffsetY = 6;
   g.beginPath(); g.moveTo(x, y); g.lineTo(x + w, y); g.lineTo(x + w, y + h);
@@ -538,7 +545,9 @@ function drawTab(b, i) {
   fillRR(x, y, w, 16, 0, b.vip ? '#b8860b' : (vsIs() && b.owner != null ? ['#b86a00', '#1f5fb0'][b.owner] : '#2d2a6e')); txt((b.vip ? 'VIP ' : 'TAB ') + (vsIs() ? VSK[b.slot] : b.slot + 1), x + w / 2, y + 12, 11, '#fff', 'center');
   if (b.vip) { fillRR(x, y + 16, w, h - 16, 0, 'rgba(255,200,40,.2)'); g.strokeStyle = '#ffd54a'; g.lineWidth = 3; g.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3); }
   txt(CUR + b.amt, x + w / 2, y + 42, 26, '#1a1a1a', 'center');
-  for (let k = 0; k < 3; k++) fillRR(x + 12, y + 54 + k * 9, 76 - (k % 2) * 26, 3, 1.5, 'rgba(0,0,0,.2)');
+  if (b.items) b.items.forEach((it, k) => { const yy = y + 56 + k * 10, c = it.f === 'hot' ? '#c2410c' : it.f === 'ice' ? '#0369a1' : it.f === 'vip' ? '#8a6200' : '#555';
+    txt((it.f === 'hot' ? '\u2022 ' : it.f === 'ice' ? '\u2022 ' : '') + it.n.slice(0, 11), x + 7, yy, 7, c); if (it.p) txt(String(it.p), x + w - 7, yy, 7, c, 'right'); });
+  if (b.mate) txt("MATE'S RATE", x + w / 2, y + 86, 7, '#157a37', 'center');
   if (!b.done) {
     const mult = payMult(b, frac), c = frac > .55 ? '#2ecc71' : frac > .2 ? '#f39c12' : '#e74c3c';
     fillRR(x + 8, y + 90, 84, 9, 4.5, 'rgba(0,0,0,.25)'); fillRR(x + 8, y + 90, Math.max(2, 84 * frac), 9, 4.5, c);
@@ -606,6 +615,7 @@ function drawFarm(tier, ft) {
   g.fillStyle = lg(0, 0, 0, 330, ['#4fb0ff', '#bfe6ff', '#ffeec2']); g.fillRect(0, 0, W, H);
   glow(740, 90, 220, '#ffe9a0', .55); ell(740, 90, 34, 34, rg(738, 88, 2, 40, ['#fffbe0', '#ffd54a']));
   for (let i = 0; i < 4; i++) { const cx = ((t * 7 + i * 260) % 1160) - 130, cy = 60 + i * 34; for (const [dx, dy, r] of [[0, 0, 26], [28, 6, 32], [60, 0, 24], [30, -12, 22]]) ell(cx + dx, cy + dy, r * 1.4, r * .7, 'rgba(255,255,255,.85)'); }
+  g.strokeStyle = '#2a2a3a'; g.lineWidth = 2; for (let i = 0; i < 5; i++) { const bx = ((t * 38 + i * 70) % 1100) - 100, by = 70 + i * 16 + Math.sin(t * 2 + i) * 6, fl = Math.sin(t * 9 + i) * 5; g.beginPath(); g.moveTo(bx - 9, by - fl); g.quadraticCurveTo(bx - 4, by - 4 - fl * .5, bx, by); g.quadraticCurveTo(bx + 4, by - 4 - fl * .5, bx + 9, by - fl); g.stroke(); }
   g.fillStyle = '#9ad47a'; g.beginPath(); g.moveTo(0, 300); g.quadraticCurveTo(200, 232, 420, 292); g.quadraticCurveTo(640, 232, 900, 286); g.lineTo(900, 340); g.lineTo(0, 340); g.fill();
   g.fillStyle = '#64b04a'; g.beginPath(); g.moveTo(0, 322); g.quadraticCurveTo(300, 272, 560, 318); g.quadraticCurveTo(760, 288, 900, 312); g.lineTo(900, 360); g.lineTo(0, 360); g.fill();
   g.fillStyle = lg(0, 335, 0, 560, ['#6cbc48', '#3f8f2f', '#2b6a24']); g.fillRect(0, 335, W, 225);
@@ -655,6 +665,8 @@ function drawFarm(tier, ft) {
     for (const gx of [352, 548]) { fillRR(gx - 8, 470, 16, 70, 3, lg(gx - 8, 0, gx + 8, 0, ['#fff', '#cdc3a8'])); ell(gx, 466, 10, 10, '#ffd54a'); glow(gx, 466, 36, '#ffd54a', .6); }
     g.save(); g.translate(610, 492); ell(0, 14, 44, 8, 'rgba(0,0,0,.3)'); fillRR(-40, -12, 80, 22, 8, lg(0, -12, 0, 10, ['#ff4b4b', '#a80f1c'])); fillRR(-22, -26, 42, 18, 8, lg(0, -26, 0, -8, ['#ff6a6a', '#b8101e'])); fillRR(-16, -23, 14, 11, 4, '#bfe8ff'); fillRR(2, -23, 14, 11, 4, '#bfe8ff'); ell(-24, 10, 9, 9, '#111'); ell(-24, 10, 4, 4, '#bbb'); ell(24, 10, 9, 9, '#111'); ell(24, 10, 4, 4, '#bbb'); glow(40, -2, 26, '#fff3b0', .8); g.restore();
   });
+  if (tier === 4) for (let i = 0; i < 6; i++) { const k = ((t * .35 + i / 6) % 1); ell(498 + Math.sin(k * 6 + i) * 8 + k * 14, 228 - k * 70, 6 + k * 14, 5 + k * 10, `rgba(235,235,240,${(1 - k) * .45})`); }
+  if (tier >= 1) for (let i = 0; i < 3; i++) { const bx = 260 + i * 60 + Math.sin(t * .8 + i * 2) * 40, by = 410 + Math.cos(t * 1.3 + i * 3) * 22, wf = Math.abs(Math.sin(t * 14 + i)) * 5 + 1; ell(bx - 3, by, wf, 4, ['#ff8fbf', '#ffe066', '#8fd0ff'][i], -.4); ell(bx + 3, by, wf, 4, ['#ff8fbf', '#ffe066', '#8fd0ff'][i], .4); }
   if (tier > 0 && ft > 1.3 && ft < 2.8) {                                      // dust + sparkle when the build lands
     const sp = FARM_SPOT[Math.min(tier, 6)], d = ft - 1.3;
     g.save(); g.globalAlpha = Math.max(0, 1 - d / 1.5) * .6; for (let k = 0; k < 8; k++) ell(sp[0] - 100 + k * 28, sp[1] + 6 - d * 12, 14 + d * 16, 9 + d * 8, '#e9dcc0'); g.restore();
@@ -668,6 +680,7 @@ function burst() { const cx = 120 + Math.random() * 660, cy = 70 + Math.random()
 
 function button(label, x, y, w, h, fn, size = 20) {
   const hov = mouse[0] >= x && mouse[0] <= x + w && mouse[1] >= y && mouse[1] <= y + h; btns.push({ x, y, w, h, fn });
+  if (hov && mdown) y += 2;
   g.save(); g.shadowColor = '#ff9a00'; g.shadowBlur = hov ? 26 : 10; fillRR(x, y, w, h, 12, lg(0, y, 0, y + h, hov ? ['#fff0a0', '#f0a800'] : ['#ffd54a', '#d98e00'])); g.restore();
   fillRR(x, y, w, h * .5, 12, lg(0, y, 0, y + h * .5, ['rgba(255,255,255,.4)', 'rgba(255,255,255,0)']));
   g.strokeStyle = 'rgba(90,50,0,.7)'; g.lineWidth = 2; rr(x + 1, y + 1, w - 2, h - 2, 11); g.stroke();
@@ -786,20 +799,24 @@ function draw() {
   else if (state === 'ending') drawEnding();
   else if (state === 'lb') drawLB();
   else if (state === 'ach') drawAch();
+  else if (state === 'story') drawStory();
   else if (state === 'travel') drawTravel();
   else if (state === 'perk') drawPerk();
   else if (state === 'fail') { drawStreet(9); failOverlay(); }
   else {
     g.translate(W / 2, H / 2); const z = 1 + bellAnim * .025; g.scale(z, z); g.translate(-W / 2, -H / 2);
     drawBar(); drawCounter();
-    if (vsIs()) vsMacs(); else { macSprite(426, 288, 'flex', { noLegs: true }); glow(470, 235, 70, '#3dff7a', .18); }
+    if (vsIs()) vsMacs(); else { macSprite(426, 288, 'flex', { noLegs: true, skin: sunSkin() }); glow(470, 235, 70, '#3dff7a', .18); drawMonkey(); }
     if (state === 'wait') { txt('RING THE BELL!', 640, 224 + Math.sin(t * 5) * 3, 17, '#ffd54a', 'center', '#ff9a00'); txt((TOUCH ? 'tap the bell' : 'click it / press SPACE'), 640, 242 + Math.sin(t * 5) * 3, 12, '#fff', 'center'); }
     g.restore(); g.save();
     if (shake > 0) g.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
     if (vsIs()) vsHud(); else hud();
+    if (isDay() && (state === 'tab' || state === 'wait')) { txt('SUNBURN', 18, 108, 10, '#ffb08a'); fillRR(70, 101, 90, 8, 4, 'rgba(255,255,255,.15)'); fillRR(70, 101, Math.max(2, 90 * sun), 8, 4, sun > .7 ? '#ff4030' : '#ffb347'); }
     if (perk) txt('PERK: ' + PERKS.find(p => p.id === perk).name, 18, 92, 11, '#7ae7ff');
     if (state === 'tab' || state === 'wait') {
       button('II  PAUSE', 14, 344, 104, 34, togglePause, 12);
+      if (state === 'tab' && isDay()) button(sunCd > 0 ? 'SUNSCREEN ...' : 'SUNSCREEN' + (TOUCH ? '' : ' (C)'), 14, 304, 140, 34, useSunscreen, 12);
+      if (state === 'tab') button(shoutLeft > 0 ? 'SHOUT!' + (TOUCH ? '' : ' (X)') : 'SHOUT USED', W - 150, 304, 136, 34, useShout, 12);
       if (state === 'tab') button(slowLeft > 0 ? 'SLOW-MO' + (TOUCH ? '' : ' (S)') : 'SLOW-MO USED', W - 150, 344, 136, 34, useSlow, 12);
     }
     if (slowT > 0) { g.fillStyle = 'rgba(80,160,255,.13)'; g.fillRect(0, 0, W, H); txt('SLOW-MO', W / 2, 160, 26, '#7ae7ff', 'center', '#2a8aff', DISP); }
@@ -816,6 +833,8 @@ function draw() {
   for (let i = 0; i < (state === 'farm' ? 0 : 40); i++) { const x = (i * 131 + t * (6 + i % 7)) % W, y = 40 + ((i * 71 + Math.sin(t * .5 + i) * 30) % 260); ell(x, y, 1.3, 1.3, 'rgba(255,220,160,.45)'); }
   g.restore();
   drawToasts();
+  if (state !== lastDrawState) { fadeT = .45; lastDrawState = state; }
+  if (fadeT > 0) { g.globalAlpha = Math.min(1, fadeT / .45) * .85; g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; fadeT = Math.max(0, fadeT - .016); }
   if (paused) pauseOverlay();
   post(state === 'farm' || (state === 'ending' && endT < 9));
 }
@@ -836,7 +855,7 @@ function overlay() {
     if (saved) { button('CONTINUE  (stage ' + (saved.stage + 1) + ')', 130, 404, 300, 54, continueCamp, 18); button('NEW GAME', 470, 404, 300, 54, openDiff, 18); }
     else button('NEW GAME', W / 2 - 150, 404, 300, 54, openDiff, 20);
     button('\u2605 LEADERBOARD', 50, 472, 260, 44, openLB, 14); button('MEDALS', 330, 472, 240, 44, openAch, 14); button('2-PLAYER DUEL', 590, 472, 260, 44, openVS, 14);
-    button('SOUND: ' + (muted ? 'OFF' : 'ON'), W - 150, H - 46, 130, 32, toggleMute, 11);
+    button('SOUND: ' + (muted ? 'OFF' : 'ON'), W - 150, H - 46, 130, 32, toggleMute, 11); button('STORY: ' + (storyOn ? 'ON' : 'OFF'), 20, H - 46, 130, 32, toggleStory, 11);
     if (!TOUCH) txt('TEST KEYS:  E = skip to ending   N = clear stage   F = fail stage', W / 2, 545, 12, '#aaa', 'center');
   } else if (state === 'diff') {
     big('CHOOSE YOUR NIGHT', 120, '#fff6b0', '#ffb300', '#ff9a00', 56);
@@ -975,23 +994,10 @@ function drawEnding() {
 // ---------- ROAD TRIP: Mac rides in the back of a truck to the next bar (tap the coins!) ----------
 const TSKY = [['#05061a', '#3a1a4a'], ['#ff7a45', '#ffd9a0'], ['#0b1a3a', '#ff8a1f'], ['#14123a', '#b66bff'], ['#4fb0ff', '#bfe6ff'], ['#1a0a2a', '#ffd54a']];
 const TRAVEL_LEN = 15, SAYS = ['Next stop: {p}!', 'Wind in my hair, baht in my pocket.', 'Is that a chicken in the trailer?', 'This bar tab is gonna be BIG.', 'Never trust a truck with no suspension.'];
+let buff0 = false;
 function startTravel() {
-  travT = 0; coinsT = []; travSpawn = 0; roadBonus = 0; tSay = 0;
+  buff = null; buff0 = false; travT = 0; coinsT = []; travSpawn = 0; roadBonus = 0; tSay = 0;
   roadCap = Math.round(STAGES[camp.stage].target * D().target * .22 / 100) * 100; state = 'travel';
-}
-function collectAt(x, y) {
-  for (let i = coinsT.length - 1; i >= 0; i--) {
-    const c = coinsT[i]; if (Math.hypot(c.x - x, c.y - y) < (c.gold ? 44 : 38)) {
-      const val = Math.min(roadCap - roadBonus, Math.round(roadCap * (c.gold ? .12 : .035) / 10) * 10); if (val <= 0) { floatText(c.x, c.y, 'MAX BONUS', '#ffd54a'); coinsT.splice(i, 1); return; }
-      if (roadBonus + val >= roadCap) unlock('roadmax'); roadBonus += val; floatText(c.x, c.y - 10, '+' + CUR + val.toLocaleString(), c.gold ? '#ffe27a' : '#7CFF7C'); for (let k = 0; k < 8; k++) coin(c.x, c.y); beep(c.gold ? 1200 : 880, .12, 'triangle', .08); macCheer = .6; coinsT.splice(i, 1); return;
-    }
-  }
-}
-function updateTravel(dt) {
-  travT += dt; macCheer = Math.max(0, macCheer - dt); travSpawn -= dt;
-  if (travSpawn <= 0 && travT < TRAVEL_LEN - 1.5) { travSpawn = .5 + Math.random() * .5; coinsT.push({ x: W + 30, y: 90 + Math.random() * 230, v: 170 + Math.random() * 90, ph: Math.random() * 6, gold: Math.random() < .12 }); }
-  for (const c of coinsT) { c.x -= c.v * dt; c.y += Math.sin(t * 3 + c.ph) * .6; } coinsT = coinsT.filter(c => c.x > -40);
-  if (travT > TRAVEL_LEN) startPerk();
 }
 function drawWheel(x, y, r, spin) { ell(x, y, r, r, '#111'); ell(x, y, r * .62, r * .62, '#9aa'); g.strokeStyle = '#444'; g.lineWidth = 3; for (let i = 0; i < 5; i++) { const a = spin + i * 1.2566; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * r * .6, y + Math.sin(a) * r * .6); g.stroke(); } ell(x, y, 5, 5, '#222'); }
 function drawTravel() {
@@ -1022,8 +1028,10 @@ function drawTravel() {
   ell(640, 392, 7, 7, '#fff7c0'); glow(640, 392, 80, '#fff3b0', .7); g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = lg(640, 0, 900, 0, ['rgba(255,240,170,.35)', 'rgba(255,240,170,0)']); g.beginPath(); g.moveTo(646, 388); g.lineTo(900, 340); g.lineTo(900, 470); g.closePath(); g.fill(); g.restore();
   g.restore();
   drawWheel(190, 452 + bump, 26, T * 14); drawWheel(420, 452 + bump, 26, T * 14); drawWheel(550, 452 + bump, 26, T * 14);
+  if (buff) drawBuffalo(buff.x, 536, .95, true, true);
   g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 2; g.beginPath(); for (let i = 0; i < 14; i++) { const y = 60 + (i * 53) % 330, x = ((i * 211 - T * 900) % 1000 + 1000) % 1000 - 80; g.moveTo(x, y); g.lineTo(x + 70, y); } g.stroke();
-  for (const c of coinsT) { if (c.gold) { fillRR(c.x - 18, c.y - 9, 36, 18, 3, lg(0, c.y - 9, 0, c.y + 9, ['#fff3a0', '#d4a017'])); g.strokeStyle = '#8a6200'; g.lineWidth = 1.5; rr(c.x - 18, c.y - 9, 36, 18, 3); g.stroke(); txt('999', c.x, c.y + 4, 10, '#6b4a00', 'center'); glow(c.x, c.y, 50, '#ffd54a', .7); } else { ell(c.x, c.y, 5 + 11 * Math.abs(Math.cos(t * 5 + c.ph)), 13, rg(c.x - 2, c.y - 4, 1, 14, ['#fff3a0', '#f7b500', '#a86a00'])); glow(c.x, c.y, 34, '#ffc400', .5); } }
+  for (const c of coinsT) drawPickup(c);
+  if (buff && buff.x < W - 60) bubble(buff.x - 10, 408, buff.say);
   drawFX();
   panel(10, 10, 270, 62); txt('ROAD BONUS', 24, 30, 10, '#ffd54a'); txt('+' + CUR + roadBonus.toLocaleString(), 24, 54, 22, '#7CFF7C', 'left', '#1aff5a'); fillRR(160, 44, 108, 8, 4, 'rgba(255,255,255,.18)'); fillRR(160, 44, 108 * Math.min(1, roadBonus / Math.max(1, roadCap)), 8, 4, '#ffd54a'); txt('max ' + CUR + roadCap.toLocaleString(), 160, 62, 9, '#bbb');
   panel(W / 2 - 150, 10, 300, 46); txt('HEADING TO', W / 2, 26, 10, '#ffd54a', 'center'); txt(STAGES[k].name + ' • ' + place, W / 2, 46, 14, '#fff', 'center');
@@ -1036,9 +1044,12 @@ function endTravelSkip() { startPerk(); }
 const PERKS = [
   { id: 'time', name: 'TIME WARP', desc: 'Tab timers last 25% longer' }, { id: 'gold', name: 'GOLD TOUCH', desc: 'Every payout gets +0.08x' },
   { id: 'bouncer', name: 'BOUNCER BUDDY', desc: 'The first late fee each round is waived' }, { id: 'combo', name: 'COMBO KING', desc: 'Combo bonus is doubled' },
+  { id: 'thongs', name: 'THONGS OF SPEED', desc: 'Two slow-mo charges every round' }, { id: 'vegie', name: 'VEGEMITE SHOT', desc: 'First slow payment each round keeps your combo' },
+  { id: 'mates', name: "MATE'S RATES", desc: 'One random tab each round is half price' },
   { id: 'wind', name: 'SECOND WIND', desc: 'Survive one bankruptcy (restart at ' + CUR + '1,500)' }];
+function leaveFarm() { if (camp.stage > 0) startTravel(); else startPerk(); }
 function startPerk() { perkChoices = PERKS.slice().sort(() => Math.random() - .5).slice(0, 3); state = 'perk'; }
-function choosePerk(p) { perk = p.id; goIntro(); }
+function choosePerk(p) { perk = p.id; startStory('s' + camp.stage, goIntro); }
 function drawPerk() {
   g.fillStyle = lg(0, 0, 0, H, ['#12082a', '#2a0f3a', '#0a0710']); g.fillRect(0, 0, W, H); glow(W / 2, 150, 420, '#7a1f5a', .4);
   big('PICK A PERK', 100, '#fff6b0', '#ffb300', '#ff9a00', 58);
@@ -1086,7 +1097,8 @@ const ACH = [
   { id: 'combo10', name: 'COMBO MASTER', desc: 'Reach a x10 combo' }, { id: 'whale', name: 'WHALE HUNTER', desc: 'Pay 5 VIP tabs in one run' },
   { id: 'star3', name: 'TRIPLE CROWN', desc: 'Earn 3 stars on a stage' }, { id: 'roadmax', name: 'ROAD WARRIOR', desc: 'Max out a road bonus' },
   { id: 'speed', name: 'SPEED DEMON', desc: 'Pay a tab in under half a second' }, { id: 'home', name: 'HOMEWARD BOUND', desc: 'Reach the ending' },
-  { id: 'brutal', name: 'BRUTAL BARON', desc: 'Finish the game on Brutal' }, { id: 'wind', name: 'NINE LIVES', desc: 'Use Second Wind and still clear the stage' }];
+  { id: 'brutal', name: 'BRUTAL BARON', desc: 'Finish the game on Brutal' }, { id: 'monkey', name: 'MONKEY BUSINESS', desc: 'Swat a monkey bandit' }, { id: 'crikey', name: 'CRIKEY!', desc: 'Tap a spider on the road trip' }, { id: 'shout', name: 'YOUR SHOUT, MATE', desc: 'Pay every tab at once with a Shout' },
+  { id: 'buffalo', name: 'BUFFALO WHISPERER', desc: 'Pat Khwai the buffalo on the road' }, { id: 'wind', name: 'NINE LIVES', desc: 'Use Second Wind and still clear the stage' }];
 let achSet = {}, toasts = [], vipPaid = 0, rAll = true, rSum = 0, rN = 0;
 try { achSet = JSON.parse(localStorage.getItem('macattack_ach')) || {}; } catch (e) {}
 function unlock(id) {
@@ -1098,8 +1110,8 @@ function drawAch() {
   g.fillStyle = lg(0, 0, 0, H, ['#12082a', '#2a0f3a', '#0a0710']); g.fillRect(0, 0, W, H); glow(W / 2, 120, 420, '#7a1f5a', .4);
   big('MEDALS', 90, '#fff6b0', '#ffb300', '#ff9a00', 60); txt(Object.keys(achSet).length + ' / ' + ACH.length + ' unlocked', W / 2, 114, 13, '#bbb', 'center');
   panel(90, 130, 720, 340);
-  ACH.forEach((a, i) => { const col = Math.floor(i / 5), x = 110 + col * 350, y = 150 + (i % 5) * 64, on = achSet[a.id]; fillRR(x, y, 330, 54, 10, on ? 'rgba(255,213,74,.14)' : 'rgba(255,255,255,.05)');
-    txt(on ? '★' : '☆', x + 28, y + 36, 28, on ? '#ffd54a' : '#555', 'center', on ? '#ff9a00' : null); txt(a.name, x + 54, y + 24, 14, on ? '#fff' : '#888'); txt(a.desc, x + 54, y + 43, 11, on ? '#7ae7ff' : '#666'); });
+  ACH.forEach((a, i) => { const col = Math.floor(i / 7), x = 110 + col * 350, y = 142 + (i % 7) * 46, on = achSet[a.id]; fillRR(x, y, 330, 40, 9, on ? 'rgba(255,213,74,.14)' : 'rgba(255,255,255,.05)');
+    txt(on ? '\u2605' : '\u2606', x + 22, y + 28, 22, on ? '#ffd54a' : '#555', 'center', on ? '#ff9a00' : null); txt(a.name, x + 44, y + 17, 13, on ? '#fff' : '#888'); txt(a.desc, x + 44, y + 33, 10, on ? '#7ae7ff' : '#666'); });
   button('BACK', W / 2 - 80, 488, 160, 44, closeLB, 16);
 }
 function drawToasts() { toasts.forEach((o, i) => { const a = Math.min(1, o.t, 3.2 - o.t + .01) ; g.globalAlpha = Math.max(0, Math.min(1, o.t * 2)); panel(W / 2 - 170, 62 + i * 54, 340, 46); txt('★ MEDAL UNLOCKED', W / 2, 80 + i * 54, 10, '#ffd54a', 'center'); txt(o.name, W / 2, 100 + i * 54, 17, '#fff', 'center', '#ff9a00'); g.globalAlpha = 1; }); }
@@ -1121,7 +1133,8 @@ function nextVSRound() {
   for (let i = 0; i < n; i++) {
     const vip = vsRound >= 2 && Math.random() < .18, amt = Math.round((200 + Math.random() * 1100) * (1 + vsRound * .18) * ST.amtM * (vip ? 2 : 1) / 50) * 50;
     const at = t + .1 + Math.random() * 1.6, lf = Math.max(2.3, life * (.75 + Math.random() * .6) * (vip ? .8 : 1));
-    for (const owner of [0, 1]) spawnQ.push({ at, amt, vip, life: lf, slot: slots[i] + owner * 4, owner });
+    const items = makeItems(amt, vip), lf2 = lf * itemLife(items);
+    for (const owner of [0, 1]) spawnQ.push({ at, amt, vip, items, life: lf2, slot: slots[i] + owner * 4, owner });
   }
   spawnQ.sort((a, b) => a.at - b.at); vsPhase = 'play'; bellAnim = 1; shake = 4; ding();
 }
@@ -1179,6 +1192,206 @@ function vsOverlay() {
   }
 }
 function openVSRematch() { openVS(); beginVS(); }
+// ---------- NARRATIVE MODE: story scenes between stages ----------
+let story = null, sIdx = 0, sChars = 0, sNext = null, storyOn = true;
+try { storyOn = localStorage.getItem('macattack_story') !== '0'; } catch (e) {}
+const BF = (t) => ({ w: 'buffalo', t }), N = (t) => ({ w: 'nar', t }), M = (t) => ({ w: 'mac', t }), K = (t) => ({ w: 'kylie', t }), NO = (t) => ({ w: 'noi', t }), CH_ = (t) => ({ w: 'chai', t });
+const STORY = {
+  prologue: { back: 'plot', other: null, lines: [
+    N('Mac Dunmore, sheep-shearer from Wagga Wagga, Australia, just landed in Thailand with ฿10,000 and one enormous dream.'),
+    M("G'day, Thailand! Right here, on this patch of dirt — that's where my farm's going to be."),
+    K("Babe!! I'm so proud of you. Send me updates... and receipts. Lots of receipts. x"),
+    M("Righto. A wad of cash, a bell and a loud shirt. The plan is simple: flex at every bar in Thailand and pay the tabs FAST."),
+    N('The quicker a tab is paid, the more the cheering crowd pays him back. Every baht of profit goes into the farm.')] },
+  b0: { back: 'farm', other: 'buffalo', lines: [
+    BF("Moo. Ahem. I mean: g'day. I am Khwai. This is my field. Technically."),
+    M('Whoa \u2014 a talking buffalo?!'),
+    BF('Yes. And you are standing in my mud. Rent is one mango per week.'),
+    M("Mate, I'm going to build a farm right here. A big one."),
+    BF('Hmph. Fine. But the first building I approve of gets my signature moo.')] },
+  b1: { back: 'farm', other: 'buffalo', lines: [
+    BF('A hut and a vegetable patch. Acceptable. The carrots are a little crooked.'),
+    M('Crooked carrots are authentic, mate.'),
+    BF('Hm. Tell me, farmer \u2014 who is the woman who keeps phoning you?'),
+    M('My wife, Kylie. She is dead supportive.')] },
+  b2: { back: 'farm', other: 'buffalo', lines: [
+    BF('Chickens! Excellent. They gossip, but they lay.'),
+    M("I'm up to nearly \u0e3f20k of farm now. Not bad for a shearer."),
+    BF('I notice the bank letters are in your name... and hers. Keep an eye on that paperwork.')] },
+  b3: { back: 'farm', other: 'buffalo', lines: [
+    BF('A red barn and a rice field. Now I feel at home. Also, I am hungry.'),
+    M('Stay out of the rice, Khwai.'),
+    BF('No promises. A buffalo has needs.')] },
+  b4: { back: 'farm', other: 'buffalo', lines: [
+    BF('A real farmhouse. A pond. Ducks! I like the ducks.'),
+    BF('But a word of advice from an old buffalo: a house this big attracts visitors. Not all of them bring mangoes.'),
+    M("You worry too much, mate. It's all gonna be sweet as.")] },
+  b5: { back: 'farm', other: 'buffalo', lines: [
+    BF('A villa. The farm looks like a hotel now.'),
+    M("One more stage, Khwai. One more, and it's a mansion."),
+    BF('Mm. I will keep the gate warm. And Mac... check who holds the deed.'),
+    M('The deed? Yeah, yeah. Kylie has copies.'),
+    BF('...Moo.')] },
+  s0: { back: 'bar', other: 'noi', lines: [
+    NO('You are the loud farang with the cash fan? Welcome to Siam Nights. I am Auntie Noi.'),
+    M("Pleased to meet ya, Auntie. I'm here to buy the whole bar a round."),
+    NO('Ring that bell, everyone drinks, tabs come. Pay quick and the crowd pays you back more. Pay slow and you bleed.'),
+    M('Easy as shearing a merino.'),
+    NO('Easy? Ha. Watch the late fees, farang. They bite.')] },
+  s1: { back: 'bar', other: 'chai', lines: [
+    CH_("A farmer? At Patong? My yacht is bigger than your whole plot of land."),
+    M("Nice boat, mate. I'll have these tabs paid before you finish that fancy cocktail."),
+    K("How's the farm going?? Maybe we put the mansion in BOTH our names? :)"),
+    M("Sweet as! She's the best."),
+    CH_('Hm. We shall see, farmer. Chai always gets the last laugh.')] },
+  s2: { back: 'bar', other: 'noi', lines: [
+    NO("My cousin runs this night market. If the lanterns go dark, it is bad luck for everyone. Pay fast."),
+    CH_('RUSH HOUR starts now, farmer. Let us see how fast those fingers are.'),
+    K('Do you have a lawyer? Just in case... for the mansion paperwork.'),
+    M("A lawyer? Dunno, why would I need one?"),
+    K("Oh, no reason, babe. Just keep sending me those deed copies.")] },
+  s3: { back: 'bar', other: 'chai', lines: [
+    CH_('Last chance to quit, Mac. The Skyline Lounge eats farmers alive.'),
+    M("I've wrestled a bull in Wagga. Your rooftop doesn't scare me."),
+    K("Send me copies of everything, love. I'll keep them safe. All of it."),
+    N("Mac didn't notice the odd little tone in her voice.")] },
+  s4: { back: 'bar', other: 'noi', lines: [
+    NO('Your wife called the bar. She asked how rich you are. Twice.'),
+    M("She's just supportive!"),
+    NO('Hm. Supportive. Maybe.'),
+    M("The mansion is so close I can smell the fresh paint. Let's pour one for the pool club.")] },
+  s5: { back: 'bar', other: 'chai', lines: [
+    CH_('Final table, Mac. Everything you have built rides on tonight.'),
+    M("All I ever wanted was that mansion. Let's go."),
+    K("Come home after, babe. I have a little surprise for you."),
+    N('...Mac really should have asked what kind of surprise.')] },
+};
+function startStory(id, next) { story = STORY[id]; if (!storyOn || !story) { story = null; next(); return; } sIdx = 0; sChars = 0; sNext = next; state = 'story'; }
+function storyAdvance() { if (!story) return; const L = story.lines[sIdx]; if (sChars < L.t.length) { sChars = L.t.length; return; } sIdx++; sChars = 0; beep(520, .05, 'triangle', .05); if (sIdx >= story.lines.length) { const n = sNext; story = null; n(); } }
+function skipStory() { const n = sNext; story = null; n(); }
+function toggleStory() { storyOn = !storyOn; try { localStorage.setItem('macattack_story', storyOn ? '1' : '0'); } catch (e) {} }
+const CHARS = {
+  noi: { skin: '#c9976a', shirt: '#2e8b57', hair: '#d8d8d8', hairStyle: 'bun', pants: '#333', shoes: '#444' },
+  chai: { skin: '#d9a066', shirt: '#f4f4f4', hair: '#111', hairStyle: 'short', shades: true, chain: true, pants: '#333', shoes: '#111' },
+  kylie: { skin: '#f1c27d', shirt: '#d81b60', hair: '#7a2a12', hairStyle: 'long', pants: '#333', shoes: '#111' }};
+const SNAME = { mac: 'MAC', kylie: 'KYLIE (on the phone)', noi: 'AUNTIE NOI', chai: 'CHAI', buffalo: 'KHWAI THE BUFFALO', nar: '' }, SCOL = { mac: '#ff9a1f', kylie: '#ff6fae', noi: '#5fe0a0', chai: '#c9b6ff', buffalo: '#cdbf9a', nar: '#ddd' };
+function wrapText(s, w, size) { g.font = `bold ${size}px ${UI}`; const out = []; let cur = ''; for (const wd of s.split(' ')) { const tst = cur ? cur + ' ' + wd : wd; if (g.measureText(tst).width > w && cur) { out.push(cur); cur = wd; } else cur = tst; } out.push(cur); return out; }
+function drawStory() {
+  if (!story) return; const L = story.lines[sIdx], typing = sChars < L.t.length;
+  if (story.back === 'plot') drawFarm(0, 99); else if (story.back === 'farm') drawFarm(camp.stage, 99); else { ST = STAGES[camp.stage]; drawBar(); drawCounter(); }
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, W, H);
+  const mouth = typing && Math.floor(t * 11) % 2 ? 'cheer' : 'smile';
+  if (story.back === 'bar' || story.back === 'plot' || story.back === 'farm') {
+    g.save(); g.globalAlpha = L.w === 'mac' ? 1 : .72; macSprite(220, 470, L.w === 'mac' ? 'flex' : 'idle', { noLegs: true, s: 1.7, mouth: L.w === 'mac' ? mouth : 'smile' }); g.restore();
+    if (story.other === 'buffalo') { g.save(); g.globalAlpha = L.w === 'buffalo' ? 1 : .8; drawBuffalo(700, 474, 1.3, typing && L.w === 'buffalo', true); g.restore(); }
+    else if (story.other) { const o = story.other; g.save(); g.globalAlpha = L.w === o ? 1 : .72; actor(690, 470, 1.7, Object.assign({ pose: 'idle', noLegs: true, fx: 'plain', facing: -1, ph: 2, mouth: L.w === o ? mouth : 'smile' }, CHARS[o])); g.restore(); }
+  }
+  if (L.w === 'kylie' || (story.back === 'plot' && sIdx === 2)) {
+    const cx = 760, cy = 175; g.save(); g.beginPath(); g.arc(cx, cy, 80, 0, TAU); g.clip(); fillRR(cx - 80, cy - 80, 160, 160, 0, lg(0, cy - 80, 0, cy + 80, ['#ffd1e6', '#ff8fbf'])); actor(cx, cy + 92, 1.5, Object.assign({ pose: 'idle', noLegs: true, fx: 'plain', ph: 4, mouth }, CHARS.kylie)); g.restore();
+    g.strokeStyle = '#ff6fae'; g.lineWidth = 5; g.beginPath(); g.arc(cx, cy, 80, 0, TAU); g.stroke(); txt('☎ Kylie (calling from Australia)', cx, cy + 108, 12, '#ffd1e6', 'center', '#000');
+  }
+  panel(40, 404, 820, 136, 14);
+  if (L.w !== 'nar') { fillRR(56, 388, Math.max(110, SNAME[L.w].length * 11 + 30), 30, 8, SCOL[L.w]); txt(SNAME[L.w], 70, 409, 14, '#111'); }
+  const lines = wrapText(L.t, 780, 17); let left = Math.floor(sChars);
+  lines.forEach((ln, i) => { const part = ln.slice(0, Math.max(0, left)); left -= ln.length + 1; txt(part, 60, 446 + i * 26, 17, L.w === 'nar' ? '#ddd' : '#fff'); });
+  if (!typing && Math.floor(t * 2) % 2) txt('▼', 836, 526, 14, '#ffd54a', 'center');
+  txt((sIdx + 1) + ' / ' + story.lines.length, 60, 528, 10, '#999');
+  button('SKIP STORY »', W - 170, 16, 150, 34, skipStory, 12);
+  txt(TOUCH ? 'tap to continue' : 'click / SPACE to continue', W / 2, 24, 12, '#ddd', 'center', '#000');
+}
+// ---------- Aussie-abroad gameplay: monkey bandits, "shout", sunburn, thongs ----------
+let sun = 0, sunCd = 0, shoutLeft = 1, monkey = null, monkeyAt = 0, macScare = 0, vegieUsed = false;
+const isDay = () => ST && (ST.theme === 1 || ST.theme === 4);
+const sunSkin = () => { const k = isDay() ? sun : 0, a = [224, 172, 105], b = [226, 70, 52]; return 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',') + ')'; };
+function spawnMonkey() { monkey = { x: -40, y: 290, hit: false, spin: 0, stole: false, vy: 0 }; floatText(450, 200, 'MONKEY BANDIT!', '#ff8a00'); beep(700, .1, 'square', .06); beep(520, .1, 'square', .06); }
+function swatMonkey() {
+  if (!monkey || monkey.hit || state !== 'tab') return; monkey.hit = true; monkey.vy = -9; const bounty = Math.round(GOAL * .03 / 10) * 10; cash += bounty; roundNet += bounty;
+  floatText(monkey.x, 250, 'BONK! +' + CUR + bounty.toLocaleString(), '#7CFF7C'); shake = 6; kaching(); unlock('monkey'); for (let i = 0; i < 10; i++) coin(monkey.x, monkey.y);
+}
+function updateMonkey(dt) {
+  const m = monkey; if (m.hit) { m.x += 160 * dt; m.y += m.vy; m.vy += .6; m.spin += dt * 14; if (m.y > 700) monkey = null; return; }
+  m.x += 210 * dt; if (!m.stole && m.x > 420) { m.stole = true; const loss = Math.round(GOAL * .04 / 10) * 10; cash -= loss; roundNet -= loss; shake = 6; floatText(m.x, 250, 'MONKEY STOLE ' + CUR + loss.toLocaleString() + '!', '#ff4040'); beep(150, .25, 'sawtooth', .08, .5); vib([60, 30, 60]); checkBroke(); }
+  if (m.x > W + 60) monkey = null;
+}
+function drawMonkey() {
+  const m = monkey; if (!m) return; g.save(); g.translate(m.x, m.y); if (m.hit) g.rotate(m.spin); const bob = Math.sin(t * 22) * 3, sw = Math.sin(t * 22) * 8;
+  g.strokeStyle = '#5a3414'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(-22, -6 + bob); g.quadraticCurveTo(-48, -18, -42, -42); g.stroke();                       // tail
+  limb(-10, 6 + bob, -14 + sw, 24, 6, '#6a3f1c'); limb(8, 6 + bob, 12 - sw, 24, 6, '#6a3f1c');                                                                            // legs
+  ell(0, -4 + bob, 22, 14, rg(-6, -10, 2, 24, ['#a8693a', '#5a3414'])); ell(2, 0 + bob, 11, 8, '#e0b98a');
+  limb(10, -6 + bob, 26 + sw, 6, 6, '#6a3f1c'); limb(-10, -6 + bob, -22 - sw, 6, 6, '#6a3f1c');
+  ell(20, -18 + bob, 12, 11, rg(17, -22, 2, 14, ['#b97a45', '#6a3f1c'])); ell(16, -26 + bob, 5, 5, '#6a3f1c'); ell(26, -26 + bob, 5, 5, '#6a3f1c'); ell(23, -15 + bob, 8, 7, '#e0b98a');
+  ell(19, -20 + bob, 2.2, 2.2, '#111'); ell(26, -20 + bob, 2.2, 2.2, '#111'); g.strokeStyle = '#5a1a10'; g.lineWidth = 1.6; g.beginPath(); g.arc(23, -14 + bob, 3.5, .2, Math.PI - .2); g.stroke();
+  if (!m.stole || m.hit) { fillRR(14, -6 + bob, 18, 8, 3, '#111'); } else { fillRR(26, -8 + bob, 22, 8, 3, '#111'); fillRR(30, -7 + bob, 6, 3, 1, '#9fd8ff'); fillRR(40, -7 + bob, 6, 3, 1, '#9fd8ff'); }
+  g.restore();
+  if (!m.hit && m.x > 0 && m.x < W) { g.save(); g.globalAlpha = .6 + .4 * Math.sin(t * 10); g.strokeStyle = '#ff8a00'; g.lineWidth = 3; g.beginPath(); g.arc(m.x + 8, m.y - 10, 44, 0, TAU); g.stroke(); g.restore(); }
+}
+function useShout() {
+  if (state !== 'tab' || paused || shoutLeft <= 0) return; const open = bills.filter(b => !b.done); if (!open.length) return;
+  shoutLeft--; rAll = false; for (const b of open) { b.done = true; b.res = 0; floatText(billX(b.slot) + 50, 360, 'SHOUT!', '#ffd54a'); } shake = 8; floatText(450, 220, "YOUR SHOUT, MATE!", '#ffd54a'); [392, 523, 659, 784].forEach((f, i) => tone(f, .2, 'triangle', .1, i * .07)); unlock('shout');
+}
+function useSunscreen() { if (state !== 'tab' || paused || !isDay() || sunCd > 0 || sun < .05) return; sun = 0; sunCd = 5; floatText(120, 330, 'SPF 50+!', '#ffe27a'); beep(900, .15, 'sine', .08); }
+// ---------- road-trip pickups: tinnies, roos, and the dreaded huntsman ----------
+function collectAt(x, y) {
+  if (buff && !buff.pat && Math.hypot(buff.x - x, 490 - y) < 95) { buff.pat = true; buff.say = 'Oi! Hands off the horns!'; const v = Math.min(roadCap - roadBonus, Math.round(roadCap * .05 / 10) * 10); if (v > 0) { roadBonus += v; floatText(buff.x, 440, '+' + CUR + v.toLocaleString() + ' (buffalo luck)', '#ffe27a'); } beep(180, .2, 'sine', .1, .6); unlock('buffalo'); return; }
+  for (let i = coinsT.length - 1; i >= 0; i--) {
+    const c = coinsT[i]; if (Math.hypot(c.x - x, c.y - y) < (c.kind === 'roo' ? 52 : 40)) {
+      coinsT.splice(i, 1);
+      if (c.kind === 'spider') { const lose = Math.min(roadBonus, Math.round(roadCap * .08 / 10) * 10); roadBonus -= lose; macScare = 1; shake = 6; floatText(c.x, c.y - 10, 'CRIKEY! SPIDER! -' + CUR + lose.toLocaleString(), '#ff4040'); beep(140, .3, 'sawtooth', .1, .5); vib([80, 30, 80]); unlock('crikey'); return; }
+      const f = { coin: .035, gold: .12, tinnie: .06, roo: .14 }[c.kind], val = Math.min(roadCap - roadBonus, Math.round(roadCap * f / 10) * 10);
+      if (val <= 0) { floatText(c.x, c.y, 'MAX BONUS', '#ffd54a'); return; }
+      if (roadBonus + val >= roadCap) unlock('roadmax'); roadBonus += val; floatText(c.x, c.y - 10, '+' + CUR + val.toLocaleString(), c.kind === 'coin' ? '#7CFF7C' : '#ffe27a');
+      for (let k = 0; k < 8; k++) coin(c.x, c.y); beep(c.kind === 'coin' ? 880 : 1200, .12, 'triangle', .08); macCheer = .6; return;
+    }
+  }
+}
+function updateTravel(dt) {
+  if (travT > 4.2 && !buff && !buff0) { buff0 = true; buff = { x: W + 120, say: BUFF_LINES[Math.floor(Math.random() * BUFF_LINES.length)], pat: false }; }
+  if (buff) { buff.x -= 240 * dt; if (buff.x < -160) buff = null; }
+  travT += dt; macCheer = Math.max(0, macCheer - dt); macScare = Math.max(0, macScare - dt); travSpawn -= dt;
+  if (travSpawn <= 0 && travT < TRAVEL_LEN - 1.5) {
+    travSpawn = .5 + Math.random() * .5; const r = Math.random(), kind = r < .09 ? 'gold' : r < .17 ? 'roo' : r < .3 ? 'tinnie' : r < .45 ? 'spider' : 'coin';
+    coinsT.push({ x: W + 30, y: kind === 'roo' ? 330 : 90 + Math.random() * 230, v: 170 + Math.random() * 90, ph: Math.random() * 6, kind, gold: kind === 'gold' });
+  }
+  for (const c of coinsT) { c.x -= c.v * dt; if (c.kind === 'roo') c.y = 330 - Math.abs(Math.sin(t * 5 + c.ph)) * 120; else c.y += Math.sin(t * 3 + c.ph) * .6; } coinsT = coinsT.filter(c => c.x > -50);
+  if (travT > TRAVEL_LEN) startPerk();
+}
+function drawPickup(c) {
+  const x = c.x, y = c.y;
+  if (c.kind === 'gold') { fillRR(x - 18, y - 9, 36, 18, 3, lg(0, y - 9, 0, y + 9, ['#fff3a0', '#d4a017'])); g.strokeStyle = '#8a6200'; g.lineWidth = 1.5; rr(x - 18, y - 9, 36, 18, 3); g.stroke(); txt('999', x, y + 4, 10, '#6b4a00', 'center'); glow(x, y, 50, '#ffd54a', .7); }
+  else if (c.kind === 'tinnie') { g.save(); g.translate(x, y); g.rotate(Math.sin(t * 3 + c.ph) * .3); fillRR(-8, -14, 16, 28, 4, lg(-8, 0, 8, 0, ['#9aa', '#fff', '#889'])); fillRR(-8, -4, 16, 10, 0, '#d81b1b'); fillRR(-6, -16, 12, 4, 2, '#778'); g.restore(); glow(x, y, 36, '#ff7a45', .35); }
+  else if (c.kind === 'spider') { g.strokeStyle = '#1a1a1a'; g.lineWidth = 2.2; for (let i = 0; i < 4; i++) for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + sd * (14 + i * 3), y - 12 + i * 6 + Math.sin(t * 9 + i) * 3, x + sd * (22 + i * 2), y - 2 + i * 7); g.stroke(); } ell(x, y, 9, 8, '#111'); ell(x - 3, y - 2, 1.8, 1.8, '#ff3030'); ell(x + 3, y - 2, 1.8, 1.8, '#ff3030'); glow(x, y, 30, '#ff2020', .3); }
+  else if (c.kind === 'roo') { g.save(); g.translate(x, y); g.scale(-1, 1); ell(0, 0, 20, 14, '#b9763a'); ell(18, -16, 8, 10, '#b9763a'); ell(24, -26, 3, 7, '#8a5628', -.3); ell(16, -27, 3, 7, '#8a5628', .1); ell(22, -17, 2, 2, '#111'); ell(26, -12, 3, 2, '#d9a066');
+    g.strokeStyle = '#8a5628'; g.lineWidth = 7; g.lineCap = 'round'; g.beginPath(); g.moveTo(-18, 6); g.quadraticCurveTo(-40, 10, -48, -4); g.stroke(); ell(-6, 16, 11, 5, '#8a5628'); ell(8, 14, 9, 4, '#8a5628'); g.restore(); glow(x, y, 50, '#ffd54a', .35); txt('ROO!', x, y - 44, 11, '#ffe27a', 'center', '#000'); }
+  else { ell(x, y, 5 + 11 * Math.abs(Math.cos(t * 5 + c.ph)), 13, rg(x - 2, y - 4, 1, 14, ['#fff3a0', '#f7b500', '#a86a00'])); glow(x, y, 34, '#ffc400', .5); }
+}
+// ---------- itemised bills ----------
+const MENU = [['Chang', 60], ['Singha', 70], ['Leo', 65], ['Pad Thai', 90], ['Tom Yum', 110], ['Som Tam', 80], ['Mojito', 140], ['Whisky Coke', 150], ['Fireball shot', 90, 'hot'], ['Ice bucket', 100, 'ice'], ['Spring rolls', 70], ['Mango rice', 75], ['Bucket cocktail', 210], ['Chicken wings', 95], ['Fried noodles', 85]];
+function makeItems(amt, vip) {
+  const pool = MENU.slice().sort(() => Math.random() - .5).slice(0, vip ? 2 : 3), ws = pool.map(() => .4 + Math.random()), tot = ws.reduce((a, b) => a + b, 0); let left = amt;
+  const items = pool.map((m, i) => { const last = i === pool.length - 1, share = last ? left : Math.min(left, Math.max(10, Math.round(amt * ws[i] / tot / 10) * 10)); left -= share; return { n: Math.max(1, Math.round(share / m[1])) + 'x ' + m[0], p: share, f: m[2] || '' }; });
+  if (vip) items.unshift({ n: 'Champagne tower', p: 0, f: 'vip' });
+  return items;
+}
+const itemLife = items => (items.some(i => i.f === 'hot') ? .88 : 1) * (items.some(i => i.f === 'ice') ? 1.12 : 1);
+// ---------- Khwai the talking buffalo ----------
+function drawBuffalo(x, y, s, talk, flip) {
+  g.save(); g.translate(x, y); g.scale((flip ? -1 : 1) * s, s); const bob = Math.sin(t * 2.2) * 1.5, jaw = talk ? Math.abs(Math.sin(t * 13)) * 6 : 0;
+  for (const [lx, ph] of [[-44, 0], [-26, 1.5], [26, 3], [44, 4.5]]) { fillRR(lx - 7, -48, 14, 48, 5, '#2d2d36'); fillRR(lx - 8, -6, 16, 7, 3, '#18181e'); }
+  g.strokeStyle = '#2d2d36'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(-66, -70 + bob); g.quadraticCurveTo(-90, -50 + Math.sin(t * 3) * 6, -82, -22); g.stroke(); ell(-82, -18, 6, 9, '#2d2d36');
+  ell(0, -66 + bob, 74, 40, rg(-10, -86, 6, 90, ['#6a6a76', '#2a2a33'])); ell(-30, -92 + bob, 30, 16, '#4a4a55');                       // body + hump
+  g.save(); g.translate(68, -58 + bob); g.rotate(.18);
+  g.strokeStyle = '#e8e0c8'; g.lineWidth = 9; g.beginPath(); g.moveTo(-6, -14); g.quadraticCurveTo(-46, -40, -52, 4); g.stroke(); g.beginPath(); g.moveTo(8, -14); g.quadraticCurveTo(40, -48, 50, -10); g.stroke();   // swept horns
+  ell(-4, 0, 30, 24, rg(-8, -8, 4, 36, ['#7a7a86', '#32323b']));
+  ell(-26, -10, 12, 7, '#4a4a55', -.5); ell(18, -14, 11, 7, '#4a4a55', .3);                                                                  // ears
+  ell(24, 10 + jaw * .4, 22, 15, '#8a8a96'); ell(24, 20 + jaw, 18, 8 + jaw * .4, '#7a7a86'); if (jaw > 1) ell(24, 17 + jaw * .5, 11, 3 + jaw * .4, '#3a0a0a');
+  ell(34, 4, 3, 2.4, '#222'); ell(16, 4, 3, 2.4, '#222');
+  ell(6, -8, 5, 5.5, '#fff'); ell(7, -8, 2.6, 3, '#111'); g.strokeStyle = '#222'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -16); g.lineTo(12, -14); g.stroke();
+  g.restore();
+  g.strokeStyle = '#c9a227'; g.lineWidth = 4; g.beginPath(); g.arc(44, -44 + bob, 22, .4, 2.3); g.stroke(); ell(46, -22 + bob, 6, 7, '#ffd54a'); ell(46, -19 + bob, 2, 2, '#8a6200');   // cowbell
+  g.restore();
+}
+const BUFF_LINES = ['Moo-ve over, farang!', 'You drive faster than a buffalo.', 'I have seen your tab. It is... large.', 'Pat me for luck. Gently.', 'Water buffalo. Not "cow". Respect.', 'Is that a kangaroo? Tell it I said hi.'];
+let buff = null;
 function post(nb) {
   // bloom: downsample, square (threshold-ish), add back
   if (!nb) {
@@ -1193,7 +1406,12 @@ function post(nb) {
   g.fillStyle = rg(W / 2, H / 2, H * .35, H * .85, ['rgba(0,0,0,0)', 'rgba(0,0,0,.6)']); g.fillRect(0, 0, W, H);
   g.globalCompositeOperation = 'overlay'; g.fillStyle = 'rgba(255,120,60,.10)'; g.fillRect(0, 0, W, H);
   g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(0,0,0,.06)'; for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
+  if (ST && !['farm', 'ending', 'travel', 'kick', 'perk', 'lb', 'ach', 'fail'].includes(state)) { g.globalCompositeOperation = 'soft-light'; g.globalAlpha = .22; g.fillStyle = THEMES[ST.theme].neon; g.fillRect(0, 0, W, H); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
   g.restore();
+  // animated film grain
+  if (!grainC) { grainC = document.createElement('canvas'); grainC.width = grainC.height = 128; grainC.x = grainC.getContext('2d'); grainC.img = grainC.x.createImageData(128, 128); }
+  if (grainN++ % 3 === 0) { const d = grainC.img.data; for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } grainC.x.putImageData(grainC.img, 0, 0); }
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'overlay'; g.globalAlpha = .07; g.fillStyle = g.createPattern(grainC, 'repeat'); g.fillRect(0, 0, cv.width, cv.height); g.restore();
 }
 
 // ---------- input ----------
@@ -1202,6 +1420,7 @@ function canvasPos(e) {
   return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height];
 }
 cv.addEventListener('pointermove', e => { mouse = canvasPos(e); });
+cv.addEventListener('pointerdown', () => { mdown = true; }); addEventListener('pointerup', () => { mdown = false; }); addEventListener('pointercancel', () => { mdown = false; });
 cv.addEventListener('pointerdown', e => {
   e.preventDefault(); beep(1, .01, 'sine', .0001); const [x, y] = canvasPos(e); mouse = [x, y];
   if (TOUCH && !document.fullscreenElement && document.documentElement.requestFullscreen) { try { document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e2) {} }
@@ -1209,9 +1428,11 @@ cv.addEventListener('pointerdown', e => {
   if (paused) return;
   if (state === 'travel') { collectAt(x, y); return; }
   if (state === 'tab') {
+    if (monkey && !monkey.hit && Math.hypot(x - monkey.x - 8, y - monkey.y + 10) < 56) { swatMonkey(); return; }
     for (let i = 0; i < bills.length; i++) if (x >= billX(bills[i].slot) && x <= billX(bills[i].slot) + 100 && y >= 400 && y <= 530) { pay(i); return; }
   } else if (state === 'vs') { for (let i = 0; i < bills.length; i++) if (!bills[i].done && x >= billX(bills[i].slot) && x <= billX(bills[i].slot) + 100 && y >= 400 && y <= 530) { vsPay(i); return; } }
   else if (state === 'wait') { if (Math.hypot(x - 640, y - 262) < 70) ringBell(); }
+  else if (state === 'story') storyAdvance();
   else if (state === 'summary' || state === 'kick' || (state === 'ending' && endT > 1 && endT < 15.5)) primary();
 });
 addEventListener('keydown', e => {
@@ -1220,6 +1441,9 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyM') { toggleMute(); return; }
   if (paused) return;
   if (e.code === 'KeyS') useSlow();
+  if (e.code === 'KeyX') useShout();
+  if (e.code === 'KeyC') useSunscreen();
+  if (e.code === 'KeyB') swatMonkey();
   if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); ringBell(); }
   // test hotkeys: E = jump to the ending, N = force-clear current stage, F = force-fail current stage
   if (state !== 'title' || e.code === 'KeyE') {
