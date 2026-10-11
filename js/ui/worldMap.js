@@ -116,6 +116,14 @@
       g.strokeStyle = '#8f8472'; g.lineWidth = Math.max(1.5, 4.6 * s); g.setLineDash([6, 4]);
       g.beginPath(); g.moveTo(X(tr.x0), Y(tz)); g.lineTo(X(tr.x1), Y(tz)); g.stroke();
       g.setLineDash([]);
+      // the Circle Line, underground: its loop, station to station
+      if (DV.Metro) {
+        const SS = DV.Metro.STATIONS;
+        g.strokeStyle = 'rgba(192,88,42,0.75)'; g.lineWidth = Math.max(2, 7 * s);
+        g.beginPath();
+        SS.forEach((q, i) => (i ? g.lineTo(X(q.x), Y(q.z)) : g.moveTo(X(q.x), Y(q.z))));
+        g.closePath(); g.stroke();
+      }
       g.restore();
 
       // the Fence: the wall (as thick as it is), its watchtowers, the cordon in front of it (dashed)
@@ -193,6 +201,16 @@
         label(l.name, px, py + 20, 11, true, '#e8dcc0');
         this._hits.push({ x: px, y: py, tip: l.name });
       }
+      // the Circle Line's stations
+      if (DV.Metro) for (const q of DV.Metro.STATIONS) {
+        const px = X(q.x), py = Y(q.z);
+        if (px < -40 || py < -40 || px > w + 40 || py > h + 40) continue;
+        g.fillStyle = '#14181c'; g.strokeStyle = '#c0582a'; g.lineWidth = 3;
+        g.beginPath(); g.arc(px, py, 7, 0, Math.PI * 2); g.fill(); g.stroke();
+        g.fillStyle = '#e8e4d8'; g.fillRect(px - 8, py - 1.5, 16, 3);
+        label(q.name, px, py - 13, 10, false, '#e0a07a');
+        this._hits.push({ x: px, y: py, tip: 'Circle Line — ' + q.name + ' (' + q.sub + ')' });
+      }
       // sector names
       for (const d of CM.districts) {
         const at = d.label || d.c;
@@ -226,7 +244,7 @@
       g.fillStyle = '#a39a89'; g.fillRect(w - 24 - bar * s, h - 26, bar * s, 2);
       g.font = font(11); g.textAlign = 'right'; g.fillText(bar + ' m', w - 24, h - 32);
       g.textAlign = 'left';
-      g.fillText('▲ you   ⌂ home   ★ objective   ◎ ▲ ⚖ ◉ ✋ ✦ landmarks   — — the L   ○ the Fence', 12, h - 12);
+      g.fillText('▲ you   ⌂ home   ★ objective   ◎ ▲ ⚖ ◉ ✋ ✦ landmarks   — — the L   ⊖ the Circle Line   ○ the Fence', 12, h - 12);
     },
 
     // what's under the cursor

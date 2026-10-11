@@ -57,6 +57,7 @@ Saves, settings and autosaves live in the browser's `localStorage` under the `di
 | **M / J / I** | Open the RPG menu on Map / Quests / Inventory |
 | **T** | Wait, anywhere you're free to (not in a story scene). Pick how long (← →), or a time ("until the call", "until lunch", "until the evening"), and press Enter. The day goes by in a time-lapse; Esc stops it. A call to training, the PA calling your name, or anyone who needs you stops it early. Waiting won't take you past midnight: for the night, go to bed |
 | **Map (Tab → Map)** | **Local** for the building you're in, **City** for the whole city. Wheel or **+ / −** to zoom, drag to pan, **Fit** to see it all, hover for names |
+| **Circle Line** | At a station entrance in the city (the lit roundel over a doorway), **E** to go down. Walk through the gates; board when the doors open. **E** at a seat to sit, **E** at a pole or under the rail to hold on; move to stand or let go. Up the stairs (**E** at the foot) to come out at that station |
 | **In dialogue** | Point at a response with the in-game cursor and click (or scroll / ↑↓ and press E or Enter). 1–9 also work. The mouse stays captured, so you never need to click back into the game |
 | **Menus** | The Tab menu, waiting, reading and banners keep the mouse captured and show the game's own cursor. Turn **Settings → In-game cursor** off to use the system cursor instead |
 | **Clock speed** | **Settings → Clock speed**: an in-game hour takes 6 real minutes by default, 12 on slow or 3 on fast |
@@ -138,6 +139,8 @@ js/
     world.js               Zone definition → rooms, walls, doors, windows, lights, colliders, nav, spots;
                            indoor/outdoor fog blending
     city.js                The procedural city around a zone: street grid, towers, the Hub, the L and its
+    metrokit.js            Build 6: the station (hall, gates, platform, screen doors, tunnels) and the
+                           three-car walk-through trains, baked and movable; the street entrances (one mesh)
                            train, the marsh and Ferris wheel, aerial haze, cloud deck and cloud shadows.
                            Build 4's walk mode: pavements, kerbs and shopfronts, each sector built its own way,
                            the landmarks, the Fence and its gate, solid buildings
@@ -163,6 +166,9 @@ js/
     wildlife.js            Pigeon flocks, crows and gulls, blowing litter, flags flying in the wind
     citylife.js            Scenes on the pavements: stalls, a bread line, buskers, children, readers, arguments, crews, fires
     order.js               Erudite's police: the Order Station's guards and vans, patrols, drones, stops, notice
+    metro.js               Build 6: the Circle Line: the network and timetable, trains arriving, dwelling and
+                           leaving, riding (the station slides past a train that holds still), the commuters'
+                           rules, the PA, the entrances and the people using them up in the city
     streetlife.js          Build 4: pedestrians by sector on the pavements and crossings, and traffic that
                            keeps right, queues, stops for you and honks
     extras.js              Build 4: the people a place is full of (the compound's members): sets by the hour,
@@ -271,11 +277,23 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
    - **Act IV — The Continuity Vote:** the Council in the Hub. Present your proof, take the Dean's offer, walk out with Ezra, take the gate, or say nothing. Five endings: *Open Air*, *The Quiet*, *Under the Tracks*, *Beyond the Fence* and *The Quiet Passes*. If it comes to a vote, it plays out on screen: ten councillors, the hands counted aloud one by one, the Dean's answer. Then the epilogue (who got out, who died, what you proved) and the end credits roll.
    - The full story bible is in `docs/CAMPAIGN.md`.
 
+14. **Getting about: the Circle Line.** Six stations under the city on a loop (Halsted by the Testing Center, State & Grand in the Dauntless sector, Wells by Erudite headquarters, Hub Central, Merciless Mart, California in the Abnegation sector), each entrance set into a building front. Trains every five minutes in the rush hours, every eight otherwise, from 05:30 until the 21:00 curfew.
+   - Walk aboard when the doors open and walk the train end to end while it runs. Sit, hold on, or stand and stagger when it pulls away. Get off anywhere, or stay on round the loop.
+   - The commuters keep the rules: they wait beside the doors and let people off first, sit with a gap beside them when they can, give their seat to someone older (the Abnegation do), fall asleep and wake with a start at their stop, and run for doors that are already closing.
+
 **Side quests:** *The Wooden Bird* (Lucy, Amity; a social quest about a lost carving and a gruff custodian), *Cold Feet* (Daniel, Abnegation; talk a frightened candidate into going back to his test before noon), *Paper Trail* (Martha; a sealed envelope you can deliver, read or open), *Initiation Starts Early* (Nate, Dauntless; steal the guard's coffee without being seen), *Protocol D* (Jenna, Candor; what are the staff hiding?) and *Finders Keepers* (lost property).
 
 ---
 
 ## Implemented features
+
+**Build 6: The Circle Line**
+- **An underground railway** (`js/game/metro.js`, `js/engine/metrokit.js`): six stations on a loop, two tracks, a timetable from the clock (5 minutes in the rush hours, 8 off-peak, nothing in the curfew). The entrances are snapped onto real building fronts, and the street keeps their doorways clear.
+- **Stations:** a ticket hall at the foot of the stairs, gates whose flaps open as people reach them, ticket machines and a booth; an island platform behind glass screen doors, tiled in the sector's colour with the station's name every few metres, columns, benches, departure boards counting down, CCTV; tunnels with a lamp every ten metres.
+- **Trains you walk through:** three cars with open gangways, longitudinal seats, poles, grab rails and straps, next-station displays and the route map over the windows; doors and screen doors open together. On board, the train holds still and the station and tunnel slide past, so collision, sitting and walking work as anywhere else. Stand free and the train throws you when it pulls away or brakes; hold a pole and it doesn't. If anyone is in a doorway the doors reopen (twice).
+- **Commuters with rules** (an AI of their own): they wait beside the doors and let people off first, choose a seat with a gap beside it, the Dauntless stand by the doors, the Abnegation give up a seat to someone older, sleepers wake at their stop, and late runners miss it. More of them in the rush hours, few late on; people come up and go down at every entrance in the street.
+- **The PA**, the chimes and "stand clear of the closing doors", the boards, the clack of the rail joints. A save made underground loads in the street at that station; you can't wait on a moving train; after curfew the gates are shut. The Circle Line is on the city map.
+- **Engine:** rooms can opt out of generated walls (`noWalls`), a held rail is a standing seat spot, and the street kit takes keep-clear rectangles.
 
 **Build 5: The Chalk Year**
 - **A campaign after initiation** (see *How a run plays*, 13): a director (`js/game/campaign.js`) that tracks acts, episodes, proof, clues, trust, who has died and the ending; fourteen episodes (`js/zones/camp_episodes.js`, `js/zones/camp_content.js`), each a chapter with its own small zone, an establishing shot, an act title card, people to talk to, evidence to read, a risk and a choice; the **Case** page in the Tab menu.
@@ -462,7 +480,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 39 test files covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 40 test files covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**
@@ -470,6 +488,13 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - No two people book the same spot at the same time.
   - Every dialogue target node exists, all quest references are valid and every interactable can be reached.
   - All 13 story and simulation zones build.
+- **Build 6, the Circle Line** (`metro`):
+  - Six entrances, each on a real building front with nothing in the doorway.
+  - Down the stairs at Halsted; people waiting; trains due inside the headway; through a gate on foot.
+  - A train runs in; its doors and the screen doors open together; the PA calls it; walk aboard with real movement; sit; ride.
+  - Riding: the station slides away; standing free you stagger as it pulls away; the shut doors hold you in; walk through the gangway into the next car; hold a pole and the braking doesn't move you.
+  - State & Grand: people off, then on, seats with a gap first; walk off; the train leaves without you.
+  - A save on the platform loads in the street at that entrance; up the stairs to the same place; commuters come and go at the entrance; curfew shuts the gates; draw calls in budget throughout.
 - **Build 5, the campaign** (`campaign`, `camp-all`, `camp-walk`, `weeks-walk`, `beds`):
   - The case opens when the first week ends; the mentor offers it; taking it fades into the chapter on the story's day; the banner at the end brings you home with the next chapter on offer.
   - Every one of the fourteen episodes is played through by a bot (everything looked at, everyone talked to, the risk survived, the choice made); standing in the work when someone arrives is caught, and costs trust.

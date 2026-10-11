@@ -263,6 +263,10 @@
       DV.Audio.setMusic('none');
       DV.UI.fade(0, 900);
       setTimeout(() => DV.UI.narrate(st(this.here).name.toUpperCase() + '\nCIRCLE LINE', 2.6), 350);
+      if (!DV.State.flag('metro_shown')) {
+        DV.State.setFlag('metro_shown');
+        setTimeout(() => DV.UI.notify('Through the gates to the platform: inner loop on one side, outer loop on the other. Walk on when the doors open; E to sit or hold on. Ride as far as you like.', 'quest'), 3200);
+      }
       DV.Events.emit('metro:enter', { station: st(this.here).id });
       void zone;
     },
@@ -360,7 +364,7 @@
       else if (tr.state === 'dwell' && tr.sound) tr.sound.update(tr.x, tr.z, 0);
     },
     beginDwell(tr) {
-      tr.reopen = 0; tr.closing = false; tr.chimed = false; tr.opened = false; tr.boarded = false; tr.dwell = DWELL;
+      tr.reopen = 0; tr.closing = false; tr.chimed = false; tr.opened = false; tr.boarded = false; tr.dwell = DWELL; tr.termTold = false;
       for (const a of this.people) if (a.frame === tr.key && a.state !== 'despawn') { a.stops--; if (a.stops <= 0) a.wantOff = true; }
     },
     // doors open, people off, people on, the chime, doors shut
@@ -372,6 +376,11 @@
         tr.doorK = k;
         if (k >= 1 && !tr.opened) { tr.opened = true; this.alight(tr); }
         if (tr.opened && !tr.boarded && t > 0.8 + DOOR_T + 2.4) { tr.boarded = true; this.board(tr); }
+        // the last train after the curfew: it goes no further while you're aboard
+        if (this.mode === 'ride' && this.ride && this.ride.key === tr.key && !service() && tr.opened) {
+          if (!tr.termTold) { tr.termTold = true; this.pa('This train terminates here. All change, please. The curfew is in force.'); }
+          if (this.playerAboard(tr)) tr.dwell = Math.max(tr.dwell, t + 4);
+        }
         if (!tr.chimed && t > tr.dwell - 3.2) {
           tr.chimed = true;
           beep(784, 0.22, 0.07); beep(622, 0.3, 0.07, 0.28);
@@ -402,8 +411,20 @@
       tr.doorK = 0;
       tr.kit.setDoors(0); this.kit.setPSD(tr.key, 0);
       this.doorColliders(tr);
-      // whoever was still trying to get on: next one
-      for (const a of this.people) if (a.state === 'board' && a.train === tr.key && a.frame === 'st') { a.state = 'wait'; a.train = null; a.path = []; a.hurry = false; this.stats.missed++; if (this.r() < 0.5) this.say(a, U.pick(['Missed it.', 'Typical.', 'Next one, then.']), 2.5); }
+      // whoever was still in the doorway: through the screen doors already, they're on; otherwise, next one
+      // (back onto the platform). And anyone still getting off who wasn't out yet stays on to the next stop.
+      const zl = K.psd[tr.key];
+      for (const a of this.people) {
+        if (a.state === 'board' && a.train === tr.key && a.frame === 'st') {
+          if ((a.z - zl) * tr.side < 0) { a.frame = tr.key; a.path = []; this.stats.boarded++; a.stops = 1 + Math.floor(this.r() * 4); a.wantOff = false; a.hurry = false; a.z = tr.z + tr.side * 0.5; this.stand(a, tr, true); continue; }
+          a.state = 'wait'; a.train = null; a.path = []; a.hurry = false; this.stats.missed++;
+          if ((a.z - zl) * tr.side < 0.6) a.z = zl + tr.side * 0.7;
+          if (this.r() < 0.5) this.say(a, U.pick(['Missed it.', 'Typical.', 'Next one, then.']), 2.5);
+        } else if (a.state === 'alight' && a.frame === tr.key) {
+          if ((a.z - (tr.z + tr.side * K.inW)) * tr.side > 0.05) { a.frame = 'st'; a.train = null; a.z = zl + tr.side * 0.8; this.stats.alighted++; this.leave(a); }
+          else { a.wantOff = false; a.stops = 1; a.path = []; a.wait = 0; this.stand(a, tr, true); this.say(a, U.pick(['Oh, come on.', 'That was my stop.', 'Next one, then.']), 2.5); }
+        }
+      }
       if (this.mode === 'ride' && this.ride && this.ride.key === tr.key) {
         if (this.playerAboard(tr)) this.nextHop(tr);
         else this.leaveRide(tr);
@@ -700,6 +721,7 @@
 
     updatePeople(dt) {
       const P = DV.Player, cols = this.zone.colliders;
+      this.barkT = (this.barkT || 0) - dt; // (one person at a time says something, now and then)
       const ppl = this.people;
       for (let i = ppl.length - 1; i >= 0; i--) {
         const a = ppl[i];
@@ -749,7 +771,7 @@
         }
         // talk now and then (the ones near you)
         a.barkCool -= dt;
-        if (a.barkCool < 0 && Math.hypot(a.x + this.frameX(a.frame) - P.x, a.z - P.z) < 4 && this.r() < 0.004) { this.say(a, U.pick(LINES[a.f] || LINES.abnegation), 3.5); a.barkCool = 25 + this.r() * 30; }
+        if (a.barkCool < 0 && this.barkT <= 0 && Math.hypot(a.x + this.frameX(a.frame) - P.x, a.z - P.z) < 4 && this.r() < 0.01) { this.say(a, U.pick(LINES[a.f] || LINES.abnegation), 3.5); a.barkCool = 40 + this.r() * 40; this.barkT = 9 + this.r() * 8; }
         // where they are, drawn
         const X = a.x + this.frameX(a.frame);
         const root = a.m.model.root;
@@ -896,7 +918,14 @@
           const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
           let spd = p.pace;
           const ax = P.x - p.x, az = P.z - p.z, fx = dx / (d || 1), fz = dz / (d || 1), ahead = ax * fx + az * fz, beside = ax * fz - az * fx;
-          if (ahead > 0 && ahead < 0.9 && Math.abs(beside) < 0.5) spd = 0;
+          // you in the way: stop, and step round you (and if you will stand there, walk on round you regardless)
+          if (ahead > 0 && ahead < 1.3 && Math.abs(beside) < 0.75) {
+            p.stuck = (p.stuck || 0) + dt;
+            spd = ahead < 0.9 ? 0 : spd * 0.4;
+            const sg = beside >= 0 ? 1 : -1, k = 1.3 * dt;
+            p.x += -fz * sg * k; p.z += fx * sg * k;
+            if (p.stuck > 1.5) p.ghost = true;
+          } else { p.stuck = 0; if (Math.hypot(ax, az) > 1.2) p.ghost = false; }
           if (d < 0.2) {
             p.path.shift();
             if (!p.path.length) { p.m.busy = false; p.m.model.root.visible = false; out.peds.splice(i, 1); continue; }
@@ -911,7 +940,7 @@
           p.m.model.setTint(U.clamp(L[0] * 0.9, 0.25, 1.3), U.clamp(L[1] * 0.9, 0.25, 1.3), U.clamp(L[2] * 0.9, 0.25, 1.3));
         }
       };
-      out.bodies = (px, pz, r) => out.peds.filter((p) => Math.abs(p.x - px) < r && Math.abs(p.z - pz) < r).map((p) => ({ x: p.x, z: p.z, r: 0.26 }));
+      out.bodies = (px, pz, r) => out.peds.filter((p) => !p.ghost && p.y > -0.3 && Math.abs(p.x - px) < r && Math.abs(p.z - pz) < r).map((p) => ({ x: p.x, z: p.z, r: 0.26 }));
       out.sleep = () => { for (const p of out.peds) { p.m.busy = false; p.m.model.root.visible = false; } out.peds.length = 0; };
       zone.metro = out;
       return out;
@@ -920,6 +949,7 @@
     // building (not a lamp or a kiosk) whose face is on that building line and wide enough for the portal
     snap(city) {
       const sol = (city && city.walk && city.walk.solids) || [];
+      const homes = Object.values((DV.CityMap && DV.CityMap.homes) || {});
       for (const S of STATIONS) {
         if (S.snapped) continue;
         const f = FACE[S.face], ax = f[0] !== 0; // (an east- or west-facing front runs along z)
@@ -931,7 +961,10 @@
           const a0 = ax ? q[1] : q[0], a1 = ax ? q[3] : q[2];
           if (a1 - a0 < 5.4) continue;
           const want = ax ? S.z : S.x, t = U.clamp(want, a0 + 2.7, a1 - 2.7), d = Math.abs(t - want) + Math.abs(face - (ax ? S.x : S.z)) * 0.5;
-          if (d < bd) { bd = d; best = ax ? [face, t] : [t, face]; }
+          // (not on top of anyone's front door: the walk home ends at one)
+          const at = ax ? [face, t] : [t, face];
+          if (homes.some((h) => Math.hypot(h.x - at[0], h.z - at[1]) < 14)) continue;
+          if (d < bd) { bd = d; best = at; }
         }
         if (best) { S.x = best[0]; S.z = best[1]; }
         S.snapped = true;
@@ -956,7 +989,19 @@
         out.pool.push(m);
       }
       if (!m) return;
-      const away = (out.r() < 0.5 ? -1 : 1) * (22 + out.r() * 10);
+      // along the pavement one way or the other, but not past the end of the block (into the crossing)
+      const CM = DV.CityMap, alongZ = e.along[1] !== 0, pos0 = alongZ ? S.z : S.x;
+      const room = (sign) => {
+        const dir = (alongZ ? e.along[1] : e.along[0]) * sign;
+        let lim = 34;
+        for (const q of alongZ ? CM.streets : CM.avenues) { const d = ((alongZ ? q.z : q.x) - pos0) * dir; if (d > 0) lim = Math.min(lim, d - q.w / 2 - 2.6); }
+        return lim;
+      };
+      let sign = out.r() < 0.5 ? -1 : 1;
+      if (room(sign) < 8) sign = -sign;
+      const lim = room(sign);
+      if (lim < 6) return;
+      const away = sign * Math.min(lim, 14 + out.r() * 18);
       const far = [e.line[0] + e.along[0] * away, e.line[1] + e.along[1] * away];
       const P = DV.Player;
       const coming = out.r() < 0.5;
