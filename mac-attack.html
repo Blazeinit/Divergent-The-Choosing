@@ -50,6 +50,7 @@ function beep(f, d = .1, type = 'square', v = .05, slide = 0) {
   try {
     ac = ac || new (window.AudioContext || window.webkitAudioContext)();
     if (ac.state === 'suspended') ac.resume();
+    startMusic();
     const o = ac.createOscillator(), a = ac.createGain();
     o.type = type; o.frequency.value = f;
     if (slide) o.frequency.exponentialRampToValueAtTime(f * slide, ac.currentTime + d);
@@ -114,7 +115,7 @@ function prepStage() {
 }
 function goIntro() { prepStage(); state = 'intro'; }
 function startStage() { prepStage(); state = 'wait'; }
-function newCampaign(d = 1) { roadBonus = 0; perk = null; camp = defaultCamp(d); savedScore = false; lbNew = -1; saveCamp(); farmT = 99; farmShown = 0; clearInfo = null; state = 'farm'; }
+function newCampaign(d = 1) { vipPaid = 0; roadBonus = 0; perk = null; camp = defaultCamp(d); savedScore = false; lbNew = -1; saveCamp(); farmT = 99; farmShown = 0; clearInfo = null; state = 'farm'; }
 function continueCamp() { roadBonus = 0; perk = null; camp = JSON.parse(JSON.stringify(saved)); farmT = 99; farmShown = camp.invested; clearInfo = null; state = 'farm'; }
 function toTitle() { saved = loadCamp(); state = 'title'; }
 function toFarm() {
@@ -124,6 +125,7 @@ function toFarm() {
 }
 function stageClear() {
   const profit = cash - START_CASH, r = profit / GOAL, stars = r >= 1.5 ? 3 : r >= 1.25 ? 2 : 1;
+  unlock('first'); if (stars === 3) unlock('star3'); if (windUsed) unlock('wind');
   clearInfo = { profit, stars }; camp.invested += profit; camp.stars[camp.stage] = stars; camp.stage++; saveCamp();
   roadBonus = 0; perk = null; if (!tutDone) { tutDone = true; try { localStorage.setItem('macattack_tut', '1'); } catch (e) {} }
   state = 'clear'; [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, .25, 'triangle', .1), i * 140));
@@ -148,12 +150,12 @@ function primary() {
   else if (state === 'ending') { if (endT < 15.5) endT = 15.5; else toTitle(); }
   else if (state === 'fail') { failInfo.repo ? newCampaign(camp.diff) : startStage(); }
   else if (state === 'diff') newCampaign(1);
-  else if (state === 'lb') closeLB();
+  else if (state === 'lb' || state === 'ach') closeLB();
   else if (state === 'kick') { if (kickT > 2) enterFail(); }
 }
 function ringBell() {
   if (state !== 'wait') { if (state !== 'tab') primary(); return; }
-  slowLeft = 1; waived = false; round++; roundNet = 0; bellAnim = 1; shake = 6; ding();
+  rAll = true; rSum = 0; rN = 0; slowLeft = 1; waived = false; round++; roundNet = 0; bellAnim = 1; shake = 6; ding();
   evt = round >= 2 && Math.random() < .55 ? EVENTS[Math.floor(Math.random() * EVENTS.length)] : null; evtT = 3;
   const E = evt || {}, DF = D();
   const n = Math.min(2 + round + ST.extra + (E.extra || 0), 8), life = Math.max(2.3, (6.8 - round * .4) * ST.lifeM * DF.life * (E.life || 1) * (perk === 'time' ? 1.25 : 1));
@@ -190,13 +192,14 @@ function pay(i) {
   floatText(x, 360, (b.res >= 0 ? '+' : '-') + CUR + Math.abs(b.res), b.res >= 0 ? '#7CFF7C' : '#ff6b6b');
   if (combo > 1) floatText(x, 335, 'COMBO x' + combo, '#ffd54a');
   for (let k = 0; k < (b.res >= 0 ? 14 : 4); k++) coin(x, 420);
-  beep(b.res >= 0 ? 660 + frac * 500 : 200, .12, 'square', .06);
+  if (b.res >= 0) { kaching(); vib(15); } else { beep(200, .12, 'square', .06); vib(40); }
+  rSum += b.amt; rN++; if (!fast) rAll = false; if (b.vip && ++vipPaid >= 5) unlock('whale'); if (combo >= 10) unlock('combo10'); if (b.life - b.left < .5) unlock('speed');
   checkBroke();
 }
 function expire(b) {
   let loss = Math.round(b.amt * D().late);          // late fee
   if (perk === 'bouncer' && !waived) { waived = true; loss = b.amt; floatText(billX(b.slot) + 50, 330, 'FEE WAIVED', '#7ae7ff'); }
-  cash -= loss; roundNet -= loss; combo = 0; shake = 8; b.done = true; b.res = -loss; b.late = true;
+  rAll = false; vib([80, 40, 80]); cash -= loss; roundNet -= loss; combo = 0; shake = 8; b.done = true; b.res = -loss; b.late = true;
   floatText(billX(b.slot) + 50, 360, '-' + CUR + loss + ' LATE', '#ff4040');
   beep(120, .3, 'sawtooth', .08, .5);
 }
@@ -205,6 +208,7 @@ function floatText(x, y, s, c) { floats.push({ x, y, s, c, a: 1 }); }
 function coin(x, y) { parts.push({ x, y, vx: (Math.random() - .5) * 6, vy: -Math.random() * 7 - 2, life: 1, rot: Math.random() * 6, vr: (Math.random() - .5) * .5, bill: Math.random() < .3 }); }
 
 function update(dt) {
+  for (const o of toasts) o.t -= dt; toasts = toasts.filter(o => o.t > 0);
   if (evt) evtT -= dt; if (slowT > 0) slowT -= dt; if (state === 'travel') updateTravel(dt);
   t += dt; bellAnim = Math.max(0, bellAnim - dt * 1.5); shake = Math.max(0, shake - dt * 25); dispCash += (cash - dispCash) * Math.min(1, dt * 8);
   while (spawnQ.length && spawnQ[0].at <= t) {
@@ -214,6 +218,7 @@ function update(dt) {
     for (const b of bills) if (!b.done) { b.left -= (slowT > 0 ? dt * .2 : dt); if (b.left <= 0) expire(b); }
     checkBroke();
     if (state === 'tab' && !spawnQ.length && bills.length && bills.every(b => b.done)) {
+      if (rAll && rN >= 3) { const bon = Math.round(rSum * .05 / 10) * 10; cash += bon; roundNet += bon; floatText(450, 230, 'PERFECT ROUND +' + CUR + bon.toLocaleString(), '#7ae7ff'); unlock('perfect'); }
       bills = []; evt = null;
       if (round >= ROUNDS) { if (cash >= START_CASH + GOAL) stageClear(); else startKick('poor'); }
       else state = 'summary';
@@ -777,6 +782,7 @@ function draw() {
   else if (state === 'farm') drawFarmScreen();
   else if (state === 'ending') drawEnding();
   else if (state === 'lb') drawLB();
+  else if (state === 'ach') drawAch();
   else if (state === 'travel') drawTravel();
   else if (state === 'perk') drawPerk();
   else if (state === 'fail') { drawStreet(9); failOverlay(); }
@@ -805,6 +811,7 @@ function draw() {
   g.save(); g.globalCompositeOperation = 'lighter';
   for (let i = 0; i < (state === 'farm' ? 0 : 40); i++) { const x = (i * 131 + t * (6 + i % 7)) % W, y = 40 + ((i * 71 + Math.sin(t * .5 + i) * 30) % 260); ell(x, y, 1.3, 1.3, 'rgba(255,220,160,.45)'); }
   g.restore();
+  drawToasts();
   if (paused) pauseOverlay();
   post(state === 'farm' || (state === 'ending' && endT < 9));
 }
@@ -824,7 +831,7 @@ function overlay() {
     txt('♥ ♥ ♥', W / 2, 372, 20, '#ff4d6d', 'center', '#ff0033');
     if (saved) { button('CONTINUE  (stage ' + (saved.stage + 1) + ')', 130, 404, 300, 54, continueCamp, 18); button('NEW GAME', 470, 404, 300, 54, openDiff, 18); }
     else button('NEW GAME', W / 2 - 150, 404, 300, 54, openDiff, 20);
-    button('\u2605 LEADERBOARD \u2605', W / 2 - 130, 472, 260, 44, openLB, 15);
+    button('\u2605 LEADERBOARD', 140, 472, 300, 44, openLB, 15); button('MEDALS', 460, 472, 300, 44, openAch, 15);
     button('SOUND: ' + (muted ? 'OFF' : 'ON'), W - 150, H - 46, 130, 32, toggleMute, 11);
     if (!TOUCH) txt('TEST KEYS:  E = skip to ending   N = clear stage   F = fail stage', W / 2, 545, 12, '#aaa', 'center');
   } else if (state === 'diff') {
@@ -874,7 +881,7 @@ function failOverlay() {
 
 // ---------- ENDING: the wife takes everything, Mac flies home to Australia ----------
 let endT = 0, endTier = 6;
-function startEnding() { savedScore = false; lbNew = -1; endT = 0; endTier = 6; fw = []; state = 'ending'; try { localStorage.removeItem(SAVEKEY); } catch (e) {} saved = null; }
+function startEnding() { unlock('home'); if (camp.diff === 2) unlock('brutal'); savedScore = false; lbNew = -1; endT = 0; endTier = 6; fw = []; state = 'ending'; try { localStorage.removeItem(SAVEKEY); } catch (e) {} saved = null; }
 function suitcase(hx, hy) { g.save(); g.translate(hx, hy + 6); fillRR(-12, 0, 24, 18, 3, '#8a5a2d'); g.strokeStyle = INK; g.lineWidth = 1.6; rr(-12, 0, 24, 18, 3); g.stroke(); fillRR(-5, -4, 10, 5, 2, '#333'); fillRR(-12, 7, 24, 2.5, 0, '#d4af37'); g.restore(); }
 function papers(hx, hy) {
   g.save(); g.translate(hx + 2, hy - 12); g.rotate(-.25 + Math.sin(t * 6) * .05); fillRR(-10, -14, 20, 28, 2, '#fff'); g.strokeStyle = INK; g.lineWidth = 1.3; rr(-10, -14, 20, 28, 2); g.stroke();
@@ -972,7 +979,7 @@ function collectAt(x, y) {
   for (let i = coinsT.length - 1; i >= 0; i--) {
     const c = coinsT[i]; if (Math.hypot(c.x - x, c.y - y) < (c.gold ? 44 : 38)) {
       const val = Math.min(roadCap - roadBonus, Math.round(roadCap * (c.gold ? .12 : .035) / 10) * 10); if (val <= 0) { floatText(c.x, c.y, 'MAX BONUS', '#ffd54a'); coinsT.splice(i, 1); return; }
-      roadBonus += val; floatText(c.x, c.y - 10, '+' + CUR + val.toLocaleString(), c.gold ? '#ffe27a' : '#7CFF7C'); for (let k = 0; k < 8; k++) coin(c.x, c.y); beep(c.gold ? 1200 : 880, .12, 'triangle', .08); macCheer = .6; coinsT.splice(i, 1); return;
+      if (roadBonus + val >= roadCap) unlock('roadmax'); roadBonus += val; floatText(c.x, c.y - 10, '+' + CUR + val.toLocaleString(), c.gold ? '#ffe27a' : '#7CFF7C'); for (let k = 0; k < 8; k++) coin(c.x, c.y); beep(c.gold ? 1200 : 880, .12, 'triangle', .08); macCheer = .6; coinsT.splice(i, 1); return;
     }
   }
 }
@@ -1044,6 +1051,54 @@ function pauseOverlay() {
   button('QUIT TO TITLE', W / 2 - 140, 364, 280, 48, () => { paused = false; saved = null; saveCamp(); toTitle(); }, 16);
   txt('Progress is saved at the start of each stage.', W / 2, 440, 12, '#aaa', 'center');
 }
+// ---------- music, sfx, haptics ----------
+let musicOn = false, mStep = 0, noiseBuf = null;
+function tone(f, d, type, v, when = 0) {
+  if (muted || !ac) return; try { const o = ac.createOscillator(), a = ac.createGain(), t0 = ac.currentTime + when; o.type = type; o.frequency.value = f; a.gain.setValueAtTime(v, t0); a.gain.exponentialRampToValueAtTime(.0001, t0 + d); o.connect(a); a.connect(ac.destination); o.start(t0); o.stop(t0 + d + .02); } catch (e) {}
+}
+function hat(v) {
+  if (muted || !ac) return; try { if (!noiseBuf) { noiseBuf = ac.createBuffer(1, 2205, 44100); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); }
+    const s = ac.createBufferSource(), a = ac.createGain(); s.buffer = noiseBuf; a.gain.value = v; s.connect(a); a.connect(ac.destination); s.start(); } catch (e) {}
+}
+const kaching = () => { tone(1318, .22, 'sine', .1); tone(1760, .32, 'sine', .08, .07); hat(.05); };
+const vib = p => { try { if (TOUCH && !muted && navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+function startMusic() {
+  if (musicOn) return; musicOn = true;
+  (function loop() {
+    const play = state === 'tab', bpm = play ? 128 : state === 'travel' ? 112 : state === 'ending' ? 70 : 92, sd = 60 / bpm / 2, calm = !play;
+    if (ac && !muted && !paused && state !== 'kick') {
+      const s = mStep % 16, bar = Math.floor(mStep / 16) % 4, root = [73.42, 73.42, 98, 110][bar], sc = [293.66, 329.63, 392, 440, 493.88, 587.33], pat = [0, 2, 4, 2, 3, 5, 3, 2, 0, 2, 4, 5, 4, 3, 2, 1];
+      if (s % 4 === 0) tone(root, sd * 3.6, 'triangle', .05); else if (s % 4 === 2 && !calm) tone(root * 2, sd, 'square', .012);
+      if (!calm || s % 2 === 0) tone(sc[pat[(s + bar * 3) % 16]], sd * 1.6, 'triangle', calm ? .016 : .024);
+      if (!calm && s % 2 === 1) hat(.018);
+      if (play && bills.some(b => !b.done && b.left / b.life < .25) && s % 2 === 0) tone(1760, .03, 'square', .018);
+    }
+    mStep++; setTimeout(loop, sd * 1000);
+  })();
+}
+// ---------- achievements ----------
+const ACH = [
+  { id: 'first', name: 'FIRST BLOOD', desc: 'Clear your first stage' }, { id: 'perfect', name: 'PERFECTIONIST', desc: 'Pay every tab fast in a round' },
+  { id: 'combo10', name: 'COMBO MASTER', desc: 'Reach a x10 combo' }, { id: 'whale', name: 'WHALE HUNTER', desc: 'Pay 5 VIP tabs in one run' },
+  { id: 'star3', name: 'TRIPLE CROWN', desc: 'Earn 3 stars on a stage' }, { id: 'roadmax', name: 'ROAD WARRIOR', desc: 'Max out a road bonus' },
+  { id: 'speed', name: 'SPEED DEMON', desc: 'Pay a tab in under half a second' }, { id: 'home', name: 'HOMEWARD BOUND', desc: 'Reach the ending' },
+  { id: 'brutal', name: 'BRUTAL BARON', desc: 'Finish the game on Brutal' }, { id: 'wind', name: 'NINE LIVES', desc: 'Use Second Wind and still clear the stage' }];
+let achSet = {}, toasts = [], vipPaid = 0, rAll = true, rSum = 0, rN = 0;
+try { achSet = JSON.parse(localStorage.getItem('macattack_ach')) || {}; } catch (e) {}
+function unlock(id) {
+  if (achSet[id]) return; achSet[id] = 1; try { localStorage.setItem('macattack_ach', JSON.stringify(achSet)); } catch (e) {}
+  toasts.push({ name: ACH.find(a => a.id === id).name, t: 3.2 }); [784, 988, 1175, 1568].forEach((f, i) => tone(f, .25, 'triangle', .09, i * .09)); vib([30, 30, 30]);
+}
+function openAch() { if (state !== 'ach' && state !== 'lb') lbReturn = state; state = 'ach'; }
+function drawAch() {
+  g.fillStyle = lg(0, 0, 0, H, ['#12082a', '#2a0f3a', '#0a0710']); g.fillRect(0, 0, W, H); glow(W / 2, 120, 420, '#7a1f5a', .4);
+  big('MEDALS', 90, '#fff6b0', '#ffb300', '#ff9a00', 60); txt(Object.keys(achSet).length + ' / ' + ACH.length + ' unlocked', W / 2, 114, 13, '#bbb', 'center');
+  panel(90, 130, 720, 340);
+  ACH.forEach((a, i) => { const col = Math.floor(i / 5), x = 110 + col * 350, y = 150 + (i % 5) * 64, on = achSet[a.id]; fillRR(x, y, 330, 54, 10, on ? 'rgba(255,213,74,.14)' : 'rgba(255,255,255,.05)');
+    txt(on ? '★' : '☆', x + 28, y + 36, 28, on ? '#ffd54a' : '#555', 'center', on ? '#ff9a00' : null); txt(a.name, x + 54, y + 24, 14, on ? '#fff' : '#888'); txt(a.desc, x + 54, y + 43, 11, on ? '#7ae7ff' : '#666'); });
+  button('BACK', W / 2 - 80, 488, 160, 44, closeLB, 16);
+}
+function drawToasts() { toasts.forEach((o, i) => { const a = Math.min(1, o.t, 3.2 - o.t + .01) ; g.globalAlpha = Math.max(0, Math.min(1, o.t * 2)); panel(W / 2 - 170, 62 + i * 54, 340, 46); txt('★ MEDAL UNLOCKED', W / 2, 80 + i * 54, 10, '#ffd54a', 'center'); txt(o.name, W / 2, 100 + i * 54, 17, '#fff', 'center', '#ff9a00'); g.globalAlpha = 1; }); }
 function post(nb) {
   // bloom: downsample, square (threshold-ish), add back
   if (!nb) {
@@ -1079,6 +1134,7 @@ cv.addEventListener('pointerdown', e => {
   else if (state === 'summary' || state === 'kick' || (state === 'ending' && endT > 1 && endT < 15.5)) primary();
 });
 addEventListener('keydown', e => {
+  beep(1, .01, 'sine', .0001);
   if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (e.code === 'KeyM') { toggleMute(); return; }
   if (paused) return;
