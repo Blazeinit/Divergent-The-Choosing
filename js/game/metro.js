@@ -611,7 +611,8 @@
       a.act = f === 'erudite' && r < 0.6 ? 'read' : f === 'dauntless' && r < 0.4 ? 'arms_crossed' : r < 0.15 ? 'read' : 'idle';
       // a seat on a bench, if there's one free nearby and they're old or tired
       if ((a.m.age > 55 || r > 0.8) && a.frame === 'st') {
-        const b = this.benches.filter((s) => !s.occupant).sort((p, q) => Math.abs(p.x - a.x) - Math.abs(q.x - a.x))[0];
+        const side = Math.sign(a.z - 9) || 1; // (a seat on this side of the bench: not through it)
+        const b = this.benches.filter((s) => !s.occupant && Math.sign(s.az - 9) === side).sort((p, q) => Math.abs(p.x - a.x) - Math.abs(q.x - a.x))[0];
         if (b && Math.abs(b.x - a.x) < 14) { b.occupant = a.id; a.bench = b; a.path = [[b.ax, b.az]]; a.state = 'toBench'; }
       }
     },
@@ -741,10 +742,13 @@
             if (a.blocked > 1.2 && (a.barkCool -= dt) < 0) { this.say(a, U.pick(PASSING), 2); a.barkCool = 6; }
             if (a.blocked > 0.6) { a.x += -fz * Math.sign(beside || 1) * 0.6 * dt; a.z += fx * Math.sign(beside || 1) * 0.6 * dt; }
           } else a.blocked = 0;
-          if (d < 0.18) {
-            a.path.shift();
+          // (a waypoint on the way needn't be hit exactly; one you can't get any nearer to, in a crowd or
+          // against something, is given up after a couple of seconds)
+          if (d < (a.path.length > 1 ? 0.45 : 0.18) || (a.prog = d < (a.bestD || 1e9) - 0.05 ? 0 : (a.prog || 0) + dt) > 2) {
+            a.path.shift(); a.bestD = 1e9; a.prog = 0;
             if (!a.path.length) this.arrived(a);
           } else if (spd > 0) {
+            if (d < (a.bestD || 1e9) - 0.05) a.bestD = d;
             const step = Math.min(d, spd * dt);
             a.x += fx * step; a.z += fz * step;
             a.rot = U.dampAngle(a.rot, Math.atan2(fx, fz), 9, dt);
