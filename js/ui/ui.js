@@ -140,6 +140,10 @@
       // fps
       const fpsEl = this.q('#hud-fps');
       fpsEl.classList.toggle('hidden', !DV.Settings.get('showFps'));
+      // the minimap, and the waypoint's beacon in the street
+      const tn = performance.now(), wdt = Math.min(0.1, (tn - (this._wpT || tn)) / 1000); this._wpT = tn;
+      if (DV.Waypoint) DV.Waypoint.update(wdt);
+      if (DV.Minimap) DV.Minimap.update(game);
       if (DV.Settings.get('showFps')) fpsEl.textContent = game.fps + ' fps · ' + game.renderer.info.render.calls + ' calls · ' + Math.round(game.renderer.info.render.triangles / 1000) + 'k tris';
     },
 
@@ -184,6 +188,13 @@
           rel = U.clamp(rel, -88, 88);
           marks.push('<span class="quest" style="left:' + (W / 2 + rel * pxPerDeg) + 'px">▼</span>');
         }
+      }
+      const wp = DV.Waypoint && DV.Waypoint.get();
+      if (wp && DV.Waypoint.here()) {
+        const dx = wp.x - DV.Player.x, dz = wp.z - DV.Player.z;
+        const bearing = ((Math.atan2(dx, -dz) * 180) / Math.PI + 360) % 360;
+        const rel = U.clamp(((bearing - heading + 540) % 360) - 180, -88, 88);
+        marks.push('<span class="wpt" style="left:' + (W / 2 + rel * pxPerDeg) + 'px">◆</span>');
       }
       const html = marks.join('');
       if (this._cmp !== html) { this._cmp = html; strip.innerHTML = html; }

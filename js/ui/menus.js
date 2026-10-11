@@ -382,6 +382,7 @@
       select('Ambience detail', 'ambienceDetail', [['high', 'High'], ['low', 'Low']]);
       el('div', 'h', 'Gameplay', body);
       toggle('Quest markers on compass', 'questMarkers');
+      toggle('Minimap', 'minimap');
       select('Dialogue text speed', 'textSpeed', [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']]);
       select('Clock speed (an in-game hour takes…)', 'clockSpeed', [['slow', '12 minutes (slow)'], ['normal', '6 minutes — default'], ['fast', '3 minutes (fast)']]);
       el('div', 'h', 'Developer', body);

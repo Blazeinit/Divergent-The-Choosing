@@ -82,6 +82,7 @@
     reverb: true, // room reverb on world sounds
     ambienceDetail: 'high', // 'high' | 'low' (fewer ambient one-shots and accents)
     questMarkers: true,
+    minimap: true,
     textSpeed: 'normal', // 'slow' | 'normal' | 'fast' | 'instant'
     clockSpeed: 'normal', // 'slow' (an hour every 12 minutes) | 'normal' (6) | 'fast' (3)
     devMenu: false, // the developer menu (` or Pause → Developer), for testing

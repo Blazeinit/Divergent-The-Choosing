@@ -101,6 +101,16 @@
         g.fillStyle = dd && b.d.k > 0.1 ? mixHex('#3a3833', dd.color, Math.min(0.45, b.d.k * 0.7)) : '#35332e';
         g.fillRect(X(x0), Y(z0), (x1 - x0) * s, (z1 - z0) * s);
       }
+      // zoomed in: every building's footprint (from the city as built)
+      const cz0 = DV.World.zones && DV.World.zones.testing_center;
+      if (this.zoom >= 2.4 && cz0 && cz0.city && cz0.city.walk) {
+        const x0 = cx - w / 2 / s, x1 = cx + w / 2 / s, z0 = cz - h / 2 / s, z1 = cz + h / 2 / s;
+        g.fillStyle = '#4c4a43';
+        for (const q of cz0.city.walk.solids) {
+          if (q[4] < 2.4 || q[2] < x0 || q[0] > x1 || q[3] < z0 || q[1] > z1 || q[2] - q[0] < 1.5 || q[3] - q[1] < 1.5) continue;
+          g.fillRect(X(q[0]), Y(q[1]), Math.max(1, (q[2] - q[0]) * s), Math.max(1, (q[3] - q[1]) * s));
+        }
+      }
       // the Testing Center's grounds
       const cp = CM.campus;
       g.fillStyle = '#6a5a38';
@@ -206,6 +216,16 @@
         label(q.name, px, py - 13, 10, false, '#e0a07a');
         this._hits.push({ x: px, y: py, tip: 'Circle Line — ' + q.name + ' (' + q.sub + ')' });
       }
+      // your waypoint
+      const wp = DV.Waypoint && DV.Waypoint.get();
+      if (wp) {
+        const px = X(wp.x), py = Y(wp.z);
+        g.fillStyle = '#8fd8ff'; g.strokeStyle = '#0a1a24'; g.lineWidth = 2;
+        g.beginPath(); g.moveTo(px, py - 9); g.lineTo(px + 7, py); g.lineTo(px, py + 9); g.lineTo(px - 7, py); g.closePath(); g.fill(); g.stroke();
+        const d = me && me[2] !== null ? Math.round(Math.hypot(wp.x - me[0], wp.z - me[1])) : null;
+        label('Waypoint' + (d !== null ? ' · ' + d + ' m' : ''), px, py - 16, 11, false, '#8fd8ff');
+        this._hits.push({ x: px, y: py, tip: 'Your waypoint (click it to clear it)' });
+      }
       // sector names
       for (const d of CM.districts) {
         const at = d.label || d.c;
@@ -269,7 +289,8 @@
     attach(cv, redraw) {
       let drag = null;
       const pos = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
-      cv.onmousedown = (e) => { drag = pos(e); };
+      let down = null;
+      cv.onmousedown = (e) => { drag = pos(e); down = pos(e); };
       cv.onmouseup = cv.onmouseleave = () => { drag = null; };
       cv.onmousemove = (e) => {
         const p = pos(e);
@@ -285,7 +306,18 @@
       cv.ondblclick = () => { this.reset(); redraw(); };
       // (the dev menu: Shift+click goes there)
       cv.onclick = (e) => {
-        if (!(DV.Dev && DV.Dev.on()) || !(e.shiftKey || DV.Input.down('ShiftLeft') || DV.Input.down('ShiftRight')) || !this.T) return;
+        const p0 = pos(e), moved = down ? Math.hypot(p0[0] - down[0], p0[1] - down[1]) : 0;
+        const shift = e.shiftKey || DV.Input.down('ShiftLeft') || DV.Input.down('ShiftRight');
+        // a click (not the end of a drag): put a waypoint there, or take yours away
+        if (!shift && moved < 5 && this.T && DV.Waypoint) {
+          const x = this.T.cx + (p0[0] - this.T.w / 2) / this.T.s, z = this.T.cz + (p0[1] - this.T.h / 2) / this.T.s;
+          const wp = DV.Waypoint.get(), CM = DV.CityMap;
+          if (wp && Math.hypot((wp.x - x) * this.T.s, (wp.z - z) * this.T.s) < 12) DV.Waypoint.clear();
+          else if (Math.hypot(x - CM.centre[0], z - CM.centre[1]) < CM.fence - 10) DV.Waypoint.set(x, z);
+          redraw();
+          return;
+        }
+        if (!(DV.Dev && DV.Dev.on()) || !shift || !this.T) return;
         const zone = DV.World.current;
         if (!zone || zone.id !== 'testing_center') { DV.UI.notify('Dev: the city map only goes places from the Testing Center\'s streets.'); return; }
         const p = pos(e), x = this.T.cx + (p[0] - this.T.w / 2) / this.T.s, z = this.T.cz + (p[1] - this.T.h / 2) / this.T.s;

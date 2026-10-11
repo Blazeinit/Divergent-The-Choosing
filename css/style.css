@@ -731,3 +731,13 @@ body.cutscene #hud-prompt, body.cutscene #hud-quest, body.cutscene #hud-compass,
 #endcredits .skip { position: absolute; bottom: 18px; right: 24px; font: 11px/1 Arial, sans-serif; letter-spacing: 0.12em; color: #5a5650; }
 @keyframes ec-roll { from { transform: translateY(0); } to { transform: translateY(calc(-100% - 100vh)); } }
 @keyframes ec-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* the minimap (js/ui/minimap.js): a round dial, bottom right, turning with the camera */
+#hud-minimap { position: absolute; right: 14px; bottom: 14px; width: 180px; height: 180px; pointer-events: none; }
+#hud-minimap canvas { position: absolute; left: 0; top: 0; width: 180px; height: 180px; border-radius: 50%; }
+#hud-minimap .mm-ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid #8a6a3a; box-shadow: 0 0 0 1px #2a2016, inset 0 0 14px rgba(0, 0, 0, 0.75), 0 3px 10px rgba(0, 0, 0, 0.6); }
+#hud-minimap .mm-n { position: absolute; width: 12px; text-align: center; font-family: var(--serif); font-weight: bold; font-size: 12px; color: #f0d48a; text-shadow: 0 0 3px #000, 0 0 2px #000; }
+#hud-minimap .mm-label { position: absolute; left: 0; right: 0; bottom: -18px; text-align: center; font-family: var(--serif); font-size: 12px; color: #8fd8ff; text-shadow: 0 0 3px #000; }
+#hud-minimap.hidden { display: none; }
+#hud-compass .wpt { position: absolute; top: 3px; color: #8fd8ff; font-size: 12px; transform: translateX(-50%); text-shadow: 0 0 4px #000; }
+#hud-fps { bottom: 216px !important; }
