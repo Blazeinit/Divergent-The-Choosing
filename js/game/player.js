@@ -86,7 +86,8 @@
       this.x = x; this.z = z;
       this.rot = rot || 0;
       this.vx = this.vz = 0;
-      this.y = 0; this.vy = 0; this.onGround = true;
+      const zone = DV.World && DV.World.current;
+      this.y = this.groundY = zone && zone.groundAt ? zone.groundAt(x, z) : 0; this.vy = 0; this.onGround = true;
       this.state = 'free';
       this.seat = null;
       this.action = 'idle';
@@ -189,9 +190,9 @@
       } else this.regen(dt);
       if (dev && dev.stamina) { this.stamina = P.staminaMax; this.exhausted = false; }
 
-      // vertical: jumping and landing (ground is the room floor; 0 almost everywhere)
-      const groundRoom = zone ? zone.roomAt(this.x, this.z) : null;
-      const ground = (groundRoom && groundRoom.floorY) || 0;
+      // vertical: jumping and landing (ground is the room floor: 0 almost everywhere, up a flight of stairs it climbs)
+      const ground = zone && zone.groundAt ? zone.groundAt(this.x, this.z) : 0;
+      this.groundY = ground;
       if (fly) {
         const up = ctx.enabled ? (input.down('Space') ? 1 : 0) - (input.down('KeyC') || input.down('ControlLeft') || input.down('ControlRight') ? 1 : 0) : 0;
         this.vy = up * (wantRun ? 14 : 7) * (dev.speed || 1);

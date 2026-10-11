@@ -39,6 +39,9 @@ L.run('the Circle Line: stations, trains, riding, commuters', async (p, T, errs)
   const hall = await ev(() => ({ place: DV.World.current.placeName(DV.Player.x, DV.Player.z).name, here: DV.Metro.STATIONS[DV.Metro.here].id, people: DV.Metro.people.length, nA: DV.Metro.trains.A.nextAt - DV.Clock.total(), nB: DV.Metro.trains.B.nextAt - DV.Clock.total() }));
   T.ok(hall.here === 'halsted' && /Halsted/.test(hall.place) && hall.people > 3, 'Halsted, with people waiting on the platform (' + hall.people + ')', hall);
   T.ok(hall.nA >= 0 && hall.nA <= 5 && hall.nB >= 0 && hall.nB <= 8, 'the next trains each way are due within the rush-hour headway', hall);
+  // you come in at the top of the stairs (street level) and walk down them to the hall
+  const down = await ev(() => { const P = DV.Player, y0 = P.y; DV.Game.rig.yaw = Math.PI / 2; DV.Input.keys.KeyW = true; let mid = null; for (let i = 0; i < 60; i++) { QA.step(0.1); if (i === 15) mid = P.y; } DV.Input.keys.KeyW = false; return { y0: +y0.toFixed(2), mid: +mid.toFixed(2), y1: +P.y.toFixed(2), x: +P.x.toFixed(1) }; });
+  T.ok(down.y0 > 4 && down.mid > 0.3 && down.mid < 4 && down.y1 === 0 && down.x > -64, 'walk down the stairs from the street to the ticket hall', down);
   const c1 = await calls();
   T.ok(c1 < 170, 'the station draws in ' + c1 + ' calls');
   // through the gates on foot

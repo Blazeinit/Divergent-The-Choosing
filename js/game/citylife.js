@@ -257,6 +257,8 @@
       return true;
     }
     person(sc, f, role, [x, z], rot, action, o) {
+      // (a bystander whose place turns out to be taken (a bench, a bin, a lamp) just isn't there)
+      if (role === 'other' && !o.child && ((this.life.kit && this.life.kit.blocked(x, z, 0.2)) || this.zone.colliders.blocked(x, z, 0.2, 'npc'))) return null;
       const sex = this.r() < 0.5 ? 'f' : 'm', age = o.child ? 9 + Math.floor(this.r() * 4) : 18 + Math.floor(this.r() * 50);
       const app = DV.Character.fromFaction(f, sex, 'scene:' + sc.id + ':' + sc.people.length, { age });
       if (o.child) app.child = true;

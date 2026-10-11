@@ -121,6 +121,11 @@
       const i = this.roomIndexAt(x, z);
       return i >= 0 ? this.rooms[i] : null;
     }
+    // the floor's height at (x, z): the room's own (a flight of stairs slopes up), 0 almost everywhere
+    groundAt(x, z) {
+      const r = this.roomAt(x, z);
+      return r ? (r.floorAt ? r.floorAt(x, z) : r.floorY || 0) : 0;
+    }
     // can someone stand at (x, z)? the authored rooms, or (where the zone has a walkable city
     // round it) the open streets outside them; buildings out there are colliders
     walkable(x, z) {

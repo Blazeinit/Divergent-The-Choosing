@@ -126,10 +126,10 @@
       // the platform benches
       this.benches = kit.seats.map((s, i) => Object.assign({ id: 'mbench' + i, occupant: null }, s));
       for (const s of this.benches) zone.interactables.push({ id: 'seat:' + s.id, kind: 'seat', spot: s, x: s.x, y: 0.6, z: s.z, radius: 1.1, label: 'Sit', name: 'Bench', cond: () => this.mode === 'platform' || (this.ride && this.ride.phase === 'dwell') });
-      // up the stairs to the street
+      // up the stairs to the street (walk out into the daylight at the top, or E there)
       zone.interactables.push({
-        id: 'metro_exit', kind: 'action', x: K.hall.x0 + 0.6, y: 1.2, z: 9, radius: 2.4, label: 'Up to the street',
-        get name() { return st(Metro.here).name + ' — Exit'; }, cond: () => this.mode === 'platform' || (this.ride && this.ride.phase === 'dwell' && !this.playerAboard(this.trains[this.ride.key])),
+        id: 'metro_exit', kind: 'action', x: K.stairs.out + 1.0, y: K.stairs.rise + 1.2, z: 9, radius: 1.8, label: 'Out to the street',
+        get name() { return st(Metro.here).name + ' — Exit'; }, cond: () => this.canExit(),
         onUse: () => this.exit(),
       });
       // the departure boards, the route map in the cars
@@ -138,6 +138,7 @@
       ctx.update((dt) => this.update(dt));
       this.dress(0);
     },
+    canExit() { return this.mode === 'platform' || (!!this.ride && this.ride.phase === 'dwell' && !this.playerAboard(this.trains[this.ride.key])); },
     aboardOK(tr) {
       if (this.mode === 'ride') return this.ride && this.ride.key === tr.key;
       return tr.state === 'dwell';
@@ -164,6 +165,7 @@
       if (z.roomMap) {
         z.roomMap.m_plat.name = S.name;
         z.roomMap.m_hall.name = S.name + ' — Ticket Hall';
+        z.roomMap.m_stairs.name = S.name + ' — Stairs';
       }
       z.def.region = 'Circle Line · ' + S.sub;
       this.drawBoard(true);
@@ -245,7 +247,7 @@
       const zone = DV.World.activate('metro');
       if (!P.model.root.parent) G.scene.add(P.model.root);
       if (P.seat) { P.seat.occupant = null; P.seat = null; }
-      P.state = 'free'; P.pinned = false; P.cineAction = null; P.crouched = false; P.y = 0; P.vx = P.vz = 0;
+      P.state = 'free'; P.pinned = false; P.cineAction = null; P.crouched = false; P.vx = P.vz = 0;
       this.mode = 'platform';
       this.ride = null;
       this.setOffset(0);
@@ -254,8 +256,9 @@
       for (const key of ['A', 'B']) this.resetTrack(this.trains[key], true);
       this.stationColliders(true);
       this.spawnPlatform(true);
-      P.place(K.hall.x0 + 1.6, 9, Math.PI / 2);
-      G.rig.yaw = P.rot; G.rig.pitch = 0.16; G.rig.follow(true);
+      // at the top of the stairs, in off the street: walk down them to the ticket hall
+      P.place(K.stairs.top + 0.1, 9, Math.PI / 2);
+      G.rig.yaw = P.rot; G.rig.pitch = 0.3; G.rig.follow(true);
       G.triggerState = {}; G.lastRoom = null;
       this.notePos();
       G.state = 'playing';
@@ -707,7 +710,7 @@
       this.trickleT = b > 0 ? U.lerp(9, 3.5, b) * (0.6 + this.r() * 0.8) : 999;
       if (this.people.length > 40) return;
       const key = this.r() < 0.5 ? 'A' : 'B';
-      const a = this.spawn(pick(this.r, st(this.here).mix), 'st', K.hall.x0 - 3.2, 9, { state: 'enter', want: key, y: 1.8 });
+      const a = this.spawn(pick(this.r, st(this.here).mix), 'st', K.stairs.out + 0.9, 9 + (this.r() - 0.5) * 1.8, { state: 'enter', want: key, y: K.stairs.rise });
       if (!a) return;
       const lane = this.lane(key), spot = this.waitSpot(key);
       a.path = [[K.hall.x0 + 0.8, 9], [K.gateX - 1.6, lane], [K.gateX + 1.4, lane], spot];
@@ -716,7 +719,8 @@
     lane(key) { const L = K.lanes; return key === 'A' ? L[Math.floor(this.r() * 3)] : L[3 + Math.floor(this.r() * 3)]; },
     leave(a) {
       const lane = this.lane(a.z < 9 ? 'A' : 'B');
-      a.path = [[K.gateX + 1.4, lane], [K.gateX - 1.6, lane], [K.hall.x0 + 0.8, 9], [K.hall.x0 - 4.5, 9]];
+      const sz = 9 + (this.r() - 0.5) * 1.8;
+      a.path = [[K.gateX + 1.4, lane], [K.gateX - 1.6, lane], [K.hall.x0 + 0.8, sz], [K.stairs.top, sz], [K.stairs.out + 0.5, 9]];
       a.state = 'leave'; a.stairs = true; a.act = 'idle';
     },
 
@@ -755,11 +759,10 @@
             if (!a.stairs) { const [nx, nz] = cols.resolveCircle(a.x, a.z, 0.24, 'npc', 0); a.x = nx; a.z = nz; }
           }
         }
-        // the stairs: up as they go west of the hall, gone at the top
+        // the stairs: up as they go west of the hall, gone out into the daylight at the top
         if (a.stairs) {
-          const sx = K.hall.x0 - 0.3 - a.x;
-          a.y = sx > 0 ? sx * 0.575 : 0;
-          if (a.state === 'leave' && a.x < K.hall.x0 - 4) { this.despawn(a); continue; }
+          a.y = K.stairY(a.x);
+          if (a.state === 'leave' && a.x < K.stairs.out + 0.8) { this.despawn(a); continue; }
           if (a.state === 'enter' && a.x > K.hall.x0 + 0.5) a.stairs = false;
         }
         // keep apart (people in the same frame, standing about)
@@ -873,6 +876,9 @@
       if (moved) this.kit.setFlaps(this.flapK);
       this.boxes.flaps.forEach((b, i) => { b.enabled = this.stationOn && this.flapK[i] < 0.5; });
       this.updatePeople(dt);
+      // up the stairs and out into the daylight at the top: the street
+      const P = DV.Player;
+      if (G.state === 'playing' && this.canExit() && P.x < K.stairs.out + 0.75 && P.z > K.stairs.z0 && P.z < K.stairs.z1) this.exit();
       this.drawBoard(false);
       // the tunnel is darker than the station: draw in the fog between stations
       const f = DV.World.scene && DV.World.scene.fog;
@@ -1033,13 +1039,14 @@
     ambience: 'platform', reverb: 'platform',
     rooms: [
       room('m_hall', 'Ticket Hall', K.hall.x0, K.plat.z0, K.hall.x1, K.plat.z1, 4.4, [0.7, 0.68, 0.64]),
+      Object.assign(room('m_stairs', 'Stairs', K.stairs.out, K.stairs.z0, K.hall.x0, K.stairs.z1, K.stairs.rise + 2.6, [0.74, 0.72, 0.68]), { floorAt: (x) => K.stairY(x), ceilAt: (x) => K.stairCeil(x) }),
       room('m_plat', 'Platform', K.plat.x0, K.plat.z0, K.plat.x1, K.plat.z1, 4.4, [0.66, 0.68, 0.7]),
       room('m_carA', 'Circle Line train', -26.5, 1.5, 26.5, 4.5, K.ceilY, [0.84, 0.85, 0.87]),
       room('m_carB', 'Circle Line train', -26.5, 13.5, 26.5, 16.5, K.ceilY, [0.84, 0.85, 0.87]),
     ],
     doors: [],
     props: [],
-    spawn: { x: K.hall.x0 + 1.6, z: 9, rot: Math.PI / 2 },
+    spawn: { x: K.stairs.top + 0.1, z: 9, rot: Math.PI / 2 },
     build(ctx) { Metro.build(ctx); },
     onExit() { Metro.sleep(); },
   });

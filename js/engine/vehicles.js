@@ -41,8 +41,11 @@
       for (let i = 0; i < p.length; i += 3) {
         this.pos.push(p[i], p[i + 1], p[i + 2]);
         const d = n[i] * SUN.x + n[i + 1] * SUN.y + n[i + 2] * SUN.z;
-        const k = emit ? 1 : 0.55 + 0.38 * Math.max(0, d) + 0.1 * Math.max(0, n[i + 1]);
-        this.col.push(c[0] * k, c[1] * k, c[2] * k);
+        // (the sun, the sky on the upward faces, and darker low down where the road shades it)
+        const ao = U.clamp(0.62 + p[i + 1] * 0.75, 0.62, 1);
+        const k = emit ? 1 : (0.5 + 0.36 * Math.max(0, d) + 0.16 * Math.max(0, n[i + 1])) * ao;
+        const sky = emit ? 0 : Math.max(0, n[i + 1]) * 0.05;
+        this.col.push(c[0] * k + sky, c[1] * k + sky, c[2] * k + sky * 1.4);
       }
       geo.dispose();
       if (g !== geo) g.dispose();
@@ -102,6 +105,31 @@
       g.translate(x, y, z);
       this.add(g, c);
     }
+    // a body from its side profile (a THREE.Shape in (along the car, up)), extruded across the width
+    // W with rounded edges (bevel b), centred on x = 0 (or on x = cx)
+    side(shape, W, c, b, cx, opts) {
+      b = b || 0;
+      const g = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.001, W - 2 * b), bevelEnabled: b > 0, bevelThickness: b, bevelSize: b * 0.85, bevelOffset: -b * 0.85, bevelSegments: 2, curveSegments: 7 }); // (the bevel rounds in from the outline, not out past it)
+      g.rotateY(-Math.PI / 2);
+      g.translate(W / 2 - b + (cx || 0), 0, 0);
+      this.add(g, c, opts);
+    }
+    // a flat piece (a window, a pillar's trim) in the car's side: a profile, t thick, its outer face at x
+    slab(pts, x, t, c, opts) {
+      const sh = new THREE.Shape();
+      sh.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]);
+      const g = new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false });
+      g.rotateY(-Math.PI / 2);
+      g.translate(x > 0 ? x : x + t, 0, 0);
+      this.add(g, c, opts);
+    }
+    // a quad given its four corners (glass in a raked windscreen); shaded like the rest
+    quad(a, b, c2, d, col, opts) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c2, ...a, ...c2, ...d], 3));
+      this.add(g, col, opts);
+    }
     // a turned part (a tyre, a rim): a lathe profile [[radius, along the axle], ...] spun round an axle
     // along x, its +along end facing side (+1 / -1), centred at (x, y, z)
     lathe(x, y, z, prof, side, c, seg) {
@@ -151,7 +179,7 @@
     const archTop = (opts && opts.archTop) || r * 2 + 0.1;
     const R = Math.max(r * 1.08, Math.min(r * 1.22, archTop - r - 0.015));
     for (const z of axles) for (const side of [-1, 1]) {
-      const x = side * (W / 2 - w / 2 + 0.035);
+      const x = side * (W / 2 - w / 2 + (opts && opts.inset !== undefined ? -opts.inset : 0.035));
       const flat = opts && opts.wreck && side === 1 && z === axles[0];
       const ry = flat ? r * 0.8 : r;
       // the wheel arch: a round-topped well cut into the side (dark), with a trim lip round it
@@ -159,40 +187,39 @@
       const wsh = archShape(R, r), hole = new THREE.Path();
       hole.absarc(0, ry, ry * 0.93, 0, Math.PI * 2, true);
       wsh.holes.push(hole);
-      const well = new THREE.ExtrudeGeometry(wsh, { depth: 0.208, bevelEnabled: false, curveSegments: 16 });
-      well.rotateY(side * Math.PI / 2);
-      well.translate(side * (W / 2 - 0.2), 0, z);
-      M.add(well, WELL);
-      const lip = new THREE.ShapeGeometry(archShape(R + 0.05, r), 10);
-      lip.rotateY(side * Math.PI / 2);
-      lip.translate(side * (W / 2 + 0.004), 0, z);
-      M.add(lip, TRIM);
+      if (!(opts && opts.arches)) {
+        const well = new THREE.ExtrudeGeometry(wsh, { depth: 0.208, bevelEnabled: false, curveSegments: 16 });
+        well.rotateY(side * Math.PI / 2);
+        well.translate(side * (W / 2 - 0.2), 0, z);
+        M.add(well, WELL);
+        const lip = new THREE.ShapeGeometry(archShape(R + 0.05, r), 10);
+        lip.rotateY(side * Math.PI / 2);
+        lip.translate(side * (W / 2 + 0.004), 0, z);
+        M.add(lip, TRIM);
+      }
       // the tyre: a rounded sidewall, a squared-off shoulder, the tread (and the bead down to the rim)
       const h = w / 2, ri = ry * 0.6;
-      M.lathe(x, ry, z, [[ri, -h * 0.9], [ry * 0.82, -h], [ry * 0.95, -h * 0.86], [ry, -h * 0.55], [ry, h * 0.55], [ry * 0.95, h * 0.86], [ry * 0.82, h], [ri, h * 0.9]], side, TYRE_OUT, 24);
+      M.lathe(x, ry, z, [[ry * 0.82, -h], [ry, -h * 0.55], [ry, h * 0.55], [ry * 0.95, h * 0.86], [ry * 0.82, h], [ri, h * 0.9]], side, TYRE_OUT, 16); // (the inner sidewall faces the car: none)
       // the rim: a steel dish set back in the tyre, a chrome ring and a hubcap (rust on a wreck), lug nuts
       const steel = opts && opts.wreck ? [0.35, 0.28, 0.22] : HUB, cap = opts && opts.wreck ? [0.3, 0.25, 0.2] : CHROME;
       // (the steel face: a ring set back in the rim, facing out, and the rim's inner wall round it)
-      for (const flip of [0, 1]) {
-        const ring = new THREE.RingGeometry(ri * 0.48, ri * 0.98, 18, 1);
-        ring.rotateY(side * Math.PI / 2 + flip * Math.PI);
-        ring.translate(x + side * h * 0.84, ry, z);
-        M.add(ring, flip ? WELL : mix(steel, [0.2, 0.2, 0.21], 0.15));
-      }
-      const wall = new THREE.CylinderGeometry(ri * 0.99, ri * 0.99, h * 0.14, 18, 1, true);
-      wall.rotateZ(Math.PI / 2);
-      const wall2 = wall.clone(); // (seen from inside: the same cylinder turned inside out)
-      wall2.scale(1, 1, -1);
-      for (const g of [wall, wall2]) { g.translate(x + side * h * 0.91, ry, z); M.add(g, mix(steel, [0.1, 0.1, 0.1], 0.45)); }
-      M.lathe(x, ry, z, [[ri * 0.5, h * 0.86], [0.001, h * 0.9]], side, steel, 16); // (profiles run outside-in, or the faces look inward)
-      M.lathe(x, ry, z, [[ri * 1.04, h * 0.95], [ri * 0.98, h * 0.97], [ri * 0.93, h * 0.9]], side, cap, 18);
-      M.lathe(x, ry, z, [[ri * 0.33, h * 0.9], [ri * 0.26, h * 0.96], [0.001, h * 1.0]], side, cap, 12); // the centre cap
-      for (let k = 0; k < 5; k++) {
-        const a = (k / 5) * Math.PI * 2;
+      const ring = new THREE.RingGeometry(ri * 0.48, ri * 0.98, 14, 1);
+      ring.rotateY(side * Math.PI / 2);
+      ring.translate(x + side * h * 0.84, ry, z);
+      M.add(ring, mix(steel, [0.2, 0.2, 0.21], 0.15));
+      const wall = new THREE.CylinderGeometry(ri * 0.99, ri * 0.99, h * 0.14, 14, 1, true); // (seen from inside: turned inside out)
+      wall.rotateZ(Math.PI / 2); wall.scale(1, 1, -1);
+      wall.translate(x + side * h * 0.91, ry, z); M.add(wall, mix(steel, [0.1, 0.1, 0.1], 0.45));
+      M.lathe(x, ry, z, [[ri * 0.5, h * 0.86], [0.001, h * 0.9]], side, steel, 12); // (profiles run outside-in, or the faces look inward)
+      M.lathe(x, ry, z, [[ri * 1.04, h * 0.95], [ri * 0.98, h * 0.97], [ri * 0.93, h * 0.9]], side, cap, 14);
+      M.lathe(x, ry, z, [[ri * 0.33, h * 0.9], [ri * 0.26, h * 0.96], [0.001, h * 1.0]], side, cap, 10); // the centre cap
+      for (let k = 0; k < 4; k++) {
+        const a = (k / 4) * Math.PI * 2 + 0.4;
         M.box(x + side * h * 0.9, ry + Math.cos(a) * ri * 0.4, z + Math.sin(a) * ri * 0.4, 0.03, 0.035, 0.035, TRIM);
       }
       // the inside of the wheel: a dark drum behind the rim
-      M.wheel(x - side * h * 0.2, ry, z, ri * 0.8, w * 0.5, WELL, 12);
+      const drum = new THREE.CylinderGeometry(ri * 0.8, ri * 0.8, w * 0.5, 10, 1, true);
+      drum.rotateZ(Math.PI / 2); drum.scale(1, 1, -1); drum.translate(x - side * h * 0.2, ry, z); M.add(drum, WELL);
       wheels.push({ x, z, r });
     }
     void body;
@@ -200,153 +227,297 @@
   }
 
   /* ---------------- the models ---------------- */
+  // A body is its side profile: the outline from the front bottom, up over the bonnet, the roof line and
+  // the boot to the rear bottom, then forward along the sill with an arch cut over each wheel. It's
+  // extruded across the car with rounded edges, and a dark wheel-house fills each arch. The glasshouse
+  // is a second rounded piece on top, in the body colour (that's the pillars and the roof), with the
+  // glass let into it. Then the lights in chrome bezels, the grille, the bumpers wrapping round the
+  // corners, the door seams and handles, the mirrors, plates and wipers; a contact shadow under it all.
+  function profile(top, y0, arches) {
+    const sh = new THREE.Shape();
+    sh.moveTo(top[0][0], top[0][1]);
+    for (let i = 1; i < top.length; i++) sh.lineTo(top[i][0], top[i][1]);
+    sh.lineTo(top[top.length - 1][0], y0);
+    for (const a of arches.slice().sort((p, q) => p.u - q.u)) {
+      const dy = y0 - a.cy, da = Math.asin(U.clamp(dy / a.R, -1, 1)), hw = Math.sqrt(Math.max(0, a.R * a.R - dy * dy));
+      sh.lineTo(a.u - hw, y0);
+      sh.absarc(a.u, a.cy, a.R, Math.PI - da, da, true);
+    }
+    sh.lineTo(top[0][0], y0);
+    sh.closePath();
+    return sh;
+  }
+  const poly = (pts) => { const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]); sh.closePath(); return sh; };
+  const lerp = (a, b, k) => a + (b - a) * k;
+  // glass on a raked face from p0 to p1 (side profile points), across half-width hw; both ways round
+  function screen(M, p0, p1, hw, col) {
+    const du = p1[0] - p0[0], dv = p1[1] - p0[1], l = Math.hypot(du, dv) || 1;
+    const sg = du < 0 ? 1 : -1; // (outward: forward-and-up on a windscreen, back-and-up on a rear window)
+    const nu = (sg * dv) / l * 0.014, nv = (-sg * du) / l * 0.014;
+    const A = [-hw, p0[1] + nv, p0[0] + nu], B = [hw, p0[1] + nv, p0[0] + nu], C = [hw, p1[1] + nv, p1[0] + nu], D = [-hw, p1[1] + nv, p1[0] + nu];
+    M.quad(A, B, C, D, col); M.quad(A, D, C, B, col);
+  }
+  // the glasshouse: g = { a0, a1 (the windscreen's foot and head), c1, c0 (the rear window's head and foot),
+  // W, b, bp (the B pillar's u, or null for two doors), cp (a third, quarter window's pillar) }
+  function cabin(M, g, body, opts) {
+    opts = opts || {};
+    M.side(poly([g.a0, g.a1, g.c1, g.c0]), g.W, body, g.b);
+    const ins = 0.085, yb = g.a0[1] + 0.05, yt = Math.min(g.a1[1], g.c1[1]) - 0.08;
+    const fr = (y) => lerp(g.a0[0], g.a1[0], (y - g.a0[1]) / (g.a1[1] - g.a0[1])) - ins;
+    const rr = (y) => lerp(g.c0[0], g.c1[0], (y - g.c0[1]) / (g.c1[1] - g.c0[1])) + ins;
+    const cuts = [g.bp, g.cp].filter((u) => u !== null && u !== undefined).sort((p, q) => q - p);
+    const wins = [];
+    let front = (y) => fr(y);
+    for (const u of cuts) { const f = front; wins.push([(y) => f(y), () => u + 0.05]); front = () => u - 0.05; }
+    wins.push([front, (y) => rr(y)]);
+    for (const [f, r] of wins) {
+      const pts = [[r(yb), yb], [f(yb), yb], [f(yt), yt], [r(yt), yt]];
+      if (pts[1][0] - pts[0][0] < 0.12) continue;
+      for (const sd of [-1, 1]) M.slab(pts, sd * (g.W / 2 + 0.006), 0.012, opts.tint || GLASS);
+    }
+    screen(M, [g.a0[0] - 0.02, g.a0[1] + 0.03], [g.a1[0] + 0.03, g.a1[1] - 0.05], g.W / 2 - 0.09, GLASS_HI);
+    screen(M, [g.c0[0] + 0.02, g.c0[1] + 0.03], [g.c1[0] - 0.03, g.c1[1] - 0.05], g.W / 2 - 0.1, GLASS);
+    // wipers at the foot of the screen
+    for (const sx of [-0.32, 0.22]) M.box(sx, g.a0[1] + 0.035, g.a0[0] - 0.08, 0.5, 0.014, 0.02, [0.06, 0.06, 0.06]);
+  }
+  // a light in a chrome bezel, facing +z (front) or -z (back)
+  function lamp(M, x, y, z, w, h, col, face, bezel) {
+    M.box(x, y, z, w + 0.04, h + 0.04, 0.03, bezel || CHROME);
+    M.box(x, y, z + face * 0.016, w, h, 0.02, col, { emit: true });
+  }
+  function roundLamp(M, x, y, z, r, col, face) {
+    const b = new THREE.CylinderGeometry(r + 0.03, r + 0.035, 0.05, 16); b.rotateX(Math.PI / 2); b.translate(x, y, z); M.add(b, CHROME);
+    const l = new THREE.CylinderGeometry(r, r, 0.03, 16); l.rotateX(Math.PI / 2); l.translate(x, y, z + face * 0.02); M.add(l, col, { emit: true });
+  }
+  // a bumper across the end, wrapping round the corners
+  function bumper(M, z, y, W, c, h) {
+    const f = Math.sign(z), hh = h || 0.13;
+    M.box(0, y - hh / 2, z + f * 0.035, W - 0.16, hh, 0.1, c);
+    for (const sd of [-1, 1]) M.box(sd * (W / 2 - 0.06), y - hh / 2, z - f * 0.1, 0.12, hh, 0.36, c);
+  }
+  function seams(M, W, us, y0, y1, body) { for (const u of us) for (const sd of [-1, 1]) M.box(sd * (W / 2 + 0.002), (y0 + y1) / 2, u, 0.008, y1 - y0, 0.014, mix(body, [0, 0, 0], 0.6)); }
+  function handles(M, W, us, y) { for (const u of us) for (const sd of [-1, 1]) M.box(sd * (W / 2 + 0.008), y, u, 0.014, 0.035, 0.15, CHROME); }
+  function mirrors(M, W, u, y, body) {
+    for (const sd of [-1, 1]) { M.box(sd * (W / 2 + 0.04), y - 0.02, u, 0.09, 0.03, 0.04, TRIM); M.box(sd * (W / 2 + 0.11), y - 0.02, u - 0.02, 0.06, 0.1, 0.14, body); M.box(sd * (W / 2 + 0.11), y - 0.02, u + 0.06, 0.05, 0.08, 0.005, [0.5, 0.56, 0.6]); }
+  }
+  function plate(M, z, y, face) { M.box(0, y, z, 0.44, 0.12, 0.012, [0.86, 0.84, 0.74]); M.box(0, y, z + face * 0.007, 0.36, 0.035, 0.004, [0.14, 0.14, 0.16]); }
+  // the wheel-house (dark) in each arch, the floor pan, and the shadow on the road
+  function underneath(M, L, W, axles, R, y0) {
+    for (const u of axles) M.box(0, 0.08, u, W - 0.46, y0 + R * 0.9, 2 * R - 0.04, WELL);
+    M.box(0, 0.16, 0, W - 0.36, Math.max(0.05, y0 - 0.16), L - 0.6, [0.05, 0.05, 0.055]);
+    M.flat(-W / 2 - 0.1, -L / 2 - 0.12, W / 2 + 0.1, L / 2 + 0.12, 0.013, [0.03, 0.03, 0.034]);
+  }
+  // a spare wheel on the back (axle along z)
+  function spare(M, z, y, r, w) {
+    const h = w / 2, ri = r * 0.6;
+    const t = new THREE.LatheGeometry([[ri, -h * 0.9], [r * 0.82, -h], [r * 0.95, -h * 0.86], [r, -h * 0.55], [r, h * 0.55], [r * 0.95, h * 0.86], [r * 0.82, h], [ri, h * 0.9]].map(([a, b]) => new THREE.Vector2(a, b)), 20);
+    t.rotateX(-Math.PI / 2); t.translate(0, y, z); M.add(t, TYRE_OUT);
+    const d = new THREE.CylinderGeometry(ri, ri, w * 0.8, 14); d.rotateX(Math.PI / 2); d.translate(0, y, z); M.add(d, HUB);
+  }
+
   const KINDS = {
-    // a city bus: two-tone, a destination board, two doors on the kerb side
-    bus(M, o) {
-      const L = 11.2, W = 2.5, H = 3.05, r = 0.5;
-      const body = o.color ? hex(o.color) : [0.78, 0.78, 0.74], skirt = mix(body, [0.12, 0.2, 0.18], 0.7), stripe = o.stripe ? hex(o.stripe) : [0.72, 0.52, 0.14];
-      const y0 = 0.35;
-      M.box(0, y0 + 0.45, 0, W, 0.9, L, skirt); // lower body
-      M.box(0, y0 + 0.9 + (H - 0.9 - y0 - 0.15) / 2, 0, W, H - 0.9 - y0 - 0.15, L - 0.3, body); // upper body
-      M.box(0, H - 0.08, 0, W - 0.16, 0.16, L - 0.6, mix(body, [1, 1, 1], 0.12)); // roof cap
-      M.box(0, H + 0.12, -1.6, 1.6, 0.24, 2.4, [0.6, 0.6, 0.6]); // a/c unit
-      M.box(0, y0 + 1.0, 0, W + 0.02, 0.12, L - 0.2, stripe); // livery stripe
-      // windscreen: raked, in two panes, and the destination board above it
-      M.prism([-W / 2 + 0.08, W / 2 - 0.08, L / 2 - 0.12, L / 2 + 0.02, y0 + 1.05], [-W / 2 + 0.1, W / 2 - 0.1, L / 2 - 0.3, L / 2 - 0.16, H - 0.55], GLASS_HI);
-      M.box(0, (y0 + 1.05 + H - 0.55) / 2 + 0.02, L / 2 - 0.08, 0.06, H - 0.55 - y0 - 1.05, 0.08, TRIM);
-      M.box(0, H - 0.36, L / 2 - 0.1, W - 0.4, 0.3, 0.06, [0.05, 0.05, 0.05]);
-      M.box(0, H - 0.36, L / 2 - 0.06, W - 0.7, 0.2, 0.02, AMBER, { emit: true });
-      // side windows with pillars, and the rear window
-      for (const side of [-1, 1]) {
-        const x = side * (W / 2 + 0.005);
-        M.box(x, y0 + 1.75, -0.6, 0.02, 1.0, L - 2.6, GLASS);
-        for (let k = 0; k <= 7; k++) M.box(x + side * 0.005, y0 + 1.75, -L / 2 + 0.7 + k * 1.3, 0.03, 1.02, 0.12, body);
-      }
-      M.box(0, y0 + 1.75, -L / 2 - 0.005, W - 0.5, 1.0, 0.02, GLASS);
-      // doors on the right-hand side (local -x when +z is the front), the kerb side: front and middle
-      for (const dz of [L / 2 - 1.1, -0.4]) {
-        M.box(-W / 2 - 0.012, y0 + 1.15, dz, 0.02, 2.2, 1.1, GLASS_HI);
-        M.box(-W / 2 - 0.02, y0 + 1.15, dz, 0.02, 2.2, 0.05, TRIM);
-      }
-      // lights, bumpers, mirrors
-      for (const s of [-1, 1]) {
-        M.box(s * (W / 2 - 0.3), y0 + 0.55, L / 2 + 0.03, 0.34, 0.18, 0.04, HEAD, { emit: true });
-        M.box(s * (W / 2 - 0.25), y0 + 0.7, -L / 2 - 0.03, 0.18, 0.4, 0.04, TAIL, { emit: true });
-        M.box(s * (W / 2 + 0.25), H - 0.9, L / 2 - 0.3, 0.05, 0.35, 0.12, TRIM);
-        M.box(s * (W / 2 + 0.12), H - 0.75, L / 2 - 0.3, 0.3, 0.04, 0.04, TRIM);
-      }
-      M.box(0, y0 + 0.12, L / 2 + 0.06, W, 0.22, 0.14, TRIM);
-      M.box(0, y0 + 0.12, -L / 2 - 0.06, W, 0.22, 0.14, TRIM);
-      M.box(0, y0 + 0.25, -L / 2 - 0.02, 0.9, 0.35, 0.04, [0.3, 0.3, 0.3]); // engine grille
-      const wheels = wheelSet(M, [L / 2 - 2.3, -L / 2 + 2.6], W, r, 0.32, body, Object.assign({ archTop: y0 + 0.95 }, o));
-      return { length: L, width: W, height: H + 0.24, wheels };
-    },
-    // a four-door saloon
+    // a four-door saloon (one in four an estate; some with round lamps, the older ones)
     sedan(M, o) {
-      const L = 4.6, W = 1.78, r = 0.33;
+      const L = 4.7, W = 1.78, r = 0.33, R = r + 0.075, y0 = 0.3;
       const body = o.color ? hex(o.color) : hex(PAINT[o.seed % PAINT.length]);
-      const yb = 0.3, yt = 0.92, roof = 1.42;
-      M.box(0, (yb + yt) / 2, 0, W, yt - yb, L, body); // lower body
-      M.prism([-W / 2, W / 2, L / 2 - 1.3, L / 2, yt], [-W / 2 + 0.04, W / 2 - 0.04, L / 2 - 1.25, L / 2 - 0.05, yt + 0.05], body); // bonnet, a little domed
-      M.prism([-W / 2, W / 2, -L / 2, -L / 2 + 0.9, yt], [-W / 2 + 0.04, W / 2 - 0.04, -L / 2 + 0.05, -L / 2 + 0.88, yt + 0.04], body); // boot lid
-      // the cabin: raked screens front and back, glass all round, pillars
-      M.cabin([-W / 2 + 0.06, W / 2 - 0.06, -1.42, 1.0, yt], [-W / 2 + 0.2, W / 2 - 0.2, -0.82, 0.25, roof], yt + 0.07, roof - 0.07, body, GLASS, { bz: -0.25 });
-      for (const s of [-1, 1]) {
-        M.box(s * (W / 2 - 0.32), 0.74, L / 2 + 0.006, 0.34, 0.13, 0.02, HEAD, { emit: true });
-        M.box(s * (W / 2 - 0.28), 0.78, -L / 2 - 0.006, 0.36, 0.13, 0.02, TAIL, { emit: true });
-        M.box(s * (W / 2 + 0.07), 1.0, 0.88, 0.12, 0.08, 0.1, body); // mirror
-        M.box(s * (W / 2 + 0.003), 0.8, 0.15, 0.008, 0.03, 0.12, CHROME); // door handles
-        M.box(s * (W / 2 + 0.003), 0.8, -0.75, 0.008, 0.03, 0.12, CHROME);
-        M.box(s * (W / 2 + 0.003), 0.55, 0, 0.006, 0.04, L - 1.6, mix(body, [0, 0, 0], 0.35)); // rubbing strip
+      const estate = o.seed % 4 === 3, old = o.seed % 3 === 0;
+      const uF = L / 2 - 0.92, uR = -L / 2 + 1.0;
+      M.side(profile([[L / 2 - 0.06, 0.34], [L / 2, 0.5], [L / 2 - 0.01, 0.74], [L / 2 - 0.1, 0.86], [L / 2 - 0.32, 0.91], [1.05, 0.96], [-1.3, 0.97], [-L / 2 + 0.25, 0.95], [-L / 2 + 0.04, 0.9], [-L / 2, 0.72], [-L / 2 + 0.02, 0.38]], y0, [{ u: uF, cy: r, R }, { u: uR, cy: r, R }]), W, body, 0.07);
+      cabin(M, estate
+        ? { a0: [1.02, 0.95], a1: [0.22, 1.41], c1: [-L / 2 + 0.35, 1.41], c0: [-L / 2 + 0.12, 0.95], W: W - 0.2, b: 0.06, bp: -0.3, cp: -1.3 }
+        : { a0: [1.02, 0.95], a1: [0.22, 1.41], c1: [-0.84, 1.42], c0: [-1.34, 0.96], W: W - 0.2, b: 0.06, bp: -0.3 }, body);
+      // the front: lamps, indicators, the grille with its bars, the bumper, the plate
+      for (const sd of [-1, 1]) {
+        if (old) roundLamp(M, sd * 0.6, 0.7, L / 2 - 0.02, 0.085, HEAD, 1);
+        else lamp(M, sd * 0.58, 0.7, L / 2 - 0.02, 0.3, 0.12, HEAD, 1);
+        lamp(M, sd * 0.66, 0.55, L / 2 - 0.01, 0.12, 0.05, AMBER, 1, TRIM);
+        lamp(M, sd * 0.6, 0.72, -L / 2 + 0.02, 0.36, 0.14, TAIL, -1, TRIM);
+        M.box(sd * (W / 2 + 0.003), 0.72, -L / 2 + 0.14, 0.01, 0.14, 0.2, TAIL, { emit: true }); // (round the corner)
       }
-      M.box(0, 0.62, L / 2 + 0.006, 0.72, 0.18, 0.02, [0.16, 0.16, 0.17]); // grille
-      M.box(0, 0.4, L / 2 + 0.03, W - 0.02, 0.14, 0.1, o.wreck ? [0.3, 0.25, 0.2] : CHROME);
-      M.box(0, 0.42, -L / 2 - 0.03, W - 0.02, 0.14, 0.1, o.wreck ? [0.3, 0.25, 0.2] : CHROME);
-      M.box(0, 0.62, -L / 2 - 0.006, 0.42, 0.12, 0.01, [0.85, 0.83, 0.72]); // number plate
-      const wheels = wheelSet(M, [L / 2 - 0.85, -L / 2 + 0.95], W, r, 0.2, body, Object.assign({ archTop: 0.8 }, o));
-      return { length: L, width: W, height: roof, wheels };
+      M.box(0, 0.68, L / 2 - 0.005, 0.66, 0.18, 0.03, [0.09, 0.09, 0.1]);
+      for (let k = 0; k < 4; k++) M.box(0, 0.615 + k * 0.045, L / 2 + 0.012, 0.64, 0.012, 0.015, CHROME);
+      bumper(M, L / 2, 0.47, W, o.wreck ? [0.3, 0.25, 0.2] : CHROME);
+      bumper(M, -L / 2, 0.49, W, o.wreck ? [0.3, 0.25, 0.2] : CHROME);
+      plate(M, L / 2 + 0.09, 0.42, 1); plate(M, -L / 2 - 0.01, 0.6, -1);
+      // the sides: doors, handles, mirrors, the rubbing strip between the arches, the sill
+      seams(M, W, [1.0, -0.3, -0.92], 0.38, 0.95, body);
+      handles(M, W, [0.08, -0.6], 0.84);
+      mirrors(M, W, 0.96, 1.02, body);
+      for (const sd of [-1, 1]) {
+        M.box(sd * (W / 2 + 0.005), 0.6, (uF - R + uR + R) / 2, 0.01, 0.035, (uF - R) - (uR + R) - 0.1, TRIM);
+        M.box(sd * (W / 2 - 0.02), y0 + 0.02, (uF - R + uR + R) / 2, 0.06, 0.05, (uF - R) - (uR + R) - 0.05, mix(body, [0, 0, 0], 0.5));
+      }
+      M.box(0.6, 1.2, -L / 2 + 0.55, 0.008, 0.5, 0.008, TRIM); // the aerial
+      M.wheel(-0.45, 0.24, -L / 2 - 0.02, 0.03, 0.16, [0.12, 0.12, 0.12], 6); // (and the exhaust, turned along z below)
+      underneath(M, L, W, [uF, uR], R, y0);
+      const wheels = wheelSet(M, [uF, uR], W, r, 0.21, body, Object.assign({ arches: true, inset: 0.012 }, o));
+      return { length: L, width: W, height: 1.45, wheels };
     },
     // a small hatchback
     hatch(M, o) {
-      const L = 3.9, W = 1.66, r = 0.3;
+      const L = 3.95, W = 1.66, r = 0.3, R = r + 0.07, y0 = 0.29;
       const body = o.color ? hex(o.color) : hex(PAINT[(o.seed * 7 + 3) % PAINT.length]);
-      const yb = 0.28, yt = 0.88, roof = 1.42;
-      M.box(0, (yb + yt) / 2, 0, W, yt - yb, L, body);
-      M.prism([-W / 2, W / 2, L / 2 - 1.0, L / 2, yt], [-W / 2 + 0.04, W / 2 - 0.04, L / 2 - 0.95, L / 2 - 0.06, yt + 0.06], body);
-      M.cabin([-W / 2 + 0.06, W / 2 - 0.06, -L / 2 + 0.05, 0.9, yt], [-W / 2 + 0.18, W / 2 - 0.18, -L / 2 + 0.18, 0.1, roof], yt + 0.07, roof - 0.07, body, GLASS, { bz: -0.45 });
-      for (const s of [-1, 1]) {
-        M.box(s * (W / 2 - 0.3), 0.7, L / 2 + 0.006, 0.28, 0.12, 0.02, HEAD, { emit: true });
-        M.box(s * (W / 2 - 0.16), 0.95, -L / 2 - 0.006, 0.16, 0.24, 0.02, TAIL, { emit: true });
-        M.box(s * (W / 2 + 0.06), 0.98, 0.72, 0.1, 0.08, 0.09, body);
-        M.box(s * (W / 2 + 0.003), 0.78, 0.0, 0.008, 0.03, 0.12, CHROME);
+      const uF = L / 2 - 0.74, uR = -L / 2 + 0.78;
+      M.side(profile([[L / 2 - 0.05, 0.33], [L / 2, 0.48], [L / 2 - 0.02, 0.7], [L / 2 - 0.12, 0.8], [L / 2 - 0.42, 0.86], [0.8, 0.92], [-L / 2 + 0.14, 0.95], [-L / 2, 0.88], [-L / 2, 0.45], [-L / 2 + 0.03, 0.34]], y0, [{ u: uF, cy: r, R }, { u: uR, cy: r, R }]), W, body, 0.07);
+      cabin(M, { a0: [0.78, 0.91], a1: [0.08, 1.38], c1: [-L / 2 + 0.3, 1.39], c0: [-L / 2 + 0.07, 0.94], W: W - 0.2, b: 0.06, bp: -0.42 }, body);
+      for (const sd of [-1, 1]) {
+        lamp(M, sd * 0.53, 0.68, L / 2 - 0.02, 0.26, 0.11, HEAD, 1);
+        lamp(M, sd * 0.6, 0.54, L / 2 - 0.01, 0.1, 0.05, AMBER, 1, TRIM);
+        lamp(M, sd * 0.64, 0.92, -L / 2 + 0.01, 0.13, 0.28, TAIL, -1, TRIM);
       }
-      M.box(0, 0.6, L / 2 + 0.006, 0.6, 0.14, 0.02, [0.16, 0.16, 0.17]);
-      M.box(0, 0.38, L / 2 + 0.03, W - 0.02, 0.14, 0.08, TRIM);
-      M.box(0, 0.4, -L / 2 - 0.03, W - 0.02, 0.14, 0.08, TRIM);
-      M.box(0, 0.62, -L / 2 - 0.006, 0.4, 0.12, 0.01, [0.85, 0.83, 0.72]);
-      const wheels = wheelSet(M, [L / 2 - 0.7, -L / 2 + 0.75], W, r, 0.19, body, Object.assign({ archTop: 0.74 }, o));
-      return { length: L, width: W, height: roof, wheels };
+      M.box(0, 0.64, L / 2 - 0.005, 0.52, 0.12, 0.03, [0.09, 0.09, 0.1]);
+      for (let k = 0; k < 3; k++) M.box(0, 0.6 + k * 0.04, L / 2 + 0.012, 0.5, 0.01, 0.015, TRIM);
+      bumper(M, L / 2, 0.46, W, mix(TRIM, body, 0.15), 0.14);
+      bumper(M, -L / 2, 0.48, W, mix(TRIM, body, 0.15), 0.14);
+      plate(M, L / 2 + 0.09, 0.41, 1); plate(M, -L / 2 - 0.01, 0.66, -1);
+      M.box(0, 1.2, -L / 2 + 0.06, 0.04, 0.02, 0.4, [0.06, 0.06, 0.06]); // the rear wiper
+      seams(M, W, [0.82, -0.44], 0.36, 0.92, body);
+      handles(M, W, [-0.3], 0.82);
+      mirrors(M, W, 0.74, 0.98, body);
+      for (const sd of [-1, 1]) M.box(sd * (W / 2 - 0.02), y0 + 0.02, (uF - R + uR + R) / 2, 0.06, 0.05, (uF - R) - (uR + R) - 0.05, mix(body, [0, 0, 0], 0.5));
+      underneath(M, L, W, [uF, uR], R, y0);
+      const wheels = wheelSet(M, [uF, uR], W, r, 0.19, body, Object.assign({ arches: true, inset: 0.012 }, o));
+      return { length: L, width: W, height: 1.42, wheels };
     },
-    // a box van (Erudite labs, the Abnegation supply runs)
+    // a panel van (Erudite's labs, the Order, the Abnegation supply runs)
     van(M, o) {
-      const L = 5.2, W = 1.95, r = 0.36, H = 2.25;
+      const L = 5.2, W = 1.98, r = 0.36, R = r + 0.08, y0 = 0.34, H = 2.28;
       const body = o.color ? hex(o.color) : [0.82, 0.82, 0.8];
-      M.box(0, 0.32 + (H - 0.32) / 2, -0.45, W, H - 0.32, L - 0.9, body); // box
-      M.box(0, 0.32 + 0.4, L / 2 - 0.45, W, 0.8, 0.9, body); // nose
-      M.prism([-W / 2 + 0.05, W / 2 - 0.05, L / 2 - 0.9, L / 2 - 0.1, 1.12], [-W / 2 + 0.08, W / 2 - 0.08, L / 2 - 0.92, L / 2 - 0.6, H - 0.1], GLASS_HI);
-      for (const s of [-1, 1]) {
-        M.box(s * (W / 2 + 0.005), 1.55, L / 2 - 1.3, 0.02, 0.6, 0.75, GLASS);
-        M.box(s * (W / 2 - 0.3), 0.75, L / 2 + 0.005, 0.3, 0.14, 0.02, HEAD, { emit: true });
-        M.box(s * (W / 2 - 0.15), 0.95, -L / 2 - 0.005, 0.14, 0.3, 0.02, TAIL, { emit: true });
-        M.box(s * (W / 2 + 0.1), 1.55, L / 2 - 0.75, 0.12, 0.22, 0.1, TRIM);
+      const uF = L / 2 - 0.95, uR = -L / 2 + 1.0;
+      const sA = [L / 2 - 0.42, 1.13], sB = [L / 2 - 1.05, H - 0.1];
+      M.side(profile([[L / 2 - 0.05, 0.38], [L / 2, 0.6], [L / 2 - 0.03, 1.0], sA, sB, [L / 2 - 1.3, H], [-L / 2 + 0.08, H], [-L / 2, H - 0.08], [-L / 2, 0.42], [-L / 2 + 0.03, 0.38]], y0, [{ u: uF, cy: r, R }, { u: uR, cy: r, R }]), W, body, 0.08);
+      screen(M, [sA[0] - 0.03, sA[1] + 0.05], [sB[0] + 0.04, sB[1] - 0.06], W / 2 - 0.12, GLASS_HI);
+      for (const sd of [-1, 1]) M.slab([[L / 2 - 1.55, 1.22], [L / 2 - 0.55, 1.22], [L / 2 - 1.02, H - 0.2], [L / 2 - 1.55, H - 0.2]], sd * (W / 2 + 0.006), 0.012, GLASS);
+      if (o.stripe) for (const sd of [-1, 1]) M.slab([[-L / 2 + 0.15, 1.2], [L / 2 - 1.62, 1.2], [L / 2 - 1.62, 1.38], [-L / 2 + 0.15, 1.38]], sd * (W / 2 + 0.005), 0.01, hex(o.stripe));
+      // the back: two doors with small windows, lamps up the corners
+      M.box(0, (0.45 + H - 0.1) / 2, -L / 2 - 0.004, 0.012, H - 0.55, 0.008, mix(body, [0, 0, 0], 0.6));
+      for (const sd of [-1, 1]) {
+        M.box(sd * 0.45, 1.7, -L / 2 - 0.004, 0.6, 0.42, 0.01, GLASS);
+        lamp(M, sd * (W / 2 - 0.12), 0.95, -L / 2 + 0.01, 0.12, 0.34, TAIL, -1, TRIM);
+        lamp(M, sd * 0.62, 0.82, L / 2 - 0.02, 0.3, 0.14, HEAD, 1);
+        lamp(M, sd * 0.84, 0.64, L / 2 - 0.01, 0.1, 0.06, AMBER, 1, TRIM);
       }
-      if (o.stripe) M.box(0, 1.25, -0.45, W + 0.02, 0.18, L - 1.0, hex(o.stripe));
-      M.box(0, 0.38, L / 2 + 0.04, W, 0.16, 0.1, TRIM);
-      M.box(0, 0.38, -L / 2 - 0.04, W, 0.16, 0.1, TRIM);
-      M.box(0, 1.3, -L / 2 - 0.005, 0.02, 1.7, 0.01, TRIM); // rear doors' seam
-      const wheels = wheelSet(M, [L / 2 - 0.95, -L / 2 + 1.0], W, r, 0.22, body, Object.assign({ archTop: 0.95 }, o));
+      M.box(0, 0.8, L / 2 - 0.005, 0.7, 0.22, 0.03, [0.09, 0.09, 0.1]);
+      for (let k = 0; k < 4; k++) M.box(0, 0.72 + k * 0.05, L / 2 + 0.012, 0.68, 0.012, 0.015, TRIM);
+      bumper(M, L / 2, 0.52, W, TRIM, 0.16); bumper(M, -L / 2, 0.52, W, TRIM, 0.16);
+      plate(M, L / 2 + 0.1, 0.44, 1); plate(M, -L / 2 - 0.01, 0.65, -1);
+      seams(M, W, [L / 2 - 0.5, L / 2 - 1.58], 0.42, H - 0.14, body);
+      for (const sd of [-1, 1]) { M.box(sd * (W / 2 + 0.003), 1.22, 0.3, 0.008, 1.6, 0.014, mix(body, [0, 0, 0], 0.6)); M.box(sd * (W / 2 + 0.003), 1.22, -0.85, 0.008, 1.6, 0.014, mix(body, [0, 0, 0], 0.6)); M.box(sd * (W / 2 + 0.006), 1.05, -0.3, 0.012, 0.03, 1.05, TRIM); }
+      handles(M, W, [L / 2 - 0.75, 0.15], 1.1);
+      mirrors(M, W, L / 2 - 0.62, 1.5, TRIM);
+      underneath(M, L, W, [uF, uR], R, y0);
+      const wheels = wheelSet(M, [uF, uR], W, r, 0.22, body, Object.assign({ arches: true, inset: 0.012 }, o));
       return { length: L, width: W, height: H, wheels };
     },
-    // a flatbed pickup (Amity, bringing produce in)
+    // a pickup with a plank bed (Amity, bringing produce in)
     pickup(M, o) {
-      const L = 5.3, W = 1.9, r = 0.37;
+      const L = 5.3, W = 1.92, r = 0.37, R = r + 0.08, y0 = 0.38;
       const body = o.color ? hex(o.color) : [0.62, 0.22, 0.16];
-      M.box(0, 0.75, L / 2 - 0.8, W, 0.85, 1.6, body); // bonnet
-      M.box(0, 0.55, -0.2, W, 0.45, L - 0.4, [0.2, 0.18, 0.16]); // chassis
-      M.prism([-W / 2 + 0.05, W / 2 - 0.05, 0.05, 1.55, 1.17], [-W / 2 + 0.1, W / 2 - 0.1, 0.1, 1.0, 1.9], GLASS);
-      M.prism([-W / 2 + 0.1, W / 2 - 0.1, 0.1, 1.0, 1.86], [-W / 2 + 0.1, W / 2 - 0.1, 0.1, 1.0, 1.9], body);
-      M.box(0, 0.95, 0.03, W, 0.95, 0.12, body); // cab back
-      M.box(0, 0.85, -1.3, W, 0.12, 2.4, [0.5, 0.36, 0.22]); // the bed (planks)
-      for (const s of [-1, 1]) M.box(s * (W / 2 - 0.04), 1.05, -1.3, 0.08, 0.4, 2.4, body);
-      M.box(0, 1.05, -2.48, W, 0.4, 0.08, body);
-      if (o.load !== false) for (let k = 0; k < 4; k++) M.box(-0.45 + (k % 2) * 0.9, 1.15 + Math.floor(k / 2) * 0.42, -0.85 - (k % 2) * 0.9, 0.7, 0.4, 0.62, [0.62, 0.48, 0.28]); // crates of apples
-      for (const s of [-1, 1]) {
-        M.box(s * (W / 2 - 0.3), 0.9, L / 2 + 0.005, 0.28, 0.14, 0.02, HEAD, { emit: true });
-        M.box(s * (W / 2 - 0.15), 0.95, -L / 2 + 0.25, 0.14, 0.2, 0.02, TAIL, { emit: true });
+      const uF = L / 2 - 0.92, uR = -L / 2 + 1.1;
+      M.side(profile([[L / 2 - 0.05, 0.42], [L / 2, 0.64], [L / 2 - 0.03, 0.95], [L / 2 - 0.22, 1.05], [0.98, 1.1], [-0.42, 1.1], [-0.42, 0.82], [-L / 2 + 0.06, 0.82], [-L / 2, 0.76], [-L / 2 + 0.02, 0.46]], y0, [{ u: uF, cy: r, R }, { u: uR, cy: r, R }]), W, body, 0.06);
+      cabin(M, { a0: [0.96, 1.09], a1: [0.44, 1.86], c1: [-0.3, 1.87], c0: [-0.4, 1.09], W: W - 0.16, b: 0.05, bp: null }, body);
+      // the bed: sides, the tailgate, the plank floor
+      for (const sd of [-1, 1]) M.slab([[-L / 2 + 0.02, 0.8], [-0.45, 0.8], [-0.45, 1.1], [-L / 2 + 0.02, 1.1]], sd * W / 2, 0.08, body);
+      M.box(0, 0.95, -L / 2 + 0.05, W - 0.04, 0.3, 0.08, body);
+      M.box(0, 0.82, (-L / 2 - 0.45) / 2, W - 0.18, 0.03, L / 2 - 0.5, [0.5, 0.36, 0.22]);
+      for (let k = -3; k <= 3; k++) M.box(k * 0.24, 0.85, (-L / 2 - 0.45) / 2, 0.012, 0.005, L / 2 - 0.5, [0.32, 0.22, 0.13]);
+      if (o.load !== false) for (let k = 0; k < 4; k++) M.box(-0.45 + (k % 2) * 0.9, 1.04 + Math.floor(k / 2) * 0.41, -0.95 - (k % 2) * 0.9, 0.7, 0.4, 0.62, [0.62, 0.48, 0.28]); // crates of apples
+      for (const sd of [-1, 1]) {
+        roundLamp(M, sd * 0.66, 0.85, L / 2 - 0.02, 0.09, HEAD, 1);
+        lamp(M, sd * (W / 2 - 0.1), 0.92, -L / 2 + 0.02, 0.12, 0.2, TAIL, -1, TRIM);
       }
-      M.box(0, 0.45, L / 2 + 0.03, W, 0.15, 0.1, CHROME);
-      const wheels = wheelSet(M, [L / 2 - 0.9, -L / 2 + 1.05], W, r, 0.24, body, Object.assign({ archTop: 0.9 }, o));
+      M.box(0, 0.8, L / 2 - 0.005, 0.86, 0.26, 0.03, CHROME);
+      for (let k = 0; k < 5; k++) M.box(0, 0.7 + k * 0.05, L / 2 + 0.01, 0.8, 0.02, 0.015, [0.1, 0.1, 0.1]);
+      bumper(M, L / 2, 0.55, W, o.wreck ? [0.3, 0.25, 0.2] : CHROME, 0.15);
+      bumper(M, -L / 2, 0.55, W, TRIM, 0.12);
+      plate(M, L / 2 + 0.1, 0.45, 1); plate(M, -L / 2 - 0.03, 0.62, -1);
+      seams(M, W, [0.96, -0.4], 0.46, 1.1, body);
+      handles(M, W, [-0.2], 1.0);
+      mirrors(M, W, 0.92, 1.18, TRIM);
+      underneath(M, L, W, [uF, uR], R, y0);
+      const wheels = wheelSet(M, [uF, uR], W, r, 0.24, body, Object.assign({ arches: true, inset: 0.012 }, o));
       return { length: L, width: W, height: 1.9, wheels };
     },
-    // an open patrol jeep (Dauntless)
+    // an open patrol jeep (Dauntless): a slab-sided tub, a fold-flat screen, a roll bar, the spare on the back
     jeep(M, o) {
-      const L = 4.1, W = 1.8, r = 0.4;
+      const L = 4.1, W = 1.82, r = 0.42, R = r + 0.09, y0 = 0.55;
       const body = o.color ? hex(o.color) : [0.16, 0.16, 0.17];
-      M.box(0, 0.85, 0, W, 0.75, L, body);
-      M.box(0, 1.25, L / 2 - 1.2, W - 0.1, 0.06, 0.06, TRIM);
-      M.prism([-W / 2 + 0.05, W / 2 - 0.05, L / 2 - 1.35, L / 2 - 1.25, 1.22], [-W / 2 + 0.05, W / 2 - 0.05, L / 2 - 1.45, L / 2 - 1.38, 1.75], GLASS_HI); // the screen
-      for (const s of [-1, 1]) {
-        M.box(s * (W / 2 - 0.05), 1.45, -0.8, 0.06, 0.06, 1.6, TRIM); // roll bar sides
-        M.box(s * (W / 2 - 0.05), 1.85, -0.1, 0.06, 0.8, 0.06, TRIM);
-        M.box(s * (W / 2 - 0.35), 1.02, L / 2 + 0.005, 0.22, 0.22, 0.02, HEAD, { emit: true });
-        M.box(s * (W / 2 - 0.15), 1.0, -L / 2 - 0.005, 0.12, 0.14, 0.02, TAIL, { emit: true });
+      const uF = L / 2 - 0.8, uR = -L / 2 + 0.85;
+      M.side(profile([[L / 2 - 0.03, 0.62], [L / 2, 0.92], [L / 2 - 0.05, 1.12], [L / 2 - 1.15, 1.17], [L / 2 - 1.28, 1.22], [-L / 2 + 0.05, 1.22], [-L / 2, 1.14], [-L / 2, 0.64]], y0, [{ u: uF, cy: r, R }, { u: uR, cy: r, R }]), W, body, 0.05);
+      // fender flares over the arches
+      for (const u of [uF, uR]) for (const sd of [-1, 1]) {
+        const fl = new THREE.Shape(); fl.absarc(0, 0, R + 0.08, 0, Math.PI, false); fl.absarc(0, 0, R, Math.PI, 0, true);
+        const g = new THREE.ExtrudeGeometry(fl, { depth: 0.1, bevelEnabled: false, curveSegments: 10 });
+        g.rotateY(-Math.PI / 2); g.translate(sd > 0 ? W / 2 + 0.08 : -W / 2 + 0.02, r, u); M.add(g, mix(body, [0, 0, 0], 0.3));
       }
-      M.box(0, 2.25, -0.1, W - 0.04, 0.06, 0.06, TRIM);
-      M.box(0, 1.25, -0.6, W - 0.3, 0.5, 0.5, [0.22, 0.22, 0.22]); // seats
-      M.box(0, 1.0, -L / 2 - 0.25, 0.7, 0.7, 0.3, [0.2, 0.2, 0.2]); // spare
-      M.box(0, 0.62, L / 2 + 0.06, W, 0.18, 0.12, TRIM);
-      const wheels = wheelSet(M, [L / 2 - 0.8, -L / 2 + 0.8], W, r, 0.28, body, Object.assign({ archTop: 0.98 }, o));
+      // inside the tub: the floor, the seats
+      M.box(0, 1.215, -0.55, W - 0.16, 0.02, 2.2, [0.07, 0.07, 0.075]);
+      for (const sd of [-1, 1]) { M.box(sd * 0.42, 1.22, -0.25, 0.55, 0.32, 0.5, [0.2, 0.18, 0.15]); M.box(sd * 0.42, 1.54, -0.48, 0.55, 0.5, 0.1, [0.2, 0.18, 0.15]); }
+      M.box(0, 1.22, -1.2, W - 0.3, 0.3, 0.5, [0.2, 0.18, 0.15]);
+      // the screen in its frame, the roll bar
+      const sa = [L / 2 - 1.3, 1.22], sb = [L / 2 - 1.42, 1.8];
+      for (const sd of [-1, 1]) M.box(sd * (W / 2 - 0.08), 1.51, L / 2 - 1.36, 0.05, 0.6, 0.05, TRIM);
+      M.box(0, 1.8, L / 2 - 1.42, W - 0.12, 0.05, 0.05, TRIM);
+      screen(M, sa, sb, W / 2 - 0.12, GLASS_HI);
+      for (const sd of [-1, 1]) { M.box(sd * (W / 2 - 0.06), 1.71, -0.75, 0.06, 1.0, 0.06, TRIM); M.box(sd * (W / 2 - 0.06), 2.2, -0.45, 0.06, 0.06, 0.66, TRIM); M.box(sd * (W / 2 - 0.06), 1.71, -0.15, 0.06, 1.0, 0.06, TRIM); }
+      M.box(0, 2.2, -0.75, W - 0.1, 0.06, 0.06, TRIM); M.box(0, 2.2, -0.15, W - 0.1, 0.06, 0.06, TRIM);
+      // the front: round lamps, the slotted grille; the bumper; the spare on the tailgate
+      for (const sd of [-1, 1]) {
+        roundLamp(M, sd * 0.55, 0.95, L / 2 - 0.01, 0.09, HEAD, 1);
+        lamp(M, sd * (W / 2 - 0.12), 0.95, -L / 2 + 0.01, 0.1, 0.14, TAIL, -1, TRIM);
+      }
+      for (let k = -3; k <= 3; k++) M.box(k * 0.09, 0.92, L / 2 - 0.004, 0.035, 0.26, 0.02, [0.04, 0.04, 0.04]);
+      bumper(M, L / 2, 0.66, W + 0.08, TRIM, 0.16);
+      bumper(M, -L / 2, 0.66, W, TRIM, 0.14);
+      spare(M, -L / 2 - 0.16, 1.0, 0.38, 0.24);
+      plate(M, L / 2 + 0.1, 0.57, 1);
+      underneath(M, L, W, [uF, uR], R, y0);
+      const wheels = wheelSet(M, [uF, uR], W, r, 0.3, body, Object.assign({ arches: true, inset: -0.04 }, o));
       return { length: L, width: W, height: 2.3, wheels };
+    },
+    // a city bus: rounded at the front, two-tone, a destination board, two doors on the kerb side
+    bus(M, o) {
+      const L = 11.2, W = 2.5, H = 3.05, r = 0.5, R = r + 0.1, y0 = 0.35;
+      const body = o.color ? hex(o.color) : [0.8, 0.79, 0.74], skirt = mix(body, [0.12, 0.2, 0.18], 0.7), stripe = o.stripe ? hex(o.stripe) : [0.72, 0.52, 0.14];
+      const uF = L / 2 - 2.3, uR = -L / 2 + 2.6;
+      M.side(profile([[L / 2 - 0.04, 0.38], [L / 2, 0.75], [L / 2, H - 0.45], [L / 2 - 0.3, H], [-L / 2 + 0.2, H], [-L / 2, H - 0.25], [-L / 2, 0.42]], y0, [{ u: uF, cy: r, R }, { u: uR, cy: r, R }]), W, body, 0.1);
+      M.box(0, H + 0.1, -1.6, 1.6, 0.24, 2.4, mix(body, [0.4, 0.4, 0.4], 0.4)); // the heater on the roof
+      // the lower band and the livery stripe, between the arches (front, middle, back)
+      const segs = [[uF + R + 0.05, L / 2 - 0.05], [uR + R + 0.05, uF - R - 0.05], [-L / 2 + 0.05, uR - R - 0.05]];
+      for (const [a, b] of segs) for (const sd of [-1, 1]) {
+        M.slab([[a, y0 + 0.08], [b, y0 + 0.08], [b, 0.95], [a, 0.95]], sd * (W / 2 + 0.004), 0.01, skirt);
+        M.slab([[a, 1.0], [b, 1.0], [b, 1.12], [a, 1.12]], sd * (W / 2 + 0.006), 0.01, stripe);
+      }
+      // the windows: a band down each side, posts between; the windscreen; the destination board
+      for (const sd of [-1, 1]) {
+        M.slab([[-L / 2 + 0.45, 1.4], [L / 2 - 1.75, 1.4], [L / 2 - 1.75, 2.42], [-L / 2 + 0.45, 2.42]], sd * (W / 2 + 0.006), 0.012, GLASS);
+        for (let k = 0; k <= 7; k++) M.box(sd * (W / 2 + 0.012), 1.91, -L / 2 + 0.45 + k * ((L - 2.2) / 7), 0.012, 1.02, 0.09, body);
+      }
+      for (const v of [[-W / 2 + 0.12, -0.03], [0.03, W / 2 - 0.12]]) {
+        const A = [v[0], 1.12, L / 2 + 0.014], B = [v[1], 1.12, L / 2 + 0.014], C = [v[1], H - 0.55, L / 2 + 0.014], D = [v[0], H - 0.55, L / 2 + 0.014];
+        M.quad(A, B, C, D, GLASS_HI); M.quad(A, D, C, B, GLASS_HI);
+      }
+      M.box(0, H - 0.5, L / 2 - 0.02, W - 0.4, 0.3, 0.06, [0.05, 0.05, 0.05]);
+      M.box(0, H - 0.47, L / 2 + 0.012, W - 0.7, 0.2, 0.02, AMBER, { emit: true });
+      M.box(0, 1.7, -L / 2 - 0.012, W - 0.5, 0.8, 0.02, GLASS);
+      // the doors on the kerb side (local -x): front and middle, two leaves each
+      for (const dz of [L / 2 - 1.1, -0.4]) {
+        M.box(-W / 2 - 0.012, y0 + 1.2, dz, 0.02, 2.2, 1.1, GLASS_HI);
+        M.box(-W / 2 - 0.02, y0 + 1.2, dz, 0.02, 2.2, 0.05, TRIM);
+        M.box(-W / 2 - 0.02, y0 + 1.25, dz, 0.022, 0.05, 1.12, TRIM);
+      }
+      for (const sd of [-1, 1]) {
+        lamp(M, sd * (W / 2 - 0.32), 0.62, L / 2 - 0.01, 0.34, 0.16, HEAD, 1);
+        lamp(M, sd * (W / 2 - 0.25), 0.8, -L / 2 + 0.01, 0.18, 0.4, TAIL, -1, TRIM);
+        M.box(sd * (W / 2 + 0.3), H - 0.95, L / 2 - 0.3, 0.06, 0.38, 0.14, TRIM); // the mirrors on their arms
+        M.box(sd * (W / 2 + 0.15), H - 0.75, L / 2 - 0.3, 0.32, 0.04, 0.04, TRIM);
+      }
+      bumper(M, L / 2, 0.5, W, TRIM, 0.24); bumper(M, -L / 2, 0.52, W, TRIM, 0.24);
+      M.box(0, 0.3, -L / 2 - 0.02, 0.9, 0.4, 0.04, [0.28, 0.28, 0.28]); // the engine grille
+      plate(M, L / 2 + 0.11, 0.48, 1);
+      underneath(M, L, W, [uF, uR], R, y0);
+      const wheels = wheelSet(M, [uF, uR], W, r, 0.32, body, Object.assign({ arches: true, inset: 0.02 }, o));
+      return { length: L, width: W, height: H + 0.24, wheels };
     },
   };
 

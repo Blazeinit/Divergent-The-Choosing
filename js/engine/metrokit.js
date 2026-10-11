@@ -36,8 +36,16 @@
     gateX: -50,
     lanes: [5.6, 7.0, 8.4, 9.8, 11.2, 12.6], // ticket-gate lanes (z)
     benches: [-36, -12, 12, 36], columns: [-42, -30, -18, -6, 6, 18, 30, 42],
-    stairs: { z0: 7.4, z1: 10.6, x: -64 },
+    stairs: { z0: 7.4, z1: 10.6, x: -64, steps: 22, rise: 4.3, run: 0.34, land: 2.6 },
   };
+  // the stairs up to the street: the flight rises west from the hall's west wall to a landing at the top
+  // (street level, 4.3 m up), where the daylight is. stairY is the slope you walk up (it meets the step
+  // nosings); a step is solid under it
+  K.stairs.foot = K.hall.x0 - 0.3;
+  K.stairs.top = K.stairs.foot - K.stairs.steps * K.stairs.run;
+  K.stairs.out = K.stairs.top - K.stairs.land; // (the doorway at the top: the street beyond)
+  K.stairCeil = (x) => { const S = K.stairs, q = (K.hall.x0 - S.top) / 4; if (x >= K.hall.x0) return K.ceil; if (x <= S.top) return S.rise + 2.7; const k = Math.floor((K.hall.x0 - x) / q); return Math.max(K.ceil, K.stairY(K.hall.x0 - (k + 1) * q) + 2.7); };
+  K.stairY = (x) => { const S = K.stairs, r = S.rise / S.steps; return Math.max(0, Math.min(S.rise, (S.foot - x) / S.run * r + r * 0.7)); };
   K.trainLen = K.cars * K.carL + (K.cars - 1) * K.cplr;
   K.half = K.trainLen / 2;
   K.carX = (k) => (k - (K.cars - 1) / 2) * (K.carL + K.cplr);
@@ -108,7 +116,7 @@
     for (let x = K.plat.x0 + 2; x <= K.plat.x1 - 2; x += 4) { L.add(x, 4.0, 6.6, 7.5, COOL, 0.55); L.add(x, 4.0, 11.4, 7.5, COOL, 0.55); }
     for (let x = K.plat.x0 + 4; x <= K.plat.x1 - 4; x += 8) { L.add(x, 4.2, 1.2, 8, COOL, 0.45); L.add(x, 4.2, 16.8, 8, COOL, 0.45); }
     for (let x = K.hall.x0 + 2; x < K.hall.x1; x += 4) L.add(x, 3.8, 9, 7.5, WARM, 0.6);
-    L.add(-70, 4.4, 9, 9, [1, 1, 0.95], 0.9); // daylight down the stairs
+    L.add(-70, 4.4, 9, 9, [1, 1, 0.95], 0.9); L.add(K.stairs.out + 0.8, 6.2, 9, 7, [1, 1, 0.96], 1.0); // daylight down the stairs, and at the top
     const lamps = [];
     for (let x = -K.tunnel + 5; x < K.tunnel; x += K.lampP) {
       if (x > K.plat.x0 - 2 && x < K.plat.x1 + 2) continue;
@@ -239,20 +247,47 @@
     const S = K.stairs;
     B.box(tile, HX0 - 0.15, 0, (K.bore.A[1] + S.z0) / 2, 0.3, K.ceil, S.z0 - K.bore.A[1]);
     B.box(tile, HX0 - 0.15, 0, (S.z1 + K.bore.B[0]) / 2, 0.3, K.ceil, K.bore.B[0] - S.z1);
-    collide(HX0 - 0.3, 4.4, HX0, 13.6, { y1: 0.9, camera: false, tag: 'st' }); // (the foot of the stairs: you take them with E)
     collide(HX0 - 0.3, 4.4, HX0, S.z0, { y1: K.ceil, tag: 'st' });
     collide(HX0 - 0.3, S.z1, HX0, 13.6, { y1: K.ceil, tag: 'st' });
-    // the flight: 22 steps up to the light
-    const steps = 22, rise = 4.3 / steps, run = 0.34;
-    for (let k = 0; k < steps; k++) B.box(concL, HX0 - 0.3 - k * run - run / 2, 0, (S.z0 + S.z1) / 2, run, rise * (k + 1), S.z1 - S.z0);
-    const top = HX0 - 0.3 - steps * run;
-    for (const z of [S.z0, S.z1]) {
-      B.box(tile, (HX0 + top) / 2, 0, z + (z === S.z0 ? -0.1 : 0.1), HX0 - top + 0.3, K.ceil + 2.2, 0.2);
-      B.pipeX(metal, (HX0 + top) / 2 - 0.2, 1.0 + 2.1, z + (z === S.z0 ? 0.08 : -0.08), HX0 - top, 0.03, 5);
+    // the flight: 22 steps up to the light, a nosing on each, a landing at the top
+    const steps = S.steps, rise = S.rise / steps, run = S.run, top = S.top, out = S.out, zc = (S.z0 + S.z1) / 2, sw = S.z1 - S.z0;
+    for (let k = 0; k < steps; k++) {
+      B.box(concL, S.foot - k * run - run / 2, 0, zc, run, rise * (k + 1), sw);
+      B.box(metal, S.foot - k * run - 0.03, rise * (k + 1) - 0.02, zc, 0.06, 0.03, sw - 0.1);
     }
-    B.box(ceil, (HX0 + top) / 2, K.ceil + 2.0, (S.z0 + S.z1) / 2, HX0 - top, 0.2, S.z1 - S.z0);
-    // and the street at the top: daylight in a doorway
-    B.box(M('white:emit'), top - 0.4, 4.3, (S.z0 + S.z1) / 2, 0.1, 2.6, S.z1 - S.z0);
+    B.box(floor, (top + out) / 2, 0, zc, top - out, S.rise, sw);
+    for (const z of [S.z0, S.z1]) {
+      const sg = z === S.z0 ? -1 : 1;
+      B.box(tile, (HX0 + out) / 2, 0, z + sg * 0.1, HX0 - out + 0.3, S.rise + 2.9, 0.2);
+      B.box(accent, (HX0 + out) / 2, S.rise + 2.6, z + sg * 0.1 - sg * 0.004, HX0 - out + 0.3, 0.3, 0.2);
+      // the handrails, on brackets, following the flight (and level along the landing)
+      const n = 6;
+      for (let k = 0; k < n; k++) {
+        const x0 = S.foot - (k / n) * (S.foot - top), x1 = S.foot - ((k + 1) / n) * (S.foot - top);
+        const y0 = K.stairY(x0) + 0.95, y1 = K.stairY(x1) + 0.95, zr = z - sg * 0.08, r = 0.025, len = Math.hypot(x1 - x0, y1 - y0);
+        for (const [a0, b0, a1, b1] of [[r, -r, r, r], [r, r, -r, r], [-r, r, -r, -r], [-r, -r, r, -r]]) {
+          const P = [[x0, y0 + a0, zr + b0], [x1, y1 + a0, zr + b0], [x1, y1 + a1, zr + b1], [x0, y0 + a1, zr + b1]];
+          B.quad(metal, P[0], P[1], P[2], P[3], [0, 0], [len, 0], [len, 0.1], [0, 0.1]);
+          B.quad(metal, P[3], P[2], P[1], P[0], [0, 0.1], [len, 0.1], [len, 0], [0, 0]);
+        }
+        B.box(metal, x0, y0 - 0.12, z - sg * 0.04, 0.03, 0.12, 0.08);
+      }
+      B.pipeX(metal, (top + out) / 2, S.rise + 0.95, z - sg * 0.08, top - out, 0.03, 5);
+      // (the walls of the stairway: for the camera too)
+      collide(out - 0.3, sg < 0 ? z - 0.3 : z, S.foot, sg < 0 ? z : z + 0.3, { y1: S.rise + 3, tag: 'st' });
+    }
+    // the ceiling: stepped up the flight, level over the landing
+    for (let k = 0; k < 4; k++) {
+      const x0 = HX0 - k * (HX0 - top) / 4, x1 = HX0 - (k + 1) * (HX0 - top) / 4, y = K.stairCeil((x0 + x1) / 2), yn = k < 3 ? K.stairCeil(x1 - 0.1) : S.rise + 2.7;
+      B.box(ceil, (x0 + x1) / 2, y, zc, x0 - x1 + 0.02, 0.2, sw);
+      if (yn > y) B.box(ceil, x1, y, zc, 0.1, yn - y + 0.2, sw); // (the step up to the next)
+    }
+    B.box(ceil, (top + out) / 2, S.rise + 2.7, zc, top - out, 0.2, sw);
+    for (const x of [top + 1.2, top - 1.3, (HX0 + top) / 2]) B.box(lamp, x, K.stairCeil(x) - 0.03, zc, 0.9, 0.04, 0.3);
+    // and the street at the top: daylight in a doorway, the frame round it, a sign over it
+    B.box(M('white:emit'), out - 0.05, S.rise, zc, 0.1, 2.6, sw);
+    B.box(mdark, out + 0.06, S.rise + 2.5, zc, 0.12, 0.2, sw);
+    collide(out - 0.3, S.z0 - 0.3, out, S.z1 + 0.3, { y1: S.rise + 3, tag: 'st' });
     // the gates: cabinets between the lanes (the flaps are separate: they open)
     const cab = M('metal_painted');
     const cabZ = [4.9, 6.3, 7.7, 9.1, 10.5, 11.9, 13.1];

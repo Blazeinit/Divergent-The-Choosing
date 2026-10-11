@@ -71,7 +71,7 @@
         // follow jumps only partly so the view doesn't bob
         // (flying with the dev menu's noclip: the camera goes where you go, through walls too)
         const fly = DV.Dev && DV.Dev.on() && DV.Dev.flags.noclip;
-        const tx = target.x, ty = (target.y || 0) * (fly ? 1 : 0.6) + ph, tz = target.z;
+        const g = fly ? 0 : target.groundY || 0, tx = target.x, ty = g + ((target.y || 0) - g) * (fly ? 1 : 0.6) + ph, tz = target.z; // (a flight of stairs: all of it)
         if (!this.initialized || this.pivot.distanceToSquared(new THREE.Vector3(tx, ty, tz)) > 9) this.pivot.set(tx, ty, tz);
         else {
           const k = 1 - Math.exp(-lambda * dt);
@@ -100,9 +100,9 @@
         // stay below ceilings and above floor
         if (zone && !fly) {
           const room = zone.roomAt(desiredPos.x, desiredPos.z);
-          if (room && !room.exterior) desiredPos.y = Math.min(desiredPos.y, room.h - 0.2);
+          if (room && !room.exterior) desiredPos.y = Math.min(desiredPos.y, (room.ceilAt ? room.ceilAt(desiredPos.x, desiredPos.z) : room.h) - 0.2);
         }
-        desiredPos.y = Math.max(desiredPos.y, 0.3);
+        desiredPos.y = Math.max(desiredPos.y, (zone && !fly && zone.groundAt ? zone.groundAt(desiredPos.x, desiredPos.z) : 0) + 0.3);
         desiredLook = this.pivot.clone();
         desiredLook.y -= 0.05;
         if (!this.initialized) {
@@ -139,7 +139,7 @@
           const hit = zone.colliders.raycast(ox, oy, oz, v.x, v.y, v.z, vl + 0.2);
           if (hit < vl + 0.2) desiredPos = new THREE.Vector3(ox, oy, oz).addScaledVector(v, Math.max(0.2, hit - 0.25));
           const room = zone.roomAt(desiredPos.x, desiredPos.z);
-          if (room && !room.exterior) desiredPos.y = Math.min(desiredPos.y, room.h - 0.2);
+          if (room && !room.exterior) desiredPos.y = Math.min(desiredPos.y, (room.ceilAt ? room.ceilAt(desiredPos.x, desiredPos.z) : room.h) - 0.2);
         }
         const k = 1 - Math.exp(-5 * dt);
         this.pos.lerp(desiredPos, k);
