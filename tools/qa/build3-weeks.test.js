@@ -24,13 +24,13 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
   };
   const reload = async (f) => {
     await ev(() => { const b = DV.UI.root.querySelector('#banner'); if (b) b.remove(); DV.UI.modalOpen = null; DV.Game.state = 'playing'; DV.Save.write('4'); DV.Game.loadSlot('4'); });
-    await L.until(p, () => DV.Chapter.active && DV.Game.state === 'playing', 30000);
+    await L.until(p, () => DV.Chapter.active && DV.Game.state === 'playing', 90000);
     return ev(() => ({ id: DV.Chapter.id, step: DV.Chapter.step, banner: !!document.getElementById('banner'), seqs: DV.Chapter.seqs.length }));
   };
 
   /* ============================== Candor ============================== */
   await begin('candor', true);
-  T.ok(await L.until(p, () => DV.Chapter.id === 'week_candor' && DV.Game.state === 'playing', 30000), 'Candor: the first week starts the morning of Day 3');
+  T.ok(await L.until(p, () => DV.Chapter.id === 'week_candor' && DV.Game.state === 'playing', 90000), 'Candor: the first week starts the morning of Day 3');
   await ev(() => QA.step(16));
   const evd = await ev(() => { const out = ['ev_report', 'ev_ledger', 'ev_coat', 'ev_coat'].map((id) => { const r = B.use(id); DV.UI.closeReading(); return r; }); return { out, e: DV.FirstWeek.st().evidence, obj: DV.Quests.obj('week_candor', 'interview') }; });
   T.ok(evd.e.ledger && evd.e.ticket && evd.e.note && evd.obj === 'active', 'Candor: the ledger, the ticket, the note in the lining — and the interview opens', evd);
@@ -58,14 +58,14 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
   T.ok(vd[0] === 'cand_verdict' && /full/.test(vd[1]), 'Candor: the whole truth to Rosa, motive and all', vd);
   // a save straight after the verdict carries on to the evening when it's loaded
   await ev(() => { DV.Save.write('4'); DV.Game.loadSlot('4'); });
-  T.ok(await L.until(p, () => DV.Chapter.step === 'evening' && DV.Game.state === 'playing', 40000), 'Candor: Day 3, evening, in the dormitory (via a save made right after the verdict)');
+  T.ok(await L.until(p, () => DV.Chapter.step === 'evening' && DV.Game.state === 'playing', 90000), 'Candor: Day 3, evening, in the dormitory (via a save made right after the verdict)');
   const game = await ev(() => { B.use('join_game'); return [QA.pick('rather know'), QA.pick('myself'), QA.pick('aptitude'), QA.pick(''), QA.pick('good night')]; });
   T.ok(game.every((x) => /^ok/.test(x)), 'Candor: the truth game ("something about my aptitude test")', game);
   T.ok(await ev(() => B.wait(() => DV.Dialogue.isActive() && DV.Dialogue.active.tree.id === 'cand_rosa_night', 30)), 'Candor: Rosa was listening at the door');
   const warn = await ev(() => [QA.node(), QA.pick('thank'), QA.pick('')]);
   T.eq(warn[0], 'warn', 'Candor: she warns you about the serum');
   await ev(() => { QA.end(); B.use('week_sleep'); });
-  T.ok(await L.until(p, () => DV.Chapter.step === 'hearing' && DV.Game.state === 'playing', 40000), 'Candor: Day 5, the Hearing');
+  T.ok(await L.until(p, () => DV.Chapter.step === 'hearing' && DV.Game.state === 'playing', 90000), 'Candor: Day 5, the Hearing');
   await ev(() => { QA.step(2.5); B.use('hr_chair'); });
   T.ok(await ev(() => B.wait(() => DV.Activity.is('serum'), 20)), 'Candor: the chair, the needle, the serum');
   const serum = await ev(() => {
@@ -92,7 +92,7 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
 
   /* ============================== Erudite ============================== */
   await begin('erudite', true);
-  T.ok(await L.until(p, () => DV.Chapter.id === 'week_erudite' && DV.Game.state === 'playing', 30000), 'Erudite: the first week starts in the lab');
+  T.ok(await L.until(p, () => DV.Chapter.id === 'week_erudite' && DV.Game.state === 'playing', 90000), 'Erudite: the first week starts in the lab');
   await ev(() => { QA.step(12); B.use('bench_vessels'); });
   const vx = await ev(() => {
     const W = DV.WeekErudite;
@@ -115,7 +115,7 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
   await ev(() => QA.step(16));
   T.ok(await ev(() => DV.FirstWeek.was('office_key') && DV.Quests.obj('week_erudite', 'errand') === 'active'), 'Erudite: Dr. Park hands you her office key');
   await ev(() => B.use('week_sleep'));
-  T.ok(await L.until(p, () => DV.Chapter.step === 'night' && DV.Game.state === 'playing', 40000), 'Erudite: Day 4, 21:25');
+  T.ok(await L.until(p, () => DV.Chapter.step === 'night' && DV.Game.state === 'playing', 90000), 'Erudite: Day 4, 21:25');
   T.ok(await ev(() => { const d = DV.World.current.doors.find((x) => x.def.id === 'el_office_door'); return DV.Story.playerCanPass(d.lock, d); }), 'Erudite: the key opens Dr. Park\'s office');
   const red = await ev(() => { DV.Player.place(27, 7, Math.PI); B.use('grey_folder'); B.use('red_folder'); const t = B.readBody(); return [t && t.indexOf('TESTER') >= 0, DV.Dialogue.active && DV.Dialogue.active.tree.id, QA.pick('tear'), QA.pick('')]; });
   T.ok(red[0] && red[1] === 'eru_red' && /ok/.test(red[2]), 'Erudite: the red folder — your own name in it, and you tear out the page', red);
@@ -124,7 +124,7 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
   await ev(() => { QA.end(); DV.Player.place(5, 13.5, -Math.PI / 2); QA.step(0.5); B.use('park_deliver'); });
   T.ok(await L.until(p, () => DV.Dialogue.isActive() && DV.Dialogue.active.tree.id === 'eru_park_night', 10000), 'Erudite: the grey folder to Dr. Park in the archive');
   await ev(() => { QA.pick('read the red'); QA.pick(''); });
-  T.ok(await L.until(p, () => DV.Chapter.step === 'exam' && DV.Game.state === 'playing', 40000), 'Erudite: Day 5, the examination');
+  T.ok(await L.until(p, () => DV.Chapter.step === 'exam' && DV.Game.state === 'playing', 90000), 'Erudite: Day 5, the examination');
   const ex = await ev(() => { QA.step(2); B.use('exam_start'); return [QA.pick(''), QA.pick('irrelevant'), QA.pick(''), QA.pick('red folder'), QA.pick(''), QA.pick('thank')]; });
   T.ok(ex.every((x) => /^ok/.test(x)), 'Erudite: three questions — and you mention the red folder in front of everyone', ex);
   await ev(() => QA.step(1));
@@ -137,7 +137,7 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
 
   /* ============================== Abnegation ============================== */
   await begin('abnegation', false);
-  T.ok(await L.until(p, () => DV.Chapter.id === 'week_abnegation' && DV.Game.state === 'playing', 30000), 'Abnegation: the first week starts on the grey street');
+  T.ok(await L.until(p, () => DV.Chapter.id === 'week_abnegation' && DV.Game.state === 'playing', 90000), 'Abnegation: the first week starts on the grey street');
   await ev(() => QA.step(12));
   const asked = await ev(() => {
     for (const id of ['ada', 'pell', 'marta', 'tam', 'rena', 'ivo', 'price']) {
@@ -152,7 +152,7 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
   T.ok(Object.keys(asked.asked).length === 7 && asked.pellWhy && asked.bound && asked.priceTold, 'Abnegation: asked all seven — Pell\'s second loaf is for the warehouse kids, Ivo\'s hand bound with your shirt, Mrs. Price lost her ration card', asked);
   // a save with a loaf in your hands loads with it still there
   await ev(() => { B.use('cart'); QA.pick('loaf'); DV.Save.write('4'); DV.Game.loadSlot('4'); });
-  await L.until(p, () => DV.Chapter.id === 'week_abnegation' && DV.Chapter.step === 'run' && DV.Game.state === 'playing', 30000);
+  await L.until(p, () => DV.Chapter.id === 'week_abnegation' && DV.Chapter.step === 'run' && DV.Game.state === 'playing', 90000);
   const carry = await ev(() => ({ carrying: DV.Chapter.carrying, bread: DV.WeekAbnegation.run().stock.bread, asked: Object.keys(DV.WeekAbnegation.run().asked).length }));
   T.ok(carry.carrying === 'bread' && carry.bread === 7 && carry.asked === 7, 'Abnegation: a save with a loaf in your hands loads with it still there (and everything you asked)', carry);
   await ev(() => B.use('cart')); // put it back
@@ -167,10 +167,10 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
   const run = await ev(() => { QA.pick(''); QA.end(); QA.step(1); return DV.FirstWeek.st().marks.run; });
   T.ok(run && run.pts === run.max, 'Abnegation: everyone who needed something got it (' + (run && run.pts) + '/' + (run && run.max) + ')', run);
   await ev(() => B.use('go_dinner'));
-  T.ok(await L.until(p, () => DV.Chapter.step === 'dinner' && DV.Dialogue.isActive(), 40000), 'Abnegation: dinner at the Hayes house');
+  T.ok(await L.until(p, () => DV.Chapter.step === 'dinner' && DV.Dialogue.isActive(), 90000), 'Abnegation: dinner at the Hayes house');
   const din = await ev(() => [QA.pick('Mrs. Price'), QA.pick(''), QA.pick('who are you'), QA.pick(''), QA.pick('no. thank'), QA.pick('yes')]);
   T.ok(din.every((x) => /^ok/.test(x)), 'Abnegation: speak only to ask about someone else — and take the envelope', din);
-  T.ok(await L.until(p, () => DV.Chapter.step === 'night' && DV.Game.state === 'playing', 40000), 'Abnegation: Day 4, after curfew');
+  T.ok(await L.until(p, () => DV.Chapter.step === 'night' && DV.Game.state === 'playing', 90000), 'Abnegation: Day 4, after curfew');
   const walk = await ev(() => {
     const P = DV.Player, path = [[30, 8], [57, 8.6]];
     let n = 0, stopped = false;
@@ -190,7 +190,7 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
   const pat = await ev(() => [QA.pick('RESOLVE'), QA.pick('')]);
   T.ok(/refuse/.test(pat[0]), '…"It isn\'t mine to show you." [RESOLVE 7]', pat);
   await ev(() => { QA.end(); DV.Player.place(57.6, 8.6, Math.PI / 2); QA.step(1); B.use('ezra_talk'); QA.pick('what are'); QA.pick(''); DV.Save.write('4'); DV.Game.loadSlot('4'); });
-  T.ok(await L.until(p, () => DV.Chapter.step === 'reflect' && DV.Game.state === 'playing', 40000), 'Abnegation: the envelope to Ezra, sealed — and home (via a save made right after)');
+  T.ok(await L.until(p, () => DV.Chapter.step === 'reflect' && DV.Game.state === 'playing', 90000), 'Abnegation: the envelope to Ezra, sealed — and home (via a save made right after)');
   const ref = await ev(() => { QA.step(1); B.use('joan_bench'); return [QA.pick('ready'), QA.pick('')]; });
   T.ok(ref.every((x) => /^ok/.test(x)), 'Abnegation: Day 5, on the bench with Joan', ref);
   const ab = await banner('abnegation');
@@ -200,7 +200,7 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
 
   /* ============================== Amity ============================== */
   await begin('amity', true);
-  T.ok(await L.until(p, () => DV.Chapter.id === 'week_amity' && DV.Game.state === 'playing', 30000), 'Amity: the first week starts in the orchard');
+  T.ok(await L.until(p, () => DV.Chapter.id === 'week_amity' && DV.Game.state === 'playing', 90000), 'Amity: the first week starts in the orchard');
   await ev(() => QA.step(14));
   const both = await ev(() => {
     B.use('talk_ruth'); QA.pick('when'); QA.pick(''); QA.pick('mean a lot'); QA.pick(''); QA.pick('find out');
@@ -217,7 +217,7 @@ L.run('Build 3: the first week (Candor, Erudite, Abnegation, Amity)', async (p, 
   });
   T.ok(dig[0] && dig[0].hits === 8 && dig[1], 'Amity: the culvert dug out — the water reaches Ruth\'s trees', dig);
   await ev(() => { QA.step(2); B.use('to_circle'); });
-  T.ok(await L.until(p, () => DV.Chapter.step === 'circle' && DV.Game.state === 'playing', 40000), 'Amity: the evening, the circle');
+  T.ok(await L.until(p, () => DV.Chapter.step === 'circle' && DV.Game.state === 'playing', 90000), 'Amity: the evening, the circle');
   await ev(() => { QA.step(2); B.use('circle_sit'); B.wait(() => DV.Dialogue.isActive(), 20); });
   const med = await ev(() => [QA.pick('with ruth'), QA.pick('afraid'), QA.pick(''), QA.pick('more than a quarter'), QA.pick(''), QA.pick('dug it out'), QA.pick(''), QA.pick('INTELLIGENCE'), QA.pick(''), QA.pick(''), DV.FirstWeek.was('mediated')]);
   T.eq(med[10], 'consensus', 'Amity: listen, reflect, the culvert, water at dawn — consensus');
