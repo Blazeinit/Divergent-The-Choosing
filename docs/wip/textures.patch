@@ -1,0 +1,1602 @@
+diff --git a/js/engine/city.js b/js/engine/city.js
+index afc9a73..02ae931 100644
+--- a/js/engine/city.js
++++ b/js/engine/city.js
+@@ -32,81 +32,107 @@
+   function tex(c, opts) {
+     const t = new THREE.CanvasTexture(c);
+     t.wrapS = t.wrapT = THREE.RepeatWrapping;
+-    t.magFilter = (opts && opts.mag) || THREE.NearestFilter;
+-    t.minFilter = (opts && opts.min) || THREE.NearestMipmapLinearFilter;
++    t.magFilter = (opts && opts.mag) || DV.Tex.filterMode();
++    t.minFilter = (opts && opts.min) || THREE.LinearMipmapLinearFilter;
+     t.generateMipmaps = true;
+-    t.anisotropy = 2;
++    t.anisotropy = DV.Tex.aniso || 2; // (sharp at a low angle down the street)
+     return t;
+   }
+-  function speckle(g, w, h, r, n, a) {
+-    for (let i = 0; i < n; i++) {
+-      g.fillStyle = 'rgba(' + (r() < 0.5 ? '0,0,0' : '255,255,255') + ',' + (a * r()).toFixed(3) + ')';
+-      g.fillRect(Math.floor(r() * w), Math.floor(r() * h), 1 + Math.floor(r() * 2), 1 + Math.floor(r() * 2));
+-    }
++  // Each facade tile is 4 bays × 4 floors (128 px per cell at the 512 the maps are painted at). A
++  // style's wall(g, r, W) paints the material at full size with the texture toolkit (DV.Tex.paint);
++  // its paint(g, r) then lays out the openings and the trim in a 256-px space (drawn at 512). WIN is
++  // the window rectangle of a cell in uv space (x0, y0, x1, y1), used by the shader for lit windows.
++  // BLANK is how a party wall with no windows in it looks: its colour, and its blocks (bricks) across
++  // a bay and up a floor.
++  const TP = () => DV.Tex.paint;
++  // a pane of glass: the sky reflected at the top, falling to the dark of the room behind, a sheen
++  // across it, and (sometimes) a hint of the room: the back wall, a lamp shade, a shelf
++  function pane(g, r, x, y, w, h, o) {
++    o = o || {};
++    const sky = o.sky || [118, 132, 140];
++    const gr = g.createLinearGradient(x, y, x + w * 0.2, y + h);
++    gr.addColorStop(0, TP().rgba(sky, 1)); gr.addColorStop(0.32, TP().rgba(o.mid || [52, 62, 68], 1)); gr.addColorStop(1, TP().rgba(o.low || [26, 31, 35], 1));
++    g.fillStyle = gr; g.fillRect(x, y, w, h);
++    if (r() < 0.45) { // the room
++      const k = r();
++      g.fillStyle = k < 0.4 ? 'rgba(70,58,44,0.35)' : k < 0.7 ? 'rgba(56,62,66,0.35)' : 'rgba(84,72,52,0.3)';
++      g.fillRect(x, y + h * 0.55, w, h * 0.45);
++      if (r() < 0.4) { g.fillStyle = 'rgba(10,10,10,0.35)'; g.fillRect(x + w * (0.1 + r() * 0.5), y + h * (0.62 + r() * 0.1), w * 0.3, h * 0.4); } // a cupboard, a chair back
++    }
++    g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
++    g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); const sx = x + w * r(); g.moveTo(sx, y); g.lineTo(sx + w * 0.25, y); g.lineTo(sx - w * 0.15, y + h); g.lineTo(sx - w * 0.4, y + h); g.fill(); // the sheen
++    g.restore();
++    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x, y, w, 0.75); g.fillRect(x, y, 0.75, h); // the frame's shadow on it
+   }
+-  function streaks(g, w, h, r, n, a) {
+-    for (let i = 0; i < n; i++) {
+-      const x = Math.floor(r() * w), y = Math.floor(r() * h), len = 6 + Math.floor(r() * 30);
+-      g.fillStyle = 'rgba(20,18,16,' + (a * (0.4 + r() * 0.6)).toFixed(3) + ')';
+-      g.fillRect(x, y, 1 + Math.floor(r() * 2), len);
+-    }
++  // a stone sill or lintel: lit on top, its underside dark, dirt washed off it down the wall below
++  function trim(g, r, x, y, w, h, col, drip) {
++    g.fillStyle = col; g.fillRect(x, y, w, h);
++    g.fillStyle = 'rgba(255,255,250,0.22)'; g.fillRect(x, y, w, 0.75);
++    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x, y + h - 0.6, w, 0.6);
++    if (drip) for (let k = 0; k < 2; k++) if (r() < drip) TP().run(g, 256, 256, r, x + 1 + r() * (w - 3), y + h, 6 + r() * 18, 0.6 + r() * 1.2, [34, 30, 26], 0.18 + r() * 0.2);
+   }
+-  // Each facade tile is 4 bays × 4 floors (64 px per cell). WIN is the window rectangle of a
+-  // cell in uv space (x0, y0, x1, y1), used by the shader for lit windows. BLANK is how a party wall
+-  // with no windows in it looks: its colour, and its blocks (bricks) across a bay and up a floor.
+   const STYLES = {
+     office: {
+       bay: 3.4, floor: 3.5, lit: 0.07, win: [0, 0.28, 1, 0.69], blank: [0.55, 0.55, 0.53, 1, 1],
++      // precast spandrel panels, a joint at every bay and half bay
++      wall(g, r, W) {
++        TP().concreteBody(g, W, W, r, '#8d8d88', { mottle: 0.1, stain: [62, 62, 60], stainA: 0.3, grain: 0.08, pores: 0.015 });
++        for (let x = 0; x < W; x += W / 8) { g.fillStyle = 'rgba(40,40,38,0.4)'; g.fillRect(x, 0, 2, W); g.fillStyle = 'rgba(255,255,250,0.1)'; g.fillRect(x + 2, 0, 1, W); }
++      },
+       paint(g, r) {
+-        g.fillStyle = '#8b8b86'; g.fillRect(0, 0, 256, 256);
+-        speckle(g, 256, 256, r, 2200, 0.16);
+         for (let f = 0; f < 4; f++) {
+           const y = f * 64;
+-          g.fillStyle = '#2c3439'; g.fillRect(0, y + 20, 256, 26);
+-          g.fillStyle = 'rgba(120,140,150,0.25)'; g.fillRect(0, y + 20, 256, 6);
++          for (let x = 0; x < 256; x += 16) pane(g, r, x, y + 20, 16, 26, { sky: [104, 120, 130] });
+           g.fillStyle = '#55595b';
+-          for (let x = 0; x < 256; x += 16) g.fillRect(x, y + 20, 2, 26);
+-          g.fillStyle = '#6c6c68'; g.fillRect(0, y + 60, 256, 4);
++          for (let x = 0; x < 256; x += 16) { g.fillRect(x, y + 20, 1.5, 26); g.fillStyle = 'rgba(200,205,205,0.35)'; g.fillRect(x + 1.5, y + 20, 0.5, 26); g.fillStyle = '#55595b'; }
++          g.fillRect(0, y + 19, 256, 1.5); // the head of the ribbon
++          trim(g, r, 0, y + 46, 256, 2, '#77776f', 0);
++          for (let k = 0; k < 10; k++) TP().run(g, 256, 256, r, r() * 256, y + 48, 6 + r() * 14, 0.6 + r(), [40, 40, 38], 0.2);
++          g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(0, y + 60, 256, 4);
+         }
+-        streaks(g, 256, 256, r, 70, 0.18);
+       },
+     },
+     brick: {
+       bay: 3.2, floor: 3.2, lit: 0.09, win: [18 / 64, 18 / 64, 46 / 64, 50 / 64], blank: [0.43, 0.26, 0.2, 16 / 3, 16],
++      wall(g, r, W) {
++        TP().brickWall(g, W, W, r, { rows: 128, cols: 40, mortar: 1, soot: 40, bloom: 0.18, grime: 0.32, chips: 0.06, spall: 0.02, mortarCol: [104, 98, 90],
++          colors: [[120, 68, 52], [110, 62, 48], [128, 76, 58], [100, 58, 46], [134, 82, 62]] });
++      },
+       paint(g, r) {
+-        g.fillStyle = '#6e4234'; g.fillRect(0, 0, 256, 256);
+-        for (let y = 0; y < 256; y += 4) {
+-          g.fillStyle = 'rgba(40,24,18,0.45)'; g.fillRect(0, y, 256, 1);
+-          for (let x = (y / 4) % 2 ? 0 : 6; x < 256; x += 12) g.fillRect(x, y, 1, 4);
+-        }
+-        for (let i = 0; i < 260; i++) { g.fillStyle = 'rgba(' + (r() < 0.5 ? '150,80,60' : '60,30,24') + ',0.35)'; g.fillRect(Math.floor(r() * 21) * 12, Math.floor(r() * 64) * 4, 11, 3); }
+         for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
+           const x = b * 64, y = f * 64;
+-          g.fillStyle = '#a49d90'; g.fillRect(x + 16, y + 10, 32, 4); // lintel
+-          g.fillStyle = '#d4ccbc'; g.fillRect(x + 18, y + 14, 28, 32); // frame
+-          g.fillStyle = '#262c30'; g.fillRect(x + 20, y + 16, 24, 28);
+-          g.fillStyle = '#c8c0b0'; g.fillRect(x + 20, y + 29, 24, 2); // sash
+-          g.fillStyle = 'rgba(140,160,170,0.22)'; g.fillRect(x + 20, y + 16, 24, 6);
+-          g.fillStyle = '#9a948a'; g.fillRect(x + 16, y + 46, 32, 3); // sill
++          g.fillStyle = 'rgba(20,14,12,0.35)'; g.fillRect(x + 15, y + 6, 34, 4); // soot over the opening
++          trim(g, r, x + 16, y + 10, 32, 4, '#a49d90', 0); // the lintel
++          g.fillStyle = '#cfc7b6'; g.fillRect(x + 18, y + 14, 28, 32); // the frame
++          g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 18, y + 14, 28, 1); g.fillRect(x + 18, y + 14, 1, 32); // its reveal
++          pane(g, r, x + 20, y + 16, 24, 13);
++          pane(g, r, x + 20, y + 31, 24, 13, { sky: [84, 96, 104] });
++          g.fillStyle = '#c8c0b0'; g.fillRect(x + 20, y + 29, 24, 2); // the meeting rail of the sash
++          g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x + 20, y + 31, 24, 0.75);
++          trim(g, r, x + 16, y + 46, 32, 3, '#9a948a', 0.7); // the sill
+         }
+-        streaks(g, 256, 256, r, 40, 0.15);
+       },
+     },
+     glass: {
+       bay: 3.0, floor: 3.7, lit: 0.06, win: [0, 0.14, 1, 1],
++      wall(g, r, W) { g.fillStyle = '#3e4850'; g.fillRect(0, 0, W, W); },
+       paint(g, r) {
+-        // steel-blue curtain wall: sky reflected at the top of each floor, darker below
+-        const sky = g.createLinearGradient(0, 0, 256, 256);
+-        sky.addColorStop(0, '#5a6670'); sky.addColorStop(1, '#3e4850');
+-        g.fillStyle = sky; g.fillRect(0, 0, 256, 256);
++        // steel-blue curtain wall: the sky and the towers opposite reflected in it, each pane a shade
++        // apart (they never sit quite flat), darker below
+         for (let f = 0; f < 4; f++) {
+           const y = f * 64;
+-          const grd = g.createLinearGradient(0, y, 0, y + 56);
+-          grd.addColorStop(0, 'rgba(150,165,175,0.35)'); grd.addColorStop(0.5, 'rgba(0,0,0,0)'); grd.addColorStop(1, 'rgba(10,14,18,0.35)');
+-          g.fillStyle = grd; g.fillRect(0, y, 256, 56);
++          for (let x = 0; x < 256; x += 16) {
++            const v = 0.9 + r() * 0.2;
++            const grd = g.createLinearGradient(x, y, x + 6, y + 56);
++            grd.addColorStop(0, TP().rgba([112 * v, 126 * v, 136 * v], 1)); grd.addColorStop(0.45, TP().rgba([70 * v, 82 * v, 92 * v], 1)); grd.addColorStop(1, TP().rgba([40 * v, 48 * v, 56 * v], 1));
++            g.fillStyle = grd; g.fillRect(x, y, 16, 56);
++            g.fillStyle = 'rgba(28,34,40,0.45)'; // a tower opposite, reflected
++            const th = 10 + r() * 30; g.fillRect(x, y + 56 - th, 16, th);
++            if (r() < 0.3) { g.fillStyle = 'rgba(200,215,225,0.12)'; g.fillRect(x + 2, y + 2, 4, 50); }
++          }
+           g.fillStyle = '#272d32'; g.fillRect(0, y + 56, 256, 8);
+-          g.fillStyle = '#20252a';
+-          for (let x = 0; x < 256; x += 16) g.fillRect(x, y, 2, 64);
++          g.fillStyle = 'rgba(160,170,178,0.3)'; g.fillRect(0, y + 56, 256, 0.75);
++          for (let x = 0; x < 256; x += 16) { g.fillStyle = '#20252a'; g.fillRect(x, y, 2, 64); g.fillStyle = 'rgba(170,180,186,0.35)'; g.fillRect(x + 2, y, 0.5, 64); }
+         }
+         // a few panes missing
+         for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(12,14,16,0.85)'; g.fillRect(Math.floor(r() * 16) * 16 + 2, Math.floor(r() * 4) * 64, 14, 56); }
+@@ -114,114 +140,113 @@
+     },
+     derelict: {
+       bay: 3.3, floor: 3.4, lit: 0.015, win: [12 / 64, 20 / 64, 52 / 64, 48 / 64], blank: [0.46, 0.45, 0.42, 1, 1],
++      wall(g, r, W) {
++        TP().concreteBody(g, W, W, r, '#77736c', { mottle: 0.18, stain: [40, 36, 30], stainA: 0.5, grain: 0.16, pores: 0.03, flecks: 0.01 });
++        TP().runs(g, W, W, r, 120, [24, 22, 20], 0.35, 30, 240, 5);
++        for (let i = 0; i < 10; i++) TP().crack(g, W, W, r, r() * W, r() * W, r() * 6.3, 40 + r() * 80, 'rgba(20,18,16,0.6)', 1.2);
++      },
+       paint(g, r) {
+-        g.fillStyle = '#76726b'; g.fillRect(0, 0, 256, 256);
+-        speckle(g, 256, 256, r, 3000, 0.22);
+         for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
+           const x = b * 64, y = f * 64, k = r();
+-          g.fillStyle = k < 0.55 ? '#131313' : k < 0.8 ? '#5e4f3d' : '#2b3236';
+-          g.fillRect(x + 12, y + 16, 40, 28);
+-          if (k >= 0.55 && k < 0.8) { g.fillStyle = 'rgba(30,20,10,0.6)'; for (let p = 0; p < 4; p++) g.fillRect(x + 12, y + 19 + p * 7, 40, 1); }
+-          if (r() < 0.3) { g.fillStyle = 'rgba(15,12,10,0.6)'; g.fillRect(x + 12, y + 44, 40 * r(), 14); } // scorch
++          if (k < 0.55) { g.fillStyle = '#131313'; g.fillRect(x + 12, y + 16, 40, 28); g.fillStyle = 'rgba(60,64,66,0.4)'; g.fillRect(x + 12, y + 16, 40, 4); }
++          else if (k < 0.8) { // boarded
++            for (let p = 0; p < 4; p++) { const v = 0.8 + r() * 0.3; g.fillStyle = TP().rgba([94 * v, 79 * v, 61 * v], 1); g.fillRect(x + 12, y + 16 + p * 7, 40, 6.5); g.fillStyle = 'rgba(30,20,10,0.6)'; g.fillRect(x + 12, y + 22.5 + p * 7, 40, 0.5); g.fillStyle = 'rgba(30,24,18,0.8)'; g.fillRect(x + 14, y + 18 + p * 7, 1, 1); g.fillRect(x + 49, y + 18 + p * 7, 1, 1); }
++          } else pane(g, r, x + 12, y + 16, 40, 28, { sky: [70, 80, 86] });
++          if (r() < 0.3) { const sg = g.createLinearGradient(0, y + 16, 0, y - 6); sg.addColorStop(0, 'rgba(12,10,8,0.7)'); sg.addColorStop(1, 'rgba(12,10,8,0)'); g.fillStyle = sg; g.fillRect(x + 10, y - 6, 44, 22); } // scorched over it
++          trim(g, r, x + 10, y + 44, 44, 2, '#5c5850', 0.9);
+         }
+         g.fillStyle = 'rgba(40,36,30,0.5)';
+         for (let f = 0; f < 4; f++) g.fillRect(0, f * 64 + 60, 256, 4);
+-        streaks(g, 256, 256, r, 140, 0.3);
+       },
+     },
+   };
+-  // the full-size finishing pass over a facade tile (see the maps in build)
+-  function facadeDetail(g, W, style, r) {
+-    const img = g.getImageData(0, 0, W, W), d = img.data;
+-    const hash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7 + style.length * 17.3) * 43758.5453; return v - Math.floor(v); };
+-    const bricky = style === 'brick' || style === 'loft' || style === 'ghost';
+-    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+-      const i = (y * W + x) * 4;
+-      let R = d[i], G = d[i + 1], B = d[i + 2];
+-      const lum = (R + G + B) / 3;
+-      let k = 1 + (r() - 0.5) * (lum < 60 ? 0.05 : 0.11);
+-      if (bricky && R > G + 16 && R > B + 20) {
+-        const row = Math.floor(y / 8), off = row % 2 ? 12 : 0, bx = Math.floor((x + off) / 24);
+-        k *= 0.84 + 0.3 * hash(bx, row);
+-        const yy = y % 8, xx = (x + off) % 24;
+-        if (yy === 1) k *= 1.1;
+-        if (yy === 7) k *= 0.86;
+-        if (xx === 23) k *= 0.88;
+-      } else if (lum > 95 && Math.abs(R - G) < 18 && Math.abs(G - B) < 22) {
+-        // stone and concrete: a tone per block, and the odd pit
+-        k *= 0.94 + 0.12 * hash(Math.floor(x / 64), Math.floor(y / 32) + 9);
+-        if (r() < 0.006) k *= 0.62;
+-      }
+-      d[i] = U.clamp(R * k, 0, 255); d[i + 1] = U.clamp(G * k, 0, 255); d[i + 2] = U.clamp(B * k, 0, 255);
+-    }
+-    g.putImageData(img, 0, 0);
+-  }
+   // the Testing Center's own outside: concrete panels, a ribbon of narrow windows on each floor
+   STYLES.institution = {
+     bay: 3.6, floor: 3.6, lit: 0.02, win: [0.06, 0.52, 0.94, 0.7], noShops: true,
++    wall(g, r, W) {
++      TP().concreteBody(g, W, W, r, '#9e9c96', { mottle: 0.08, stain: [70, 68, 62], stainA: 0.3, grain: 0.07, pores: 0.02 });
++      TP().runs(g, W, W, r, 60, [50, 48, 44], 0.2, 30, 160, 4);
++    },
+     paint(g, r) {
+-      g.fillStyle = '#9c9a94'; g.fillRect(0, 0, 256, 256);
+-      speckle(g, 256, 256, r, 2600, 0.14);
+       for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
+         const x = b * 64, y = f * 64;
+-        g.fillStyle = 'rgba(' + (r() < 0.5 ? '255,255,250' : '30,30,28') + ',' + (r() * 0.06).toFixed(3) + ')'; g.fillRect(x, y, 64, 64);
+-        g.fillStyle = '#22282c'; g.fillRect(x + 4, y + 19, 56, 14); // the window ribbon
+-        g.fillStyle = 'rgba(150,165,170,0.25)'; g.fillRect(x + 4, y + 19, 56, 4);
+-        g.fillStyle = '#7f7d77'; g.fillRect(x, y + 33, 64, 2); // sill
++        g.fillStyle = 'rgba(' + (r() < 0.5 ? '255,255,250' : '30,30,28') + ',' + (r() * 0.05).toFixed(3) + ')'; g.fillRect(x, y, 64, 64);
++        g.fillStyle = '#22282c'; g.fillRect(x + 4, y + 19, 56, 14);
++        pane(g, r, x + 5, y + 20, 26, 12, { sky: [120, 134, 140] }); pane(g, r, x + 33, y + 20, 26, 12, { sky: [120, 134, 140] }); // the window ribbon
++        trim(g, r, x, y + 33, 64, 2, '#827f78', 0.8); // sill
+       }
+-      g.fillStyle = '#76746e';
+-      for (let k = 0; k <= 4; k++) { g.fillRect(k * 64 - 1, 0, 2, 256); g.fillRect(0, k * 64 - 1, 256, 2); g.fillRect(0, k * 64 + 46, 256, 1); }
+-      streaks(g, 256, 256, r, 90, 0.2);
++      for (let k = 0; k <= 4; k++) { g.fillStyle = 'rgba(70,68,62,0.9)'; g.fillRect(k * 64 - 1, 0, 2, 256); g.fillRect(0, k * 64 - 1, 256, 2); g.fillStyle = 'rgba(255,255,250,0.12)'; g.fillRect(k * 64 + 1, 0, 0.75, 256); g.fillRect(0, k * 64 + 46, 256, 0.75); }
+     },
+   };
+-  // Chicago greystone: pale limestone, tall windows with heavy lintels and sills, rusticated joints
++  // Chicago greystone: pale limestone in courses of dressed blocks, tall windows with heavy lintels and
++  // sills, the stone dark with soot under every projection
+   STYLES.stone = {
+     bay: 3.0, floor: 3.4, lit: 0.08, win: [20 / 64, 12 / 64, 44 / 64, 50 / 64], blank: [0.64, 0.62, 0.56, 2, 4],
++    wall(g, r, W) {
++      const P = TP(), ch = W / 16;
++      g.fillStyle = '#7e786c'; g.fillRect(0, 0, W, W);
++      for (let j = 0; j < 16; j++) {
++        let x = -r() * 60;
++        while (x < W) {
++          const bw = 50 + r() * 60, v = 0.92 + r() * 0.12, warm = (r() - 0.5) * 6;
++          g.fillStyle = P.rgba([168 * v + warm, 162 * v, 148 * v - warm], 1);
++          g.fillRect(x + 1, j * ch + 1, bw - 2, ch - 2);
++          g.fillStyle = 'rgba(255,255,250,0.14)'; g.fillRect(x + 1, j * ch + 1, bw - 2, 1);
++          g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x + 1, j * ch + ch - 2, bw - 2, 1);
++          x += bw;
++        }
++      }
++      P.shadeBy(g, W, W, P.fbm(W, W, r, 8, 3, 0.6), 0.06); // the tooling
++      P.grain(g, W, W, r, 0.08, 0.02, 0.006);
++      P.stainBy(g, W, W, P.fbm(W, W, r, 3, 5, 0.6), 0.6, 0.3, [70, 66, 58], 0.4);
++      P.runs(g, W, W, r, 50, [44, 40, 34], 0.25, 30, 200, 4);
++    },
+     paint(g, r) {
+-      g.fillStyle = '#a49e90'; g.fillRect(0, 0, 256, 256);
+-      speckle(g, 256, 256, r, 2600, 0.12);
+-      for (let y = 0; y < 256; y += 16) { g.fillStyle = 'rgba(60,56,50,0.22)'; g.fillRect(0, y, 256, 1); }
+       for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
+         const x = b * 64, y = f * 64;
+-        g.fillStyle = '#8a8478'; g.fillRect(x + 16, y + 4, 32, 8); // lintel
+-        g.fillStyle = '#b8b2a4'; g.fillRect(x + 18, y + 12, 28, 40);
+-        g.fillStyle = '#23282b'; g.fillRect(x + 20, y + 13, 24, 37);
++        trim(g, r, x + 16, y + 4, 32, 8, '#8f897d', 0); // lintel
++        g.fillStyle = 'rgba(0,0,0,0.25)'; for (let k = 1; k < 4; k++) g.fillRect(x + 16 + k * 8, y + 4, 0.5, 8); // its voussoirs
++        g.fillStyle = '#b4ae9f'; g.fillRect(x + 18, y + 12, 28, 40);
++        g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x + 18, y + 12, 28, 1); g.fillRect(x + 18, y + 12, 1, 40);
++        pane(g, r, x + 20, y + 13, 24, 17); pane(g, r, x + 20, y + 32, 24, 18, { sky: [90, 102, 110] });
+         g.fillStyle = '#9a9488'; g.fillRect(x + 20, y + 30, 24, 2); // sash
+-        g.fillStyle = 'rgba(150,165,170,0.2)'; g.fillRect(x + 20, y + 13, 24, 7);
+-        g.fillStyle = '#7e786c'; g.fillRect(x + 15, y + 50, 34, 4); // sill
++        trim(g, r, x + 15, y + 50, 34, 4, '#827c70', 0.8); // sill
+       }
+-      streaks(g, 256, 256, r, 60, 0.18);
+     },
+   };
+   // an industrial loft: dark brick piers between wide steel windows of small panes
+   STYLES.loft = {
+     bay: 4.2, floor: 4.0, lit: 0.05, win: [6 / 64, 10 / 64, 58 / 64, 48 / 64], blank: [0.36, 0.23, 0.18, 7, 16],
++    wall(g, r, W) {
++      TP().brickWall(g, W, W, r, { rows: 128, cols: 40, mortar: 1, soot: 60, bloom: 0.12, grime: 0.4, chips: 0.06, spall: 0.03, mortarCol: [86, 80, 72],
++        colors: [[100, 60, 46], [92, 54, 42], [108, 66, 50], [84, 50, 40], [96, 62, 50]] });
++    },
+     paint(g, r) {
+-      g.fillStyle = '#5c3a2e'; g.fillRect(0, 0, 256, 256);
+-      for (let y = 0; y < 256; y += 4) { g.fillStyle = 'rgba(30,18,14,0.45)'; g.fillRect(0, y, 256, 1); }
+       for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
+         const x = b * 64, y = f * 64;
++        g.fillStyle = 'rgba(14,10,8,0.35)'; g.fillRect(x + 5, y + 5, 54, 5);
+         g.fillStyle = '#3e4246'; g.fillRect(x + 6, y + 10, 52, 38);
+-        g.fillStyle = '#20262a';
+-        for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) g.fillRect(x + 8 + i * 12.5, y + 12 + j * 12, 11, 10);
+-        if (r() < 0.25) { g.fillStyle = 'rgba(160,170,170,0.35)'; g.fillRect(x + 8 + Math.floor(r() * 4) * 12.5, y + 12 + Math.floor(r() * 3) * 12, 11, 10); } // a pane boarded or missing
+-        g.fillStyle = '#8a7a66'; g.fillRect(x + 4, y + 48, 56, 4); // sill
++        for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) {
++          const px = x + 8 + i * 12.5, py = y + 12 + j * 12;
++          if (r() < 0.07) { g.fillStyle = 'rgba(160,170,170,0.5)'; g.fillRect(px, py, 11, 10); } // a pane boarded or painted over
++          else pane(g, r, px, py, 11, 10, { sky: [96 + j * -10, 108 - j * 10, 116 - j * 10] });
++        }
++        g.fillStyle = 'rgba(120,70,40,0.35)'; g.fillRect(x + 6, y + 47, 52, 1); // rust along the bottom rail
++        trim(g, r, x + 4, y + 48, 56, 4, '#857563', 0.9); // sill
+       }
+-      streaks(g, 256, 256, r, 90, 0.22);
+     },
+   };
+   // painted signs on the blank side walls above lower roofs: a hundred years of faded adverts
+   const GHOST = ['GROCERY', 'FRESH BREAD', 'HOTEL ROSE', 'CITY ICE CO.', 'FURNITURE', 'STAR LAUNDRY', 'DRUGS · SODA', 'THE DAILY'];
+   STYLES.ghost = {
+     bay: 1, floor: 1, lit: 0, win: [0, 0, 0, 0], noShops: true,
++    wall(g, r, W) { STYLES.brick.wall(g, r, W); },
+     paint(g, r) {
+       // 2 × 4 tiles of 128 × 64: brick, a faded panel, the words
+       for (let k = 0; k < 8; k++) {
+         const x = (k % 2) * 128, y = Math.floor(k / 2) * 64;
+-        g.fillStyle = '#6e4234'; g.fillRect(x, y, 128, 64);
+-        for (let yy = 0; yy < 64; yy += 4) { g.fillStyle = 'rgba(40,24,18,0.4)'; g.fillRect(x, y + yy, 128, 1); }
+         const panel = ['#d8d0b8', '#c8b088', '#9aa8a0', '#d0c8b0'][k % 4];
+-        g.globalAlpha = 0.55 + r() * 0.2;
++        g.globalAlpha = 0.5 + r() * 0.2;
+         g.fillStyle = panel; g.fillRect(x + 6, y + 8, 116, 48);
+         g.fillStyle = ['#7a2a20', '#2a3a5a', '#3a4a2a', '#5a3a1a'][k % 4];
+         g.font = 'bold ' + (GHOST[k].length > 10 ? 15 : 19) + 'px Georgia, serif';
+@@ -229,8 +254,9 @@
+         g.fillText(GHOST[k], x + 64, y + 30);
+         g.fillRect(x + 20, y + 44, 88, 3);
+         g.globalAlpha = 1;
+-        // weathered: the brick showing through the paint
+-        for (let i = 0; i < 140; i++) { g.fillStyle = 'rgba(110,66,52,' + (0.3 + r() * 0.5).toFixed(2) + ')'; g.fillRect(x + r() * 128, y + r() * 64, 2 + r() * 5, 1 + r() * 3); }
++        // weathered: the brick showing through the paint, the paint gone along the mortar
++        for (let i = 0; i < 260; i++) { g.fillStyle = 'rgba(110,64,50,' + (0.3 + r() * 0.5).toFixed(2) + ')'; g.fillRect(x + 6 + r() * 116, y + 8 + r() * 48, 1 + r() * 4, 0.5 + r() * 1.5); }
++        for (let yy = y + 8; yy < y + 56; yy += 2) { g.fillStyle = 'rgba(70,60,52,0.25)'; g.fillRect(x + 6, yy, 116, 0.5); }
+       }
+     },
+   };
+@@ -238,25 +264,28 @@
+   // years of weather running down it (rust from the ties, black from the top)
+   STYLES.bastion = {
+     bay: 4, floor: 4.5, lit: 0, win: [0, 0, 0, 0], noShops: true,
++    wall(g, r, W) {
++      TP().concreteBody(g, W, W, r, '#6e6c67', { mottle: 0.14, stain: [40, 40, 36], stainA: 0.4, grain: 0.12, pores: 0.025 });
++    },
+     paint(g, r) {
+-      g.fillStyle = '#6c6a65'; g.fillRect(0, 0, 256, 256);
+-      speckle(g, 256, 256, r, 3600, 0.13);
+       for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
+         const x = b * 64, y = f * 64, k = r();
+         g.fillStyle = 'rgba(' + (k < 0.5 ? '255,255,250' : '20,20,18') + ',' + (0.03 + r() * 0.05).toFixed(3) + ')'; g.fillRect(x, y, 64, 64);
+-        g.fillStyle = 'rgba(30,30,28,0.55)'; g.fillRect(x, y, 64, 2); g.fillRect(x, y, 2, 64); // the panel joints
+-        g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(x, y + 31, 64, 1); // a pour line
++        g.fillStyle = 'rgba(30,30,28,0.55)'; g.fillRect(x, y, 64, 1.5); g.fillRect(x, y, 1.5, 64); // the panel joints
++        g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(x, y + 1.5, 64, 0.75); g.fillRect(x, y + 31, 64, 0.75); // a pour line
+         for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
+           const hx = x + 12 + i * 20, hy = y + 18 + j * 28;
+-          g.fillStyle = '#34322f'; g.fillRect(hx, hy, 3, 3); // the tie holes
+-          if (r() < 0.35) { g.fillStyle = 'rgba(110,60,30,' + (0.2 + r() * 0.3).toFixed(2) + ')'; g.fillRect(hx, hy + 3, 2, 6 + r() * 26); } // rust running from them
++          if (r() < 0.4) TP().run(g, 256, 256, r, hx + 0.5, hy + 2.5, 6 + r() * 26, 1 + r(), [110, 60, 30], 0.25 + r() * 0.3); // rust running from them
++          g.fillStyle = '#34322f'; g.beginPath(); g.arc(hx + 1.5, hy + 1.5, 1.6, 0, 6.3); g.fill(); // the tie holes
++          g.fillStyle = 'rgba(255,255,250,0.15)'; g.fillRect(hx, hy + 3, 3, 0.5);
+         }
+       }
+       // black streaks running down from the top
+-      for (let i = 0; i < 70; i++) { const x = Math.floor(r() * 256), len = 30 + r() * 140; g.fillStyle = 'rgba(15,15,14,' + (0.08 + r() * 0.18).toFixed(2) + ')'; g.fillRect(x, 256 - len, 2 + Math.floor(r() * 4), len); }
++      for (let i = 0; i < 70; i++) { const x = Math.floor(r() * 256), len = 30 + r() * 140; TP().run(g, 256, 256, r, x, 0, len, 1 + r() * 3, [15, 15, 14], 0.1 + r() * 0.2); }
+     },
+   };
+   const ORDER = ['office', 'brick', 'glass', 'derelict', 'institution', 'stone', 'loft', 'ghost', 'bastion'];
++  const FACADES = {};
+ 
+   // tileable value noise → fbm (cloud shadows and the cloud deck share it)
+   function noiseTexture(seed) {
+@@ -358,9 +387,10 @@
+     // with its name in blocky letters on the fascia, a stone stallriser, display windows with a
+     // transom and a mullion and the goods on a shelf behind the glass, a door with a glass panel
+     // every few bays; boarded up or shuttered where times are hard; some shops lit at dusk
+-    '      vec2 p = floor(f * 64.0) / 64.0;',
++    '      vec2 p = floor(f * 128.0) / 128.0;',
++    '      float grime = 0.84 + 0.3 * texture2D(noise, vUv * vec2(0.37, 0.53) + sd * 0.013).r + 0.07 * (hash(floor(f * 128.0) + cell * 131.0) - 0.5);',
+     '      float hb = hash(vec2(cell.x, sd)); float shop = floor(cell.x / 3.0); float hs = hash(vec2(shop, sd + 7.0)); float bay = mod(cell.x, 3.0);',
+-    '      vec3 stone = vCol * ambient * 0.62;',
++    '      vec3 stone = vCol * ambient * 0.62 * grime;',
+     '      vec3 fascia = mix(vec3(0.22, 0.2, 0.18), vec3(0.42, 0.16, 0.12), step(0.7, hs)) * mix(1.0, 0.6, step(0.4, hs) * step(hs, 0.55));',
+     '      fascia = mix(fascia, vec3(0.15, 0.24, 0.3), step(0.85, hs));',
+     '      float glassA = step(0.14, p.y) * step(p.y, 0.74) * step(0.07, p.x) * step(p.x, 0.93);',
+@@ -372,6 +402,11 @@
+     '      glass = mix(glass, vec3(0.26, 0.24, 0.22), step(p.y, 0.3));',
+     '      glass = mix(glass, mix(vec3(0.46, 0.38, 0.26), vec3(0.28, 0.34, 0.46), hash(vec2(col8, shop + sd))) * 0.7, item);',
+     '      glass = mix(glass, vec3(0.12, 0.11, 0.1), max(step(0.6, p.y) * step(p.y, 0.62), step(0.49, p.x) * step(p.x, 0.51) * step(p.y, 0.6)));',
++    // the street reflected in the glass: a sheen in bands across it, the sky's light in the transom,
++    // the bottom of the glass grey with the splash off the pavement
++    '      glass += vec3(0.045, 0.05, 0.055) * step(0.62, fract(p.x * 1.3 - p.y * 0.7 + hb * 3.0)) * step(0.3, p.y);',
++    '      glass += vec3(0.07, 0.08, 0.085) * step(0.62, p.y) * (1.0 - smoothstep(0.62, 0.74, p.y));',
++    '      glass = mix(glass, vec3(0.3, 0.3, 0.29), 0.35 * (1.0 - smoothstep(0.14, 0.24, p.y)));',
+     '      vec3 board = vec3(0.4, 0.33, 0.24) * (0.85 + 0.15 * step(0.5, fract(p.x * 6.0)));',
+     '      vec3 shut = vec3(0.32, 0.32, 0.31) * (0.8 + 0.2 * step(0.5, fract(p.y * 22.0)));',
+     '      vec3 win = mix(glass, mix(shut, board, step(0.5, hb)), boarded);',
+@@ -383,7 +418,7 @@
+     '      letters *= step(0.12, fract(lx * 0.5 + hash(vec2(shop, sd)) * 3.0)) * step(0.1, hash(vec2(floor(lx * 0.5), shop + sd + 2.0)));',
+     '      vec3 letterCol = mix(vec3(0.86, 0.82, 0.68), vec3(0.95, 0.76, 0.32), step(0.6, hs));',
+     '      c = stone;',
+-    '      c = mix(c, fascia * ambient, step(0.79, p.y) * step(p.y, 0.95));',
++    '      c = mix(c, fascia * ambient * grime * (1.0 + 0.18 * step(0.94, p.y) - 0.25 * step(p.y, 0.8)), step(0.79, p.y) * step(p.y, 0.95));',
+     '      c = mix(c, letterCol * mix(ambient, vec3(1.25), step(0.72, hs) * litAmt), letters * (1.0 - 0.7 * boarded));',
+     '      c = mix(c, win * ambient, glassA);',
+     '      vec3 door = mix(vec3(0.17, 0.15, 0.13), vec3(0.11, 0.14, 0.16), step(0.4, p.y) * step(p.y, 0.66) * step(0.38, p.x) * step(p.x, 0.62));',
+@@ -393,11 +428,12 @@
+     '    } else if (blank > 0.5) {',
+     // a party wall: courses of brick (or blocks of stone, panels of concrete) at the facade's own
+     // pixel size, each a shade apart, grime run down it in streaks, and no windows
+-    '      vec2 q = floor(vUv * 64.0) / 64.0;',
++    '      vec2 q = floor(vUv * 128.0) / 128.0;',
+     '      float row = floor(q.y * blankGrid.y + 0.001); float u = q.x * blankGrid.x + 0.5 * mod(row, 2.0);',
+-    '      float joint = max(step(0.99 - blankGrid.y / 64.0, fract(q.y * blankGrid.y + 0.001)), step(0.99 - blankGrid.x / 64.0, fract(u + 0.001)));',
++    '      float joint = max(step(0.995 - blankGrid.y / 128.0, fract(q.y * blankGrid.y + 0.001)), step(0.995 - blankGrid.x / 128.0, fract(u + 0.001)));',
+     '      float shade = 0.9 + 0.16 * hash(vec2(floor(u), row) + sd) - 0.1 * hash(vec2(floor(q.x * 64.0), sd + 5.0)) * step(0.6, hash(vec2(floor(q.x * 16.0), sd)));',
+-    '      c *= blankCol * shade * (1.0 - 0.32 * joint);',
++    '      float wet = texture2D(noise, vec2(vUv.x * 0.31, vUv.y * 0.07) + sd * 0.017).r;',
++    '      c *= blankCol * shade * (1.0 - 0.32 * joint) * (0.8 + 0.34 * wet) * (0.94 + 0.12 * hash(floor(vUv * 128.0) + sd));',
+     '    } else {',
+     '    c *= texture2D(map, vUv * 0.25).rgb;',
+     '    float win = step(winRect.x, f.x) * step(f.x, winRect.z) * step(winRect.y, f.y) * step(f.y, winRect.w);',
+@@ -1992,15 +2028,18 @@
+         litAmt: { value: o.lit || 0 },
+         ambient: { value: new THREE.Color(o.ambient === undefined ? 0xffffff : o.ambient) },
+       };
+-      const maps = {};
++      // (the facades are the same in every city: painted once, the first time one is built)
++      const maps = FACADES;
+       for (const s of ORDER) {
+-        // painted at 256 and drawn at 512, then finished at full size: each brick and block its own
+-        // shade, a lit top edge, mortar set back, grain and pitting in the concrete
+-        const c = canvas(512, 512), g = c.getContext('2d');
++        if (maps[s]) continue;
++        // the wall's material painted at full size (each brick and block its own shade, the mortar
++        // set back, the grain and pitting in the concrete, soot and rain run down it), then the
++        // openings and the trim laid out over it
++        const c = canvas(512, 512), g = DV.Tex.paint.ctx2d(c);
++        STYLES[s].wall(g, U.rng(77 + ORDER.indexOf(s)), 512);
+         g.save(); g.scale(2, 2);
+         STYLES[s].paint(g, U.rng(31 + ORDER.indexOf(s)));
+         g.restore();
+-        facadeDetail(g, 512, s, U.rng(77 + ORDER.indexOf(s)));
+         maps[s] = tex(c);
+       }
+       const mats = {};
+diff --git a/js/engine/props_street.js b/js/engine/props_street.js
+index 468a8f3..adbfe65 100644
+--- a/js/engine/props_street.js
++++ b/js/engine/props_street.js
+@@ -149,7 +149,7 @@
+ 
+   // road paint: a zebra crossing, a dashed centre line, a bus bay
+   def('road_paint', (ctx, p, B) => {
+-    const paint = ctx.M('white');
++    const paint = ctx.M('paint_road:alpha');
+     const y = 0.01;
+     if (p.kind === 'zebra') {
+       const W = p.w || 4, D = p.d || 6;
+@@ -166,7 +166,7 @@
+       B.quad(paint, [-0.45, y, 0.6], [0.45, y, 0.6], [0, y, 1.8], [0, y, 1.8], [0, 0], [1, 0], [0.5, 1], [0.5, 1]);
+     } else if (p.kind === 'busbay') {
+       const len = p.len || 14;
+-      for (let x = -len / 2; x < len / 2; x += 1.2) B.flat(ctx.M('plastic_orange'), x, -0.07, x + 0.6, 0.07, y);
++      for (let x = -len / 2; x < len / 2; x += 1.2) B.flat(ctx.M('paint_road_amber:alpha'), x, -0.07, x + 0.6, 0.07, y);
+       // BUS painted inside the bay (local -z, toward the kerb), reading from the pavement
+       const t = DV.Mat.fromTexture('busbay', DV.Tex.custom('busbay', 128, 48, (g) => {
+         g.clearRect(0, 0, 128, 48); g.fillStyle = '#d8b040'; g.font = 'bold 40px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('BUS', 64, 26);
+diff --git a/js/engine/streetkit.js b/js/engine/streetkit.js
+index 165e0df..d6b4139 100644
+--- a/js/engine/streetkit.js
++++ b/js/engine/streetkit.js
+@@ -332,6 +332,22 @@
+         // (the road paint is in this mesh, a hair over the asphalt, which is itself drawn pulled toward you:
+         // pull harder, or far down the street the asphalt wins the depth test and the lines are gone)
+         polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
++      // the paint is worn: flaked off in specks and patches where the tyres run, the asphalt showing
++      // through (only what lies at the paint's height: the lines, never the furniture)
++      this.mat.onBeforeCompile = (sh) => {
++        sh.vertexShader = 'varying vec3 vPaintWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvPaintWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
++        sh.fragmentShader = 'varying vec3 vPaintWP;\nfloat pHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n' +
++          'float pNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(pHash(i), pHash(i + vec2(1.0, 0.0)), f.x), mix(pHash(i + vec2(0.0, 1.0)), pHash(i + 1.0), f.x), f.y); }\n' +
++          sh.fragmentShader.replace('#include <color_fragment>', [
++            '#include <color_fragment>',
++            'if (abs(vPaintWP.y - 0.022) < 0.003) {',
++            '  vec2 q = vPaintWP.xz;',
++            '  float wear = pNoise(q * 1.7) * 0.55 + pNoise(q * 6.0) * 0.25 + pHash(floor(q * 22.0)) * 0.2;',
++            '  float gone = smoothstep(0.5, 0.78, wear);',
++            '  diffuseColor.rgb = mix(diffuseColor.rgb * (0.9 + 0.1 * pHash(floor(q * 40.0))), vec3(0.2, 0.2, 0.205), gone * 0.88);',
++            '}',
++          ].join('\n'));
++      };
+       this.signMat = new THREE.MeshBasicMaterial({ map: signAtlas().tex, fog: true, color: this.mat.color.clone() });
+       this.roads = DV.Roads.build(city, (x, z, r) => this.blocked(x, z, r));
+       // what isn't bolted down (bins, newspaper boxes, cones, crates, rubbish bags)
+diff --git a/js/engine/textures.js b/js/engine/textures.js
+index 295b7bf..65b808a 100644
+--- a/js/engine/textures.js
++++ b/js/engine/textures.js
+@@ -1,7 +1,13 @@
+ /* ==========================================================================
+-   DIVERGENT — procedural retro texture library
+-   Every texture is painted at low resolution on a canvas so the game needs
+-   no external image assets. Textures are cached by name.
++   DIVERGENT — procedural texture library
++   Every texture is painted on a canvas at load (lazily, the first time
++   something asks for it), so the game needs no external image assets.
++   The surfaces are painted the way a texture artist of the day would have
++   done it by hand: a base, a layer of fractal noise for the body of the
++   material, the structure (bricks, slabs, panels, planks, tiles), then the
++   life of the place on top: chipped edges, dirt in the joints, stains, rust
++   and water running down from whatever sticks out, soot, wear where feet
++   and hands go. Textures are cached by name.
+    texture.userData.world = size in meters of one texture tile (for UVs).
+    ========================================================================== */
+ (function () {
+@@ -18,6 +24,8 @@
+     c.height = h;
+     return c;
+   }
++  // (painted in memory: the passes below read the pixels back, which a GPU-backed canvas makes slow)
++  const ctx2d = (cv) => cv.getContext('2d', { willReadFrequently: true });
+ 
+   // ---------- painting helpers ----------
+   function speckle(ctx, w, h, rng, count, colors, size) {
+@@ -32,48 +40,51 @@
+     const d = img.data;
+     for (let i = 0; i < d.length; i += 4) {
+       const n = (rng() - 0.5) * strength;
+-      d[i] = U.clamp(d[i] + n, 0, 255);
+-      d[i + 1] = U.clamp(d[i + 1] + n, 0, 255);
+-      d[i + 2] = U.clamp(d[i + 2] + n, 0, 255);
++      d[i] += n; d[i + 1] += n; d[i + 2] += n; // (the array clamps)
+     }
+     ctx.putImageData(img, 0, 0);
+   }
++  // draws fn(ox, oy) once, and again shifted a tile over wherever (x, y, r) crosses an edge, so it tiles
++  function wrap(w, h, x, y, r, fn) {
++    fn(0, 0);
++    const ex = x - r < 0 ? w : x + r > w ? -w : 0, ey = y - r < 0 ? h : y + r > h ? -h : 0;
++    if (ex) fn(ex, 0);
++    if (ey) fn(0, ey);
++    if (ex && ey) fn(ex, ey);
++  }
+   function blotches(ctx, w, h, rng, count, color, rMin, rMax) {
+     for (let i = 0; i < count; i++) {
+       const x = rng() * w, y = rng() * h, r = rMin + rng() * (rMax - rMin);
+-      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+-      g.addColorStop(0, color);
+-      g.addColorStop(1, 'rgba(0,0,0,0)');
+-      ctx.fillStyle = g;
+-      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+-      // wrap for tiling
+-      if (x - r < 0 || x + r > w || y - r < 0 || y + r > h) {
+-        for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) {
+-          if (!ox && !oy) continue;
+-          const g2 = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+-          g2.addColorStop(0, color);
+-          g2.addColorStop(1, 'rgba(0,0,0,0)');
+-          ctx.fillStyle = g2;
+-          ctx.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
+-        }
+-      }
++      wrap(w, h, x, y, r, (ox, oy) => {
++        const g = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
++        g.addColorStop(0, color);
++        g.addColorStop(1, 'rgba(0,0,0,0)');
++        ctx.fillStyle = g;
++        ctx.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
++      });
+     }
+   }
+-  function cracks(ctx, w, h, rng, count, color) {
+-    ctx.strokeStyle = color;
+-    ctx.lineWidth = 1;
+-    for (let i = 0; i < count; i++) {
+-      let x = rng() * w, y = rng() * h;
+-      ctx.beginPath();
+-      ctx.moveTo(x, y);
+-      const n = 3 + Math.floor(rng() * 5);
+-      for (let j = 0; j < n; j++) {
+-        x += (rng() - 0.5) * 14;
+-        y += (rng() - 0.5) * 14;
+-        ctx.lineTo(x, y);
+-      }
+-      ctx.stroke();
++  // a crack: a jagged line that wanders and forks, with a lit lip along one side
++  function crack(ctx, w, h, rng, x, y, ang, len, color, lw, depth) {
++    const pts = [[x, y]];
++    let a = ang;
++    for (let s = 0; s < len; s += 3 + rng() * 4) {
++      a += (rng() - 0.5) * 0.9;
++      x += Math.cos(a) * (3 + rng() * 4); y += Math.sin(a) * (3 + rng() * 4);
++      pts.push([x, y]);
++      if ((depth || 0) < 2 && rng() < 0.08) crack(ctx, w, h, rng, x, y, a + (rng() < 0.5 ? -1 : 1) * (0.5 + rng() * 0.7), len * 0.4, color, Math.max(0.6, lw * 0.7), (depth || 0) + 1);
+     }
++    const r = len + 4;
++    wrap(w, h, pts[0][0], pts[0][1], r, (ox, oy) => {
++      ctx.lineWidth = lw; ctx.lineJoin = 'round';
++      ctx.strokeStyle = 'rgba(255,250,240,0.12)';
++      ctx.beginPath(); pts.forEach(([px, py], i) => (i ? ctx.lineTo(px + ox + 1, py + oy + 1) : ctx.moveTo(px + ox + 1, py + oy + 1))); ctx.stroke();
++      ctx.strokeStyle = color;
++      ctx.beginPath(); pts.forEach(([px, py], i) => (i ? ctx.lineTo(px + ox, py + oy) : ctx.moveTo(px + ox, py + oy))); ctx.stroke();
++    });
++  }
++  function cracks(ctx, w, h, rng, count, color) {
++    for (let i = 0; i < count; i++) crack(ctx, w, h, rng, rng() * w, rng() * h, rng() * 6.28, 10 + rng() * 30, color, 1);
+   }
+   function grid(ctx, w, h, cols, rows, color, lw) {
+     ctx.fillStyle = color;
+@@ -81,367 +92,668 @@
+     for (let i = 0; i <= cols; i++) ctx.fillRect(Math.round(i * cw) - (i === cols ? lw : 0), 0, lw, h);
+     for (let j = 0; j <= rows; j++) ctx.fillRect(0, Math.round(j * rh) - (j === rows ? lw : 0), w, lw);
+   }
++  const rgba = (c, a) => 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + (+a).toFixed(3) + ')';
++  const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
++
++  // Tileable fractal value noise over a w × h canvas, 0..1 (stretched to its full range): `cells`
++  // lattice cells across at the coarsest octave, twice as many each octave after, `gain` the weight
++  // carried from one octave to the next.
++  // (sy: how much faster it varies down than across, for grain that runs along something)
++  function fbm(w, h, rng, cells, oct, gain, sy) {
++    const out = new Float32Array(w * h);
++    if (gain === undefined) gain = 0.5;
++    const xs0 = new Int32Array(w), xs1 = new Int32Array(w), xt = new Float32Array(w);
++    let amp = 1;
++    for (let o = 0; o < oct; o++) {
++      const cx = Math.max(1, Math.round(cells * (1 << o))), cy = Math.max(1, Math.round(((cx * h) / w) * (sy || 1)));
++      const lat = new Float32Array(cx * cy);
++      for (let i = 0; i < lat.length; i++) lat[i] = rng();
++      for (let x = 0; x < w; x++) { const f = (x / w) * cx, i0 = Math.floor(f); xs0[x] = i0 % cx; xs1[x] = (i0 + 1) % cx; xt[x] = smooth(f - i0); }
++      for (let y = 0; y < h; y++) {
++        const f = (y / h) * cy, j0 = Math.floor(f), ty = smooth(f - j0), r0 = (j0 % cy) * cx, r1 = ((j0 + 1) % cy) * cx;
++        for (let x = 0, i = y * w; x < w; x++, i++) {
++          const t = xt[x], a = lat[r0 + xs0[x]], b = lat[r0 + xs1[x]], c = lat[r1 + xs0[x]], d = lat[r1 + xs1[x]];
++          const top = a + (b - a) * t;
++          out[i] += amp * (top + (c + (d - c) * t - top) * ty);
++        }
++      }
++      amp *= gain;
++    }
++    let lo = Infinity, hi = -Infinity;
++    for (let i = 0; i < out.length; i++) { if (out[i] < lo) lo = out[i]; if (out[i] > hi) hi = out[i]; }
++    const k = 1 / (hi - lo || 1);
++    for (let i = 0; i < out.length; i++) out[i] = (out[i] - lo) * k;
++    return out;
++  }
++  // a per-pixel pass over the canvas's bytes: fn(d, i, x, y), the array clamping what it writes
++  function pass(ctx, w, h, fn) {
++    const img = ctx.getImageData(0, 0, w, h), d = img.data;
++    for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) fn(d, i, x, y);
++    ctx.putImageData(img, 0, 0);
++  }
++  // the body of a material: lighter and darker by a noise field (amt: ± the fraction at its extremes)
++  function shadeBy(ctx, w, h, f, amt) {
++    pass(ctx, w, h, (d, i, x, y) => {
++      const k = 1 + (f[y * w + x] - 0.5) * 2 * amt;
++      d[i] *= k; d[i + 1] *= k; d[i + 2] *= k;
++    });
++  }
++  // a stain where a noise field rises past `lo` (soft over `soft`): damp, moss, oil, rust, soot
++  function stainBy(ctx, w, h, f, lo, soft, rgb, alpha) {
++    pass(ctx, w, h, (d, i, x, y) => {
++      const a = smooth((f[y * w + x] - lo) / soft) * alpha;
++      if (a <= 0) return;
++      d[i] += (rgb[0] - d[i]) * a; d[i + 1] += (rgb[1] - d[i + 1]) * a; d[i + 2] += (rgb[2] - d[i + 2]) * a;
++    });
++  }
++  // grain: every pixel a shade apart, and the odd darker pore and lighter fleck
++  function grain(ctx, w, h, rng, amt, pores, flecks) {
++    pass(ctx, w, h, (d, i) => {
++      const q = rng();
++      let k = 1 + (rng() - 0.5) * amt;
++      if (q < (pores || 0)) k *= 0.62 + rng() * 0.2;
++      else if (q > 1 - (flecks || 0)) k *= 1.18 + rng() * 0.15;
++      d[i] *= k; d[i + 1] *= k; d[i + 2] *= k;
++    });
++  }
++  // water, rust or soot running down a wall from (x, y): a thin streak that wanders a little, fading out
++  function run(ctx, w, h, rng, x, y, len, wd, rgb, a) {
++    const segs = 3 + Math.floor(len / 24);
++    wrap(w, h, x, y + len / 2, Math.max(len / 2, wd) + 2, (ox, oy) => {
++      let px = x + ox;
++      for (let s = 0; s < segs; s++) {
++        const y0 = y + oy + (len * s) / segs, y1 = y + oy + (len * (s + 1)) / segs;
++        const g = ctx.createLinearGradient(0, y0, 0, y1);
++        g.addColorStop(0, rgba(rgb, a * (1 - s / segs)));
++        g.addColorStop(1, rgba(rgb, a * (1 - (s + 1) / segs)));
++        ctx.fillStyle = g;
++        ctx.fillRect(px, y0, wd, y1 - y0 + 0.5);
++        px += (rng() - 0.5) * 1.2;
++      }
++    });
++  }
++  function runs(ctx, w, h, rng, n, rgb, aMax, lenMin, lenMax, wdMax, yOf) {
++    for (let k = 0; k < n; k++) {
++      const len = lenMin + rng() * (lenMax - lenMin);
++      run(ctx, w, h, rng, rng() * w, yOf ? yOf(rng) : rng() * h, len, 1 + rng() * ((wdMax || 3) - 1), rgb, aMax * (0.35 + 0.65 * rng()));
++    }
++  }
++  // an irregular blob (a patch, a spall, a chip, a puddle of oil): a wobbly polygon round (x, y)
++  function blob(ctx, x, y, rx, ry, rng, n) {
++    n = n || 9;
++    ctx.beginPath();
++    for (let k = 0; k < n; k++) {
++      const a = (k / n) * Math.PI * 2, q = 0.65 + rng() * 0.5;
++      const px = x + Math.cos(a) * rx * q, py = y + Math.sin(a) * ry * q;
++      if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py);
++    }
++    ctx.closePath();
++  }
+ 
+   function def(name, w, h, world, painter, opts) {
+     defs[name] = { w, h, world, painter, opts: opts || {} };
+   }
+ 
+   /* ------------------------------ surfaces ------------------------------ */
+-  def('concrete', 128, 128, 2.5, (c, w, h, r) => {
+-    c.fillStyle = '#8a8883'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 26);
+-    blotches(c, w, h, r, 10, 'rgba(60,58,52,0.18)', 8, 26);
+-    blotches(c, w, h, r, 6, 'rgba(255,255,250,0.08)', 6, 20);
+-    speckle(c, w, h, r, 120, ['#6e6c67', '#9d9b95', '#5c5a55'], 1);
+-    cracks(c, w, h, r, 2, 'rgba(40,38,35,0.35)');
+-  });
+-  def('concrete_dark', 128, 128, 2.5, (c, w, h, r) => {
+-    c.fillStyle = '#5a5955'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 30);
+-    blotches(c, w, h, r, 12, 'rgba(25,24,22,0.25)', 8, 30);
+-    speckle(c, w, h, r, 140, ['#4a4945', '#6b6a65'], 1);
+-    cracks(c, w, h, r, 4, 'rgba(20,20,18,0.45)');
+-  });
+-  // raw cut rock (the Dauntless Pit)
+-  def('rock', 128, 128, 3.2, (c, w, h, r) => {
+-    c.fillStyle = '#4a4744'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 40);
+-    blotches(c, w, h, r, 18, 'rgba(20,18,16,0.35)', 10, 40);
+-    blotches(c, w, h, r, 10, 'rgba(120,112,100,0.18)', 8, 30);
+-    for (let i = 0; i < 9; i++) { c.fillStyle = 'rgba(15,14,12,0.4)'; const y = Math.floor(r() * h); c.fillRect(0, y, w, 1 + Math.floor(r() * 2)); }
+-    speckle(c, w, h, r, 220, ['#3a3734', '#5e5a55', '#2e2c2a'], 1);
+-    cracks(c, w, h, r, 7, 'rgba(10,10,8,0.6)');
+-  });
+-  // rooftop gravel
+-  def('gravel', 64, 64, 1.6, (c, w, h, r) => {
+-    c.fillStyle = '#6c6965'; c.fillRect(0, 0, w, h);
+-    speckle(c, w, h, r, 700, ['#4f4c48', '#86827c', '#5d5a56', '#9a958e', '#3e3c39'], 2);
+-    blotches(c, w, h, r, 4, 'rgba(30,28,26,0.18)', 6, 16);
+-  });
+-  // asphalt shingles on a house roof: staggered rows of tabs, each a shade apart, weathered
+-  def('shingle', 64, 64, 1.6, (c, w, h, r) => {
+-    c.fillStyle = '#3a3836'; c.fillRect(0, 0, w, h);
+-    const th = 8, tw = 10;
++  // poured concrete: mottled where the mix settled, pores and the odd chip of aggregate showing,
++  // damp patches, a hairline crack or two
++  function concreteBody(c, w, h, r, base, o) {
++    c.fillStyle = base; c.fillRect(0, 0, w, h);
++    shadeBy(c, w, h, fbm(w, h, r, 2, 6, 0.55), o.mottle || 0.12);
++    shadeBy(c, w, h, fbm(w, h, r, 16, 3, 0.6), 0.05);
++    stainBy(c, w, h, fbm(w, h, r, 3, 5, 0.6), 0.62, 0.25, o.stain || [70, 66, 58], o.stainA || 0.35);
++    grain(c, w, h, r, o.grain || 0.1, o.pores || 0.012, o.flecks || 0.006);
++  }
++  def('concrete', 256, 256, 2.5, (c, w, h, r) => {
++    concreteBody(c, w, h, r, '#8b8984', {});
++    for (let i = 0; i < 40; i++) { c.fillStyle = rgba(r() < 0.6 ? [70, 68, 63] : [172, 170, 163], 0.5); c.beginPath(); c.arc(r() * w, r() * h, 0.6 + r() * 1.1, 0, 6.3); c.fill(); } // aggregate
++    for (let i = 0; i < 3; i++) crack(c, w, h, r, r() * w, r() * h, r() * 6.3, 20 + r() * 50, 'rgba(38,36,33,0.5)', 1);
++  });
++  def('concrete_dark', 256, 256, 2.5, (c, w, h, r) => {
++    concreteBody(c, w, h, r, '#5c5b57', { mottle: 0.16, stain: [28, 27, 25], stainA: 0.45, grain: 0.13, pores: 0.02 });
++    blotches(c, w, h, r, 4, 'rgba(16,16,15,0.3)', 10, 26); // oil, old spills
++    for (let i = 0; i < 6; i++) crack(c, w, h, r, r() * w, r() * h, r() * 6.3, 20 + r() * 60, 'rgba(18,18,16,0.6)', 1 + r() * 0.6);
++  });
++  // raw cut rock (the Dauntless Pit): bedding planes run across it, warped, with ledges catching the
++  // light above and the dark of the seams under them; fractures down through the layers, wet seeps
++  def('rock', 512, 512, 3.2, (c, w, h, r) => {
++    const warp = fbm(w, h, r, 2, 5, 0.55), body = fbm(w, h, r, 4, 6, 0.6), fine = fbm(w, h, r, 32, 2, 0.5);
++    const beds = 9, img = c.getImageData(0, 0, w, h), d = img.data;
++    for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) {
++      const p = y * w + x;
++      const t = ((y / h) * beds + (warp[p] - 0.5) * 2.2 + 8) % 1; // where in its bed
++      let k = 0.7 + body[p] * 0.5 + (fine[p] - 0.5) * 0.25;
++      k *= t < 0.06 ? 0.45 + t * 6 : t < 0.12 ? 1.18 : 1 - (t - 0.12) * 0.22; // the seam, the lit lip of the ledge, falling into shade
++      const warm = body[p] > 0.6 ? 1 : 0;
++      d[i] = 74 * k + warm * 6; d[i + 1] = 71 * k + warm * 3; d[i + 2] = 67 * k; d[i + 3] = 255;
++    }
++    c.putImageData(img, 0, 0);
++    for (let i = 0; i < 16; i++) { const x = r() * w, y = r() * h; crack(c, w, h, r, x, y, Math.PI / 2 + (r() - 0.5) * 0.8, 30 + r() * 90, 'rgba(10,9,8,0.75)', 1 + r() * 1.5); }
++    runs(c, w, h, r, 22, [18, 20, 20], 0.35, 30, 160, 5); // seeps
++    stainBy(c, w, h, fbm(w, h, r, 3, 4, 0.6), 0.7, 0.2, [40, 44, 38], 0.35);
++    grain(c, w, h, r, 0.16, 0.03, 0.02);
++  });
++  // rooftop gravel: a bed of small stones, each lit on top and shadowed under, between them dark grit
++  def('gravel', 256, 256, 1.6, (c, w, h, r) => {
++    c.fillStyle = '#5c5955'; c.fillRect(0, 0, w, h);
++    const cols = [[136, 132, 126], [114, 110, 104], [156, 150, 140], [128, 116, 102], [100, 98, 96], [166, 162, 156]];
++    for (let i = 0; i < 2600; i++) {
++      const x = r() * w, y = r() * h, rx = 1.6 + r() * 2.6, ry = rx * (0.6 + r() * 0.4), col = cols[Math.floor(r() * cols.length)], v = 0.8 + r() * 0.35;
++      wrap(w, h, x, y, rx + 1, (ox, oy) => {
++        c.fillStyle = 'rgba(20,19,18,0.45)'; blob(c, x + ox + 0.7, y + oy + 1, rx, ry, r, 6); c.fill();
++        c.fillStyle = rgba([col[0] * v, col[1] * v, col[2] * v], 1); blob(c, x + ox, y + oy, rx, ry, r, 6); c.fill();
++        c.fillStyle = 'rgba(255,255,250,0.14)'; c.fillRect(x + ox - rx * 0.4, y + oy - ry * 0.6, rx * 0.8, 1);
++      });
++    }
++    blotches(c, w, h, r, 5, 'rgba(30,28,26,0.25)', 14, 40);
++    grain(c, w, h, r, 0.08);
++  });
++  // asphalt shingles on a house roof: staggered rows of tabs, granules, each a shade apart,
++  // weathered paler at the edges, moss in the shade
++  def('shingle', 256, 256, 1.6, (c, w, h, r) => {
++    c.fillStyle = '#2c2a28'; c.fillRect(0, 0, w, h);
++    const th = 16, tw = 32;
+     for (let y = 0; y < h; y += th) {
+       const off = (y / th) % 2 ? tw / 2 : 0;
+       for (let x = -tw; x < w + tw; x += tw) {
+-        const v = 0.8 + r() * 0.4;
+-        c.fillStyle = U.rgbToCss(0.36 * v, 0.35 * v, 0.33 * v);
+-        c.fillRect(x + off, y, tw - 1, th - 2);
+-        c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(x + off, y + th - 2, tw - 1, 1); // the tab's shadow line
++        const v = 0.8 + r() * 0.35, tone = r() < 0.15 ? [0.42, 0.38, 0.34] : [0.36, 0.35, 0.33];
++        c.fillStyle = U.rgbToCss(tone[0] * v, tone[1] * v, tone[2] * v);
++        c.fillRect(x + off + 1, y, tw - 2, th - 3);
++        const g = c.createLinearGradient(0, y, 0, y + th - 3);
++        g.addColorStop(0, 'rgba(0,0,0,0.25)'); g.addColorStop(0.3, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(255,255,255,0.08)');
++        c.fillStyle = g; c.fillRect(x + off + 1, y, tw - 2, th - 3);
++        c.fillStyle = 'rgba(0,0,0,0.5)'; c.fillRect(x + off + 1, y + th - 3, tw - 2, 2); // the tab's shadow line
++        if (r() < 0.06) { c.fillStyle = 'rgba(20,18,16,0.8)'; c.fillRect(x + off + 2 + r() * (tw - 12), y + th - 7, 6 + r() * 6, 4); } // a torn corner
+       }
+     }
+-    speckle(c, w, h, r, 160, ['#2c2a28', '#55524e', '#4a4744'], 1);
+-    blotches(c, w, h, r, 4, 'rgba(90,96,70,0.18)', 6, 14); // moss
+-  });
+-  def('concrete_panel', 128, 128, 3.0, (c, w, h, r) => {
+-    c.fillStyle = '#9d9a92'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 18);
+-    blotches(c, w, h, r, 6, 'rgba(70,66,58,0.15)', 10, 30);
+-    c.fillStyle = 'rgba(40,38,34,0.55)'; c.fillRect(0, 0, w, 2); c.fillRect(0, 0, 2, h);
+-    c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(0, 2, w, 1); c.fillRect(2, 0, 1, h);
+-    // form-tie holes
+-    c.fillStyle = 'rgba(40,38,34,0.6)';
+-    for (const [x, y] of [[32, 32], [96, 32], [32, 96], [96, 96]]) c.fillRect(x - 2, y - 2, 4, 4);
+-  });
+-  def('paint_wall', 64, 128, 3.0, (c, w, h, r) => {
+-    // two-tone institutional wall. v=0 (bottom of canvas) is the floor.
+-    c.fillStyle = '#c9c6b8'; c.fillRect(0, 0, w, h);
+-    const lower = Math.round(h * (1 - 1.15 / 3.0));
+-    c.fillStyle = '#5f7378'; c.fillRect(0, lower, w, h - lower);
+-    c.fillStyle = '#3f4c50'; c.fillRect(0, lower - 3, w, 3);
+-    c.fillStyle = '#b08a3a'; c.fillRect(0, lower - 6, w, 2);
+-    noise(c, w, h, r, 14);
+-    blotches(c, w, h, r, 4, 'rgba(90,80,60,0.12)', 6, 16);
+-    // scuffs near floor
+-    c.fillStyle = 'rgba(30,30,30,0.25)';
+-    for (let i = 0; i < 6; i++) c.fillRect(Math.floor(r() * w), h - 6 - Math.floor(r() * 10), 4 + Math.floor(r() * 6), 1);
+-    c.fillStyle = '#2b2b2b'; c.fillRect(0, h - 4, w, 4); // skirting
+-  }, { clampV: true });
+-  def('paint_white', 64, 128, 3.0, (c, w, h, r) => {
+-    c.fillStyle = '#dcdcd6'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 10);
+-    blotches(c, w, h, r, 3, 'rgba(120,120,110,0.10)', 6, 18);
+-    c.fillStyle = '#9a9c9a'; c.fillRect(0, Math.round(h * (1 - 1.0 / 3)), w, 2);
+-    c.fillStyle = '#4d5152'; c.fillRect(0, h - 4, w, 4);
+-  }, { clampV: true });
+-  def('paint_blue', 64, 128, 3.0, (c, w, h, r) => {
+-    c.fillStyle = '#c3cdd6'; c.fillRect(0, 0, w, h);
+-    const lower = Math.round(h * (1 - 1.0 / 3.0));
+-    c.fillStyle = '#3e5d82'; c.fillRect(0, lower, w, h - lower);
+-    c.fillStyle = '#d7dde4'; c.fillRect(0, lower - 2, w, 2);
+-    noise(c, w, h, r, 12);
+-    c.fillStyle = '#1e2c3d'; c.fillRect(0, h - 4, w, 4);
+-  }, { clampV: true });
+-  def('paint_warm', 64, 128, 3.0, (c, w, h, r) => {
+-    c.fillStyle = '#cdbf9f'; c.fillRect(0, 0, w, h);
+-    const lower = Math.round(h * (1 - 1.0 / 3.0));
+-    c.fillStyle = '#8a5a3c'; c.fillRect(0, lower, w, h - lower);
+-    c.fillStyle = '#5b3a26'; c.fillRect(0, lower - 3, w, 3);
+-    noise(c, w, h, r, 14);
+-    c.fillStyle = '#2b1d14'; c.fillRect(0, h - 4, w, 4);
+-  }, { clampV: true });
+-  def('tile_white', 64, 64, 1.0, (c, w, h, r) => {
+-    c.fillStyle = '#e4e6e3'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 8);
+-    grid(c, w, h, 4, 4, '#b2b6b3', 1);
+-    blotches(c, w, h, r, 2, 'rgba(140,150,140,0.12)', 4, 10);
++    grain(c, w, h, r, 0.3, 0.05, 0.05);
++    stainBy(c, w, h, fbm(w, h, r, 3, 4, 0.6), 0.68, 0.18, [80, 92, 60], 0.45); // moss
+   });
+-  def('tile_small', 64, 64, 0.8, (c, w, h, r) => {
+-    c.fillStyle = '#b9c7c6'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 10);
+-    grid(c, w, h, 8, 8, '#8c9a99', 1);
+-    blotches(c, w, h, r, 3, 'rgba(90,100,90,0.15)', 4, 10);
++  // board-formed concrete panels (the Testing Center, the lobby): one 3 m panel a tile, the joint
++  // round it set back, the faint print of the formwork boards, two rows of tie holes plugged with a
++  // darker cone, rust bled from the ties, water runs from the joint, a lighter cast skin in places
++  def('concrete_panel', 512, 512, 3.0, (c, w, h, r) => {
++    concreteBody(c, w, h, r, '#a19e96', { mottle: 0.08, stain: [92, 88, 80], stainA: 0.25, grain: 0.07, pores: 0.02, flecks: 0.004 });
++    for (let y = 0; y < h; y += 64) { c.fillStyle = 'rgba(255,255,250,0.035)'; c.fillRect(0, y + 1, w, 1); c.fillStyle = 'rgba(40,38,34,0.06)'; c.fillRect(0, y, w, 1); } // the boards
++    for (let k = 0; k < 10; k++) { const y = Math.floor(r() * 8) * 64; c.fillStyle = 'rgba(70,66,60,0.08)'; c.fillRect(r() * w, y + 2, 40 + r() * 140, 60); } // a board a shade apart
++    // tie holes
++    for (const fy of [0.25, 0.75]) for (const fx of [0.125, 0.375, 0.625, 0.875]) {
++      const x = fx * w, y = fy * h;
++      if (r() < 0.45) run(c, w, h, r, x - 1, y + 5, 30 + r() * 110, 2 + r() * 2, r() < 0.5 ? [112, 74, 44] : [70, 66, 58], 0.18 + r() * 0.2);
++      const g = c.createRadialGradient(x, y, 0, x, y, 7);
++      g.addColorStop(0, 'rgba(48,46,42,0.95)'); g.addColorStop(0.55, 'rgba(78,75,70,0.9)'); g.addColorStop(0.75, 'rgba(255,255,250,0.18)'); g.addColorStop(1, 'rgba(255,255,250,0)');
++      c.fillStyle = g; c.beginPath(); c.arc(x, y, 7, 0, 6.3); c.fill();
++      c.fillStyle = 'rgba(25,24,22,0.7)'; c.beginPath(); c.arc(x + 0.5, y + 0.5, 2.4, 0, 6.3); c.fill();
++    }
++    // the joint round the panel: recessed, its upper lip lit and its lower edge in shade
++    c.fillStyle = 'rgba(42,40,36,0.85)'; c.fillRect(0, 0, w, 4); c.fillRect(0, 0, 4, h);
++    c.fillStyle = 'rgba(255,255,250,0.16)'; c.fillRect(0, 4, w, 2); c.fillRect(4, 4, 2, h - 4);
++    c.fillStyle = 'rgba(0,0,0,0.12)'; c.fillRect(0, h - 2, w, 2); c.fillRect(w - 2, 0, 2, h);
++    runs(c, w, h, r, 14, [80, 76, 68], 0.2, 40, 220, 4, () => 6); // water run down from the joint
++    for (let i = 0; i < 2; i++) crack(c, w, h, r, r() * w, r() * h, r() * 6.3, 30 + r() * 60, 'rgba(50,48,44,0.45)', 1);
+   });
+-  def('mirror', 64, 128, 2.0, (c, w, h, r) => {
++  // painted plaster over a block wall (v = 0, the bottom of the canvas, is the floor): the dado below
++  // in a darker colour, a rail between, the skirting; roller texture, the block coursing showing
++  // faintly through the paint, scuffs and dirt low down where chairs, trolleys and shoes hit it
++  function paintedWall(base, dado, rail, rail2, skirt, opts) {
++    return (c, w, h, r) => {
++      const lower = dado ? Math.round(h * (1 - opts.dadoH / 3.0)) : h;
++      c.fillStyle = base; c.fillRect(0, 0, w, h);
++      if (dado) { c.fillStyle = dado; c.fillRect(0, lower, w, h - lower); }
++      for (let y = h - 4; y > 0; y -= 17) { c.fillStyle = 'rgba(0,0,0,0.025)'; c.fillRect(0, y, w, 1); } // block courses under the paint
++      for (let y = h - 4, k = 0; y > 0; y -= 17, k++) for (let x = (k % 2) * 43; x < w; x += 86) { c.fillStyle = 'rgba(0,0,0,0.02)'; c.fillRect(x, y - 17, 1, 17); }
++      shadeBy(c, w, h, fbm(w, h, r, 3, 5, 0.6), 0.03);
++      grain(c, w, h, r, 0.04);
++      if (rail) {
++        c.fillStyle = rail; c.fillRect(0, lower - opts.railH, w, opts.railH);
++        c.fillStyle = 'rgba(255,255,255,0.18)'; c.fillRect(0, lower - opts.railH, w, 1);
++        c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(0, lower, w, 1);
++        if (rail2) { c.fillStyle = rail2; c.fillRect(0, lower - opts.railH - 3, w, 2); }
++      }
++      // scuffs, a chair-back's rub, shoe marks above the skirting
++      for (let i = 0; i < 26; i++) { c.fillStyle = rgba([30, 30, 30], 0.08 + r() * 0.16); c.fillRect(r() * w, h - 10 - Math.pow(r(), 2) * 60, 3 + r() * 14, 1 + (r() < 0.3 ? 1 : 0)); }
++      const g = c.createLinearGradient(0, h - 40, 0, h - 8);
++      g.addColorStop(0, 'rgba(60,54,44,0)'); g.addColorStop(1, 'rgba(60,54,44,0.16)');
++      c.fillStyle = g; c.fillRect(0, h - 40, w, 32);
++      // the skirting: a lit top edge, dust on it
++      c.fillStyle = skirt; c.fillRect(0, h - 8, w, 8);
++      c.fillStyle = 'rgba(255,255,255,0.14)'; c.fillRect(0, h - 8, w, 1);
++      c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(0, h - 1, w, 1);
++      if (opts.runs) runs(c, w, h, r, opts.runs, [90, 80, 60], 0.08, 30, 120, 3, (q) => q() * h * 0.3);
++    };
++  }
++  def('paint_wall', 256, 256, 3.0, paintedWall('#cac7b9', '#5f7378', '#3f4c50', '#b08a3a', '#2b2b2b', { dadoH: 1.15, railH: 4, runs: 4 }), { clampV: true });
++  def('paint_white', 256, 256, 3.0, (c, w, h, r) => {
++    paintedWall('#dddcd6', null, null, null, '#4d5152', {})(c, w, h, r);
++    const y = Math.round(h * (1 - 1.0 / 3));
++    c.fillStyle = '#9a9c9a'; c.fillRect(0, y, w, 3); c.fillStyle = 'rgba(255,255,255,0.3)'; c.fillRect(0, y, w, 1); // a chair rail
++  }, { clampV: true });
++  def('paint_blue', 256, 256, 3.0, paintedWall('#c3cdd6', '#3e5d82', '#d7dde4', null, '#1e2c3d', { dadoH: 1.0, railH: 3 }), { clampV: true });
++  def('paint_warm', 256, 256, 3.0, paintedWall('#cfc1a1', '#8a5a3c', '#5b3a26', null, '#2b1d14', { dadoH: 1.0, railH: 5 }), { clampV: true });
++  // glazed tiles: each a shade apart with the glaze's sheen across it, grout gone grey and darker
++  // low down, the odd chipped corner, a hairline crack
++  function tiles(base, groutCol, n, opts) {
++    return (c, w, h, r) => {
++      const s = w / n, gw = opts.grout || 2, bc = U.hexToRgb(base).map((v) => v * 255);
++      c.fillStyle = groutCol; c.fillRect(0, 0, w, h);
++      const dirt = fbm(w, h, r, 2, 4, 0.6);
++      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
++        const x = i * s + gw / 2, y = j * s + gw / 2, t = s - gw, v = 1 + (r() - 0.5) * (opts.vary || 0.06);
++        c.fillStyle = rgba([bc[0] * v, bc[1] * v, bc[2] * v], 1); c.fillRect(x, y, t, t);
++        const g = c.createLinearGradient(x, y, x + t, y + t);
++        g.addColorStop(0, 'rgba(255,255,255,0.14)'); g.addColorStop(0.45, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,0.06)');
++        c.fillStyle = g; c.fillRect(x, y, t, t);
++        c.fillStyle = 'rgba(255,255,255,0.22)'; c.fillRect(x, y, t, 1); c.fillRect(x, y, 1, t); // the cushion edge
++        c.fillStyle = 'rgba(0,0,0,0.12)'; c.fillRect(x, y + t - 1, t, 1); c.fillRect(x + t - 1, y, 1, t);
++        if (r() < 0.07) { c.fillStyle = groutCol; blob(c, x + (r() < 0.5 ? 0 : t), y + (r() < 0.5 ? 0 : t), 2 + r() * 3, 2 + r() * 3, r, 5); c.fill(); } // a chip
++        if (r() < 0.05) crack(c, w, h, r, x + r() * t, y, Math.PI / 2 + (r() - 0.5), t * 0.8, 'rgba(80,80,76,0.45)', 0.7, 2);
++      }
++      // grime in the grout, heavier where the field says
++      pass(c, w, h, (d, i, x, y) => {
++        const gx = x % s, gy = y % s, inG = gx < gw || gy < gw;
++        const f = dirt[y * w + x];
++        const k = inG ? 0.82 - f * 0.25 : 1 - smooth((f - 0.75) / 0.25) * 0.08;
++        d[i] *= k; d[i + 1] *= k; d[i + 2] *= k * (inG ? 0.96 : 1);
++      });
++      grain(c, w, h, r, 0.03);
++    };
++  }
++  def('tile_white', 256, 256, 1.0, tiles('#e6e8e4', '#a9aca6', 4, { grout: 3 }));
++  def('tile_small', 256, 256, 0.8, tiles('#bac8c7', '#7f8c8b', 8, { grout: 2, vary: 0.1 }));
++  def('mirror', 128, 256, 2.0, (c, w, h, r) => {
+     const g = c.createLinearGradient(0, 0, w, h);
+-    g.addColorStop(0, '#9fa8ad'); g.addColorStop(0.45, '#d8dee0'); g.addColorStop(0.55, '#c3cbcf'); g.addColorStop(1, '#8e979c');
++    g.addColorStop(0, '#9aa3a8'); g.addColorStop(0.42, '#d8dee0'); g.addColorStop(0.58, '#bfc8cc'); g.addColorStop(1, '#8a939a');
+     c.fillStyle = g; c.fillRect(0, 0, w, h);
+-    c.fillStyle = 'rgba(255,255,255,0.35)';
+-    for (let i = 0; i < 3; i++) { c.save(); c.translate(10 + i * 18, 0); c.rotate(0.35); c.fillRect(0, -10, 3, h * 1.4); c.restore(); }
+-    c.fillStyle = '#5d666b'; c.fillRect(0, 0, 2, h); c.fillRect(0, 0, w, 2);
+-    noise(c, w, h, r, 6);
+-  });
+-  def('terrazzo', 128, 128, 2.0, (c, w, h, r) => {
+-    c.fillStyle = '#a9a396'; c.fillRect(0, 0, w, h);
+-    speckle(c, w, h, r, 900, ['#7d776b', '#c6c0b2', '#5f5a52', '#d4cdbd', '#8c6f52', '#6b7a7c'], 2);
+-    noise(c, w, h, r, 10);
+-    c.fillStyle = 'rgba(70,64,55,0.6)'; c.fillRect(0, 0, w, 1); c.fillRect(0, 0, 1, h);
+-    blotches(c, w, h, r, 5, 'rgba(255,255,240,0.07)', 10, 30);
++    c.fillStyle = 'rgba(255,255,255,0.3)';
++    for (const [x0, wd] of [[18, 7], [40, 3], [70, 10]]) { c.save(); c.translate(x0, 0); c.rotate(0.35); c.fillRect(0, -20, wd, h * 1.4); c.restore(); }
++    blotches(c, w, h, r, 5, 'rgba(70,64,52,0.12)', 6, 20); // the silvering going at the edges
++    c.fillStyle = '#5d666b'; c.fillRect(0, 0, 3, h); c.fillRect(0, 0, w, 3);
++    grain(c, w, h, r, 0.02);
+   });
+-  def('marble_check', 128, 128, 2.4, (c, w, h, r) => {
+-    const s = w / 2;
+-    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+-      c.fillStyle = (i + j) % 2 ? '#3d3f42' : '#c9c5bb';
+-      c.fillRect(i * s, j * s, s, s);
++  // terrazzo: chips of marble, granite and the odd glass in a ground matrix, ground flat and polished,
++  // a brass strip at the bay's edge, the shine worn off where people walk
++  def('terrazzo', 256, 256, 2.0, (c, w, h, r) => {
++    c.fillStyle = '#aca698'; c.fillRect(0, 0, w, h);
++    shadeBy(c, w, h, fbm(w, h, r, 3, 4, 0.55), 0.05);
++    const chips = ['#7d776b', '#c9c3b5', '#5f5a52', '#d8d1c1', '#8c6f52', '#6b7a7c', '#efe9dc', '#4a4844', '#9a8a70'];
++    for (let i = 0; i < 2600; i++) {
++      const x = r() * w, y = r() * h, s = r() < 0.08 ? 2.5 + r() * 3 : 0.7 + r() * 1.6;
++      c.fillStyle = chips[Math.floor(r() * chips.length)];
++      wrap(w, h, x, y, s + 1, (ox, oy) => { blob(c, x + ox, y + oy, s, s * (0.6 + r() * 0.5), r, 5); c.fill(); });
+     }
+-    c.globalAlpha = 0.25;
+-    cracks(c, w, h, r, 10, '#8f8a80');
+-    c.globalAlpha = 1;
+-    noise(c, w, h, r, 12);
+-    c.fillStyle = 'rgba(20,20,20,0.6)'; c.fillRect(0, 0, w, 1); c.fillRect(0, 0, 1, h); c.fillRect(s, 0, 1, h); c.fillRect(0, s, w, 1);
++    grain(c, w, h, r, 0.05);
++    blotches(c, w, h, r, 6, 'rgba(255,255,240,0.06)', 20, 50);
++    c.fillStyle = '#7a6a48'; c.fillRect(0, 0, w, 2); c.fillRect(0, 0, 2, h); // the divider strip
++    c.fillStyle = 'rgba(255,240,200,0.25)'; c.fillRect(0, 0, w, 1); c.fillRect(0, 0, 1, h);
+   });
+-  def('tile_floor', 64, 64, 1.2, (c, w, h, r) => {
+-    c.fillStyle = '#9b9a8f'; c.fillRect(0, 0, w, h);
+-    c.fillStyle = '#8b8a80'; c.fillRect(0, 0, w / 2, h / 2); c.fillRect(w / 2, h / 2, w / 2, h / 2);
+-    speckle(c, w, h, r, 200, ['#7d7c73', '#b0afa4', '#6f6e66'], 1);
+-    noise(c, w, h, r, 10);
+-    grid(c, w, h, 2, 2, '#64635c', 1);
++  // a chequer of black and white marble: veins wandering through each slab, polished, the joints fine
++  def('marble_check', 256, 256, 2.4, (c, w, h, r) => {
++    const s = w / 2, veinW = fbm(w, h, r, 2, 5, 0.6), cloud = fbm(w, h, r, 3, 5, 0.6);
++    const img = c.getImageData(0, 0, w, h), d = img.data;
++    for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) {
++      const dark = ((x < s) !== (y < s)), p = y * w + x;
++      const v = Math.abs(Math.sin((x * 0.6 + y * 0.9) * 0.022 + veinW[p] * 5)), v2 = Math.abs(Math.sin((x * 0.9 - y * 0.4) * 0.05 + veinW[p] * 7)); // the veins: thin where the sines cross zero
++      const vein = Math.max(smooth((0.07 - v) / 0.07), smooth((0.035 - v2) / 0.035) * 0.45);
++      const base = dark ? [58, 60, 63] : [204, 200, 190];
++      const vc = dark ? [140, 138, 132] : [128, 122, 112];
++      const k = 0.93 + cloud[p] * 0.12;
++      for (let ch = 0; ch < 3; ch++) d[i + ch] = (base[ch] + (vc[ch] - base[ch]) * vein * 0.55) * k;
++      d[i + 3] = 255;
++    }
++    c.putImageData(img, 0, 0);
++    grain(c, w, h, r, 0.03);
++    c.fillStyle = 'rgba(20,20,20,0.55)'; c.fillRect(0, 0, w, 2); c.fillRect(0, 0, 2, h); c.fillRect(s - 1, 0, 2, h); c.fillRect(0, s - 1, w, 2);
++    blotches(c, w, h, r, 4, 'rgba(255,255,255,0.05)', 20, 50); // the polish
++  });
++  // vinyl composition tile, two tones in a check: the chips in the vinyl, scuffs from shoes and
++  // chair legs, the wax built up in the joints
++  def('tile_floor', 128, 128, 1.2, (c, w, h, r) => {
++    const s = w / 2;
++    c.fillStyle = '#9d9c91'; c.fillRect(0, 0, w, h);
++    c.fillStyle = '#8b8a80'; c.fillRect(0, 0, s, s); c.fillRect(s, s, s, s);
++    speckle(c, w, h, r, 900, ['#7b7a71', '#b3b2a7', '#6d6c64', '#a8a091', '#8c8f8a'], 1);
++    shadeBy(c, w, h, fbm(w, h, r, 2, 4, 0.6), 0.05);
++    for (let i = 0; i < 30; i++) { c.strokeStyle = rgba([40, 40, 38], 0.1 + r() * 0.15); c.lineWidth = 1; c.beginPath(); const x = r() * w, y = r() * h, a = r() * 6.3, l = 3 + r() * 12; c.moveTo(x, y); c.quadraticCurveTo(x + Math.cos(a + 0.5) * l * 0.6, y + Math.sin(a + 0.5) * l * 0.6, x + Math.cos(a) * l, y + Math.sin(a) * l); c.stroke(); } // scuffs
++    grain(c, w, h, r, 0.05);
++    c.fillStyle = 'rgba(60,58,52,0.75)'; c.fillRect(0, 0, w, 1); c.fillRect(0, 0, 1, h); c.fillRect(s, 0, 1, h); c.fillRect(0, s, w, 1);
+   });
++  // carpet tiles: a loop pile in rows, flecked yarn, flattened and darker along the walking lines
+   function carpet(base, fleck) {
+     return (c, w, h, r) => {
+       c.fillStyle = base; c.fillRect(0, 0, w, h);
+-      speckle(c, w, h, r, 700, fleck, 1);
+-      noise(c, w, h, r, 14);
+-      blotches(c, w, h, r, 4, 'rgba(0,0,0,0.12)', 6, 16);
++      speckle(c, w, h, r, 2600, fleck, 1);
++      pass(c, w, h, (d, i, x, y) => { const k = ((x + (y >> 1)) % 3 === 0 ? 0.9 : 1) * (y % 2 ? 0.96 : 1.03); d[i] *= k; d[i + 1] *= k; d[i + 2] *= k; }); // the loops in rows
++      shadeBy(c, w, h, fbm(w, h, r, 2, 4, 0.6), 0.12); // wear
++      grain(c, w, h, r, 0.1);
++      c.fillStyle = 'rgba(0,0,0,0.18)'; c.fillRect(0, 0, w, 1); c.fillRect(0, 0, 1, h); // the tile seams
+     };
+   }
+-  def('carpet_blue', 64, 64, 1.0, carpet('#2f4565', ['#253752', '#3c5679', '#1e2c42', '#465f80']));
+-  def('carpet_grey', 64, 64, 1.0, carpet('#5d5e60', ['#4c4d4f', '#6e6f71', '#424345']));
+-  def('carpet_red', 64, 64, 1.0, carpet('#6a2a26', ['#561f1c', '#7c3530', '#45201d']));
+-  def('carpet_dark', 64, 64, 1.0, carpet('#2b2c30', ['#222327', '#36373b', '#1b1c1f']));
+-  def('ceiling_tile', 64, 64, 1.2, (c, w, h, r) => {
+-    c.fillStyle = '#c8c5ba'; c.fillRect(0, 0, w, h);
+-    speckle(c, w, h, r, 260, ['#aaa79c', '#b8b5aa', '#d6d3c8'], 1);
+-    blotches(c, w, h, r, 2, 'rgba(140,110,60,0.18)', 4, 12); // water stains
+-    grid(c, w, h, 2, 2, '#8d8b84', 2);
+-  });
+-  def('ceiling_concrete', 64, 64, 2.0, (c, w, h, r) => {
+-    c.fillStyle = '#6f6d68'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 24);
+-    blotches(c, w, h, r, 5, 'rgba(30,28,25,0.25)', 6, 18);
+-  });
+-  def('wood_panel', 64, 128, 2.0, (c, w, h, r) => {
+-    c.fillStyle = '#6b4427'; c.fillRect(0, 0, w, h);
+-    for (let x = 0; x < w; x += 16) {
+-      c.fillStyle = 'rgba(30,15,5,0.6)'; c.fillRect(x, 0, 1, h);
+-      c.fillStyle = 'rgba(255,220,180,0.06)'; c.fillRect(x + 1, 0, 1, h);
+-    }
+-    for (let i = 0; i < 70; i++) {
+-      c.fillStyle = 'rgba(40,20,8,' + (0.1 + r() * 0.2) + ')';
+-      c.fillRect(Math.floor(r() * w), Math.floor(r() * h), 1, 4 + Math.floor(r() * 18));
++  def('carpet_blue', 128, 128, 1.0, carpet('#2f4565', ['#253752', '#3c5679', '#1e2c42', '#465f80']));
++  def('carpet_grey', 128, 128, 1.0, carpet('#5d5e60', ['#4c4d4f', '#6e6f71', '#424345', '#6a6458']));
++  def('carpet_red', 128, 128, 1.0, carpet('#6a2a26', ['#561f1c', '#7c3530', '#45201d', '#7a4a30']));
++  def('carpet_dark', 128, 128, 1.0, carpet('#2b2c30', ['#222327', '#36373b', '#1b1c1f']));
++  // suspended ceiling: fissured mineral tiles in a grid of T-bar, a water stain or two, a tile sagging
++  def('ceiling_tile', 128, 128, 1.2, (c, w, h, r) => {
++    c.fillStyle = '#cbc8bd'; c.fillRect(0, 0, w, h);
++    for (let i = 0; i < 360; i++) { c.fillStyle = rgba([120, 116, 106], 0.25 + r() * 0.35); const x = r() * w, y = r() * h; c.fillRect(x, y, 1 + r() * 3, 1); } // the fissures
++    shadeBy(c, w, h, fbm(w, h, r, 2, 3, 0.6), 0.04);
++    const st = fbm(w, h, r, 2, 4, 0.6);
++    pass(c, w, h, (d, i, x, y) => { const f = st[y * w + x], a = smooth((f - 0.8) / 0.08) * 0.35, ring = Math.abs(f - 0.82) < 0.01 ? 0.18 : 0; d[i] -= (40 * a + 60 * ring); d[i + 1] -= (52 * a + 70 * ring); d[i + 2] -= (80 * a + 90 * ring); }); // a water stain with its tide line
++    grain(c, w, h, r, 0.05);
++    const s = w / 2;
++    for (const p of [0, s]) { c.fillStyle = '#8f8d86'; c.fillRect(p, 0, 3, h); c.fillRect(0, p, w, 3); c.fillStyle = 'rgba(255,255,255,0.3)'; c.fillRect(p, 0, 1, h); c.fillRect(0, p, w, 1); }
++  });
++  def('ceiling_concrete', 128, 128, 2.0, (c, w, h, r) => {
++    concreteBody(c, w, h, r, '#706e69', { mottle: 0.14, stain: [34, 32, 30], stainA: 0.4, grain: 0.12, pores: 0.02 });
++    c.fillStyle = 'rgba(30,28,26,0.35)'; c.fillRect(0, 0, w, 1); c.fillStyle = 'rgba(255,255,250,0.06)'; c.fillRect(0, 1, w, 1); // a formwork line
++  });
++  // wood: the grain drawn as rings warped by noise (a plank cut through the trunk), knots, open pores
++  function woodGrain(c, w, h, r, base, dark, opts) {
++    opts = opts || {};
++    const warp = opts.vertical ? fbm(w, h, r, 8, 4, 0.55, 1 / 8) : fbm(w, h, r, 1, 4, 0.55, 8), fine = opts.vertical ? fbm(w, h, r, 32, 2, 0.5, 1 / 8) : fbm(w, h, r, 4, 2, 0.5, 8);
++    const knots = [];
++    for (let k = 0; k < (opts.knots || 2); k++) knots.push([r() * w, r() * h, 3 + r() * 5]);
++    const freq = opts.freq || 0.18;
++    const img = c.getImageData(0, 0, w, h), d = img.data;
++    for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) {
++      const p = y * w + x;
++      let along = opts.vertical ? x : y;
++      for (const [kx, ky, kr] of knots) { const dx = x - kx, dy = (y - ky) * 0.6, dd = dx * dx + dy * dy; if (dd < kr * kr * 16) along += (kr * 2.2) * Math.exp(-dd / (kr * kr * 3)) * (opts.vertical ? Math.sign(dx) : Math.sign(dy) || 1); }
++      const ring = Math.sin(along * freq + warp[p] * 5), t = Math.pow(Math.abs(ring), 0.5);
++      const k = 1 + (fine[p] - 0.5) * 0.2;
++      for (let ch = 0; ch < 3; ch++) d[i + ch] = (dark[ch] + (base[ch] - dark[ch]) * t) * k;
++      d[i + 3] = 255;
+     }
+-    noise(c, w, h, r, 10);
+-    c.fillStyle = '#2a190d'; c.fillRect(0, h - 5, w, 5);
+-    c.fillStyle = '#3a2414'; c.fillRect(0, Math.round(h * 0.62), w, 3);
+-  }, { clampV: true });
+-  def('wood', 64, 64, 1.0, (c, w, h, r) => {
+-    c.fillStyle = '#7b5634'; c.fillRect(0, 0, w, h);
+-    for (let y = 0; y < h; y++) {
+-      c.fillStyle = 'rgba(50,28,12,' + (0.08 + 0.12 * Math.abs(Math.sin(y * 0.6 + r() * 0.4))) + ')';
+-      c.fillRect(0, y, w, 1);
++    c.putImageData(img, 0, 0);
++    for (const [kx, ky, kr] of knots) { const g = c.createRadialGradient(kx, ky, 0, kx, ky, kr); g.addColorStop(0, rgba(dark.map((v) => v * 0.6), 0.9)); g.addColorStop(1, rgba(dark, 0)); c.fillStyle = g; c.beginPath(); c.ellipse(kx, ky, opts.vertical ? kr * 0.7 : kr * 1.3, opts.vertical ? kr * 1.3 : kr * 0.7, 0, 0, 6.3); c.fill(); }
++    for (let i = 0; i < w * h * 0.01; i++) { c.fillStyle = rgba(dark.map((v) => v * 0.7), 0.4); if (opts.vertical) c.fillRect(r() * w, r() * h, 1, 2 + r() * 3); else c.fillRect(r() * w, r() * h, 2 + r() * 3, 1); } // pores
++  }
++  def('wood_panel', 256, 256, 2.0, (c, w, h, r) => {
++    woodGrain(c, w, h, r, [118, 76, 44], [74, 44, 22], { vertical: true, freq: 0.32, knots: 3 });
++    for (let x = 0; x < w; x += 32) { // the boards, each a shade apart, V-grooved
++      c.fillStyle = rgba(r() < 0.5 ? [0, 0, 0] : [255, 220, 180], 0.04 + r() * 0.05); c.fillRect(x, 0, 32, h);
++      c.fillStyle = 'rgba(28,14,5,0.75)'; c.fillRect(x, 0, 2, h);
++      c.fillStyle = 'rgba(255,220,180,0.1)'; c.fillRect(x + 2, 0, 1, h);
+     }
+-    noise(c, w, h, r, 10);
++    const rail = Math.round(h * 0.62);
++    c.fillStyle = '#3a2414'; c.fillRect(0, rail, w, 6); c.fillStyle = 'rgba(255,220,180,0.14)'; c.fillRect(0, rail, w, 1);
++    c.fillStyle = '#2a190d'; c.fillRect(0, h - 10, w, 10); c.fillStyle = 'rgba(255,220,180,0.12)'; c.fillRect(0, h - 10, w, 1);
++    for (let i = 0; i < 18; i++) { c.fillStyle = rgba([20, 12, 6], 0.15 + r() * 0.2); c.fillRect(r() * w, h - 12 - r() * 40, 3 + r() * 10, 1); }
++  }, { clampV: true });
++  def('wood', 128, 128, 1.0, (c, w, h, r) => {
++    woodGrain(c, w, h, r, [128, 90, 56], [82, 54, 30], { freq: 0.22, knots: 2 });
++    for (let y = 0; y < h; y += 32) { c.fillStyle = rgba(r() < 0.5 ? [0, 0, 0] : [255, 230, 200], 0.05); c.fillRect(0, y, w, 32); c.fillStyle = 'rgba(30,16,6,0.55)'; c.fillRect(0, y, w, 1); } // the boards
++    grain(c, w, h, r, 0.05);
+   });
+-  def('wood_light', 64, 64, 1.0, (c, w, h, r) => {
+-    c.fillStyle = '#b08b5c'; c.fillRect(0, 0, w, h);
+-    for (let y = 0; y < h; y++) {
+-      c.fillStyle = 'rgba(90,60,30,' + (0.05 + 0.1 * Math.abs(Math.sin(y * 0.5))) + ')';
+-      c.fillRect(0, y, w, 1);
+-    }
+-    noise(c, w, h, r, 8);
++  def('wood_light', 128, 128, 1.0, (c, w, h, r) => {
++    woodGrain(c, w, h, r, [182, 146, 98], [140, 102, 62], { freq: 0.16, knots: 1 });
++    grain(c, w, h, r, 0.04);
+   });
+-  def('metal', 64, 64, 1.0, (c, w, h, r) => {
++  // brushed steel: the brushing along it, fingerprints and dull patches, a scratch or two
++  def('metal', 128, 128, 1.0, (c, w, h, r) => {
+     c.fillStyle = '#8f9496'; c.fillRect(0, 0, w, h);
+-    for (let y = 0; y < h; y++) {
+-      c.fillStyle = 'rgba(255,255,255,' + r() * 0.08 + ')';
+-      c.fillRect(0, y, w, 1);
+-    }
+-    noise(c, w, h, r, 10);
+-    blotches(c, w, h, r, 2, 'rgba(60,50,40,0.15)', 4, 10);
++    for (let y = 0; y < h; y++) { c.fillStyle = rgba(r() < 0.5 ? [255, 255, 255] : [0, 0, 0], r() * 0.06); c.fillRect(0, y, w, 1); }
++    for (let i = 0; i < 260; i++) { c.fillStyle = rgba([255, 255, 255], r() * 0.08); c.fillRect(r() * w, r() * h, 6 + r() * 40, 1); }
++    shadeBy(c, w, h, fbm(w, h, r, 2, 4, 0.6), 0.08);
++    for (let i = 0; i < 7; i++) { c.strokeStyle = rgba(r() < 0.5 ? [230, 234, 236] : [60, 62, 64], 0.3); c.lineWidth = 0.8; c.beginPath(); const x = r() * w, y = r() * h, a = r() * 6.3; c.moveTo(x, y); c.lineTo(x + Math.cos(a) * (5 + r() * 25), y + Math.sin(a) * (5 + r() * 25)); c.stroke(); }
++    blotches(c, w, h, r, 3, 'rgba(70,60,48,0.12)', 6, 16);
++    grain(c, w, h, r, 0.03);
+   });
+-  def('metal_dark', 64, 64, 1.0, (c, w, h, r) => {
+-    c.fillStyle = '#3c4043'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 14);
+-    blotches(c, w, h, r, 3, 'rgba(0,0,0,0.2)', 4, 12);
++  def('metal_dark', 128, 128, 1.0, (c, w, h, r) => {
++    c.fillStyle = '#3d4144'; c.fillRect(0, 0, w, h);
++    shadeBy(c, w, h, fbm(w, h, r, 2, 5, 0.6), 0.14);
++    for (let i = 0; i < 40; i++) { c.strokeStyle = rgba([150, 156, 160], 0.08 + r() * 0.14); c.lineWidth = 0.8; c.beginPath(); const x = r() * w, y = r() * h, a = r() * 6.3, l = 3 + r() * 16; c.moveTo(x, y); c.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); c.stroke(); } // scuffs, the steel showing
++    stainBy(c, w, h, fbm(w, h, r, 3, 4, 0.6), 0.72, 0.15, [70, 48, 34], 0.35); // a little rust
++    grain(c, w, h, r, 0.08);
+   });
+-  def('metal_painted', 64, 64, 1.0, (c, w, h, r) => {
++  // painted steel: the coat chipped back to primer and rust at the knocks, rust bleeding from them,
++  // scuffs, the paint dulled and chalky where the weather gets it
++  def('metal_painted', 128, 128, 1.0, (c, w, h, r) => {
+     c.fillStyle = '#4f6a5c'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 12);
+-    blotches(c, w, h, r, 3, 'rgba(110,70,30,0.25)', 3, 8);
++    shadeBy(c, w, h, fbm(w, h, r, 2, 4, 0.6), 0.1);
++    for (let i = 0; i < 7; i++) {
++      const x = r() * w, y = r() * h, s = 1 + Math.pow(r(), 2) * 6;
++      run(c, w, h, r, x - 1, y + s * 0.5, 6 + r() * 26, 1.5 + r() * 1.5, [110, 62, 32], 0.35);
++      c.fillStyle = 'rgba(130,128,118,0.9)'; blob(c, x, y, s * 1.3, s, r, 7); c.fill(); // primer
++      c.fillStyle = 'rgba(104,58,30,0.95)'; blob(c, x, y, s * 0.8, s * 0.6, r, 6); c.fill(); // rust
++    }
++    for (let i = 0; i < 30; i++) { c.fillStyle = rgba([150, 160, 150], 0.12); c.fillRect(r() * w, r() * h, 2 + r() * 10, 1); }
++    grain(c, w, h, r, 0.06);
+   });
+-  def('metal_plate', 64, 64, 1.0, (c, w, h, r) => {
+-    c.fillStyle = '#6c7073'; c.fillRect(0, 0, w, h);
+-    for (let y = 0; y < h; y += 8) for (let x = (y / 8) % 2 ? 4 : 0; x < w; x += 8) {
+-      c.fillStyle = '#8b8f92'; c.fillRect(x, y, 4, 1);
+-      c.fillStyle = '#4b4f52'; c.fillRect(x, y + 1, 4, 1);
++  // diamond tread plate: the raised bars catching the light on one side, dirt packed between
++  def('metal_plate', 128, 128, 1.0, (c, w, h, r) => {
++    c.fillStyle = '#62666a'; c.fillRect(0, 0, w, h);
++    shadeBy(c, w, h, fbm(w, h, r, 2, 4, 0.6), 0.12);
++    for (let y = 0; y < h; y += 16) for (let x = 0; x < w; x += 16) for (const [ox, oy, a] of [[4, 4, 0.7], [12, 12, -0.7]]) {
++      c.save(); c.translate(x + ox, y + oy); c.rotate(a);
++      c.fillStyle = 'rgba(30,32,34,0.6)'; c.fillRect(-5, 0, 10, 2.5);
++      c.fillStyle = '#9a9ea2'; c.fillRect(-5, -1.5, 10, 2);
++      c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(-4, -1.5, 8, 1);
++      c.restore();
+     }
+-    noise(c, w, h, r, 14);
++    stainBy(c, w, h, fbm(w, h, r, 3, 4, 0.6), 0.68, 0.2, [60, 52, 44], 0.4);
++    grain(c, w, h, r, 0.06);
+   });
+-  def('rust', 64, 64, 1.5, (c, w, h, r) => {
++  def('rust', 128, 128, 1.5, (c, w, h, r) => {
+     c.fillStyle = '#6a4a35'; c.fillRect(0, 0, w, h);
+-    blotches(c, w, h, r, 14, 'rgba(140,70,30,0.4)', 4, 14);
+-    blotches(c, w, h, r, 8, 'rgba(40,30,25,0.4)', 4, 12);
+-    noise(c, w, h, r, 26);
+-  });
+-  // paving slabs, each laid a shade apart: bevelled edges catching the light, the joints dark with dirt,
+-  // the odd crack across a slab, gum trodden flat, a stain where something stood
+-  def('pavement', 256, 256, 3.0, (c, w, h, r) => {
+-    c.fillStyle = '#7d7a73'; c.fillRect(0, 0, w, h);
+-    const n = 4, s = w / n;
++    const f = fbm(w, h, r, 3, 6, 0.65);
++    pass(c, w, h, (d, i, x, y) => { const v = f[y * w + x]; d[i] = 62 + v * 72; d[i + 1] = 42 + v * 38; d[i + 2] = 30 + v * 22; }); // orange where it's fresh, brown where it's old
++    stainBy(c, w, h, fbm(w, h, r, 4, 4, 0.6), 0.6, 0.15, [42, 32, 26], 0.6); // scale
++    for (let i = 0; i < 40; i++) { c.fillStyle = rgba([30, 22, 16], 0.5); blob(c, r() * w, r() * h, 1 + r() * 2, 1 + r() * 2, r, 5); c.fill(); } // pits
++    runs(c, w, h, r, 10, [120, 64, 30], 0.35, 20, 70, 3);
++    grain(c, w, h, r, 0.14);
++  });
++  // paving slabs, each laid a shade apart: bevelled edges catching the light, the joints dark with
++  // dirt (and a weed in one), a corner chipped off, a crack across a slab, gum trodden flat, a
++  // stain where something stood, the slabs where most feet go smoother and paler
++  def('pavement', 512, 512, 3.0, (c, w, h, r) => {
++    const n = 4, s = w / n, jw = 3;
++    c.fillStyle = '#4a4843'; c.fillRect(0, 0, w, h);
++    const tones = [];
+     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+-      const v = 0.9 + r() * 0.18, x = i * s, y = j * s;
+-      c.fillStyle = U.rgbToCss(0.49 * v, 0.48 * v, 0.455 * v); c.fillRect(x, y, s, s);
+-      for (let k = 0; k < 160; k++) { c.fillStyle = ['#6c6964', '#8f8c85', '#5f5d58', '#9c9890'][Math.floor(r() * 4)]; c.fillRect(x + Math.floor(r() * s), y + Math.floor(r() * s), 1, 1); }
+-      c.fillStyle = 'rgba(255,255,250,0.13)'; c.fillRect(x + 2, y + 2, s - 4, 1); c.fillRect(x + 2, y + 2, 1, s - 4); // the bevel, lit
+-      c.fillStyle = 'rgba(0,0,0,0.16)'; c.fillRect(x + 2, y + s - 3, s - 4, 1); c.fillRect(x + s - 3, y + 2, 1, s - 4); // and in shade
+-      if (r() < 0.22) { c.strokeStyle = 'rgba(35,34,30,0.55)'; c.lineWidth = 1; c.beginPath(); let px = x + r() * s, py = y + 3; c.moveTo(px, py); for (let q = 0; q < 5; q++) { px = U.clamp(px + (r() - 0.5) * 16, x + 2, x + s - 2); py += s / 5.5; c.lineTo(px, py); } c.stroke(); }
+-      if (r() < 0.35) for (let q = 0; q < 3; q++) { c.fillStyle = 'rgba(205,203,196,0.55)'; c.beginPath(); c.arc(x + 6 + r() * (s - 12), y + 6 + r() * (s - 12), 1.5, 0, 6.3); c.fill(); } // gum
+-    }
+-    c.fillStyle = '#4a4843';
+-    for (let i = 0; i <= n; i++) { c.fillRect(i * s - 1, 0, 2, h); c.fillRect(0, i * s - 1, w, 2); } // the joints
+-    blotches(c, w, h, r, 5, 'rgba(40,38,30,0.16)', 10, 34);
+-    noise(c, w, h, r, 10);
++      const v = 0.9 + r() * 0.17, x = i * s + jw / 2, y = j * s + jw / 2, t = s - jw, warm = (r() - 0.5) * 0.03;
++      tones.push(v);
++      c.fillStyle = U.rgbToCss((0.5 + warm) * v, 0.49 * v, (0.465 - warm) * v); c.fillRect(x, y, t, t);
++    }
++    shadeBy(c, w, h, fbm(w, h, r, 2, 5, 0.55), 0.08);
++    grain(c, w, h, r, 0.12, 0.02, 0.02); // the aggregate in the slab
++    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
++      const x = i * s + jw / 2, y = j * s + jw / 2, t = s - jw;
++      c.fillStyle = 'rgba(255,255,250,0.16)'; c.fillRect(x, y, t, 2); c.fillRect(x, y, 2, t); // the bevel, lit
++      c.fillStyle = 'rgba(0,0,0,0.2)'; c.fillRect(x, y + t - 2, t, 2); c.fillRect(x + t - 2, y, 2, t); // and in shade
++      if (r() < 0.25) { c.fillStyle = '#4a4843'; const cx = x + (r() < 0.5 ? 0 : t), cy = y + (r() < 0.5 ? 0 : t); blob(c, cx, cy, 4 + r() * 8, 4 + r() * 8, r, 6); c.fill(); } // a chipped corner
++      if (r() < 0.25) { const a = r() < 0.5 ? 0 : Math.PI / 2; crack(c, w, h, r, a ? x + r() * t : x + 2, a ? y + 2 : y + r() * t, a + (r() - 0.5) * 0.6, t * (0.5 + r() * 0.5), 'rgba(30,29,26,0.65)', 1.2, 1); }
++      if (r() < 0.4) for (let q = 0; q < 2 + r() * 4; q++) { c.fillStyle = 'rgba(206,204,196,0.6)'; c.beginPath(); c.arc(x + 8 + r() * (t - 16), y + 8 + r() * (t - 16), 1.8 + r() * 1.6, 0, 6.3); c.fill(); c.fillStyle = 'rgba(40,38,34,0.25)'; c.fillRect(x + 8 + r() * (t - 16), y + 8 + r() * (t - 16), 3, 2); } // gum
++      if (r() < 0.12) { c.fillStyle = 'rgba(42,38,30,0.22)'; blob(c, x + t / 2 + (r() - 0.5) * t * 0.5, y + t / 2 + (r() - 0.5) * t * 0.5, 14 + r() * 24, 10 + r() * 16, r, 10); c.fill(); } // a stain
++    }
++    // the joints: dirt and grit in them, a weed
++    const jd = fbm(w, h, r, 4, 3, 0.6);
++    pass(c, w, h, (d, i, x, y) => {
++      const gx = (x + jw / 2) % s, gy = (y + jw / 2) % s;
++      if (gx < jw || gy < jw) { const k = 0.75 + jd[y * w + x] * 0.35; d[i] = 64 * k; d[i + 1] = 61 * k; d[i + 2] = 55 * k; }
++    });
++    for (let k = 0; k < 4; k++) { const x = Math.floor(r() * n) * s, y = r() * h; c.fillStyle = 'rgba(74,88,48,0.8)'; for (let q = 0; q < 6; q++) c.fillRect(x - 2 + r() * 4, y + r() * 10, 1 + r(), 2 + r() * 3); }
++    blotches(c, w, h, r, 4, 'rgba(36,34,28,0.12)', 30, 80);
+   });
+ 
+-  // asphalt: a dense aggregate with a few light chips, sealed tar seams where it was cut and patched,
+-  // patches of a different age, oil, and a fine web of cracks
+-  def('asphalt', 256, 256, 5.0, (c, w, h, r) => {
+-    c.fillStyle = '#3b3b3c'; c.fillRect(0, 0, w, h);
+-    speckle(c, w, h, r, 6500, ['#2b2b2c', '#48484a', '#525255', '#232324', '#3f3e3d'], 1);
+-    speckle(c, w, h, r, 220, ['#6c6b68', '#77736c', '#5f5e5b'], 1);
+-    blotches(c, w, h, r, 7, 'rgba(14,14,15,0.3)', 14, 44);
+-    // a patch, laid later: a shade darker and smoother, with a crisp edge
+-    for (let k = 0; k < 2; k++) {
+-      const pw = 40 + r() * 70, ph = 30 + r() * 50, px = r() * (w - pw), py = r() * (h - ph);
+-      c.fillStyle = 'rgba(22,22,23,0.35)'; c.fillRect(px, py, pw, ph);
+-      c.strokeStyle = 'rgba(12,12,12,0.6)'; c.lineWidth = 1; c.strokeRect(px + 0.5, py + 0.5, pw, ph);
++  // asphalt: a dense aggregate (dark binder, grey and the odd pale chip), polished smoother where
++  // the wheels run, tar snakes where cracks were sealed, patches of a different age with crisp cut
++  // edges, a patch of alligator cracking, oil drips, and a fine web of cracks
++  def('asphalt', 512, 512, 5.0, (c, w, h, r) => {
++    const body = fbm(w, h, r, 2, 5, 0.6), wear = fbm(w, h, r, 1, 3, 0.5);
++    const img = c.getImageData(0, 0, w, h), d = img.data;
++    for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) {
++      const p = y * w + x, q = r();
++      let v = 54 + (body[p] - 0.5) * 16 + (r() - 0.5) * 18;
++      if (q < 0.18) v *= 0.62; // binder between the stones
++      else if (q > 0.985) v += 34 + r() * 30; // a pale chip
++      else if (q > 0.9) v += 12;
++      v += (wear[p] - 0.5) * 10;
++      d[i] = v; d[i + 1] = v; d[i + 2] = v * 1.02 + 1; d[i + 3] = 255;
+     }
+-    // tar seams: wavy black lines with a faint sheen beside them
++    c.putImageData(img, 0, 0);
++    // patches, laid later: smoother and a shade darker (or paler, older), with a crisp cut edge
+     for (let k = 0; k < 3; k++) {
+-      let x = r() * w, y = 0; c.lineWidth = 2;
+-      c.strokeStyle = 'rgba(12,12,12,0.75)'; c.beginPath(); c.moveTo(x, y);
+-      const pts = [[x, y]];
+-      while (y < h) { x += (r() - 0.5) * 22; y += 10 + r() * 14; c.lineTo(x, y); pts.push([x, y]); }
+-      c.stroke();
+-      c.strokeStyle = 'rgba(110,110,112,0.18)'; c.lineWidth = 1; c.beginPath(); pts.forEach(([a, b], i) => (i ? c.lineTo(a + 2, b) : c.moveTo(a + 2, b))); c.stroke();
++      const pw = 60 + r() * 140, ph = 40 + r() * 90, px = r() * (w - pw), py = r() * (h - ph), dark = r() < 0.6;
++      c.fillStyle = dark ? 'rgba(24,24,26,0.5)' : 'rgba(120,118,112,0.18)'; c.fillRect(px, py, pw, ph);
++      for (let i = 0; i < pw * ph * 0.04; i++) { c.fillStyle = rgba(dark ? [70, 70, 72] : [90, 88, 84], 0.5); c.fillRect(px + r() * pw, py + r() * ph, 1, 1); }
++      c.strokeStyle = 'rgba(10,10,10,0.75)'; c.lineWidth = 2; c.strokeRect(px, py, pw, ph);
++      c.strokeStyle = 'rgba(140,140,140,0.12)'; c.lineWidth = 1; c.strokeRect(px + 2, py + 2, pw - 4, ph - 4);
+     }
+-    blotches(c, w, h, r, 3, 'rgba(8,8,10,0.4)', 6, 16); // oil
+-    cracks(c, w, h, r, 14, 'rgba(16,16,16,0.6)');
+-    noise(c, w, h, r, 8);
++    // tar snakes: sealed cracks, wavy, glossy black with a sheen beside them
++    for (let k = 0; k < 2; k++) {
++      let x = r() * w, y = 0;
++      const vert = k % 2 === 0, pts = [];
++      if (!vert) { x = 0; y = r() * h; }
++      while (vert ? y < h + 10 : x < w + 10) { pts.push([x, y]); if (vert) { x += (r() - 0.5) * 22; y += 8 + r() * 14; } else { y += (r() - 0.5) * 22; x += 8 + r() * 14; } }
++      for (const off of vert ? [0, -w, w] : [0, -h, h]) {
++        c.lineCap = 'round'; c.lineJoin = 'round';
++        c.strokeStyle = 'rgba(12,12,13,0.7)'; c.lineWidth = 2 + r() * 2.5; c.beginPath(); pts.forEach(([a, b], i) => (vert ? (i ? c.lineTo(a + off, b) : c.moveTo(a + off, b)) : (i ? c.lineTo(a, b + off) : c.moveTo(a, b + off)))); c.stroke();
++        c.strokeStyle = 'rgba(120,122,126,0.16)'; c.lineWidth = 1; c.beginPath(); pts.forEach(([a, b], i) => (vert ? (i ? c.lineTo(a + off + 2, b - 1) : c.moveTo(a + off + 2, b - 1)) : (i ? c.lineTo(a + 1, b + off - 2) : c.moveTo(a + 1, b + off - 2)))); c.stroke();
++      }
++    }
++    // alligator cracking: a patch of small polygons
++    { const ax = r() * w, ay = r() * h, R = 40 + r() * 30;
++      for (let i = 0; i < 26; i++) { const a = r() * 6.3, rr = Math.sqrt(r()) * R; crack(c, w, h, r, ax + Math.cos(a) * rr, ay + Math.sin(a) * rr, r() * 6.3, 10 + r() * 14, 'rgba(14,14,14,0.75)', 1, 2); } }
++    for (let i = 0; i < 18; i++) crack(c, w, h, r, r() * w, r() * h, r() * 6.3, 20 + r() * 70, 'rgba(16,16,16,0.65)', 1 + r() * 0.8);
++    // oil: drips gathered in a darker smear, a faint sheen on them
++    for (let i = 0; i < 5; i++) { const x = r() * w, y = r() * h, s = 6 + r() * 16; wrap(w, h, x, y, s, (ox, oy) => { c.fillStyle = 'rgba(10,10,12,0.35)'; blob(c, x + ox, y + oy, s, s * 0.6, r, 10); c.fill(); c.fillStyle = 'rgba(8,8,10,0.4)'; blob(c, x + ox, y + oy, s * 0.5, s * 0.3, r, 8); c.fill(); }); }
++    blotches(c, w, h, r, 4, 'rgba(70,74,90,0.06)', 8, 20); // the sheen
+   });
+ 
+-  def('grass', 64, 64, 2.0, (c, w, h, r) => {
+-    c.fillStyle = '#4b5e30'; c.fillRect(0, 0, w, h);
+-    speckle(c, w, h, r, 900, ['#3e5127', '#5a6f38', '#6b7c40', '#36451f', '#7b7a44'], 1);
+-    blotches(c, w, h, r, 4, 'rgba(90,80,40,0.25)', 6, 16);
++  // road paint, worn: flaked off in specks and patches where the tyres run (the asphalt shows through
++  // the holes: drawn as a cut-out), grimy, never quite white
++  function roadPaint(rgb) {
++    return (c, w, h, r) => {
++      c.fillStyle = rgba(rgb, 1); c.fillRect(0, 0, w, h);
++      shadeBy(c, w, h, fbm(w, h, r, 2, 4, 0.6), 0.12);
++      grain(c, w, h, r, 0.08);
++      const wear = fbm(w, h, r, 3, 5, 0.62);
++      pass(c, w, h, (d, i, x, y) => { const f = wear[y * w + x] * 0.8 + r() * 0.2; d[i + 3] = f > 0.66 ? 0 : 255; if (f > 0.56) { d[i] *= 0.82; d[i + 1] *= 0.82; d[i + 2] *= 0.82; } });
++    };
++  }
++  def('paint_road', 256, 256, 2.0, roadPaint([226, 224, 214]), { alpha: true });
++  def('paint_road_amber', 256, 256, 2.0, roadPaint([206, 132, 52]), { alpha: true });
++
++  def('grass', 128, 128, 2.0, (c, w, h, r) => {
++    c.fillStyle = '#485a2e'; c.fillRect(0, 0, w, h);
++    shadeBy(c, w, h, fbm(w, h, r, 2, 4, 0.6), 0.16);
++    const cols = [[62, 81, 39], [90, 111, 56], [107, 124, 64], [54, 69, 31], [123, 122, 68], [80, 96, 44]];
++    for (let i = 0; i < 3200; i++) { const col = cols[Math.floor(r() * cols.length)], x = r() * w, y = r() * h; c.fillStyle = rgba(col, 0.85); c.fillRect(x, y, 1, 2 + r() * 3); c.fillStyle = 'rgba(255,255,220,0.1)'; c.fillRect(x, y, 1, 1); } // blades
++    stainBy(c, w, h, fbm(w, h, r, 3, 4, 0.6), 0.7, 0.15, [96, 82, 52], 0.5); // bare, dry patches
++    grain(c, w, h, r, 0.08);
+   });
+   // a field in rows: the crop along the ridges, the soil between (grey, tinted by the field: wheat,
+   // corn, cabbages, the plough's furrows); four rows a tile, along u
+-  def('field_rows', 64, 64, 3.0, (c, w, h, r) => {
++  def('field_rows', 128, 128, 3.0, (c, w, h, r) => {
+     c.fillStyle = '#9a9a92'; c.fillRect(0, 0, w, h);
+     for (let k = 0; k < 4; k++) {
+-      const y = k * 16;
+-      c.fillStyle = '#5a564e'; c.fillRect(0, y, w, 5); // the furrow
+-      c.fillStyle = '#76736a'; c.fillRect(0, y + 5, w, 2);
+-      c.fillStyle = '#b4b4aa'; c.fillRect(0, y + 9, w, 4); // the top of the ridge, catching the light
++      const y = k * 32;
++      c.fillStyle = '#5a564e'; c.fillRect(0, y, w, 10); // the furrow
++      c.fillStyle = '#76736a'; c.fillRect(0, y + 10, w, 4);
++      c.fillStyle = '#b4b4aa'; c.fillRect(0, y + 18, w, 8); // the top of the ridge, catching the light
+     }
+-    speckle(c, w, h, r, 500, ['#6a675f', '#c8c8bc', '#8a877e', '#4e4b45'], 1);
+-    noise(c, w, h, r, 16);
++    shadeBy(c, w, h, fbm(w, h, r, 2, 4, 0.6), 0.1);
++    speckle(c, w, h, r, 1400, ['#6a675f', '#c8c8bc', '#8a877e', '#4e4b45'], 1);
++    grain(c, w, h, r, 0.1);
+   });
+-  def('dirt', 64, 64, 2.0, (c, w, h, r) => {
++  def('dirt', 128, 128, 2.0, (c, w, h, r) => {
+     c.fillStyle = '#5b4632'; c.fillRect(0, 0, w, h);
+-    speckle(c, w, h, r, 700, ['#4a3828', '#6d5640', '#3b2c20', '#7a6650'], 1);
+-    noise(c, w, h, r, 14);
++    shadeBy(c, w, h, fbm(w, h, r, 2, 5, 0.6), 0.18);
++    for (let i = 0; i < 500; i++) { const v = 0.7 + r() * 0.6; c.fillStyle = rgba([110 * v, 96 * v, 80 * v], 0.8); c.fillRect(r() * w, r() * h, 1 + (r() < 0.2 ? 1 : 0), 1); } // grit and pebbles
++    stainBy(c, w, h, fbm(w, h, r, 3, 4, 0.6), 0.7, 0.2, [44, 34, 26], 0.4); // damp
++    grain(c, w, h, r, 0.12);
+   });
+-  // brick: each one a shade apart, the mortar set back (dark), a lit top edge, chips, soot at the foot
+-  def('brick', 256, 256, 2.4, (c, w, h, r) => {
+-    c.fillStyle = '#4f4a44'; c.fillRect(0, 0, w, h);
+-    const bh = 8, bw = 24;
+-    for (let y = 0; y < h; y += bh) {
+-      const off = (y / bh) % 2 ? bw / 2 : 0;
+-      for (let x = -bw; x < w + bw; x += bw) {
+-        const v = 0.78 + r() * 0.38, hue = r();
+-        c.fillStyle = U.rgbToCss((0.5 + hue * 0.06) * v, (0.26 + hue * 0.03) * v, (0.19 + (1 - hue) * 0.03) * v);
+-        c.fillRect(x + off + 1, y + 1, bw - 2, bh - 2);
+-        c.fillStyle = 'rgba(255,220,200,0.08)'; c.fillRect(x + off + 1, y + 1, bw - 2, 1);
+-        c.fillStyle = 'rgba(0,0,0,0.14)'; c.fillRect(x + off + 1, y + bh - 2, bw - 2, 1);
+-        if (r() < 0.12) { c.fillStyle = 'rgba(70,64,58,0.7)'; c.fillRect(x + off + 1 + Math.floor(r() * (bw - 6)), y + 1, 3, 2); } // a chip
++
++  // Brick, in stretcher bond: every brick a shade apart (reds, browns, the odd dark clinker or pale
++  // salmon), its face grained and its arrises a little rounded and chipped; the mortar set back, in
++  // shadow under each course; soot and rain run down it, salts bloom white low down, a few faces spalled.
++  // (exported: the city's facades lay their brick with the same hand)
++  function brickWall(c, w, h, r, o) {
++    const rows = o.rows, cols = o.cols, ch = h / rows, bw = w / cols, m = o.mortar;
++    const base = o.colors || [[146, 78, 58], [134, 72, 55], [152, 86, 62], [122, 66, 52], [158, 94, 68]];
++    c.fillStyle = rgba(o.mortarCol || [112, 106, 96], 1); c.fillRect(0, 0, w, h);
++    for (let j = 0; j < rows; j++) {
++      const off = j % 2 ? bw / 2 : 0;
++      for (let i = -1; i <= cols; i++) {
++        const q = r(), col = q < 0.04 ? [84, 52, 44] : q > 0.97 ? [170, 112, 86] : base[Math.floor(r() * base.length)];
++        const v = 0.9 + r() * 0.16 * (o.vary || 1);
++        const x0 = Math.round(i * bw + off) + m / 2, y0 = j * ch + m / 2, bwx = Math.round((i + 1) * bw + off) - Math.round(i * bw + off) - m, bh = ch - m;
++        c.fillStyle = rgba([col[0] * v, col[1] * v, col[2] * v], 1);
++        c.fillRect(x0, y0, bwx, bh);
++        if (r() < 0.25) { const g = c.createLinearGradient(x0, 0, x0 + bwx, 0); const e = r() < 0.5; g.addColorStop(0, rgba([30, 18, 14], e ? 0.3 : 0)); g.addColorStop(1, rgba([30, 18, 14], e ? 0 : 0.3)); c.fillStyle = g; c.fillRect(x0, y0, bwx, bh); } // a burnt end
++        if (bh > 4) {
++          c.fillStyle = 'rgba(255,225,200,0.13)'; c.fillRect(x0, y0, bwx, 1); // the top arris, lit
++          c.fillStyle = 'rgba(0,0,0,0.22)'; c.fillRect(x0, y0 + bh - 1, bwx, 1); c.fillRect(x0 + bwx - 1, y0, 1, bh);
++        }
++        if (r() < (o.chips || 0.18)) { c.fillStyle = rgba(o.mortarCol || [112, 106, 96], 0.95); blob(c, x0 + (r() < 0.5 ? 0 : bwx), y0 + (r() < 0.5 ? 0 : bh), 1 + r() * bh * 0.35, 1 + r() * bh * 0.3, r, 5); c.fill(); } // a chipped corner
++        if (r() < (o.spall || 0.04)) { c.fillStyle = 'rgba(170,110,90,0.5)'; blob(c, x0 + bwx * (0.3 + r() * 0.4), y0 + bh / 2, bwx * 0.25, bh * 0.4, r, 7); c.fill(); c.fillStyle = 'rgba(40,24,20,0.35)'; c.fillRect(x0 + bwx * 0.3, y0 + bh - 1, bwx * 0.4, 1); } // a spalled face
+       }
+     }
+-    for (let i = 0; i < 900; i++) { c.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,230,210,0.07)'; c.fillRect(Math.floor(r() * w), Math.floor(r() * h), 1, 1); }
+-    noise(c, w, h, r, 10);
+-    blotches(c, w, h, r, 5, 'rgba(20,20,20,0.2)', 10, 36);
++    // the mortar: recessed, dark at the top of each bed joint under the brick's shadow, lighter below
++    const f = fbm(w, h, r, 4, 4, 0.6), surf = fbm(w, h, r, Math.max(4, w / 16), 2, 0.6);
++    pass(c, w, h, (d, i, x, y) => {
++      const p = y * w + x, j = Math.floor(y / ch), yy = y - j * ch, off = j % 2 ? bw / 2 : 0;
++      const xx = ((x - off) % bw + bw) % bw;
++      const inM = yy < m / 2 || yy >= ch - m / 2 || xx < m / 2 || xx >= bw - m / 2;
++      let k;
++      if (inM) k = (yy >= ch - m / 2 || yy < m / 2 ? (yy < m / 2 ? 0.7 : 0.92) : 0.82) * (0.85 + f[p] * 0.3);
++      else k = 0.9 + surf[p] * 0.2;
++      d[i] *= k; d[i + 1] *= k; d[i + 2] *= k;
++    });
++    grain(c, w, h, r, 0.12, 0.02, 0.01);
++    // soot and rain from above, salts low down
++    if (o.soot) runs(c, w, h, r, o.soot, [24, 20, 18], 0.35, h * 0.1, h * 0.6, Math.max(2, w / 64));
++    if (o.bloom) stainBy(c, w, h, fbm(w, h, r, 3, 4, 0.6), 0.74, 0.16, [190, 186, 172], o.bloom);
++    stainBy(c, w, h, fbm(w, h, r, 2, 4, 0.6), 0.6, 0.3, [40, 30, 26], o.grime || 0.3);
++  }
++  def('brick', 512, 512, 2.4, (c, w, h, r) => {
++    brickWall(c, w, h, r, { rows: 32, cols: 10, mortar: 3, soot: 30, bloom: 0.3, grime: 0.32 });
+   });
+ 
+-  def('facade', 128, 192, 9.0, (c, w, h, r) => {
+-    // exterior concrete facade: v=0 is the ground. upper floors have dark windows.
+-    c.fillStyle = '#8b877e'; c.fillRect(0, 0, w, h);
+-    noise(c, w, h, r, 20);
+-    blotches(c, w, h, r, 10, 'rgba(50,45,40,0.22)', 8, 30);
+-    // streaks
+-    for (let i = 0; i < 20; i++) {
+-      c.fillStyle = 'rgba(40,36,30,' + r() * 0.15 + ')';
+-      c.fillRect(Math.floor(r() * w), 0, 1 + Math.floor(r() * 2), Math.floor(r() * h * 0.8));
+-    }
++  // the Testing Center's outside wall: board-formed concrete, a ribbon of windows on each upper floor
++  // (v = 0 is the ground)
++  def('facade', 256, 256, 9.0, (c, w, h, r) => {
++    concreteBody(c, w, h, r, '#8c887f', { mottle: 0.12, stain: [60, 56, 50], stainA: 0.35, grain: 0.1, pores: 0.02 });
++    for (let x = 0; x < w; x += 64) { c.fillStyle = 'rgba(40,38,34,0.35)'; c.fillRect(x, 0, 2, h); c.fillStyle = 'rgba(255,255,250,0.08)'; c.fillRect(x + 2, 0, 1, h); } // the panel joints
++    runs(c, w, h, r, 40, [36, 33, 28], 0.22, 20, 160, 3);
+     // floor bands
+     for (const f of [0.36, 0.7]) {
+       const y = Math.round(h * (1 - f));
+-      c.fillStyle = '#6c6860'; c.fillRect(0, y, w, 4);
+-      c.fillStyle = 'rgba(255,255,255,0.1)'; c.fillRect(0, y, w, 1);
++      c.fillStyle = '#6c6860'; c.fillRect(0, y, w, 6);
++      c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(0, y, w, 1);
++      c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(0, y + 6, w, 2);
++      runs(c, w, h, r, 10, [30, 28, 24], 0.25, 10, 50, 3, () => y + 8);
+     }
+-    // windows on the upper floors
++    // windows on the upper floors: steel frames, the glass reflecting the sky over the room behind it
+     for (const f of [0.42, 0.76]) {
+-      const y = Math.round(h * (1 - f)) - 26;
+-      for (let x = 10; x < w; x += 40) {
+-        c.fillStyle = '#26292b'; c.fillRect(x, y, 24, 24);
++      const y = Math.round(h * (1 - f)) - 34;
++      for (let x = 20; x < w; x += 80) {
++        c.fillStyle = '#2a2c2d'; c.fillRect(x, y, 48, 32);
+         const lit = r() < 0.25;
+-        c.fillStyle = lit ? 'rgba(220,200,140,0.6)' : 'rgba(80,100,110,0.35)';
+-        c.fillRect(x + 2, y + 2, 9, 20); c.fillRect(x + 13, y + 2, 9, 20);
+-        c.fillStyle = '#4a4740'; c.fillRect(x - 1, y + 24, 26, 2);
++        for (const px of [x + 3, x + 25]) {
++          const g = c.createLinearGradient(px, y, px + 6, y + 28);
++          g.addColorStop(0, lit ? 'rgba(230,210,150,0.75)' : 'rgba(150,165,172,0.6)'); g.addColorStop(0.5, lit ? 'rgba(200,170,110,0.6)' : 'rgba(60,72,80,0.5)'); g.addColorStop(1, lit ? 'rgba(160,130,80,0.6)' : 'rgba(30,36,40,0.6)');
++          c.fillStyle = g; c.fillRect(px, y + 3, 20, 26);
++          c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(px + 2, y + 4, 2, 24);
++        }
++        c.fillStyle = '#4a4740'; c.fillRect(x - 2, y + 32, 52, 3);
++        run(c, w, h, r, x + 4 + r() * 40, y + 35, 20 + r() * 40, 2, [40, 36, 30], 0.25);
+       }
+     }
+   });
+-  def('fabric_grey', 32, 32, 0.6, (c, w, h, r) => {
+-    c.fillStyle = '#58595c'; c.fillRect(0, 0, w, h);
+-    for (let y = 0; y < h; y += 2) { c.fillStyle = 'rgba(255,255,255,0.05)'; c.fillRect(0, y, w, 1); }
+-    noise(c, w, h, r, 14);
+-  });
+-  def('fabric_blue', 32, 32, 0.6, (c, w, h, r) => {
+-    c.fillStyle = '#304a6b'; c.fillRect(0, 0, w, h);
+-    for (let y = 0; y < h; y += 2) { c.fillStyle = 'rgba(255,255,255,0.05)'; c.fillRect(0, y, w, 1); }
+-    noise(c, w, h, r, 14);
+-  });
++  // cloth: a twill weave (the diagonal ribs of a work shirt or trousers), the threads a shade apart
++  function cloth(base) {
++    return (c, w, h, r) => {
++      c.fillStyle = base; c.fillRect(0, 0, w, h);
++      pass(c, w, h, (d, i, x, y) => { const t = (x + y) % 4, k = t === 0 ? 1.1 : t === 1 ? 1.03 : t === 2 ? 0.95 : 0.9; d[i] *= k; d[i + 1] *= k; d[i + 2] *= k; });
++      for (let y = 0; y < h; y++) if (r() < 0.2) { c.fillStyle = rgba(r() < 0.5 ? [0, 0, 0] : [255, 255, 255], 0.04); c.fillRect(0, y, w, 1); } // slubs in the weft
++      shadeBy(c, w, h, fbm(w, h, r, 2, 3, 0.6), 0.08);
++      grain(c, w, h, r, 0.08);
++    };
++  }
++  def('fabric_grey', 64, 64, 0.6, cloth('#58595c'));
++  def('fabric_blue', 64, 64, 0.6, cloth('#304a6b'));
+   def('plastic', 32, 32, 1.0, (c, w, h, r) => {
+     c.fillStyle = '#c2bfb4'; c.fillRect(0, 0, w, h);
+     noise(c, w, h, r, 8);
+@@ -735,6 +1047,8 @@
+   /* ---------------------------- API ------------------------------- */
+   const Tex = {
+     defs,
++    // the painting toolkit, for the textures painted elsewhere (the city's facades, faces, clothes)
++    paint: { fbm, pass, shadeBy, stainBy, grain, run, runs, blob, crack, wrap, rgba, smooth, brickWall, concreteBody, ctx2d },
+     filterMode() {
+       return DV.Settings && DV.Settings.get('textureFilter') === 'smooth' ? THREE.LinearFilter : THREE.NearestFilter;
+     },
+@@ -755,7 +1069,7 @@
+         return Tex.get('white');
+       }
+       const cv = makeCanvas(d.w, d.h);
+-      const ctx = cv.getContext('2d');
++      const ctx = ctx2d(cv);
+       d.painter(ctx, d.w, d.h, U.rng('tex_' + name));
+       const tex = new THREE.CanvasTexture(cv);
+       Tex.finalize(tex, d.opts);
