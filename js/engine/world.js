@@ -711,6 +711,8 @@
         const [i, j] = k.split(',').map(Number);
         const x = this.bx0 + i * G, z = this.bz0 + j * G;
         if ([[0.3, 0.3], [-0.3, 0.3], [0.3, -0.3], [-0.3, -0.3]].some(([ox, oz]) => { const ri = this.roomIndexAt(x + ox, z + oz); return ri >= 0 && this.rooms[ri].noWalls; })) continue;
+        // (a corner where only open edges meet: no wall to end, so no post standing alone in the street)
+        if (postH[k] === 0) continue;
         const h = postH[k] || 3;
         const faces = {};
         for (const [f, ox, oz] of [['px', 1, 0], ['nx', -1, 0], ['pz', 0, 1], ['nz', 0, -1]]) {

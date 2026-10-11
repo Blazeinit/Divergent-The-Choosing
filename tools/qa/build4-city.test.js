@@ -104,6 +104,8 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     const hit = (x, zz, m) => roads.some((q) => x > q[0] + m && x < q[2] - m && zz > q[1] + m && zz < q[3] - m);
     const bad = z.city.walk.solids.filter((q) => hit((q[0] + q[2]) / 2, (q[1] + q[3]) / 2, 0.3)).map((q) => q.slice(0, 4).map((v) => +(+v).toFixed(1)));
     for (const c of z.streetKit.chunks.values()) for (const it of c.items) if (hit(it.x, it.z, 0.4) && !/paint|car|manhole|drain|cone|barrier|signal/.test(it.name)) bad.push([it.name, +it.x.toFixed(1), +it.z.toFixed(1)]);
+    // (and nothing solid of any kind: the world builder's walls and posts, props; parked and moving traffic aside)
+    for (const c of z.colliders.boxes) if (c.enabled !== false && !/vehicle|car|traffic/.test(c.tag || '') && hit((c.x0 + c.x1) / 2, (c.z0 + c.z1) / 2, 0.3) && (c.y1 || 3) > 0.3) bad.push(['collider:' + c.tag, +((c.x0 + c.x1) / 2).toFixed(1), +((c.z0 + c.z1) / 2).toFixed(1)]);
     return { n: bad.length, bad: bad.slice(0, 8), train: !!z.city.train };
   });
   T.ok(inRoad.n === 0 && !inRoad.train, 'nothing stands in a road (no stray pillar, post or column; no elevated railway)', inRoad);
