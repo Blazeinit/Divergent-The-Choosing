@@ -106,7 +106,7 @@
       this.x = spot.x; this.z = spot.z;
       this.rot = spot.rot;
       this.vx = this.vz = 0;
-      this.action = spot.act === 'recline' || spot.act === 'lie' ? spot.act : 'sit'; // (a bed is lain on, along it, not sat on)
+      this.action = spot.act === 'recline' || spot.act === 'lie' || spot.act === 'hang' ? spot.act : 'sit'; // (a bed is lain on, along it, not sat on; a rail on a train is held, standing)
       this.syncModel();
     },
     standUp() {

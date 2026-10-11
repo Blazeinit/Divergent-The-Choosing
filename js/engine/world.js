@@ -705,6 +705,7 @@
       for (const k of posts) {
         const [i, j] = k.split(',').map(Number);
         const x = this.bx0 + i * G, z = this.bz0 + j * G;
+        if ([[0.3, 0.3], [-0.3, 0.3], [0.3, -0.3], [-0.3, -0.3]].some(([ox, oz]) => { const ri = this.roomIndexAt(x + ox, z + oz); return ri >= 0 && this.rooms[ri].noWalls; })) continue;
         const h = postH[k] || 3;
         const faces = {};
         for (const [f, ox, oz] of [['px', 1, 0], ['nx', -1, 0], ['pz', 0, 1], ['nz', 0, -1]]) {
@@ -745,6 +746,8 @@
      * orient 'v': boundary x = x0 + line*G, from a*G to b*G along z.
      */
     wallSegment(orient, a, b, line, e, posts) {
+      // a room that draws its own walls (or moves them: the metro's platform and cars) gets none
+      if ((e.A >= 0 && this.rooms[e.A].noWalls) || (e.B >= 0 && this.rooms[e.B].noWalls)) return 0;
       const B = this.batch;
       const { h: Hh, style, ext } = this.heightFor(e.A, e.B);
       const op = e.op;

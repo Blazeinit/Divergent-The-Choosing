@@ -42,6 +42,7 @@
       if (DV.Activity && DV.Activity.active()) return 'Not now.';
       if (DV.Dialogue.isActive()) return 'Not now.';
       if (!DV.World.current) return 'Not now.';
+      if (DV.Metro && DV.Metro.riding()) return 'Not on a moving train.';
       if (P.pinned || P.cineAction || !P.onGround) return 'Not now.';
       if (DV.Clock.minutes() >= DAY_END - 1) return 'It\'s late. Find your bed.';
       return '';

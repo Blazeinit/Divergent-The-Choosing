@@ -326,6 +326,7 @@
       this.r = U.rng(this.opts.seed || 77);
       this.solidHash = new Map();
       for (const q of city.walk.solids) this.hashRect(this.solidHash, q, q);
+      for (const q of this.opts.clear || []) this.hashRect(this.solidHash, q, q); // (kept clear: nothing stands in front of a station entrance)
       const L = zone.openAir || zone.lighting.sample(zone.bx0 - 50, 1.3, zone.bz0 - 50, 0, 1, 0, null, true);
       this.mat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true, color: new THREE.Color(U.clamp(L[0] * 0.95, 0.3, 1.2), U.clamp(L[1] * 0.95, 0.3, 1.2), U.clamp(L[2] * 0.95, 0.3, 1.2)) });
       this.signMat = new THREE.MeshBasicMaterial({ map: signAtlas().tex, fog: true, color: this.mat.color.clone() });
