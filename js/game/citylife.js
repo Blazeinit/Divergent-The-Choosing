@@ -370,6 +370,7 @@
             const cx = p.x0, cz = p.z0;
             const nx = cx + Math.cos(a) * R, nz = cz + Math.sin(a) * R;
             p.rot = Math.atan2(nx - p.x, nz - p.z);
+            if (dt > 0) { p.vx = (nx - p.x) / dt; p.vz = (nz - p.z) / dt; }
             p.x = nx; p.z = nz; speed = 2.4; act = 'idle';
           } else if (sc.kind === 'sweeper') {
             // slowly up the pavement and back
@@ -403,6 +404,13 @@
     barkSources() {
       const now = performance.now(), out = [];
       for (const sc of this.scenes) for (const p of sc.people) if (p.bark && p.bark.until > now) out.push(p);
+      return out;
+    }
+    // everyone in a scene, for the loose things (js/engine/physics.js): they push them aside
+    movers() {
+      const out = [];
+      if (!this.shown) return out;
+      for (const sc of this.scenes) for (const p of sc.people) out.push(p);
       return out;
     }
     bodies(px, pz, r) {
