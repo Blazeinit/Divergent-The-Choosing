@@ -28,7 +28,7 @@
   const HYDRANT = [0.72, 0.36, 0.12], BENCH = [0.42, 0.3, 0.2], BIN = [0.2, 0.27, 0.22], LAMP = [1.0, 0.95, 0.8];
   const CONE = [0.95, 0.42, 0.1], WOOD = [0.55, 0.42, 0.26], WOOD_D = [0.4, 0.3, 0.18], MAIL = [0.14, 0.27, 0.55], FIRE = [0.7, 0.12, 0.08];
   // what isn't bolted down: a body in the zone's physics, not part of a chunk's mesh
-  const LOOSE = { bin: 1, news: 1, cone: 1, crate: 1, bag: 1 };
+  const LOOSE = { bin: 1, news: 1, cone: 1, crate: 1, bag: 1, can: 1, ball: 1 };
 
   // how each sector dresses its streets (chances per slot)
   const DRESS = {
@@ -157,6 +157,25 @@
     bag(M) {
       const g = new THREE.IcosahedronGeometry(0.29, 0); g.scale(1, 0.85, 0.95); g.translate(0, 0.25, 0); M.add(g, [0.07, 0.075, 0.08]);
       M.box(0, 0.52, 0, 0.08, 0.1, 0.08, [0.07, 0.075, 0.08]);
+    },
+    // a drink can (a little bigger than life, or nobody would see it)
+    can(M) {
+      cylY(M, 0, 0, 0, 0.045, 0.045, 0.118, [0.7, 0.1, 0.08], 8);
+      cylY(M, 0, 0.118, 0, 0.045, 0.036, 0.012, [0.72, 0.72, 0.7], 8);
+    },
+    // a football: white, with black patches round it (built round its middle: it turns as it rolls)
+    ball(M) {
+      M.add(new THREE.IcosahedronGeometry(0.12, 1), [0.9, 0.9, 0.86]);
+      const ico = new THREE.IcosahedronGeometry(1, 0), p = ico.attributes.position, seen = new Set(), up = new THREE.Vector3(0, 1, 0);
+      for (let i = 0; i < p.count; i++) {
+        const d = new THREE.Vector3(p.getX(i), p.getY(i), p.getZ(i)).normalize(), k = d.toArray().map((v) => v.toFixed(2)).join();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const g = new THREE.CylinderGeometry(0.042, 0.046, 0.012, 5);
+        g.applyMatrix4(new THREE.Matrix4().compose(d.clone().multiplyScalar(0.116), new THREE.Quaternion().setFromUnitVectors(up, d), new THREE.Vector3(1, 1, 1)));
+        M.add(g, [0.08, 0.08, 0.09]);
+      }
+      ico.dispose();
     },
     // the rest of what a street has
     planter(M, v) {
@@ -324,6 +343,7 @@
       this.chunks = new Map();
       this.parked = []; // parked cars: { x, z, rot, w, l } (the traffic steers clear of them)
       this.r = U.rng(this.opts.seed || 77);
+      this.r2 = U.rng((this.opts.seed || 77) + 1); // (the small loose things: their own dice, so the rest of the street is laid out as it always was)
       this.solidHash = new Map();
       for (const q of city.walk.solids) this.hashRect(this.solidHash, q, q);
       for (const q of this.opts.clear || []) this.hashRect(this.solidHash, q, q); // (kept clear: nothing stands in front of a station entrance)
@@ -364,7 +384,7 @@
     add(name, x, z, rot, opts) {
       opts = opts || {};
       if (!opts.force && this.blocked(x, z, opts.r || 0.35)) return false;
-      this.chunk(x, z).items.push({ name, x, z, rot, v: opts.v || 0, col: opts.col, car: opts.car || null });
+      this.chunk(x, z).items.push({ name, x, z, rot, v: opts.v || 0, col: opts.col, car: opts.car || null, y: opts.y || 0 });
       return true;
     }
 
@@ -519,8 +539,13 @@
       // benches, bins and newspaper boxes back by the building fronts (a bin with rubbish bags by it)
       for (let t = sd.a + 12; t < sd.b - 12; t += 14) {
         const q = r();
-        if (q < dz.bench) put('bench', t, 2.55, 0.95, 0.3);
-        else if (q < dz.bench + dz.bin) { if (put('bin', t, 0.5, 0.32, 0.32) && r() < dz.bags) put('bag', t + 0.75, 0.55, 0.3, 0.3, r() * 6.28); }
+        if (q < dz.bench) { if (put('bench', t, 2.55, 0.95, 0.3) && this.r2() < 0.08) this.add('ball', ...P(t + 1.4 + this.r2(), 2.1), 0, { force: true }); } // (somebody's left their ball by the bench)
+        else if (q < dz.bench + dz.bin) {
+          if (put('bin', t, 0.5, 0.32, 0.32)) {
+            if (r() < dz.bags) put('bag', t + 0.75, 0.55, 0.3, 0.3, r() * 6.28);
+            if (this.r2() < 0.35) this.add('can', ...P(t - 0.55 - this.r2() * 0.3, 0.35 + this.r2() * 0.4), this.r2() * 6.28, { force: true }); // (one that missed)
+          }
+        }
         else if (q < dz.bench + dz.bin + dz.news) put('news', t, 2.6, 0.58, 0.3);
       }
       // half way between those: planters, a bike rack, a phone booth; bollards by a door
@@ -533,8 +558,17 @@
       }
       // the ruins and the Dauntless sector: rubbish bags and crates against the walls
       if (dz.crates || dz.bags > 0.25) for (let t = sd.a + 8 + r() * 6; t < sd.b - 6; t += 11 + r() * 8) {
-        if (r() < (dz.crates || 0)) { put('crate', t, 2.6, 0.35, 0.35, face + (r() - 0.5) * 0.6); if (r() < 0.5) put('crate', t + 0.75, 2.62, 0.35, 0.35, face + (r() - 0.5) * 0.6); }
-        else if (r() < dz.bags) for (let k = 0; k < 2 + Math.floor(r() * 3); k++) put('bag', t + k * 0.55, 2.55 + (k % 2) * 0.25, 0.3, 0.3, r() * 6.28);
+        if (r() < (dz.crates || 0)) {
+          const rot = face + (r() - 0.5) * 0.6, one = put('crate', t, 2.6, 0.35, 0.35, rot);
+          if (r() < 0.5) {
+            put('crate', t + 0.75, 2.62, 0.35, 0.35, face + (r() - 0.5) * 0.6);
+            // (and one stacked on the first: it rests on it, and comes down if that's knocked)
+            if (one && this.r2() < 0.5) this.add('crate', ...P(t + (this.r2() - 0.5) * 0.12, 2.6), rot + (this.r2() - 0.5) * 0.3, { force: true, y: DV.Physics.SHAPES.crate.h });
+          }
+        } else if (r() < dz.bags) {
+          for (let k = 0; k < 2 + Math.floor(r() * 3); k++) put('bag', t + k * 0.55, 2.55 + (k % 2) * 0.25, 0.3, 0.3, r() * 6.28);
+          for (let k = 0; this.r2() < 0.45 && k < 3; k++) this.add('can', ...P(t - 0.5 + this.r2() * 2, 1.9 + this.r2() * 0.5), this.r2() * 6.28, { force: true });
+        }
       }
       // works on the pavement: a trench in the slabs, a barrier each side, cones round it
       if (r() < dz.works && len > 30) {
@@ -592,7 +626,7 @@
       for (const q of c.paint) M.flat(q[0], q[1], q[2], q[3], 0.022, [q[4], q[5], q[6]]);
       for (const it of c.items) {
         // (loose things are bodies in the physics, drawn by it)
-        if (LOOSE[it.name]) { if (!it.body) it.body = this.physics.add(it.name, it.x, it.z, it.rot); continue; }
+        if (LOOSE[it.name]) { if (!it.body) it.body = this.physics.add(it.name, it.x, it.z, it.rot, it.y); continue; }
         M.push(it.x, 0, it.z, it.rot);
         if (it.car) M.merge(DV.Vehicles.model(it.car.kind, { seed: it.car.seed, wreck: it.car.wreck }).geo);
         else M.merge(piece(it.name, it.name === 'tree' ? it.v : 0));
