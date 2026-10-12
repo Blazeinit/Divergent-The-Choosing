@@ -89,116 +89,193 @@
     const [r, g, b] = U.hexToRgb(hex);
     return U.rgbToCss(r * f, g * f, b * f);
   }
+  // The character's one texture, 256 × 128: the face on the left half (its front is mapped over it),
+  // and on the right what the rest of the body samples: a white band at the top (skin, and anything
+  // else of one flat colour), hair in strands, and cloth (a twill weave, slubs, the soft folds of how
+  // it hangs). The body's own colours come from its vertices; these only shade them.
+  const ATLAS = { white: [0.75, 1 - 8 / 128], hair: [132 / 256, 1 - 62 / 128, 252 / 256, 1 - 18 / 128], cloth: [132 / 256, 1 - 126 / 128, 252 / 256, 1 - 66 / 128] };
+  let bodyAtlas = null;
+  function paintBodyAtlas() {
+    if (bodyAtlas) return bodyAtlas;
+    const P = DV.Tex.paint, cv = document.createElement('canvas');
+    cv.width = 128; cv.height = 128;
+    const c = P.ctx2d(cv), r = U.rng('body_atlas');
+    c.fillStyle = '#ffffff'; c.fillRect(0, 0, 128, 128);
+    // hair: strands down the region (a texel across is ~3 mm), lighter where the light catches them
+    const hairF = P.fbm(128, 48, r, 16, 3, 0.6, 1 / 8);
+    const img = c.getImageData(0, 16, 128, 48), d = img.data;
+    for (let y = 0, i = 0; y < 48; y++) for (let x = 0; x < 128; x++, i += 4) {
+      const v = 214 + (hairF[y * 128 + x] - 0.5) * 70 + (Math.sin(x * 2.3 + hairF[y * 128 + x] * 9) * 0.5 + 0.5) * 30 - 10;
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    c.putImageData(img, 0, 16);
+    // cloth: (the region is stretched four times as tall on the body as it is across: 0.9 m by
+    // 1.9 m) the weave's slubs, a texel apart, and the soft folds where it hangs and creases
+    const folds = P.fbm(128, 64, r, 6, 3, 0.55, 1 / 3), wk = P.fbm(128, 64, r, 32, 2, 0.6);
+    const im2 = c.getImageData(0, 64, 128, 64), e = im2.data;
+    for (let y = 0, i = 0; y < 64; y++) for (let x = 0; x < 128; x++, i += 4) {
+      const p = y * 128 + x, rib = (x + y) % 3 === 0 ? 0.965 : 1.01;
+      const v = 238 * rib * (0.92 + folds[p] * 0.12) * (0.97 + wk[p] * 0.05) * (0.98 + r() * 0.04);
+      e[i] = e[i + 1] = e[i + 2] = v;
+    }
+    c.putImageData(im2, 0, 64);
+    bodyAtlas = cv;
+    return cv;
+  }
   function faceTexture(app) {
     const f = FACES[app.face % FACES.length];
     const key = [app.skin, app.face, app.eyes, app.sex, app.age > 35 ? 'old' : 'y', app.beard || '', app.hairColor, app.faceless ? 'fl' : '', app.makeup ? 'mk' : ''].join('|');
     if (faceCache[key]) return faceCache[key];
-    const S = 64;
+    const P = DV.Tex.paint, S = 128;
     const cv = document.createElement('canvas');
-    cv.width = cv.height = S;
-    const c = cv.getContext('2d');
-    const skin = app.skin;
-    c.fillStyle = skin;
-    c.fillRect(0, 0, S, S);
+    cv.width = S * 2; cv.height = S;
+    const c = P.ctx2d(cv);
+    c.drawImage(paintBodyAtlas(), S, 0);
+    c.save(); c.beginPath(); c.rect(0, 0, S, S); c.clip();
+    const skin = app.skin, sk = U.hexToRgb(skin).map((v) => v * 255);
+    const tone = (k, a) => P.rgba([sk[0] * k, sk[1] * k, sk[2] * k], a === undefined ? 1 : a);
+    const soft = (x, y, rx, ry, col, a) => { // a soft-edged oval of colour
+      c.save(); c.translate(x, y); c.scale(1, ry / rx);
+      const g = c.createRadialGradient(0, 0, 0, 0, 0, rx);
+      g.addColorStop(0, col.replace(/[\d.]+\)$/, a + ')')); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)'));
+      c.fillStyle = g; c.fillRect(-rx, -rx, rx * 2, rx * 2); c.restore();
+    };
+    c.fillStyle = skin; c.fillRect(0, 0, S, S);
     if (app.faceless) {
       // mirrored mask for simulation figures
       const g = c.createLinearGradient(0, 0, S, S);
       g.addColorStop(0, '#c9d2d6'); g.addColorStop(0.5, '#f2f6f7'); g.addColorStop(1, '#8e999e');
       c.fillStyle = g; c.fillRect(0, 0, S, S);
-      c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(18, 26, 10, 2); c.fillRect(36, 26, 10, 2);
+      c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(36, 52, 20, 4); c.fillRect(72, 52, 20, 4);
     } else {
-      // shading: temples, jaw, under the brows
-      c.fillStyle = shade(skin, 0.86);
-      c.fillRect(0, 0, 6, S); c.fillRect(S - 6, 0, 6, S);
-      c.fillStyle = shade(skin, 0.9);
-      c.fillRect(6, 54, S - 12, 10);
-      if (f.cheek) { c.fillStyle = shade(skin, 0.85); c.fillRect(12, 38, 6, 8); c.fillRect(46, 38, 6, 8); }
-      const ey = 27, exL = 19, exR = 45;
-      const brow = app.hairColor && app.hairColor !== '#ddd3b8' ? shade(app.hairColor, 0.9) : shade(skin, 0.5);
-      // brows
-      c.fillStyle = brow;
-      const bw = f.brow === 'thick' ? 2 : 1;
-      for (const [ex, s] of [[exL, -1], [exR, 1]]) {
-        if (f.brow === 'angled') { c.fillRect(ex - 4, ey - 6 + (s < 0 ? 1 : 0), 4, bw); c.fillRect(ex, ey - 6 + (s < 0 ? 0 : 1), 4, bw); }
-        else if (f.brow === 'arched') { c.fillRect(ex - 4, ey - 5, 2, bw); c.fillRect(ex - 2, ey - 6, 4, bw); c.fillRect(ex + 2, ey - 5, 2, bw); }
-        else c.fillRect(ex - 4, ey - 6, 8, bw);
+      const ey = 54, exL = 38, exR = 90;
+      const nl = f.nose === 'long' ? 26 : f.nose === 'button' ? 16 : 20;
+      const my = ey + nl + 14;
+      // the modelling of the face: the temples and the sides falling away, the jaw's shade, light on
+      // the forehead, the bridge of the nose and the cheekbones
+      const side = c.createLinearGradient(0, 0, S, 0);
+      side.addColorStop(0, tone(0.84)); side.addColorStop(0.2, tone(1, 0)); side.addColorStop(0.8, tone(1, 0)); side.addColorStop(1, tone(0.84));
+      c.fillStyle = side; c.fillRect(0, 0, S, S);
+      const jaw = c.createLinearGradient(0, S * 0.78, 0, S);
+      jaw.addColorStop(0, tone(1, 0)); jaw.addColorStop(1, tone(0.86));
+      c.fillStyle = jaw; c.fillRect(0, S * 0.78, S, S * 0.22);
+      soft(64, 22, 34, 14, 'rgba(255,248,240,1)', 0.12); // forehead
+      soft(exL - 4, ey + 16, 14, 9, 'rgba(255,246,236,1)', 0.1); soft(exR + 4, ey + 16, 14, 9, 'rgba(255,246,236,1)', 0.1); // cheekbones
+      if (f.cheek) { soft(24, ey + 26, 10, 14, tone(0.7, 1), 0.35); soft(104, ey + 26, 10, 14, tone(0.7, 1), 0.35); } // hollows under them
+      soft(exL - 6, ey + 20, 11, 7, 'rgba(196,96,84,1)', app.sex === 'f' ? 0.2 : 0.09); soft(exR + 6, ey + 20, 11, 7, 'rgba(196,96,84,1)', app.sex === 'f' ? 0.2 : 0.09); // colour in the cheeks
+      // the eye sockets, the shade under the brow
+      soft(exL, ey - 1, 15, 9, tone(0.72, 1), 0.45); soft(exR, ey - 1, 15, 9, tone(0.72, 1), 0.45);
+      // brows: hairs along a curve, thicker toward the nose
+      const brow = app.hairColor && app.hairColor !== '#ddd3b8' ? U.hexToRgb(app.hairColor).map((v) => v * 230) : sk.map((v) => v * 0.45);
+      const bw = f.brow === 'thick' ? 4 : f.brow === 'arched' ? 2.4 : 3;
+      const br = U.rng(key + 'brow');
+      for (const s of [-1, 1]) {
+        const ex = s < 0 ? exL : exR;
+        const pt = (t) => { // t: 0 at the nose end, 1 at the tail
+          const x = ex - s * 9 + s * t * 20;
+          let y = ey - 12;
+          if (f.brow === 'arched') y -= Math.sin(t * Math.PI) * 4;
+          else if (f.brow === 'angled') y -= t < 0.65 ? t * 5 : 3.2 - (t - 0.65) * 5;
+          else y -= Math.sin(t * Math.PI) * 1.5;
+          return [x, y];
+        };
+        for (let k = 0; k < 46; k++) {
+          const t = br(), [x, y] = pt(t), wdt = bw * (1 - t * 0.55);
+          c.strokeStyle = P.rgba(brow, 0.45 + br() * 0.4); c.lineWidth = 0.8;
+          c.beginPath(); c.moveTo(x, y + (br() - 0.5) * wdt); c.lineTo(x + s * (2 + br() * 2), y + (br() - 0.5) * wdt - 1); c.stroke();
+        }
       }
-      // eye sockets
-      c.fillStyle = shade(skin, 0.9);
-      c.fillRect(exL - 4, ey - 3, 9, 6); c.fillRect(exR - 4, ey - 3, 9, 6);
-      // eyes
-      const eh = f.eyes === 'narrow' ? 2 : f.eyes === 'wide' ? 4 : 3;
+      // eyes: an almond of white shaded by the lid, the iris with a darker ring and the pupil, a
+      // catchlight; the upper lid's lashes as a dark line, the crease above, a faint lower lid
+      const eh = f.eyes === 'narrow' ? 4.5 : f.eyes === 'wide' ? 7.5 : 6, ew = 9;
+      const iris = U.hexToRgb(app.eyes || '#3a2a1a').map((v) => v * 255);
       for (const ex of [exL, exR]) {
-        c.fillStyle = '#ece8e0';
-        c.fillRect(ex - 3, ey - Math.floor(eh / 2), 7, eh);
-        c.fillStyle = app.eyes || '#3a2a1a';
-        c.fillRect(ex - 1, ey - Math.floor(eh / 2), 3, eh);
-        c.fillStyle = '#0c0a08';
-        c.fillRect(ex, ey - Math.floor(eh / 2) + (eh > 2 ? 1 : 0), 1, 1);
-        c.fillStyle = app.sex === 'f' || f.eyes === 'heavy' ? '#1a1410' : shade(skin, 0.45);
-        c.fillRect(ex - 3, ey - Math.floor(eh / 2) - 1, 7, 1);
-        if (f.eyes === 'heavy') { c.fillStyle = shade(skin, 0.75); c.fillRect(ex - 3, ey - Math.floor(eh / 2) - 2, 7, 1); }
+        const almond = () => { c.beginPath(); c.moveTo(ex - ew, ey); c.quadraticCurveTo(ex, ey - eh * 1.25, ex + ew, ey); c.quadraticCurveTo(ex, ey + eh * 0.95, ex - ew, ey); c.closePath(); };
+        almond(); c.fillStyle = '#ddd6cc'; c.fill();
+        c.save(); almond(); c.clip();
+        const ir = eh * 0.78 + 0.6;
+        c.fillStyle = P.rgba(iris, 1); c.beginPath(); c.arc(ex, ey - 0.3, ir, 0, 6.3); c.fill();
+        c.strokeStyle = P.rgba(iris.map((v) => v * 0.45), 0.9); c.lineWidth = 0.9; c.beginPath(); c.arc(ex, ey - 0.3, ir - 0.4, 0, 6.3); c.stroke();
+        c.fillStyle = '#0a0806'; c.beginPath(); c.arc(ex, ey - 0.3, ir * 0.42, 0, 6.3); c.fill();
+        c.fillStyle = 'rgba(255,255,255,0.85)'; c.fillRect(ex + 1, ey - ir * 0.6, 1.4, 1.4);
+        const lid = c.createLinearGradient(0, ey - eh, 0, ey + 1); lid.addColorStop(0, 'rgba(40,24,16,0.55)'); lid.addColorStop(1, 'rgba(40,24,16,0)');
+        c.fillStyle = lid; c.fillRect(ex - ew, ey - eh * 1.3, ew * 2, eh * 1.3 + 1); // the lid's shadow on the eyeball
+        c.restore();
+        c.strokeStyle = app.sex === 'f' || f.eyes === 'heavy' ? 'rgba(20,14,10,0.95)' : P.rgba(sk.map((v) => v * 0.3), 0.9);
+        c.lineWidth = app.sex === 'f' ? 1.8 : 1.3;
+        c.beginPath(); c.moveTo(ex - ew - 0.5, ey + 0.3); c.quadraticCurveTo(ex, ey - eh * 1.3, ex + ew + 1, ey - 0.6); c.stroke();
+        c.strokeStyle = tone(0.62, 0.6); c.lineWidth = 0.8;
+        c.beginPath(); c.moveTo(ex - ew + 1, ey - eh * 0.7 - 2); c.quadraticCurveTo(ex, ey - eh * 1.5 - 3, ex + ew, ey - eh * 0.6 - 2); c.stroke(); // the crease
+        if (f.eyes === 'heavy') { c.fillStyle = tone(0.8, 0.8); c.beginPath(); c.moveTo(ex - ew, ey - 1); c.quadraticCurveTo(ex, ey - eh * 1.25 - 2, ex + ew, ey - 1); c.quadraticCurveTo(ex, ey - eh * 0.6, ex - ew, ey - 1); c.fill(); }
+        c.strokeStyle = tone(0.7, 0.55); c.lineWidth = 0.8;
+        c.beginPath(); c.moveTo(ex - ew + 1, ey + 0.8); c.quadraticCurveTo(ex, ey + eh * 1.05, ex + ew - 1, ey + 0.6); c.stroke();
+        soft(ex, ey + eh + 3, 8, 3, tone(0.75, 1), 0.3); // under the eye
       }
-      // nose
-      c.fillStyle = shade(skin, 0.8);
-      const nl = f.nose === 'long' ? 13 : f.nose === 'button' ? 8 : 10;
-      c.fillRect(31, ey + 1, 1, nl);
-      c.fillStyle = shade(skin, 0.7);
-      const nw = f.nose === 'wide' ? 4 : f.nose === 'narrow' ? 2 : 3;
-      c.fillRect(32 - nw - 1, ey + nl, nw, 2); c.fillRect(33, ey + nl, nw, 2);
-      // mouth
-      const my = ey + nl + 7;
-      const lip = app.sex === 'f' && app.makeup !== false ? '#9a4a48' : shade(skin, 0.62);
-      c.fillStyle = lip;
-      const mw = f.mouth === 'full' ? 12 : f.mouth === 'thin' ? 9 : 10;
-      c.fillRect(32 - mw / 2, my, mw, f.mouth === 'full' ? 3 : 2);
-      c.fillStyle = shade(skin, 0.42);
-      c.fillRect(32 - mw / 2, my + (f.mouth === 'full' ? 1 : 0), mw, 1);
-      if (f.mouth === 'smile') { c.fillRect(32 - mw / 2 - 1, my - 1, 1, 1); c.fillRect(32 + mw / 2, my - 1, 1, 1); }
-      if (f.mouth === 'frown') { c.fillRect(32 - mw / 2 - 1, my + 2, 1, 1); c.fillRect(32 + mw / 2, my + 2, 1, 1); }
-      if (f.mouth === 'smirk') { c.fillRect(32 + mw / 2, my - 1, 2, 1); }
-      // cheeks
-      if (app.sex === 'f') { c.fillStyle = 'rgba(200,90,80,0.18)'; c.fillRect(12, 34, 7, 5); c.fillRect(45, 34, 7, 5); }
-      if (f.freckles || app.freckles) {
-        c.fillStyle = shade(skin, 0.7);
-        const r = U.rng(key);
-        for (let k = 0; k < 14; k++) c.fillRect(14 + Math.floor(r() * 36), 31 + Math.floor(r() * 8), 1, 1);
-      }
+      // nose: light down the bridge, shade along one side, the tip lit, nostrils, its shadow beneath
+      const nw = f.nose === 'wide' ? 8 : f.nose === 'narrow' ? 4.5 : 6;
+      c.fillStyle = 'rgba(255,248,240,0.13)'; c.fillRect(62, ey - 2, 4, nl - 2);
+      c.fillStyle = tone(0.8, 0.45); c.fillRect(57, ey + 2, 3, nl - 4);
+      soft(64, ey + nl - 3, nw * 0.8, 4, 'rgba(255,248,240,1)', 0.16);
+      c.fillStyle = tone(0.5, 0.85);
+      for (const s of [-1, 1]) { c.beginPath(); c.ellipse(64 + s * (nw * 0.55), ey + nl + 1, 2.3, 1.4, s * 0.3, 0, 6.3); c.fill(); }
+      soft(64, ey + nl + 4, nw + 4, 3, tone(0.72, 1), 0.5);
+      c.fillStyle = tone(0.84, 0.5); c.fillRect(62, ey + nl + 5, 4, my - ey - nl - 6); // the philtrum
+      // mouth: the upper lip in shade, the lower catching the light, the line between them dark
+      const lipCol = app.sex === 'f' && app.makeup !== false ? [154, 74, 72] : sk.map((v, i) => v * [0.78, 0.6, 0.6][i]);
+      const mw = f.mouth === 'full' ? 12 : f.mouth === 'thin' ? 8.5 : 10;
+      const lh = f.mouth === 'full' ? 4.5 : f.mouth === 'thin' ? 2.2 : 3.2;
+      const cy = f.mouth === 'smile' ? -1.6 : f.mouth === 'frown' ? 1.8 : 0;
+      c.fillStyle = P.rgba(lipCol.map((v) => v * 0.85), 1);
+      c.beginPath(); c.moveTo(64 - mw, my + cy); c.quadraticCurveTo(60, my - lh, 64, my - lh * 0.7); c.quadraticCurveTo(68, my - lh, 64 + mw, my + (f.mouth === 'smirk' ? -2 : cy)); c.lineTo(64 - mw, my + cy); c.fill();
+      c.fillStyle = P.rgba(lipCol, 1);
+      c.beginPath(); c.moveTo(64 - mw + 1, my + cy); c.quadraticCurveTo(64, my + lh * 1.5, 64 + mw - 1, my + (f.mouth === 'smirk' ? -2 : cy)); c.lineTo(64 - mw + 1, my + cy); c.fill();
+      c.fillStyle = 'rgba(255,240,230,0.25)'; c.fillRect(61, my + lh * 0.55, 6, 1.2);
+      c.strokeStyle = P.rgba(sk.map((v) => v * 0.32), 0.95); c.lineWidth = 1.2;
+      c.beginPath(); c.moveTo(64 - mw, my + cy); c.quadraticCurveTo(64, my + 0.8, 64 + mw, my + (f.mouth === 'smirk' ? -2 : cy)); c.stroke();
+      soft(64, my + lh * 1.5 + 4, 8, 3, tone(0.75, 1), 0.4); // under the lower lip
       if (app.age > 35) {
-        c.fillStyle = shade(skin, 0.78);
-        c.fillRect(20, 14, 24, 1); c.fillRect(22, 17, 20, 1);
-        c.fillRect(24, ey + nl + 3, 1, 6); c.fillRect(39, ey + nl + 3, 1, 6);
-        c.fillRect(exL - 6, ey, 2, 1); c.fillRect(exR + 5, ey, 2, 1);
+        c.strokeStyle = tone(0.74, 0.6); c.lineWidth = 0.9;
+        for (const y of [26, 32]) { c.beginPath(); c.moveTo(42, y); c.quadraticCurveTo(64, y - 2, 86, y); c.stroke(); } // the forehead
+        for (const s of [-1, 1]) { c.beginPath(); c.moveTo(64 + s * (nw + 3), ey + nl - 2); c.quadraticCurveTo(64 + s * (mw + 6), my - 2, 64 + s * (mw + 3), my + 8); c.stroke(); } // nose to mouth
+        for (const [ex, s] of [[exL, -1], [exR, 1]]) for (let k = -1; k <= 1; k++) { c.beginPath(); c.moveTo(ex + s * (ew + 2), ey + k * 2.5); c.lineTo(ex + s * (ew + 6), ey + k * 3.5); c.stroke(); } // crow's feet
+      }
+      if (f.freckles || app.freckles) {
+        const r = U.rng(key);
+        for (let k = 0; k < 40; k++) { c.fillStyle = tone(0.72, 0.4 + r() * 0.4); c.beginPath(); c.arc(28 + r() * 72, ey + 8 + r() * 18, 0.7 + r() * 0.6, 0, 6.3); c.fill(); }
       }
       if (app.beard === 'stubble' || app.beard === 'short' || app.beard === 'full') {
-        c.fillStyle = app.hairColor ? shade(app.hairColor, 1.0) : '#2a1d14';
-        c.globalAlpha = app.beard === 'stubble' ? 0.28 : 0.6;
-        const r = U.rng(key + 'b');
-        for (let k = 0; k < 220; k++) {
-          const x = 10 + Math.floor(r() * 44), y = ey + nl + 2 + Math.floor(r() * (S - ey - nl - 2));
-          if (y > my - 2 && y < my + 3 && x > 32 - mw / 2 - 1 && x < 32 + mw / 2 + 1) continue;
-          c.fillRect(x, y, 1, 1);
+        const hc = U.hexToRgb(app.hairColor || '#2a1d14').map((v) => v * 255);
+        const r = U.rng(key + 'b'), dens = app.beard === 'stubble' ? 0.22 : 0.5;
+        soft(64, my + 6, 46, 26, P.rgba(hc, 1), dens * 0.5); // the shadow of it
+        for (let k = 0; k < 1400; k++) {
+          const x = 18 + r() * 92, y = ey + nl + 2 + r() * (S - ey - nl - 2);
+          if (Math.abs(x - 64) < mw + 1 && Math.abs(y - my) < lh + 2) continue;
+          if (y < my - 6 && Math.abs(x - 64) > mw + 10) continue; // (up the cheeks only a little)
+          c.fillStyle = P.rgba(hc, dens * (0.5 + r() * 0.5)); c.fillRect(x, y, 1, 1);
         }
-        c.globalAlpha = 1;
       }
-      if (app.scar) { c.fillStyle = shade(skin, 0.65); c.fillRect(exR + 2, ey - 4, 1, 9); }
+      if (app.scar) { c.strokeStyle = tone(0.62, 0.9); c.lineWidth = 1.6; c.beginPath(); c.moveTo(exR + 5, ey - 10); c.lineTo(exR + 3, ey + 9); c.stroke(); c.strokeStyle = 'rgba(255,230,220,0.3)'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(exR + 6, ey - 10); c.lineTo(exR + 4, ey + 9); c.stroke(); }
+      P.grain(c, S, S, U.rng(key + 'g'), 0.035); // the skin's grain
     }
-    c.fillStyle = '#ffffff';
-    c.fillRect(0, 0, 8, 8);
+    c.restore();
     const tex = new THREE.CanvasTexture(cv);
-    tex.magFilter = THREE.NearestFilter;
+    tex.magFilter = DV.Tex.filterMode();
     tex.minFilter = THREE.LinearMipmapLinearFilter;
     faceCache[key] = tex;
     return tex;
   }
 
   /* ----------------------------- mesh builder ----------------------------- */
-  // Body and face share one material (one draw call per character): the face
-  // texture reserves an 8x8 white block in its top-left corner, and every
-  // vertex-coloured body triangle samples it.
-  const WHITE_UV = [4 / 64, 1 - 4 / 64];
+  // Body and face share one material (one draw call per character): the texture's atlas half (see
+  // faceTexture) has a white band that skin and the like sample, and strands and cloth that hair and
+  // clothes are mapped onto, by where they are on the body (a projection from the front, turned a
+  // little so the sides get some of it too).
+  const WHITE_UV = ATLAS.white;
+  const rgbKey = (c) => Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255);
   class Builder {
     constructor() {
+      this.plain = new Set(); // colours that stay flat (the skin)
+      this.hair = false; // set while the hair is built
       this.g = [
         { pos: [], nor: [], col: [], uv: [], si: [] },
         { pos: [], nor: [], col: [], uv: [], si: [] },
@@ -211,11 +288,18 @@
       const l = Math.hypot(nx, ny, nz) || 1;
       nx /= l; ny /= l; nz /= l;
       const cc = typeof col === 'string' ? U.hexToRgb(col) : col;
+      const R = ua ? null : this.hair ? ATLAS.hair : this.plain.has(rgbKey(cc)) ? null : ATLAS.cloth;
       for (const [p, u] of [[a, ua], [b, ub], [c, uc]]) {
         G.pos.push(p[0], p[1], p[2]);
         G.nor.push(nx, ny, nz);
         G.col.push(cc[0], cc[1], cc[2]);
-        G.uv.push(u ? u[0] : WHITE_UV[0], u ? u[1] : WHITE_UV[1]);
+        if (u) G.uv.push(u[0], u[1]);
+        else if (!R) G.uv.push(WHITE_UV[0], WHITE_UV[1]);
+        else {
+          // (hair: 0.35 m across the head and 0.5 m down from its crown; cloth: 0.9 m across, the body's height)
+          const hs = this.hair, lu = U.clamp((p[0] + p[2] * 0.8) / (hs ? 0.35 : 0.9) + 0.5, 0, 1), lv = U.clamp(hs ? (p[1] - 1.45) / 0.5 : p[1] / 1.9, 0, 1);
+          G.uv.push(R[0] + (R[2] - R[0]) * lu, R[1] + (R[3] - R[1]) * lv);
+        }
         G.si.push(bone);
       }
     }
@@ -329,6 +413,8 @@
     const child = !!app.child;
     const o = app.outfit || {};
     const skin = app.skin || '#d8a27c';
+    for (const k of [1, 0.96, 0.92, 0.75]) B.plain.add(rgbKey(U.hexToRgb(shadeHex(skin, k))));
+    B.plain.add(rgbKey(U.hexToRgb(skin)));
     const top = o.topColor || '#888888', top2 = o.topColor2 || shadeHex(top, 1.25);
     const bottom = o.bottomColor || '#555555', shoe = o.shoeColor || '#222222';
     const hair = app.hairColor || '#2e1f15';
@@ -541,7 +627,7 @@
       const pa = [a.p[0], a.p[1] + cy, a.p[2] + cz], pb = [b.p[0], b.p[1] + cy, b.p[2] + cz], pc = [c.p[0], c.p[1] + cy, c.p[2] + cz];
       const front = a.n[2] > 0.99 && b.n[2] > 0.99 && c.n[2] > 0.99;
       if (front) {
-        const UVf = (p) => [U.clamp(0.5 + p[0] / (w * 1.02), 0, 1), U.clamp(0.5 + (p[1] - cy) / (h * 1.0), 0, 1)];
+        const UVf = (p) => [U.clamp(0.5 + p[0] / (w * 1.02), 0, 1) * 0.5, U.clamp(0.5 + (p[1] - cy) / (h * 1.0), 0, 1)];
         B.tri(1, BI.head, pa, pb, pc, [1, 1, 1], UVf(pa), UVf(pb), UVf(pc));
       } else {
         B.tri(0, BI.head, pa, pb, pc, skinRGB);
@@ -580,6 +666,7 @@
       }
       B.box(BI.head, col, 0, gy + 0.008, gz, 0.024, 0.005, 0.006);
     }
+    B.hair = true;
     buildHair(B, app, w, h, d, cy, cz);
     // beard geometry
     if (app.beard === 'short' || app.beard === 'full') {
@@ -592,7 +679,7 @@
           B.tri(0, BI.head, [a.p[0], a.p[1] + cy, a.p[2] + cz], [b.p[0], b.p[1] + cy, b.p[2] + cz], [c.p[0], c.p[1] + cy, c.p[2] + cz], bc);
         }
       }
-    }
+    }    B.hair = false;
   }
 
   function buildHair(B, app, w, h, d, cy, cz) {
