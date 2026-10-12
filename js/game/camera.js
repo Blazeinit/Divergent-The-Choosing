@@ -22,8 +22,12 @@
       this.pivot = new THREE.Vector3();
       this.shot = null; // cinematic {pos, look}
       this.shake = 0;
+      this.dipY = 0; // (a landing: the view drops and springs back)
+      this.dipV = 0;
       this.initialized = false;
     }
+    // a landing (or a fall): the view dips about k metres and springs back up
+    dip(k) { this.dipV -= k * 34; }
 
     handleMouse(dx, dy) {
       const s = 0.0024 * DV.Settings.get('mouseSensitivity');
@@ -105,6 +109,13 @@
         desiredPos.y = Math.max(desiredPos.y, (zone && !fly && zone.groundAt ? zone.groundAt(desiredPos.x, desiredPos.z) : 0) + 0.3);
         desiredLook = this.pivot.clone();
         desiredLook.y -= 0.05;
+        // the landing dip: a spring a little under critical damping (one small rebound)
+        if (this.dipY || this.dipV) {
+          const n = Math.ceil(dt / (1 / 120)), h = dt / n, W = 13, Z = 0.62;
+          for (let i = 0; i < n; i++) { this.dipV += (-W * W * this.dipY - 2 * Z * W * this.dipV) * h; this.dipY += this.dipV * h; }
+          if (Math.abs(this.dipY) < 1e-4 && Math.abs(this.dipV) < 1e-3) this.dipY = this.dipV = 0;
+          desiredPos.y += this.dipY; desiredLook.y += this.dipY * 0.8;
+        }
         if (!this.initialized) {
           this.pos.copy(desiredPos);
           this.look.copy(desiredLook);

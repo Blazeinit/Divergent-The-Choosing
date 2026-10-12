@@ -65,6 +65,10 @@
     hang: { uLegL: [-0.5, 0, 0.05], lLegL: [1.0, 0, 0], uLegR: [-0.2, 0, -0.05], lLegR: [0.6, 0, 0], uArmL: [-2.5, 0, 0.25], uArmR: [-2.5, 0, -0.25], lArmL: [-1.6, 0, 0], lArmR: [-1.6, 0, 0], spine: [0.1, 0, 0], head: [-0.2, 0, 0] },
     // pressing up over the top, a knee onto it
     mantle: { uLegL: [-2.0, 0, 0.1], lLegL: [2.2, 0, 0], uLegR: [0.15, 0, -0.05], lLegR: [0.6, 0, 0], uArmL: [-0.25, 0, 0.3], uArmR: [-0.25, 0, -0.3], lArmL: [-0.1, 0, 0], lArmR: [-0.1, 0, 0], spine: [0.75, 0, 0], head: [0.1, 0, 0] },
+    // knocked flat on the back: arms flung out, one knee up, the head lifting
+    sprawl: { uArmL: [-0.4, 0, 1.15], uArmR: [-0.2, 0, -1.25], lArmL: [-0.5, 0, 0], lArmR: [-0.3, 0, 0], uLegL: [-0.55, 0, 0.18], lLegL: [0.9, 0, 0], uLegR: [-0.08, 0, -0.16], lLegR: [0.15, 0, 0], footL: [0.3, 0, 0], footR: [0.4, 0, 0], head: [0.35, 0, 0] },
+    // sat up on the ground, knees up, a hand behind pushing off
+    sitground: { hy: -0.78, uLegL: [-1.25, 0, 0.12], uLegR: [-1.45, 0, -0.12], lLegL: [1.5, 0, 0], lLegR: [1.9, 0, 0], footL: [-0.3, 0, 0], footR: [-0.3, 0, 0], uArmL: [0.55, 0, 0.3], lArmL: [-0.2, 0, 0], uArmR: [-0.6, 0, -0.2], lArmR: [-0.6, 0, 0], spine: [0.35, 0, 0], head: [0.1, 0, 0] },
   };
   // each move: [t, pose, { sp: the whole body turned over (radians, forwards), pv: about a point
   // this high off the feet }] keys, t running 0 → 1. The bones ease between keys; the turn is
@@ -79,6 +83,10 @@
     kong: [[0, 'takeoff', { sp: 0, pv: 0.9 }], [0.3, 'dive', { sp: 0.55, pv: 0.9 }], [0.55, 'push', { sp: 0.3, pv: 0.9 }], [0.82, 'reach', { sp: 0, pv: 0.9 }], [1, 'reach', { sp: 0, pv: 0.9 }]],
     climb: [[0, 'takeoff'], [0.18, 'reachup'], [0.3, 'hang'], [0.55, 'hang'], [0.78, 'mantle'], [1, 'rise']],
     flip: [[0, 'takeoff', { sp: 0, pv: 0.45 }], [0.18, 'tuck', { sp: 0.35, pv: 0.45 }], [0.78, 'tuck', { sp: TAU - 0.3, pv: 0.45 }], [1, 'reach', { sp: TAU, pv: 0.45 }]],
+    // hit by a car: thrown, going over backwards (about the feet), flat on the back
+    knocked: [[0, 'drop', { sp: 0, pv: 0.12 }], [0.45, 'drop', { sp: -0.75, pv: 0.12 }], [1, 'sprawl', { sp: -Math.PI / 2, pv: 0.12 }]],
+    // and up off the ground: sit up, onto the feet in a crouch, stand
+    getup: [[0, 'sprawl', { sp: -Math.PI / 2, pv: 0.12 }], [0.38, 'sitground', { sp: 0, pv: 0.12 }], [0.7, 'squat', { sp: 0, pv: 0.12 }], [1, 'rise', { sp: 0, pv: 0.12 }]],
   };
   const PK_BONES = ['hips', 'spine', 'chest', 'neck', 'head', 'uArmL', 'lArmL', 'handL', 'uArmR', 'lArmR', 'handR', 'uLegL', 'lLegL', 'footL', 'uLegR', 'lLegR', 'footR'];
   const ZERO3 = [0, 0, 0];
@@ -1154,6 +1162,8 @@
       this.look.pitch = U.damp(this.look.pitch, this.look.tPitch, 6, dt);
       add('head', this.look.pitch, this.look.yaw * 0.7, 0);
       add('neck', 0, this.look.yaw * 0.3, 0);
+      // leaning into a sprint, or back in a slide (the player's momentum)
+      if (s.lean && !s.pk) { add('spine', s.lean, 0, 0); add('head', -s.lean * 0.5, 0, 0); hipZ -= s.lean * 0.08; }
 
       // apply with damping (fighting snaps between poses much faster)
       const k = 1 - Math.exp(-(s.fight ? 30 : s.pk ? 24 : 14) * dt);
