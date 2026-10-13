@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0a0710">
-<title>Mac Attack</title>
+<title>Farang Attack</title>
 <style>
   html,body{margin:0;height:100%;background:#0a0710;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;font-family:monospace}
   body{display:flex;align-items:center;justify-content:center;position:fixed;inset:0}
@@ -18,7 +18,7 @@
 <body>
 <canvas id="c" width="900" height="560"></canvas>
 <canvas id="fx3d" style="display:none"></canvas>
-<div id="rot"><div><i>📱</i>Rotate your phone<br><span style="font-size:14px;color:#fff">Mac Attack plays in landscape</span></div></div>
+<div id="rot"><div><i>📱</i>Rotate your phone<br><span style="font-size:14px;color:#fff">Farang Attack plays in landscape</span></div></div>
 <script>
 /**
  * @license
@@ -29,7 +29,7 @@
 
 </script>
 <script>
-// MAC ATTACK — Bangkok, 2am. Ring the bell, buy the bar a round, then pay every tab FAST.
+// FARANG ATTACK (classic menu: MAC ATTACK) — Bangkok, 2am. Ring the bell, buy the bar a round, then pay every tab FAST.
 // Pay quickly = admirers repay you more than the bill. Pay slowly = you lose money.
 // Go broke (or finish the night poorer) and security throws you out.
 // --- iOS/older Safari compatibility ---
@@ -115,7 +115,7 @@ function saveScore(win) {
 }
 function openLB() { if (state !== 'lb') lbReturn = state; state = 'lb'; }
 function closeLB() { state = lbReturn; }
-let creatorThen = null, looked = false; try { looked = localStorage.getItem('macattack_looked') === '1'; } catch (e) {}
+let classicMenu = false, keysDown = new Set(), creatorThen = null, looked = false; try { looked = localStorage.getItem('macattack_looked') === '1'; } catch (e) {}
 function openDiff() { if (!looked) { creatorThen = () => { state = 'diff'; }; openCreator(); } else state = 'diff'; }
 function finishCreator() { saveLook(); looked = true; try { localStorage.setItem('macattack_looked', '1'); } catch (e) {} if (creatorThen) { const f = creatorThen; creatorThen = null; f(); } else closeLB(); }
 function saveCamp() { try { localStorage.setItem(SAVEKEY, JSON.stringify(camp)); } catch (e) {} }
@@ -861,13 +861,28 @@ function big(s, y, c1, c2, glowc, size = 64) {
 function overlay() {
   g.fillStyle = 'rgba(6,3,10,.78)'; g.fillRect(0, 0, W, H); glow(W / 2, 230, 420, '#7a1f5a', .35);
   if (state === 'title') {
-    big('MAC ATTACK', 150, '#fff6b0', '#c77700', '#ff9a00', 84);
+    if (classicMenu) {                                                         // classic "Mac Attack" menu (Ctrl + M + C)
+      big('MAC ATTACK', 165, '#fff6b0', '#c77700', '#ff9a00', 78);
+      txt('FLEX  •  PAY  •  BUILD THE MANSION', W / 2, 198, 15, '#ff7ac6', 'center', '#ff2d95');
+      panel(130, 220, 640, 168);
+      txt("Flex across 6 Thai venues. Every baht of profit builds the farm.", W / 2, 252, 15, '#eee', 'center');
+      txt('Pay tabs FAST = up to 1.35x back.  Slow or late = you bleed cash.', W / 2, 280, 15, '#7CFF7C', 'center');
+      txt("Hit each stage's profit goal. Go broke or miss it and security throws you out.", W / 2, 308, 15, '#ff9b9b', 'center');
+      txt('3 strikes and the bank repossesses the farm.', W / 2, 336, 15, '#ffd54a', 'center');
+      txt('♥ ♥ ♥', W / 2, 372, 20, '#ff4d6d', 'center', '#ff0033');
+      if (saved) { button('CONTINUE  (stage ' + (saved.stage + 1) + ')', 130, 404, 300, 54, continueCamp, 18); button('NEW GAME', 470, 404, 300, 54, openDiff, 18); }
+      else button('NEW GAME', W / 2 - 150, 404, 300, 54, openDiff, 20);
+      button('★ LEADERBOARD', 50, 472, 260, 44, openLB, 14); button('MEDALS', 330, 472, 240, 44, openAch, 14); button('2-PLAYER DUEL', 590, 472, 260, 44, openVS, 14);
+      button('SOUND: ' + (muted ? 'OFF' : 'ON'), W - 150, H - 46, 130, 32, toggleMute, 11); button('STORY: ' + (storyOn ? 'ON' : 'OFF'), 20, H - 46, 130, 32, toggleStory, 11);
+    } else {
+    big('FARANG ATTACK', 150, '#fff6b0', '#c77700', '#ff9a00', 66);
     txt('FLEX  \u2022  PAY  \u2022  BUILD THE MANSION', W / 2, 185, 15, '#ff7ac6', 'center', '#ff2d95');
     const items = (saved ? [['CONTINUE  (stage ' + (saved.stage + 1) + ')', continueCamp], ['NEW GAME', openDiff]] : [['NEW GAME', openDiff]]).concat([['2-PLAYER DUEL', openVS], ['\u2605 LEADERBOARD', openLB], ['MEDALS', openAch], ['HOW TO PLAY', openHow], ['CREATE FLEXER', openCreator]]);
     items.forEach((it, i) => button(it[0], 170 + (i % 2) * 290, 225 + Math.floor(i / 2) * 66, 270, 52, it[1], i === 0 ? 19 : 16));
     const ms = Object.keys(achSet).length; txt(ms + ' / ' + ACH.length + ' medals  \u2022  3 strikes and the bank takes the farm', W / 2, 508, 12, '#aaa', 'center');
     button('SOUND: ' + (muted ? 'OFF' : 'ON'), W - 150, H - 46, 130, 32, toggleMute, 11); button('STORY: ' + (storyOn ? 'ON' : 'OFF'), 20, H - 46, 130, 32, toggleStory, 11);
     if (!TOUCH) txt('TEST KEYS:  E = ending   N = clear stage   F = fail stage', W / 2, 545, 11, '#777', 'center');
+    }
   } else if (state === 'diff') {
     big('CHOOSE YOUR NIGHT', 120, '#fff6b0', '#ffb300', '#ff9a00', 56);
     DIFF.forEach((d, i) => { const y = 160 + i * 106; button(d.name + '   \u00d7' + d.mult + ' score', 170, y, 560, 58, () => newCampaign(i), 20); txt(d.desc, W / 2, y + 82, 13, '#ddd', 'center'); });
@@ -1135,7 +1150,7 @@ function drawAch() {
     txt(on ? '\u2605' : '\u2606', x + 20, y + 26, 20, on ? '#ffd54a' : '#555', 'center', on ? '#ff9a00' : null); txt(a.name, x + 40, y + 15, 12, on ? '#fff' : '#888'); txt(a.desc, x + 40, y + 29, 9.5, on ? '#7ae7ff' : '#666'); });
   button('BACK', W / 2 - 80, 488, 160, 44, closeLB, 16);
 }
-function drawToasts() { toasts.forEach((o, i) => { const a = Math.min(1, o.t, 3.2 - o.t + .01) ; g.globalAlpha = Math.max(0, Math.min(1, o.t * 2)); panel(W / 2 - 170, 62 + i * 54, 340, 46); txt('★ MEDAL UNLOCKED', W / 2, 80 + i * 54, 10, '#ffd54a', 'center'); txt(o.name, W / 2, 100 + i * 54, 17, '#fff', 'center', '#ff9a00'); g.globalAlpha = 1; }); }
+function drawToasts() { toasts.forEach((o, i) => { const a = Math.min(1, o.t, 3.2 - o.t + .01) ; g.globalAlpha = Math.max(0, Math.min(1, o.t * 2)); panel(W / 2 - 170, 62 + i * 54, 340, 46); txt(o.hdr || '★ MEDAL UNLOCKED', W / 2, 80 + i * 54, 10, '#ffd54a', 'center'); txt(o.name, W / 2, 100 + i * 54, 17, '#fff', 'center', '#ff9a00'); g.globalAlpha = 1; }); }
 // ---------- 2-PLAYER VERSUS (same keyboard / same screen) ----------
 const VS_ROUNDS = 5, VS_START = 10000, VSK = ['A', 'S', 'D', 'F', 'J', 'K', 'L', ';'];
 const VSCODE = { KeyA: 0, KeyS: 1, KeyD: 2, KeyF: 3, KeyJ: 4, KeyK: 5, KeyL: 6, Semicolon: 7 };
@@ -1664,7 +1679,14 @@ cv.addEventListener('pointerdown', e => {
   else if (state === 'story') storyAdvance();
   else if (state === 'summary' || state === 'kick' || (state === 'ending' && endT > 1 && endT < 15.5)) primary();
 });
+addEventListener('keyup', e => { keysDown.delete(e.code); });
+window.addEventListener('blur', () => keysDown.clear());
 addEventListener('keydown', e => {
+  keysDown.add(e.code);
+  if (e.ctrlKey || e.metaKey) {                                                  // secret chord: Ctrl + M + C toggles the classic MAC ATTACK menu
+    if ((e.code === 'KeyC' && keysDown.has('KeyM')) || (e.code === 'KeyM' && keysDown.has('KeyC'))) { e.preventDefault(); classicMenu = !classicMenu; document.title = classicMenu ? 'Mac Attack' : 'Farang Attack'; paused = false; story = null; toTitle(); toasts.push({ hdr: 'SECRET MENU', name: classicMenu ? 'CLASSIC MAC ATTACK' : 'FARANG ATTACK', t: 2.5 }); [523, 659, 784].forEach((f, i) => tone(f, .15, 'triangle', .08, i * .07)); }
+    return;
+  }
   beep(1, .01, 'sine', .0001);
   if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (e.code === 'KeyM') { toggleMute(); return; }
