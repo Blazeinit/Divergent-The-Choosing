@@ -970,9 +970,8 @@
         slow: (dx, dz, k) => { const vn = Pl.vx * dx + Pl.vz * dz; if (vn > 0) { const cut = Math.min(vn, k * 0.5); Pl.vx -= dx * cut; Pl.vz -= dz * cut; } },
       } : null;
       // (the people in the scenes on the pavements push things about too: children running round)
-      const cl = zone.cityLife, peds = this.shown === null ? [] : cl && cl.movers ? this.peds.concat(cl.movers()) : this.peds;
+      const cl = zone.cityLife, walk = this.shown === null ? [] : this.walkers(), peds = cl && cl.movers && this.shown !== null ? walk.concat(cl.movers()) : walk;
       W.step(dt, { player: me, peds, cars: this.shown === null ? [] : this.cars });
-      W.step(dt, { player: me, peds: this.shown === null ? [] : this.walkers(), cars: this.shown === null ? [] : this.cars });
       // something that couldn't get out of your way (against a wall) moved you instead
       if (me && (me.x !== Pl.x || me.z !== Pl.z)) {
         const [nx, nz] = zone.colliders.resolveCircle(me.x, me.z, R, 'player', Pl.y - (zone.groundAt ? zone.groundAt(me.x, me.z) : 0));

@@ -198,20 +198,13 @@
       const athletics = DV.Stats ? DV.Stats.skill('athletics') : 20;
       let canRun = !this.exhausted && this.stamina > 0;
       const running = wantRun && canRun && !this.crouched;
-      const speedBonus = 1 + U.clamp((athletics - 20) / 200, 0, 0.18);
-      const target = (fly ? (wantRun ? 16 : 7) : (this.crouched ? P.crouchSpeed : running ? P.runSpeed * speedBonus : P.walkSpeed) * this.moveScale) * (dev ? dev.speed : 1);
-      this.steer(dt, mx * target, mz * target, running, fly, !!(mx || mz));
       const K = DV.Perks;
       const speedBonus = 1 + U.clamp((athletics - 20) / 200, 0, 0.18) + (K ? K.mod('sprint.speed') : 0);
       // a hard landing knocks the wind out of you for a moment (not if you've learned to roll)
       if (this.staggerT > 0) this.staggerT -= dt;
       const stag = this.staggerT > 0 ? 0.35 : 1;
       const target = (fly ? (wantRun ? 16 : 7) : (this.crouched ? P.crouchSpeed : running ? P.runSpeed * speedBonus : P.walkSpeed) * this.moveScale * stag) * (dev ? dev.speed : 1);
-      const tvx = mx * target, tvz = mz * target;
-      // little steering in the air
-      const a = 1 - Math.exp(-P.accel * (this.onGround || fly ? 1 : 0.22) * dt);
-      this.vx += (tvx - this.vx) * a;
-      this.vz += (tvz - this.vz) * a;
+      this.steer(dt, mx * target, mz * target, running, fly, !!(mx || mz));
       if (!mx && !mz && Math.hypot(this.vx, this.vz) < 0.05) { this.vx = 0; this.vz = 0; }
 
       // stamina
@@ -252,15 +245,6 @@
       this.stepVis *= Math.exp(-14 * dt);
       if (Math.abs(this.stepVis) < 0.002) this.stepVis = 0;
       const feet = this.y - floor; // airborne: clear knee-high obstacles; on the ground: step up a ledge
-        if (this.y <= ground) {
-          const hard = this.vy < -4.5, fall = this.vy < -7.5; // (a fall: more than two metres or so)
-          this.y = ground; this.vy = 0; this.onGround = true;
-          DV.Audio.play('land', { volume: hard ? 1 : 0.7 });
-          if (hard && ctx.rig) ctx.rig.shake = Math.max(ctx.rig.shake, 0.15);
-          if (fall && !fly) this.hardLanding(ctx);
-        }
-      } else this.y = ground;
-      const feet = this.y - ground; // airborne: clear knee-high obstacles
 
       // integrate + collide, in steps no longer than a third of your width: a slow frame (or a run)
       // can't carry you through a thin wall, a fence or a post
@@ -378,6 +362,7 @@
       if (rig && rig.dip) rig.dip(Math.min(0.3, k * 0.03));
       if (hard && rig) rig.shake = Math.max(rig.shake, 0.15);
       if (k > 5.2) { this.landT = 0.38; this.vx *= 0.55; this.vz *= 0.55; }
+      if (k > 7.5) this.hardLanding(ctx); // a fall: more than two metres or so
       const W = ctx.zone && ctx.zone.physics;
       if (W && W.thump) W.thump(this.x, this.z, k);
     },
@@ -440,6 +425,7 @@
       this.syncModel();
       this.model.animate(dt, { speed: 0, action: 'idle', pk });
       this.regen(dt * 0.5);
+    },
     // falling hurts: the wind goes out of you and your legs won't run for a second. The Dauntless
     // learn to roll (Train-Hopper), and keep going
     hardLanding(ctx) {
