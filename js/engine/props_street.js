@@ -149,7 +149,7 @@
 
   // road paint: a zebra crossing, a dashed centre line, a bus bay
   def('road_paint', (ctx, p, B) => {
-    const paint = ctx.M('white');
+    const paint = ctx.M('paint_road:alpha');
     const y = 0.01;
     if (p.kind === 'zebra') {
       const W = p.w || 4, D = p.d || 6;
@@ -166,7 +166,7 @@
       B.quad(paint, [-0.45, y, 0.6], [0.45, y, 0.6], [0, y, 1.8], [0, y, 1.8], [0, 0], [1, 0], [0.5, 1], [0.5, 1]);
     } else if (p.kind === 'busbay') {
       const len = p.len || 14;
-      for (let x = -len / 2; x < len / 2; x += 1.2) B.flat(ctx.M('plastic_orange'), x, -0.07, x + 0.6, 0.07, y);
+      for (let x = -len / 2; x < len / 2; x += 1.2) B.flat(ctx.M('paint_road_amber:alpha'), x, -0.07, x + 0.6, 0.07, y);
       // BUS painted inside the bay (local -z, toward the kerb), reading from the pavement
       const t = DV.Mat.fromTexture('busbay', DV.Tex.custom('busbay', 128, 48, (g) => {
         g.clearRect(0, 0, 128, 48); g.fillStyle = '#d8b040'; g.font = 'bold 40px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('BUS', 64, 26);

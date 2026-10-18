@@ -32,81 +32,107 @@
   function tex(c, opts) {
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.magFilter = (opts && opts.mag) || THREE.NearestFilter;
-    t.minFilter = (opts && opts.min) || THREE.NearestMipmapLinearFilter;
+    t.magFilter = (opts && opts.mag) || DV.Tex.filterMode();
+    t.minFilter = (opts && opts.min) || THREE.LinearMipmapLinearFilter;
     t.generateMipmaps = true;
-    t.anisotropy = 2;
+    t.anisotropy = DV.Tex.aniso || 2; // (sharp at a low angle down the street)
     return t;
   }
-  function speckle(g, w, h, r, n, a) {
-    for (let i = 0; i < n; i++) {
-      g.fillStyle = 'rgba(' + (r() < 0.5 ? '0,0,0' : '255,255,255') + ',' + (a * r()).toFixed(3) + ')';
-      g.fillRect(Math.floor(r() * w), Math.floor(r() * h), 1 + Math.floor(r() * 2), 1 + Math.floor(r() * 2));
+  // Each facade tile is 4 bays × 4 floors (128 px per cell at the 512 the maps are painted at). A
+  // style's wall(g, r, W) paints the material at full size with the texture toolkit (DV.Tex.paint);
+  // its paint(g, r) then lays out the openings and the trim in a 256-px space (drawn at 512). WIN is
+  // the window rectangle of a cell in uv space (x0, y0, x1, y1), used by the shader for lit windows.
+  // BLANK is how a party wall with no windows in it looks: its colour, and its blocks (bricks) across
+  // a bay and up a floor.
+  const TP = () => DV.Tex.paint;
+  // a pane of glass: the sky reflected at the top, falling to the dark of the room behind, a sheen
+  // across it, and (sometimes) a hint of the room: the back wall, a lamp shade, a shelf
+  function pane(g, r, x, y, w, h, o) {
+    o = o || {};
+    const sky = o.sky || [118, 132, 140];
+    const gr = g.createLinearGradient(x, y, x + w * 0.2, y + h);
+    gr.addColorStop(0, TP().rgba(sky, 1)); gr.addColorStop(0.32, TP().rgba(o.mid || [52, 62, 68], 1)); gr.addColorStop(1, TP().rgba(o.low || [26, 31, 35], 1));
+    g.fillStyle = gr; g.fillRect(x, y, w, h);
+    if (r() < 0.45) { // the room
+      const k = r();
+      g.fillStyle = k < 0.4 ? 'rgba(70,58,44,0.35)' : k < 0.7 ? 'rgba(56,62,66,0.35)' : 'rgba(84,72,52,0.3)';
+      g.fillRect(x, y + h * 0.55, w, h * 0.45);
+      if (r() < 0.4) { g.fillStyle = 'rgba(10,10,10,0.35)'; g.fillRect(x + w * (0.1 + r() * 0.5), y + h * (0.62 + r() * 0.1), w * 0.3, h * 0.4); } // a cupboard, a chair back
     }
+    g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+    g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); const sx = x + w * r(); g.moveTo(sx, y); g.lineTo(sx + w * 0.25, y); g.lineTo(sx - w * 0.15, y + h); g.lineTo(sx - w * 0.4, y + h); g.fill(); // the sheen
+    g.restore();
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x, y, w, 0.75); g.fillRect(x, y, 0.75, h); // the frame's shadow on it
   }
-  function streaks(g, w, h, r, n, a) {
-    for (let i = 0; i < n; i++) {
-      const x = Math.floor(r() * w), y = Math.floor(r() * h), len = 6 + Math.floor(r() * 30);
-      g.fillStyle = 'rgba(20,18,16,' + (a * (0.4 + r() * 0.6)).toFixed(3) + ')';
-      g.fillRect(x, y, 1 + Math.floor(r() * 2), len);
-    }
+  // a stone sill or lintel: lit on top, its underside dark, dirt washed off it down the wall below
+  function trim(g, r, x, y, w, h, col, drip) {
+    g.fillStyle = col; g.fillRect(x, y, w, h);
+    g.fillStyle = 'rgba(255,255,250,0.22)'; g.fillRect(x, y, w, 0.75);
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x, y + h - 0.6, w, 0.6);
+    if (drip) for (let k = 0; k < 2; k++) if (r() < drip) TP().run(g, 256, 256, r, x + 1 + r() * (w - 3), y + h, 6 + r() * 18, 0.6 + r() * 1.2, [34, 30, 26], 0.18 + r() * 0.2);
   }
-  // Each facade tile is 4 bays × 4 floors (64 px per cell). WIN is the window rectangle of a
-  // cell in uv space (x0, y0, x1, y1), used by the shader for lit windows. BLANK is how a party wall
-  // with no windows in it looks: its colour, and its blocks (bricks) across a bay and up a floor.
   const STYLES = {
     office: {
       bay: 3.4, floor: 3.5, lit: 0.07, win: [0, 0.28, 1, 0.69], blank: [0.55, 0.55, 0.53, 1, 1],
+      // precast spandrel panels, a joint at every bay and half bay
+      wall(g, r, W) {
+        TP().concreteBody(g, W, W, r, '#8d8d88', { mottle: 0.1, stain: [62, 62, 60], stainA: 0.3, grain: 0.08, pores: 0.015 });
+        for (let x = 0; x < W; x += W / 8) { g.fillStyle = 'rgba(40,40,38,0.4)'; g.fillRect(x, 0, 2, W); g.fillStyle = 'rgba(255,255,250,0.1)'; g.fillRect(x + 2, 0, 1, W); }
+      },
       paint(g, r) {
-        g.fillStyle = '#8b8b86'; g.fillRect(0, 0, 256, 256);
-        speckle(g, 256, 256, r, 2200, 0.16);
         for (let f = 0; f < 4; f++) {
           const y = f * 64;
-          g.fillStyle = '#2c3439'; g.fillRect(0, y + 20, 256, 26);
-          g.fillStyle = 'rgba(120,140,150,0.25)'; g.fillRect(0, y + 20, 256, 6);
+          for (let x = 0; x < 256; x += 16) pane(g, r, x, y + 20, 16, 26, { sky: [104, 120, 130] });
           g.fillStyle = '#55595b';
-          for (let x = 0; x < 256; x += 16) g.fillRect(x, y + 20, 2, 26);
-          g.fillStyle = '#6c6c68'; g.fillRect(0, y + 60, 256, 4);
+          for (let x = 0; x < 256; x += 16) { g.fillRect(x, y + 20, 1.5, 26); g.fillStyle = 'rgba(200,205,205,0.35)'; g.fillRect(x + 1.5, y + 20, 0.5, 26); g.fillStyle = '#55595b'; }
+          g.fillRect(0, y + 19, 256, 1.5); // the head of the ribbon
+          trim(g, r, 0, y + 46, 256, 2, '#77776f', 0);
+          for (let k = 0; k < 10; k++) TP().run(g, 256, 256, r, r() * 256, y + 48, 6 + r() * 14, 0.6 + r(), [40, 40, 38], 0.2);
+          g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(0, y + 60, 256, 4);
         }
-        streaks(g, 256, 256, r, 70, 0.18);
       },
     },
     brick: {
       bay: 3.2, floor: 3.2, lit: 0.09, win: [18 / 64, 18 / 64, 46 / 64, 50 / 64], blank: [0.43, 0.26, 0.2, 16 / 3, 16],
+      wall(g, r, W) {
+        TP().brickWall(g, W, W, r, { rows: 128, cols: 40, mortar: 1, soot: 40, bloom: 0.18, grime: 0.32, chips: 0.06, spall: 0.02, mortarCol: [104, 98, 90],
+          colors: [[120, 68, 52], [110, 62, 48], [128, 76, 58], [100, 58, 46], [134, 82, 62]] });
+      },
       paint(g, r) {
-        g.fillStyle = '#6e4234'; g.fillRect(0, 0, 256, 256);
-        for (let y = 0; y < 256; y += 4) {
-          g.fillStyle = 'rgba(40,24,18,0.45)'; g.fillRect(0, y, 256, 1);
-          for (let x = (y / 4) % 2 ? 0 : 6; x < 256; x += 12) g.fillRect(x, y, 1, 4);
-        }
-        for (let i = 0; i < 260; i++) { g.fillStyle = 'rgba(' + (r() < 0.5 ? '150,80,60' : '60,30,24') + ',0.35)'; g.fillRect(Math.floor(r() * 21) * 12, Math.floor(r() * 64) * 4, 11, 3); }
         for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
           const x = b * 64, y = f * 64;
-          g.fillStyle = '#a49d90'; g.fillRect(x + 16, y + 10, 32, 4); // lintel
-          g.fillStyle = '#d4ccbc'; g.fillRect(x + 18, y + 14, 28, 32); // frame
-          g.fillStyle = '#262c30'; g.fillRect(x + 20, y + 16, 24, 28);
-          g.fillStyle = '#c8c0b0'; g.fillRect(x + 20, y + 29, 24, 2); // sash
-          g.fillStyle = 'rgba(140,160,170,0.22)'; g.fillRect(x + 20, y + 16, 24, 6);
-          g.fillStyle = '#9a948a'; g.fillRect(x + 16, y + 46, 32, 3); // sill
+          g.fillStyle = 'rgba(20,14,12,0.35)'; g.fillRect(x + 15, y + 6, 34, 4); // soot over the opening
+          trim(g, r, x + 16, y + 10, 32, 4, '#a49d90', 0); // the lintel
+          g.fillStyle = '#cfc7b6'; g.fillRect(x + 18, y + 14, 28, 32); // the frame
+          g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 18, y + 14, 28, 1); g.fillRect(x + 18, y + 14, 1, 32); // its reveal
+          pane(g, r, x + 20, y + 16, 24, 13);
+          pane(g, r, x + 20, y + 31, 24, 13, { sky: [84, 96, 104] });
+          g.fillStyle = '#c8c0b0'; g.fillRect(x + 20, y + 29, 24, 2); // the meeting rail of the sash
+          g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x + 20, y + 31, 24, 0.75);
+          trim(g, r, x + 16, y + 46, 32, 3, '#9a948a', 0.7); // the sill
         }
-        streaks(g, 256, 256, r, 40, 0.15);
       },
     },
     glass: {
       bay: 3.0, floor: 3.7, lit: 0.06, win: [0, 0.14, 1, 1],
+      wall(g, r, W) { g.fillStyle = '#3e4850'; g.fillRect(0, 0, W, W); },
       paint(g, r) {
-        // steel-blue curtain wall: sky reflected at the top of each floor, darker below
-        const sky = g.createLinearGradient(0, 0, 256, 256);
-        sky.addColorStop(0, '#5a6670'); sky.addColorStop(1, '#3e4850');
-        g.fillStyle = sky; g.fillRect(0, 0, 256, 256);
+        // steel-blue curtain wall: the sky and the towers opposite reflected in it, each pane a shade
+        // apart (they never sit quite flat), darker below
         for (let f = 0; f < 4; f++) {
           const y = f * 64;
-          const grd = g.createLinearGradient(0, y, 0, y + 56);
-          grd.addColorStop(0, 'rgba(150,165,175,0.35)'); grd.addColorStop(0.5, 'rgba(0,0,0,0)'); grd.addColorStop(1, 'rgba(10,14,18,0.35)');
-          g.fillStyle = grd; g.fillRect(0, y, 256, 56);
+          for (let x = 0; x < 256; x += 16) {
+            const v = 0.9 + r() * 0.2;
+            const grd = g.createLinearGradient(x, y, x + 6, y + 56);
+            grd.addColorStop(0, TP().rgba([112 * v, 126 * v, 136 * v], 1)); grd.addColorStop(0.45, TP().rgba([70 * v, 82 * v, 92 * v], 1)); grd.addColorStop(1, TP().rgba([40 * v, 48 * v, 56 * v], 1));
+            g.fillStyle = grd; g.fillRect(x, y, 16, 56);
+            g.fillStyle = 'rgba(28,34,40,0.45)'; // a tower opposite, reflected
+            const th = 10 + r() * 30; g.fillRect(x, y + 56 - th, 16, th);
+            if (r() < 0.3) { g.fillStyle = 'rgba(200,215,225,0.12)'; g.fillRect(x + 2, y + 2, 4, 50); }
+          }
           g.fillStyle = '#272d32'; g.fillRect(0, y + 56, 256, 8);
-          g.fillStyle = '#20252a';
-          for (let x = 0; x < 256; x += 16) g.fillRect(x, y, 2, 64);
+          g.fillStyle = 'rgba(160,170,178,0.3)'; g.fillRect(0, y + 56, 256, 0.75);
+          for (let x = 0; x < 256; x += 16) { g.fillStyle = '#20252a'; g.fillRect(x, y, 2, 64); g.fillStyle = 'rgba(170,180,186,0.35)'; g.fillRect(x + 2, y, 0.5, 64); }
         }
         // a few panes missing
         for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(12,14,16,0.85)'; g.fillRect(Math.floor(r() * 16) * 16 + 2, Math.floor(r() * 4) * 64, 14, 56); }
@@ -114,114 +140,113 @@
     },
     derelict: {
       bay: 3.3, floor: 3.4, lit: 0.015, win: [12 / 64, 20 / 64, 52 / 64, 48 / 64], blank: [0.46, 0.45, 0.42, 1, 1],
+      wall(g, r, W) {
+        TP().concreteBody(g, W, W, r, '#77736c', { mottle: 0.18, stain: [40, 36, 30], stainA: 0.5, grain: 0.16, pores: 0.03, flecks: 0.01 });
+        TP().runs(g, W, W, r, 120, [24, 22, 20], 0.35, 30, 240, 5);
+        for (let i = 0; i < 10; i++) TP().crack(g, W, W, r, r() * W, r() * W, r() * 6.3, 40 + r() * 80, 'rgba(20,18,16,0.6)', 1.2);
+      },
       paint(g, r) {
-        g.fillStyle = '#76726b'; g.fillRect(0, 0, 256, 256);
-        speckle(g, 256, 256, r, 3000, 0.22);
         for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
           const x = b * 64, y = f * 64, k = r();
-          g.fillStyle = k < 0.55 ? '#131313' : k < 0.8 ? '#5e4f3d' : '#2b3236';
-          g.fillRect(x + 12, y + 16, 40, 28);
-          if (k >= 0.55 && k < 0.8) { g.fillStyle = 'rgba(30,20,10,0.6)'; for (let p = 0; p < 4; p++) g.fillRect(x + 12, y + 19 + p * 7, 40, 1); }
-          if (r() < 0.3) { g.fillStyle = 'rgba(15,12,10,0.6)'; g.fillRect(x + 12, y + 44, 40 * r(), 14); } // scorch
+          if (k < 0.55) { g.fillStyle = '#131313'; g.fillRect(x + 12, y + 16, 40, 28); g.fillStyle = 'rgba(60,64,66,0.4)'; g.fillRect(x + 12, y + 16, 40, 4); }
+          else if (k < 0.8) { // boarded
+            for (let p = 0; p < 4; p++) { const v = 0.8 + r() * 0.3; g.fillStyle = TP().rgba([94 * v, 79 * v, 61 * v], 1); g.fillRect(x + 12, y + 16 + p * 7, 40, 6.5); g.fillStyle = 'rgba(30,20,10,0.6)'; g.fillRect(x + 12, y + 22.5 + p * 7, 40, 0.5); g.fillStyle = 'rgba(30,24,18,0.8)'; g.fillRect(x + 14, y + 18 + p * 7, 1, 1); g.fillRect(x + 49, y + 18 + p * 7, 1, 1); }
+          } else pane(g, r, x + 12, y + 16, 40, 28, { sky: [70, 80, 86] });
+          if (r() < 0.3) { const sg = g.createLinearGradient(0, y + 16, 0, y - 6); sg.addColorStop(0, 'rgba(12,10,8,0.7)'); sg.addColorStop(1, 'rgba(12,10,8,0)'); g.fillStyle = sg; g.fillRect(x + 10, y - 6, 44, 22); } // scorched over it
+          trim(g, r, x + 10, y + 44, 44, 2, '#5c5850', 0.9);
         }
         g.fillStyle = 'rgba(40,36,30,0.5)';
         for (let f = 0; f < 4; f++) g.fillRect(0, f * 64 + 60, 256, 4);
-        streaks(g, 256, 256, r, 140, 0.3);
       },
     },
   };
-  // the full-size finishing pass over a facade tile (see the maps in build)
-  function facadeDetail(g, W, style, r) {
-    const img = g.getImageData(0, 0, W, W), d = img.data;
-    const hash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7 + style.length * 17.3) * 43758.5453; return v - Math.floor(v); };
-    const bricky = style === 'brick' || style === 'loft' || style === 'ghost';
-    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4;
-      let R = d[i], G = d[i + 1], B = d[i + 2];
-      const lum = (R + G + B) / 3;
-      let k = 1 + (r() - 0.5) * (lum < 60 ? 0.05 : 0.11);
-      if (bricky && R > G + 16 && R > B + 20) {
-        const row = Math.floor(y / 8), off = row % 2 ? 12 : 0, bx = Math.floor((x + off) / 24);
-        k *= 0.84 + 0.3 * hash(bx, row);
-        const yy = y % 8, xx = (x + off) % 24;
-        if (yy === 1) k *= 1.1;
-        if (yy === 7) k *= 0.86;
-        if (xx === 23) k *= 0.88;
-      } else if (lum > 95 && Math.abs(R - G) < 18 && Math.abs(G - B) < 22) {
-        // stone and concrete: a tone per block, and the odd pit
-        k *= 0.94 + 0.12 * hash(Math.floor(x / 64), Math.floor(y / 32) + 9);
-        if (r() < 0.006) k *= 0.62;
-      }
-      d[i] = U.clamp(R * k, 0, 255); d[i + 1] = U.clamp(G * k, 0, 255); d[i + 2] = U.clamp(B * k, 0, 255);
-    }
-    g.putImageData(img, 0, 0);
-  }
   // the Testing Center's own outside: concrete panels, a ribbon of narrow windows on each floor
   STYLES.institution = {
     bay: 3.6, floor: 3.6, lit: 0.02, win: [0.06, 0.52, 0.94, 0.7], noShops: true,
+    wall(g, r, W) {
+      TP().concreteBody(g, W, W, r, '#9e9c96', { mottle: 0.08, stain: [70, 68, 62], stainA: 0.3, grain: 0.07, pores: 0.02 });
+      TP().runs(g, W, W, r, 60, [50, 48, 44], 0.2, 30, 160, 4);
+    },
     paint(g, r) {
-      g.fillStyle = '#9c9a94'; g.fillRect(0, 0, 256, 256);
-      speckle(g, 256, 256, r, 2600, 0.14);
       for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
         const x = b * 64, y = f * 64;
-        g.fillStyle = 'rgba(' + (r() < 0.5 ? '255,255,250' : '30,30,28') + ',' + (r() * 0.06).toFixed(3) + ')'; g.fillRect(x, y, 64, 64);
-        g.fillStyle = '#22282c'; g.fillRect(x + 4, y + 19, 56, 14); // the window ribbon
-        g.fillStyle = 'rgba(150,165,170,0.25)'; g.fillRect(x + 4, y + 19, 56, 4);
-        g.fillStyle = '#7f7d77'; g.fillRect(x, y + 33, 64, 2); // sill
+        g.fillStyle = 'rgba(' + (r() < 0.5 ? '255,255,250' : '30,30,28') + ',' + (r() * 0.05).toFixed(3) + ')'; g.fillRect(x, y, 64, 64);
+        g.fillStyle = '#22282c'; g.fillRect(x + 4, y + 19, 56, 14);
+        pane(g, r, x + 5, y + 20, 26, 12, { sky: [120, 134, 140] }); pane(g, r, x + 33, y + 20, 26, 12, { sky: [120, 134, 140] }); // the window ribbon
+        trim(g, r, x, y + 33, 64, 2, '#827f78', 0.8); // sill
       }
-      g.fillStyle = '#76746e';
-      for (let k = 0; k <= 4; k++) { g.fillRect(k * 64 - 1, 0, 2, 256); g.fillRect(0, k * 64 - 1, 256, 2); g.fillRect(0, k * 64 + 46, 256, 1); }
-      streaks(g, 256, 256, r, 90, 0.2);
+      for (let k = 0; k <= 4; k++) { g.fillStyle = 'rgba(70,68,62,0.9)'; g.fillRect(k * 64 - 1, 0, 2, 256); g.fillRect(0, k * 64 - 1, 256, 2); g.fillStyle = 'rgba(255,255,250,0.12)'; g.fillRect(k * 64 + 1, 0, 0.75, 256); g.fillRect(0, k * 64 + 46, 256, 0.75); }
     },
   };
-  // Chicago greystone: pale limestone, tall windows with heavy lintels and sills, rusticated joints
+  // Chicago greystone: pale limestone in courses of dressed blocks, tall windows with heavy lintels and
+  // sills, the stone dark with soot under every projection
   STYLES.stone = {
     bay: 3.0, floor: 3.4, lit: 0.08, win: [20 / 64, 12 / 64, 44 / 64, 50 / 64], blank: [0.64, 0.62, 0.56, 2, 4],
+    wall(g, r, W) {
+      const P = TP(), ch = W / 16;
+      g.fillStyle = '#7e786c'; g.fillRect(0, 0, W, W);
+      for (let j = 0; j < 16; j++) {
+        let x = -r() * 60;
+        while (x < W) {
+          const bw = 50 + r() * 60, v = 0.92 + r() * 0.12, warm = (r() - 0.5) * 6;
+          g.fillStyle = P.rgba([168 * v + warm, 162 * v, 148 * v - warm], 1);
+          g.fillRect(x + 1, j * ch + 1, bw - 2, ch - 2);
+          g.fillStyle = 'rgba(255,255,250,0.14)'; g.fillRect(x + 1, j * ch + 1, bw - 2, 1);
+          g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x + 1, j * ch + ch - 2, bw - 2, 1);
+          x += bw;
+        }
+      }
+      P.shadeBy(g, W, W, P.fbm(W, W, r, 8, 3, 0.6), 0.06); // the tooling
+      P.grain(g, W, W, r, 0.08, 0.02, 0.006);
+      P.stainBy(g, W, W, P.fbm(W, W, r, 3, 5, 0.6), 0.6, 0.3, [70, 66, 58], 0.4);
+      P.runs(g, W, W, r, 50, [44, 40, 34], 0.25, 30, 200, 4);
+    },
     paint(g, r) {
-      g.fillStyle = '#a49e90'; g.fillRect(0, 0, 256, 256);
-      speckle(g, 256, 256, r, 2600, 0.12);
-      for (let y = 0; y < 256; y += 16) { g.fillStyle = 'rgba(60,56,50,0.22)'; g.fillRect(0, y, 256, 1); }
       for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
         const x = b * 64, y = f * 64;
-        g.fillStyle = '#8a8478'; g.fillRect(x + 16, y + 4, 32, 8); // lintel
-        g.fillStyle = '#b8b2a4'; g.fillRect(x + 18, y + 12, 28, 40);
-        g.fillStyle = '#23282b'; g.fillRect(x + 20, y + 13, 24, 37);
+        trim(g, r, x + 16, y + 4, 32, 8, '#8f897d', 0); // lintel
+        g.fillStyle = 'rgba(0,0,0,0.25)'; for (let k = 1; k < 4; k++) g.fillRect(x + 16 + k * 8, y + 4, 0.5, 8); // its voussoirs
+        g.fillStyle = '#b4ae9f'; g.fillRect(x + 18, y + 12, 28, 40);
+        g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x + 18, y + 12, 28, 1); g.fillRect(x + 18, y + 12, 1, 40);
+        pane(g, r, x + 20, y + 13, 24, 17); pane(g, r, x + 20, y + 32, 24, 18, { sky: [90, 102, 110] });
         g.fillStyle = '#9a9488'; g.fillRect(x + 20, y + 30, 24, 2); // sash
-        g.fillStyle = 'rgba(150,165,170,0.2)'; g.fillRect(x + 20, y + 13, 24, 7);
-        g.fillStyle = '#7e786c'; g.fillRect(x + 15, y + 50, 34, 4); // sill
+        trim(g, r, x + 15, y + 50, 34, 4, '#827c70', 0.8); // sill
       }
-      streaks(g, 256, 256, r, 60, 0.18);
     },
   };
   // an industrial loft: dark brick piers between wide steel windows of small panes
   STYLES.loft = {
     bay: 4.2, floor: 4.0, lit: 0.05, win: [6 / 64, 10 / 64, 58 / 64, 48 / 64], blank: [0.36, 0.23, 0.18, 7, 16],
+    wall(g, r, W) {
+      TP().brickWall(g, W, W, r, { rows: 128, cols: 40, mortar: 1, soot: 60, bloom: 0.12, grime: 0.4, chips: 0.06, spall: 0.03, mortarCol: [86, 80, 72],
+        colors: [[100, 60, 46], [92, 54, 42], [108, 66, 50], [84, 50, 40], [96, 62, 50]] });
+    },
     paint(g, r) {
-      g.fillStyle = '#5c3a2e'; g.fillRect(0, 0, 256, 256);
-      for (let y = 0; y < 256; y += 4) { g.fillStyle = 'rgba(30,18,14,0.45)'; g.fillRect(0, y, 256, 1); }
       for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
         const x = b * 64, y = f * 64;
+        g.fillStyle = 'rgba(14,10,8,0.35)'; g.fillRect(x + 5, y + 5, 54, 5);
         g.fillStyle = '#3e4246'; g.fillRect(x + 6, y + 10, 52, 38);
-        g.fillStyle = '#20262a';
-        for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) g.fillRect(x + 8 + i * 12.5, y + 12 + j * 12, 11, 10);
-        if (r() < 0.25) { g.fillStyle = 'rgba(160,170,170,0.35)'; g.fillRect(x + 8 + Math.floor(r() * 4) * 12.5, y + 12 + Math.floor(r() * 3) * 12, 11, 10); } // a pane boarded or missing
-        g.fillStyle = '#8a7a66'; g.fillRect(x + 4, y + 48, 56, 4); // sill
+        for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) {
+          const px = x + 8 + i * 12.5, py = y + 12 + j * 12;
+          if (r() < 0.07) { g.fillStyle = 'rgba(160,170,170,0.5)'; g.fillRect(px, py, 11, 10); } // a pane boarded or painted over
+          else pane(g, r, px, py, 11, 10, { sky: [96 + j * -10, 108 - j * 10, 116 - j * 10] });
+        }
+        g.fillStyle = 'rgba(120,70,40,0.35)'; g.fillRect(x + 6, y + 47, 52, 1); // rust along the bottom rail
+        trim(g, r, x + 4, y + 48, 56, 4, '#857563', 0.9); // sill
       }
-      streaks(g, 256, 256, r, 90, 0.22);
     },
   };
   // painted signs on the blank side walls above lower roofs: a hundred years of faded adverts
   const GHOST = ['GROCERY', 'FRESH BREAD', 'HOTEL ROSE', 'CITY ICE CO.', 'FURNITURE', 'STAR LAUNDRY', 'DRUGS · SODA', 'THE DAILY'];
   STYLES.ghost = {
     bay: 1, floor: 1, lit: 0, win: [0, 0, 0, 0], noShops: true,
+    wall(g, r, W) { STYLES.brick.wall(g, r, W); },
     paint(g, r) {
       // 2 × 4 tiles of 128 × 64: brick, a faded panel, the words
       for (let k = 0; k < 8; k++) {
         const x = (k % 2) * 128, y = Math.floor(k / 2) * 64;
-        g.fillStyle = '#6e4234'; g.fillRect(x, y, 128, 64);
-        for (let yy = 0; yy < 64; yy += 4) { g.fillStyle = 'rgba(40,24,18,0.4)'; g.fillRect(x, y + yy, 128, 1); }
         const panel = ['#d8d0b8', '#c8b088', '#9aa8a0', '#d0c8b0'][k % 4];
-        g.globalAlpha = 0.55 + r() * 0.2;
+        g.globalAlpha = 0.5 + r() * 0.2;
         g.fillStyle = panel; g.fillRect(x + 6, y + 8, 116, 48);
         g.fillStyle = ['#7a2a20', '#2a3a5a', '#3a4a2a', '#5a3a1a'][k % 4];
         g.font = 'bold ' + (GHOST[k].length > 10 ? 15 : 19) + 'px Georgia, serif';
@@ -229,8 +254,9 @@
         g.fillText(GHOST[k], x + 64, y + 30);
         g.fillRect(x + 20, y + 44, 88, 3);
         g.globalAlpha = 1;
-        // weathered: the brick showing through the paint
-        for (let i = 0; i < 140; i++) { g.fillStyle = 'rgba(110,66,52,' + (0.3 + r() * 0.5).toFixed(2) + ')'; g.fillRect(x + r() * 128, y + r() * 64, 2 + r() * 5, 1 + r() * 3); }
+        // weathered: the brick showing through the paint, the paint gone along the mortar
+        for (let i = 0; i < 260; i++) { g.fillStyle = 'rgba(110,64,50,' + (0.3 + r() * 0.5).toFixed(2) + ')'; g.fillRect(x + 6 + r() * 116, y + 8 + r() * 48, 1 + r() * 4, 0.5 + r() * 1.5); }
+        for (let yy = y + 8; yy < y + 56; yy += 2) { g.fillStyle = 'rgba(70,60,52,0.25)'; g.fillRect(x + 6, yy, 116, 0.5); }
       }
     },
   };
@@ -238,25 +264,28 @@
   // years of weather running down it (rust from the ties, black from the top)
   STYLES.bastion = {
     bay: 4, floor: 4.5, lit: 0, win: [0, 0, 0, 0], noShops: true,
+    wall(g, r, W) {
+      TP().concreteBody(g, W, W, r, '#6e6c67', { mottle: 0.14, stain: [40, 40, 36], stainA: 0.4, grain: 0.12, pores: 0.025 });
+    },
     paint(g, r) {
-      g.fillStyle = '#6c6a65'; g.fillRect(0, 0, 256, 256);
-      speckle(g, 256, 256, r, 3600, 0.13);
       for (let f = 0; f < 4; f++) for (let b = 0; b < 4; b++) {
         const x = b * 64, y = f * 64, k = r();
         g.fillStyle = 'rgba(' + (k < 0.5 ? '255,255,250' : '20,20,18') + ',' + (0.03 + r() * 0.05).toFixed(3) + ')'; g.fillRect(x, y, 64, 64);
-        g.fillStyle = 'rgba(30,30,28,0.55)'; g.fillRect(x, y, 64, 2); g.fillRect(x, y, 2, 64); // the panel joints
-        g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(x, y + 31, 64, 1); // a pour line
+        g.fillStyle = 'rgba(30,30,28,0.55)'; g.fillRect(x, y, 64, 1.5); g.fillRect(x, y, 1.5, 64); // the panel joints
+        g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(x, y + 1.5, 64, 0.75); g.fillRect(x, y + 31, 64, 0.75); // a pour line
         for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
           const hx = x + 12 + i * 20, hy = y + 18 + j * 28;
-          g.fillStyle = '#34322f'; g.fillRect(hx, hy, 3, 3); // the tie holes
-          if (r() < 0.35) { g.fillStyle = 'rgba(110,60,30,' + (0.2 + r() * 0.3).toFixed(2) + ')'; g.fillRect(hx, hy + 3, 2, 6 + r() * 26); } // rust running from them
+          if (r() < 0.4) TP().run(g, 256, 256, r, hx + 0.5, hy + 2.5, 6 + r() * 26, 1 + r(), [110, 60, 30], 0.25 + r() * 0.3); // rust running from them
+          g.fillStyle = '#34322f'; g.beginPath(); g.arc(hx + 1.5, hy + 1.5, 1.6, 0, 6.3); g.fill(); // the tie holes
+          g.fillStyle = 'rgba(255,255,250,0.15)'; g.fillRect(hx, hy + 3, 3, 0.5);
         }
       }
       // black streaks running down from the top
-      for (let i = 0; i < 70; i++) { const x = Math.floor(r() * 256), len = 30 + r() * 140; g.fillStyle = 'rgba(15,15,14,' + (0.08 + r() * 0.18).toFixed(2) + ')'; g.fillRect(x, 256 - len, 2 + Math.floor(r() * 4), len); }
+      for (let i = 0; i < 70; i++) { const x = Math.floor(r() * 256), len = 30 + r() * 140; TP().run(g, 256, 256, r, x, 0, len, 1 + r() * 3, [15, 15, 14], 0.1 + r() * 0.2); }
     },
   };
   const ORDER = ['office', 'brick', 'glass', 'derelict', 'institution', 'stone', 'loft', 'ghost', 'bastion'];
+  const FACADES = {};
 
   // tileable value noise → fbm (cloud shadows and the cloud deck share it)
   function noiseTexture(seed) {
@@ -358,9 +387,10 @@
     // with its name in blocky letters on the fascia, a stone stallriser, display windows with a
     // transom and a mullion and the goods on a shelf behind the glass, a door with a glass panel
     // every few bays; boarded up or shuttered where times are hard; some shops lit at dusk
-    '      vec2 p = floor(f * 64.0) / 64.0;',
+    '      vec2 p = floor(f * 128.0) / 128.0;',
+    '      float grime = 0.84 + 0.3 * texture2D(noise, vUv * vec2(0.37, 0.53) + sd * 0.013).r + 0.07 * (hash(floor(f * 128.0) + cell * 131.0) - 0.5);',
     '      float hb = hash(vec2(cell.x, sd)); float shop = floor(cell.x / 3.0); float hs = hash(vec2(shop, sd + 7.0)); float bay = mod(cell.x, 3.0);',
-    '      vec3 stone = vCol * ambient * 0.62;',
+    '      vec3 stone = vCol * ambient * 0.62 * grime;',
     '      vec3 fascia = mix(vec3(0.22, 0.2, 0.18), vec3(0.42, 0.16, 0.12), step(0.7, hs)) * mix(1.0, 0.6, step(0.4, hs) * step(hs, 0.55));',
     '      fascia = mix(fascia, vec3(0.15, 0.24, 0.3), step(0.85, hs));',
     '      float glassA = step(0.14, p.y) * step(p.y, 0.74) * step(0.07, p.x) * step(p.x, 0.93);',
@@ -372,6 +402,11 @@
     '      glass = mix(glass, vec3(0.26, 0.24, 0.22), step(p.y, 0.3));',
     '      glass = mix(glass, mix(vec3(0.46, 0.38, 0.26), vec3(0.28, 0.34, 0.46), hash(vec2(col8, shop + sd))) * 0.7, item);',
     '      glass = mix(glass, vec3(0.12, 0.11, 0.1), max(step(0.6, p.y) * step(p.y, 0.62), step(0.49, p.x) * step(p.x, 0.51) * step(p.y, 0.6)));',
+    // the street reflected in the glass: a sheen in bands across it, the sky's light in the transom,
+    // the bottom of the glass grey with the splash off the pavement
+    '      glass += vec3(0.045, 0.05, 0.055) * step(0.62, fract(p.x * 1.3 - p.y * 0.7 + hb * 3.0)) * step(0.3, p.y);',
+    '      glass += vec3(0.07, 0.08, 0.085) * step(0.62, p.y) * (1.0 - smoothstep(0.62, 0.74, p.y));',
+    '      glass = mix(glass, vec3(0.3, 0.3, 0.29), 0.35 * (1.0 - smoothstep(0.14, 0.24, p.y)));',
     '      vec3 board = vec3(0.4, 0.33, 0.24) * (0.85 + 0.15 * step(0.5, fract(p.x * 6.0)));',
     '      vec3 shut = vec3(0.32, 0.32, 0.31) * (0.8 + 0.2 * step(0.5, fract(p.y * 22.0)));',
     '      vec3 win = mix(glass, mix(shut, board, step(0.5, hb)), boarded);',
@@ -383,7 +418,7 @@
     '      letters *= step(0.12, fract(lx * 0.5 + hash(vec2(shop, sd)) * 3.0)) * step(0.1, hash(vec2(floor(lx * 0.5), shop + sd + 2.0)));',
     '      vec3 letterCol = mix(vec3(0.86, 0.82, 0.68), vec3(0.95, 0.76, 0.32), step(0.6, hs));',
     '      c = stone;',
-    '      c = mix(c, fascia * ambient, step(0.79, p.y) * step(p.y, 0.95));',
+    '      c = mix(c, fascia * ambient * grime * (1.0 + 0.18 * step(0.94, p.y) - 0.25 * step(p.y, 0.8)), step(0.79, p.y) * step(p.y, 0.95));',
     '      c = mix(c, letterCol * mix(ambient, vec3(1.25), step(0.72, hs) * litAmt), letters * (1.0 - 0.7 * boarded));',
     '      c = mix(c, win * ambient, glassA);',
     '      vec3 door = mix(vec3(0.17, 0.15, 0.13), vec3(0.11, 0.14, 0.16), step(0.4, p.y) * step(p.y, 0.66) * step(0.38, p.x) * step(p.x, 0.62));',
@@ -393,11 +428,12 @@
     '    } else if (blank > 0.5) {',
     // a party wall: courses of brick (or blocks of stone, panels of concrete) at the facade's own
     // pixel size, each a shade apart, grime run down it in streaks, and no windows
-    '      vec2 q = floor(vUv * 64.0) / 64.0;',
+    '      vec2 q = floor(vUv * 128.0) / 128.0;',
     '      float row = floor(q.y * blankGrid.y + 0.001); float u = q.x * blankGrid.x + 0.5 * mod(row, 2.0);',
-    '      float joint = max(step(0.99 - blankGrid.y / 64.0, fract(q.y * blankGrid.y + 0.001)), step(0.99 - blankGrid.x / 64.0, fract(u + 0.001)));',
+    '      float joint = max(step(0.995 - blankGrid.y / 128.0, fract(q.y * blankGrid.y + 0.001)), step(0.995 - blankGrid.x / 128.0, fract(u + 0.001)));',
     '      float shade = 0.9 + 0.16 * hash(vec2(floor(u), row) + sd) - 0.1 * hash(vec2(floor(q.x * 64.0), sd + 5.0)) * step(0.6, hash(vec2(floor(q.x * 16.0), sd)));',
-    '      c *= blankCol * shade * (1.0 - 0.32 * joint);',
+    '      float wet = texture2D(noise, vec2(vUv.x * 0.31, vUv.y * 0.07) + sd * 0.017).r;',
+    '      c *= blankCol * shade * (1.0 - 0.32 * joint) * (0.8 + 0.34 * wet) * (0.94 + 0.12 * hash(floor(vUv * 128.0) + sd));',
     '    } else {',
     '    c *= texture2D(map, vUv * 0.25).rgb;',
     '    float win = step(winRect.x, f.x) * step(f.x, winRect.z) * step(winRect.y, f.y) * step(f.y, winRect.w);',
@@ -1997,15 +2033,18 @@
         litAmt: { value: o.lit || 0 },
         ambient: { value: new THREE.Color(o.ambient === undefined ? 0xffffff : o.ambient) },
       };
-      const maps = {};
+      // (the facades are the same in every city: painted once, the first time one is built)
+      const maps = FACADES;
       for (const s of ORDER) {
-        // painted at 256 and drawn at 512, then finished at full size: each brick and block its own
-        // shade, a lit top edge, mortar set back, grain and pitting in the concrete
-        const c = canvas(512, 512), g = c.getContext('2d');
+        if (maps[s]) continue;
+        // the wall's material painted at full size (each brick and block its own shade, the mortar
+        // set back, the grain and pitting in the concrete, soot and rain run down it), then the
+        // openings and the trim laid out over it
+        const c = canvas(512, 512), g = DV.Tex.paint.ctx2d(c);
+        STYLES[s].wall(g, U.rng(77 + ORDER.indexOf(s)), 512);
         g.save(); g.scale(2, 2);
         STYLES[s].paint(g, U.rng(31 + ORDER.indexOf(s)));
         g.restore();
-        facadeDetail(g, 512, s, U.rng(77 + ORDER.indexOf(s)));
         maps[s] = tex(c);
       }
       const mats = {};

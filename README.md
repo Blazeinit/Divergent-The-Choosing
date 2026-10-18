@@ -288,6 +288,12 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## Implemented features
 
+**Textures, repainted**
+- Every surface is painted at a higher resolution (256–512 px), the way a texture artist of the early 2000s would have done it by hand: fractal noise for the body of the material, then its structure, then the wear. Brick in stretcher bond, each brick a shade apart with chipped arrises, recessed mortar, soot and rain run down it and salts blooming low down. Board-formed concrete panels with plugged tie holes and rust bled from them. Asphalt with aggregate, patches with cut edges, tar snakes, alligator cracking and oil. Paving slabs with chipped corners, dirty joints, gum and stains. Glazed tiles with grimy grout, marble with veins, terrazzo chips, wood grain with knots, brushed, painted and tread-plate steel, rust, carpet pile, the Pit's bedded rock.
+- **The city's facades** are painted at full size: real brick and limestone courses, sills and lintels with dirt washed down the wall under them, glass with the sky and the room behind it. Shopfronts have reflections in the glass and grime on the stone; party walls are weathered. Road paint is worn through to the asphalt.
+- **Faces** are painted at twice the size: modelled light and shade, almond eyes with iris, pupil and catchlight, lids and creases, brows of single hairs, nostrils, lips lit and shaded, age lines and stubble. Clothes have a weave and soft folds, and hair has strands, still in one draw call per person.
+- Textures are painted on in-memory canvases (the pixel passes no longer read back from the GPU), so building them all now takes a fraction of the time it did; the city's facades are painted once and shared by every city. Filtering follows the Texture filtering setting, with mipmaps and anisotropic filtering everywhere.
+
 **Build 6: The Circle Line**
 - **An underground railway** (`js/game/metro.js`, `js/engine/metrokit.js`): six stations on a loop, two tracks, a timetable from the clock (5 minutes in the rush hours, 8 off-peak, nothing in the curfew). The entrances are snapped onto real building fronts, and the street keeps their doorways clear.
 - **Stations:** a ticket hall at the foot of the stairs, gates whose flaps open as people reach them, ticket machines and a booth; an island platform behind glass screen doors, tiled in the sector's colour with the station's name every few metres, columns, benches, departure boards counting down, CCTV; tunnels with a lamp every ten metres.

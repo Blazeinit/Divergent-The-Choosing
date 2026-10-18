@@ -352,6 +352,22 @@
         // (the road paint is in this mesh, a hair over the asphalt, which is itself drawn pulled toward you:
         // pull harder, or far down the street the asphalt wins the depth test and the lines are gone)
         polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+      // the paint is worn: flaked off in specks and patches where the tyres run, the asphalt showing
+      // through (only what lies at the paint's height: the lines, never the furniture)
+      this.mat.onBeforeCompile = (sh) => {
+        sh.vertexShader = 'varying vec3 vPaintWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvPaintWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+        sh.fragmentShader = 'varying vec3 vPaintWP;\nfloat pHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n' +
+          'float pNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(pHash(i), pHash(i + vec2(1.0, 0.0)), f.x), mix(pHash(i + vec2(0.0, 1.0)), pHash(i + 1.0), f.x), f.y); }\n' +
+          sh.fragmentShader.replace('#include <color_fragment>', [
+            '#include <color_fragment>',
+            'if (abs(vPaintWP.y - 0.022) < 0.003) {',
+            '  vec2 q = vPaintWP.xz;',
+            '  float wear = pNoise(q * 1.7) * 0.55 + pNoise(q * 6.0) * 0.25 + pHash(floor(q * 22.0)) * 0.2;',
+            '  float gone = smoothstep(0.5, 0.78, wear);',
+            '  diffuseColor.rgb = mix(diffuseColor.rgb * (0.9 + 0.1 * pHash(floor(q * 40.0))), vec3(0.2, 0.2, 0.205), gone * 0.88);',
+            '}',
+          ].join('\n'));
+      };
       this.signMat = new THREE.MeshBasicMaterial({ map: signAtlas().tex, fog: true, color: this.mat.color.clone() });
       this.roads = DV.Roads.build(city, (x, z, r) => this.blocked(x, z, r));
       // what isn't bolted down (bins, newspaper boxes, cones, crates, rubbish bags)
