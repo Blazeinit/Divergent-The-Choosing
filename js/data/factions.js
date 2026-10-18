@@ -221,4 +221,71 @@
     { id: 'white', hex: '#d9d7d2' },
   ];
   DV.EyeColors = ['#3a2a1a', '#4d3520', '#2d4d6b', '#3f6b4a', '#5a5a5a', '#6b4a2a'];
+
+  /* Standing: what each faction calls you, tier by tier. The seven tiers line up with
+     DV.Reputation's (Hostile .. Admired); rank 0 is Neutral. A member of the faction is
+     addressed by the member's title instead once they're at least Neutral. */
+  DV.FactionStanding = {
+    // reputation thresholds: below each one, that tier (the last is open-ended)
+    limits: [-60, -25, -8, 8, 25, 50, 101],
+    ranks: [-3, -2, -1, 0, 1, 2, 3],
+    titles: {
+      abnegation: ['Selfish', 'Self-Regarding', 'Stranger', 'Neighbour', 'Helper', 'Servant', 'Pillar of Service'],
+      dauntless: ['Coward', 'Deadweight', 'Outsider', 'Hopeful', 'Daredevil', 'Brave', 'Legend of the Pit'],
+      erudite: ['Agitator', 'Ignorant', 'Layman', 'Pupil', 'Scholar', 'Fellow', 'Luminary'],
+      candor: ['Liar', 'Equivocator', 'Unknown Quantity', 'Witness', 'Plain Speaker', 'Truth-Teller', 'Voice of the Mart'],
+      amity: ['Troublemaker', 'Discordant', 'Stranger at the Gate', 'Guest', 'Friend of the Orchard', 'Peacekeeper', 'Heart of the Grove'],
+      factionless: ['Mark', 'Mouth to Feed', 'Passer-by', 'Known Face', 'Ally', 'Trusted', 'One of Us'],
+    },
+    // what a member is called as they rise (Neutral, Liked, Respected, Admired)
+    member: {
+      abnegation: ['Initiate in Grey', 'Neighbour in Service', 'Elder\'s Hand', 'Council Hopeful'],
+      dauntless: ['Initiate', 'Member of the Pit', 'Veteran', 'Leader in Waiting'],
+      erudite: ['Initiate', 'Associate', 'Researcher', 'Senior Fellow'],
+      candor: ['Initiate', 'Speaker', 'Advocate', 'Judge in Waiting'],
+      amity: ['Initiate', 'Hand of the Harvest', 'Grove Steward', 'Voice of Consensus'],
+      factionless: ['Factionless', 'Factionless', 'Factionless', 'Factionless'],
+    },
+  };
+
+  /* The manifestos: what each faction tells its children, in its own voice. Read in the
+     Codex (and the Factions page) — the founding words every initiate is made to learn. */
+  DV.Factions.list.abnegation.manifesto =
+    'We do not ask what the city owes us. We ask what we owe the city, and we pay it before breakfast.\n\n' +
+    'The founders saw that every war began with someone who wanted more: more food, more room, more of other people\'s attention. ' +
+    'So we keep less. We wear grey so no one is looked at longer than anyone else. We cover our mirrors so we do not forget the faces across the table. ' +
+    'We govern because no one else would take a job with no reward in it.\n\n' +
+    'An Abnegation house is never locked. If you come to our door hungry, you will leave fed, and nobody will write down your name.\n\n' +
+    'Service before self. Not because the self is nothing — because it is never the only one in the room.';
+  DV.Factions.list.dauntless.manifesto =
+    'Bravery is not the absence of fear. It is what you do with your hands while the fear is talking.\n\n' +
+    'Fear does not go away. You learn to stand next to it. You jump off the train because the train will not stop for you; you climb because the ledge is there; ' +
+    'you walk the beam in the simulation because one day there will be a real one and nobody to tell you it isn\'t real.\n\n' +
+    'We guard the Fence so the rest of the city can sleep. We are loud because silence is where cowardice hides. ' +
+    'We fight each other in the Pit so that we never have to wonder what we would do.\n\n' +
+    'Fear is a choice. Choose again, every day, and keep choosing.';
+  DV.Factions.list.erudite.manifesto =
+    'Ignorance is the root of every cruelty. A man who does not understand his neighbour fears him; a city that does not understand itself tears itself apart.\n\n' +
+    'So we read. We measure. We test everything twice, and the second time we test the test. ' +
+    'We built the water plant, the clinics, the serums and the simulations, and we will build what comes after them.\n\n' +
+    'We wear blue because it calms the mind, and a calm mind sees further. We keep our libraries open because knowledge locked away is only another kind of ignorance.\n\n' +
+    'Knowledge is order. Order is peace. Whoever understands the most must be trusted to decide the most — and we intend to understand everything.';
+  DV.Factions.list.candor.manifesto =
+    'Lies are the first weapon. Every betrayal, every war, every cruelty hides behind something someone said that was not true.\n\n' +
+    'So we say what is true. When it is kind and when it is not. When it costs us and when it costs you. ' +
+    'Black and white, because the truth does not come in shades; only the excuses do.\n\n' +
+    'We keep the courts because a judge who can lie is not a judge. We drink the serum in front of our own families so they know we have nothing in our pockets.\n\n' +
+    'Say it plainly. Say it to their face. If you would not say it to their face, ask yourself why — and then say that.';
+  DV.Factions.list.amity.manifesto =
+    'Aggression is a weed. Pull it while it is small, before it roots in the heart and chokes everything else.\n\n' +
+    'We farm the land beyond the city because people who grow their own bread have less to fight about. ' +
+    'We decide together, around the table, until everyone at it can live with the answer. It takes longer. It lasts.\n\n' +
+    'We do not lock doors and we do not keep weapons. When someone is angry we sit with them until they are not. ' +
+    'When someone is hurt we bring them in from the field and mend what we can with what grows.\n\n' +
+    'Peace is a harvest. Nobody can bring it in alone, and nobody goes hungry while it lasts.';
+  DV.Factions.list.factionless.manifesto =
+    'Nobody wrote this down for us. Nobody had to.\n\n' +
+    'We are the ones who failed initiation, or left, or were never wanted. We drive the buses and clear the rubble and mop the floors of buildings that pretend we are not in them. ' +
+    'The Abnegation bring us bread on Tuesdays. Everyone else looks at the pavement.\n\n' +
+    'But there are a lot of us now. More every year. And people who have nothing left to lose are the only people in this city who are truly free to choose.';
 })();

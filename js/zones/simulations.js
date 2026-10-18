@@ -422,7 +422,7 @@
       if (!transitioning && !this.ended) this.script.update(this, dt, zone);
       for (const o of this.objects) if (o.update) o.update(dt);
       // fear: target set by scripts, softened by Resolve & Composure
-      const comp = U.clamp((DV.Stats.attr('resolve') - 3) * 0.07 + (DV.Stats.skill('composure') - 20) / 220, 0, 0.55);
+      const comp = U.clamp((DV.Stats.attr('resolve') - 3) * 0.07 + (DV.Stats.skill('composure') - 20) / 220 - DV.Perks.mod('sim.fear'), 0, 0.7);
       const f = U.clamp(this.fearTarget * (1 - comp), 0, 1);
       DV.Game.fear = U.damp(DV.Game.fear, f, 3, dt);
       DV.UI.setFear(DV.Game.fear);

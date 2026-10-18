@@ -219,6 +219,10 @@
       const p = DV.Player;
       const sneaking = p.crouched && p.onGround;
       if (sneaking) range = (range || 8) * 0.6; // crouched and quiet: harder to notice
+      // Soft Step, Ghost: less far, less wide
+      const K = DV.Perks;
+      if (K && K.mod('stealth.range')) range = (range || 8) * Math.max(0.3, 1 + K.mod('stealth.range'));
+      if (K && K.mod('stealth.cone')) coneDeg = (coneDeg || 110) * Math.max(0.4, 1 + K.mod('stealth.cone'));
       const zone = DV.World.current;
       const proom = zone.roomAt(p.x, p.z);
       const cosLim = Math.cos(((coneDeg || 110) * Math.PI) / 180 / 2);
@@ -231,7 +235,7 @@
         if (d > (range || 8)) continue;
         const fx = Math.sin(n.rot + n.lookYaw), fz = Math.cos(n.rot + n.lookYaw);
         const sees = (dx * fx + dz * fz) / Math.max(d, 0.01) > cosLim;
-        const hears = !sneaking && d < 2.6 && (p.speed > 3 || DV.Stats.attr('agility') < 6);
+        const hears = !sneaking && d < 2.6 && (p.speed > 3 || (DV.Stats.attr('agility') < 6 && !(K && K.on('stealth.silent'))));
         if ((sees && zone.colliders.segmentClear(n.x, n.z, p.x, p.z, 1.5)) || hears) out.push(n);
       }
       return out;
@@ -244,7 +248,8 @@
       const zs = DV.State.zoneState(DV.World.current.id);
       const now = DV.Clock.total();
       const last = zs.used[it.id] || -999;
-      if (now - last < 60) return { message: 'The dispenser blinks: RESTOCKING. Try again later.' };
+      // (Shared Plenty: someone always restocks it for you, twice as fast)
+      if (now - last < (DV.Perks && DV.Perks.on('vendor.extra') ? 30 : 60)) return { message: 'The dispenser blinks: RESTOCKING. Try again later.' };
       zs.used[it.id] = now;
       DV.Audio.play('clank');
       DV.Inventory.add('ration_bar');

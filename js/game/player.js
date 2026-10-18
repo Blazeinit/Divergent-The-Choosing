@@ -53,7 +53,7 @@
     tryJump() {
       if (!this.onGround || this.state !== 'free') return false;
       const athletics = DV.Stats ? DV.Stats.skill('athletics') : 20;
-      const cost = P.jumpCost * (1 - U.clamp((athletics - 20) / 200, 0, 0.3));
+      const cost = P.jumpCost * (1 - U.clamp((athletics - 20) / 200, 0, 0.3)) * Math.max(0.2, 1 + (DV.Perks ? DV.Perks.mod('jump.cost') : 0));
       if (this.exhausted || this.stamina < cost) {
         if (!this.tiredT || performance.now() - this.tiredT > 2500) { this.tiredT = performance.now(); DV.UI.notify('Too winded to jump.'); }
         return false;
@@ -171,8 +171,12 @@
       const athletics = DV.Stats ? DV.Stats.skill('athletics') : 20;
       let canRun = !this.exhausted && this.stamina > 0;
       const running = wantRun && canRun && !this.crouched;
-      const speedBonus = 1 + U.clamp((athletics - 20) / 200, 0, 0.18);
-      const target = (fly ? (wantRun ? 16 : 7) : (this.crouched ? P.crouchSpeed : running ? P.runSpeed * speedBonus : P.walkSpeed) * this.moveScale) * (dev ? dev.speed : 1);
+      const K = DV.Perks;
+      const speedBonus = 1 + U.clamp((athletics - 20) / 200, 0, 0.18) + (K ? K.mod('sprint.speed') : 0);
+      // a hard landing knocks the wind out of you for a moment (not if you've learned to roll)
+      if (this.staggerT > 0) this.staggerT -= dt;
+      const stag = this.staggerT > 0 ? 0.35 : 1;
+      const target = (fly ? (wantRun ? 16 : 7) : (this.crouched ? P.crouchSpeed : running ? P.runSpeed * speedBonus : P.walkSpeed) * this.moveScale * stag) * (dev ? dev.speed : 1);
       const tvx = mx * target, tvz = mz * target;
       // little steering in the air
       const a = 1 - Math.exp(-P.accel * (this.onGround || fly ? 1 : 0.22) * dt);
@@ -182,7 +186,7 @@
 
       // stamina
       if (!this.onGround) { /* no regen mid-air */ } else if (running) {
-        const drain = P.staminaDrain * (1 - U.clamp((athletics - 20) / 160, 0, 0.4));
+        const drain = P.staminaDrain * (1 - U.clamp((athletics - 20) / 160, 0, 0.4)) * Math.max(0.2, 1 + (K ? K.mod('sprint.drain') : 0));
         this.stamina = Math.max(0, this.stamina - drain * dt);
         this.runTime += dt;
         if (this.stamina <= 0) this.exhausted = true;
@@ -203,10 +207,11 @@
         this.vy -= P.gravity * dt;
         this.y += this.vy * dt;
         if (this.y <= ground) {
-          const hard = this.vy < -4.5;
+          const hard = this.vy < -4.5, fall = this.vy < -7.5; // (a fall: more than two metres or so)
           this.y = ground; this.vy = 0; this.onGround = true;
           DV.Audio.play('land', { volume: hard ? 1 : 0.7 });
           if (hard && ctx.rig) ctx.rig.shake = Math.max(ctx.rig.shake, 0.15);
+          if (fall && !fly) this.hardLanding(ctx);
         }
       } else this.y = ground;
       const feet = this.y - ground; // airborne: clear knee-high obstacles
@@ -268,8 +273,18 @@
         }
       }
     },
+    // falling hurts: the wind goes out of you and your legs won't run for a second. The Dauntless
+    // learn to roll (Train-Hopper), and keep going
+    hardLanding(ctx) {
+      if (DV.Perks && DV.Perks.on('fall.immune')) { DV.Audio.play('hop'); this.lastLanding = 'roll'; return; }
+      this.lastLanding = 'hard';
+      this.stamina = Math.max(0, this.stamina - 25);
+      this.staggerT = 0.9;
+      if (ctx.rig) ctx.rig.shake = Math.max(ctx.rig.shake, 0.35);
+      DV.Audio.play('punch', { volume: 0.5 });
+    },
     regen(dt) {
-      this.stamina = Math.min(P.staminaMax, this.stamina + P.staminaRegen * dt);
+      this.stamina = Math.min(P.staminaMax, this.stamina + P.staminaRegen * (1 + (DV.Perks ? DV.Perks.mod('stamina.regen') : 0)) * dt);
       if (this.exhausted && this.stamina > 25) this.exhausted = false;
     },
   };

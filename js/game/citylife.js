@@ -319,8 +319,11 @@
       // the stallholders (and the volunteer with the bread) give you something, once
       if (p.role === 'vendor' && sc.gift && !sc.gave && DV.Items.get(sc.gift)) {
         sc.gave = true;
-        DV.Inventory.add(sc.gift, 1);
-        DV.UI.notify('Received: ' + DV.Items.get(sc.gift).name, 'item');
+        // (Shared Plenty: they press a second on you — there's no price to discount, only plenty)
+        const n = DV.Perks.on('vendor.extra') ? 2 : 1;
+        DV.Inventory.add(sc.gift, n);
+        DV.UI.notify('Received: ' + DV.Items.get(sc.gift).name + (n > 1 ? ' \u00d7' + n : ''), 'item');
+        DV.Stats.award('activity', 'gift:' + sc.kind, 'A stallholder\'s kindness');
       }
       DV.Stats.practice('empathy', 0.05);
     }

@@ -434,6 +434,17 @@
           case 'fail': [392, 330, 262].forEach((f, i) => this.tone(f, 0.4, 'triangle', 0.08 * v, i * 0.14)); break;
           case 'item': this.tone(880, 0.12, 'triangle', 0.09 * v); this.tone(1320, 0.18, 'triangle', 0.07 * v, 0.07); break;
           case 'levelup': [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.5, 'triangle', 0.08 * v, i * 0.1)); break;
+          case 'fanfare': // a level: a brass-ish rising call, then a held chord
+            [[392, 0], [523, 0.12], [659, 0.24], [784, 0.36]].forEach(([f, t]) => { this.tone(f, 0.22, 'sawtooth', 0.025 * v, t); this.tone(f, 0.3, 'triangle', 0.07 * v, t); });
+            [523, 659, 784, 1047].forEach((f) => { this.tone(f, 1.4, 'triangle', 0.05 * v, 0.52); this.tone(f * 1.003, 1.4, 'sawtooth', 0.012 * v, 0.52); });
+            this.burst('lowpass', 180, 0.8, 0.5, 0.25 * v, 0.5);
+            break;
+          case 'perk': // a perk learned: a struck bell and a shimmer
+            this.tone(880, 0.9, 'sine', 0.08 * v); this.tone(1320, 0.7, 'sine', 0.05 * v, 0.02); this.tone(1760, 0.5, 'triangle', 0.03 * v, 0.06);
+            for (let i = 0; i < 5; i++) this.tone(2200 + i * 260, 0.08, 'triangle', 0.015 * v, 0.12 + i * 0.05);
+            break;
+          case 'page': this.burst('bandpass', 2400, 1.2, 0.06, 0.08 * v); this.tone(700, 0.05, 'triangle', 0.03 * v, 0.02); break; // a menu page turned
+          case 'lie': this.tone(196, 0.25, 'sine', 0.05 * v); this.tone(185, 0.3, 'sine', 0.04 * v, 0.12); break; // a lie heard: two notes, not quite in tune
           case 'check_ok': this.tone(660, 0.12, 'triangle', 0.07 * v); this.tone(990, 0.2, 'triangle', 0.07 * v, 0.08); break;
           case 'check_fail': this.tone(300, 0.2, 'sawtooth', 0.04 * v); break;
           case 'error': this.tone(200, 0.15, 'square', 0.05 * v); break;

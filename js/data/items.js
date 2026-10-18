@@ -61,6 +61,27 @@
       desc: 'A paper sachet of something floral steeped in hot water. Steadies the nerves. (+1 Resolve, 2 hours)',
       use: { type: 'buff', attr: 'resolve', amount: 1, minutes: 120, label: 'Calm', sound: 'drink' }, icon: { shape: 'cup', color: '#e0a526' },
     },
+    // Amity's Herb Lore and Erudite's workbench (js/data/perks.js)
+    healing_herbs: {
+      name: 'Healing Herbs', cat: 'consumable', stack: true, usable: true,
+      desc: 'Yarrow, feverfew and something minty, bundled with orchard twine. Chewed raw it restores stamina and settles the nerves. (+30 stamina, +1 Resolve, 1 hour)',
+      use: { type: 'buff', attr: 'resolve', amount: 1, minutes: 60, label: 'Herb-calmed', stamina: 30, sound: 'drink' }, icon: { shape: 'token', color: '#6f9a3e' },
+    },
+    herbal_tonic: {
+      name: 'Herbal Tonic', cat: 'consumable', stack: true, usable: true,
+      desc: 'Herbs steeped in water and strained twice: the Amity remedy, made with Erudite patience. (Full stamina, +1 Resolve, 3 hours)',
+      use: { type: 'buff', attr: 'resolve', amount: 1, minutes: 180, label: 'Tonic', stamina: 100, sound: 'drink' }, icon: { shape: 'cup', color: '#7fae58' },
+    },
+    erudite_stim: {
+      name: 'Stimulant', cat: 'consumable', stack: true, usable: true,
+      desc: 'A thumb of brown paste in wax paper. Tastes of burnt sugar. Your hands stop shaking and start moving. (+60 stamina, +1 Agility, 1 hour)',
+      use: { type: 'buff', attr: 'agility', amount: 1, minutes: 60, label: 'Stimulated', stamina: 60 }, icon: { shape: 'bar', color: '#4a6fa8' },
+    },
+    focus_draught: {
+      name: 'Focus Draught', cat: 'consumable', stack: true, usable: true,
+      desc: 'Bitter and clean. The room comes into focus, edge by edge. (+1 Intelligence, 2 hours)',
+      use: { type: 'buff', attr: 'intelligence', amount: 1, minutes: 120, label: 'Focused', sound: 'drink' }, icon: { shape: 'cup', color: '#2f5f9e' },
+    },
     // what the city's stalls and volunteers hand out (js/game/citylife.js)
     apple: {
       name: 'Amity Apple', cat: 'consumable', stack: true, usable: true,
