@@ -57,6 +57,7 @@ Saves, settings and autosaves live in the browser's `localStorage` under the `di
 | **M / J / I** | Open the RPG menu on Map / Quests / Inventory |
 | **T** | Wait, anywhere you're free to (not in a story scene). Pick how long (← →), or a time ("until the call", "until lunch", "until the evening"), and press Enter. The day goes by in a time-lapse; Esc stops it. A call to training, the PA calling your name, or anyone who needs you stops it early. Waiting won't take you past midnight: for the night, go to bed |
 | **Map (Tab → Map)** | **Local** for the building you're in, **City** for the whole city. Wheel or **+ / −** to zoom, drag to pan, **Fit** to see it all, hover for names |
+| **Shops** | At a shop door in the city (its name on the fascia, OPEN or CLOSED in the door), **E** to go in. Talk to whoever is behind the counter: **Let me see what you have** opens the trading panel (↑ ↓ pick, ← → their shelves / your bag, **E** or Enter buy or sell, Esc done; or click). Walk back out through the door (or **E** at it) for the street |
 | **Circle Line** | At a station entrance in the city (the lit roundel over a doorway), **E** to go down. Walk through the gates; board when the doors open. **E** at a seat to sit, **E** at a pole or under the rail to hold on; move to stand or let go. Up the stairs (**E** at the foot) to come out at that station |
 | **In dialogue** | Point at a response with the in-game cursor and click (or scroll / ↑↓ and press E or Enter). 1–9 also work. The mouse stays captured, so you never need to click back into the game |
 | **Menus** | The Tab menu, waiting, reading and banners keep the mouse captured and show the game's own cursor. Turn **Settings → In-game cursor** off to use the system cursor instead |
@@ -104,7 +105,9 @@ js/
   data/                    Pure data, no engine code
     factions.js            Six factions: descriptions, colours, clothing palettes; skin/hair/eye palettes
     rpg.js                 Attributes (STR AGI INT PER CHA RES), skills, XP curve, upbringings
-    items.js               Item database (clothing, consumables, quest, misc)
+    items.js               Item database (clothing, consumables, quest, misc), and each item's value in scrip
+    shops.js               Build 7: the eight shops: where their doors are, hours, keepers and their lines,
+                           stock, what they buy back, odd jobs, the people browsing
     citymap.js             Build 4: the city's one shared map (avenues and streets by name, the sectors,
                            landmarks, every family's home, the Fence) — the city, the HUD and the map read it
     npcs.js                30 NPC definitions: identity, look, personality, access, schedules, dialogue id
@@ -152,7 +155,7 @@ js/
     state.js               The single serialisable save state (DV.State.data)
     clock.js               In-game clock (an hour every 6 real minutes by default; Settings → Clock speed)
     stats.js               Attributes, skills (practice-based), XP/levels, checks, buffs
-    inventory.js           Add/remove/use/equip
+    inventory.js           Add/remove/use/equip; DV.Wallet, ration scrip (Build 7)
     reputation.js          Faction reputation + per-NPC relationship and disposition
     quests.js              Quest framework: NOT STARTED → ACTIVE → UPDATED → COMPLETE / FAILED
     dialogue.js            Dialogue engine: trees, conditions, checks, effects, memory, placeholders
@@ -169,6 +172,8 @@ js/
     metro.js               Build 6: the Circle Line: the network and timetable, trains arriving, dwelling and
                            leaving, riding (the station slides past a train that holds still), the commuters'
                            rules, the PA, the entrances and the people using them up in the city
+    shops.js               Build 7: the shops: their fronts on the buildings (one mesh), in and out, the
+                           keepers' hours, buying, selling, jobs, the tattoo chair, closing time
     streetlife.js          Build 4: pedestrians by sector on the pavements and crossings, and traffic that
                            keeps right, queues, stops for you and honks
     extras.js              Build 4: the people a place is full of (the compound's members): sets by the hour,
@@ -210,10 +215,13 @@ js/
     week_erudite.js        Build 3: Erudite — the flasks, the relay board, the office at night, the exam
     week_abnegation.js     Build 3: Abnegation — the supply run, dinner, the envelope, the bench
     week_amity.js          Build 3: Amity — the water dispute, the culvert, the circle, the bread
+    shops.js               Build 7: inside the eight shops (each its own zone, built when you walk in) and
+                           their props: shelves of goods, produce bins, the till, the press, booths, the flash
   ui/
     ui.js                  HUD, compass, quest tracker, notifications, subtitles, barks, banners, fades
     dialogueUI.js          Old-school dialogue window (typewriter text, numbered choices, check labels)
     rpgMenu.js             Tab menu: Character / Skills / Inventory / Quests / Reputation / Map
+    shopUI.js              Build 7: the trading panel (for sale / yours to sell, prices, your scrip)
     worldMap.js            Build 4: the City map (sectors, streets by name, landmarks, the Fence, you, home)
     menus.js               Main menu (the bowls of the Choosing, keyboard), pause, save/load, settings, controls, credits, wait
     menuReel.js            The main menu's highlights reel: the factions' days in real places, cut together
@@ -292,6 +300,14 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 - **The city's facades** are painted at full size: real brick and limestone courses, sills and lintels with dirt washed down the wall under them, glass with the sky and the room behind it. Shopfronts have reflections in the glass and grime on the stone; party walls are weathered. Road paint is worn through to the asphalt.
 - **Faces** are painted at twice the size: modelled light and shade, almond eyes with iris, pupil and catchlight, lids and creases, brows of single hairs, nostrils, lips lit and shaded, age lines and stubble. Clothes have a weave and soft folds, and hair has strands, still in one draw call per person.
 - Textures are painted on in-memory canvases (the pixel passes no longer read back from the GPU), so building them all now takes a fraction of the time it did; the city's facades are painted once and shared by every city. Filtering follows the Texture filtering setting, with mipmaps and anisotropic filtering everywhere.
+
+**Build 7: The Shops**
+- **Eight shops you can walk into** (`js/data/shops.js`, `js/game/shops.js`, `js/zones/shops.js`), one or two to a sector: the **Sector 9 Ration Depot** on Grand Avenue (Abnegation), **Hale & Daughter, Printers** on Monroe Street (Candor), **Lang's Books & Scientific** on Washington Street (Erudite), **Ortega's Ink & Gear** on State Street by Grand (Dauntless), the **Amity Produce Market** on Randolph Street, **Gaines' Repairs** on Western Avenue in the ruins (factionless), the **Clinton Street Diner** downtown, and the **Halsted Street Clinic** and pharmacy.
+- **Shopfronts** snapped onto real building fronts, the way the station entrances are, with the pavement in front kept clear of the street furniture: a door with its OPEN or CLOSED card, windows either side (lit and full of goods while it's open, the blind down when it's shut), the name on the fascia. All eight are one mesh, drawn only out in the streets near one.
+- **Insides**, each its own small zone built the first time you walk in: the shop floor with its counter and till, the street's daylight through the windows, a back room (storeroom, press room, stockroom, kitchen, workshop, exam room) and the bolted door to the alley; tins, jars, books, papers, produce and junk on the shelves; the press, the tattoo chair and the flash, the diner's stools and booths, the clinic's waiting chairs. People browse by the hour.
+- **Keepers** with their own hours (in before opening, a break in the back after one, gone at closing), lines, and a rumour each. At closing time they call time and you're shown out; nothing is open past the curfew at 21:00, and waiting in a shop stops at closing.
+- **Ration scrip**, the city's money: an allowance to start with, paid for quests and for an hour's odd job at a shop (once a day). The trading panel buys what's on the shelves (it sells out, and is restocked every morning) and sells back what the keeper deals in; Gaines buys anything, the diner nothing; Ortega's does tattoos, which stay with you. Your scrip is in the Inventory.
+- **Maps:** the shops are on the minimap and the City map, with their hours. A save made in a shop loads on the pavement outside it.
 
 **Build 6: The Circle Line**
 - **An underground railway** (`js/game/metro.js`, `js/engine/metrokit.js`): six stations on a loop, two tracks, a timetable from the clock (5 minutes in the rush hours, 8 off-peak, nothing in the curfew). The entrances are snapped onto real building fronts, and the street keeps their doorways clear.
@@ -494,6 +510,7 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - No two people book the same spot at the same time.
   - Every dialogue target node exists, all quest references are valid and every interactable can be reached.
   - All 13 story and simulation zones build.
+- **Build 7, the shops** (`stores`): eight shops, each door on a real building front with nothing in front of it, across six sectors, none built until you walk in, all eight fronts one mesh. For each: walk up the pavement to the door, go in, the keeper behind the counter, talk, open the trading panel, click to buy (the scrip comes off, the stock goes down), click to sell (or the diner says it doesn't buy), close it and walk out of the door onto the pavement. An hour's odd job pays; a tattoo at Ortega's stays on, through a save made in the shop that loads on the pavement outside. Shut doors after closing, nothing open past curfew, shown out at closing time. The City map marks them; draw calls inside a shop, by a shopfront, and in the lobby (where the fronts aren't drawn).
 - **Build 6, the Circle Line** (`metro`):
   - Six entrances, each on a real building front with nothing in the doorway.
   - Down the stairs at Halsted; people waiting; trains due inside the headway; through a gate on foot.
@@ -638,7 +655,7 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 ## Known limitations
 
 - **Free roam.** The Testing Center (with the city outside it) and the Dauntless compound are the two places you live in. The other four factions' weeks are scripted chapters: you can walk around afterwards, but their headquarters aren't yet full districts with schedules.
-- **The city's buildings are outsides only.** Apart from the Testing Center you can't go into them, and the landmarks are exteriors for now. Cars keep to one lane per direction (no overtaking or lane changes) and turn without giving way to people crossing on the same green (they stop for anyone in front of them). People in the street have a line each, not conversations.
+- **Most of the city's buildings are outsides only.** Apart from the Testing Center and the eight shops you can't go into them, and the landmarks are exteriors for now. A shop's inside is a little larger than its front promises, and you can't see in from the street (the windows show a lit room, not the room). Cars keep to one lane per direction (no overtaking or lane changes) and turn without giving way to people crossing on the same green (they stop for anyone in front of them). People in the street have a line each, not conversations.
 - **The hour only shows outside the Testing Center.** The compound is underground, and the story scenes keep the time of day they were made for.
 - **Waiting stops at midnight.** For the night, sleep. During a time-lapse the crowd catches up in jumps rather than walking.
 - **The ceremony is long.** The ceremony takes a few minutes if you let every name play. Hold Space to hurry it.
@@ -673,4 +690,4 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 8. **Audio pass.** Voiced key lines (or better speech synthesis), recorded ambience and adaptive music stems.
 9. **Accessibility.** Rebindable keys, gamepad support, a subtitle size option, a colour-blind-safe UI and reduced-motion settings.
 10. **Engineering.** Run `tools/qa` in CI on every push, and split the longer suites so they run in parallel.
-11. **The city, inside and out.** Enterable shops and stairwells, traffic that gives way properly and changes lanes, and the city on the clock for every faction once their headquarters are districts.
+11. **The city, inside and out.** More shops (and shop people out on the pavement with their deliveries), stairwells, traffic that gives way properly and changes lanes, and the city on the clock for every faction once their headquarters are districts.

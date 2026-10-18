@@ -224,7 +224,7 @@
       const P = DV.Player, vis = (DV.State.zoneState(zone.id) || {}).visited || {};
       for (const r of zone.rooms) {
         if (r.noMap) continue;
-        const seen = vis[r.id] || r.exterior || zone.id === 'metro';
+        const seen = vis[r.id] || r.exterior || zone.id === 'metro' || !!zone.def.shop;
         g.fillStyle = r.exterior ? '#2a2e26' : seen ? '#4a4840' : '#24231f';
         g.fillRect((r.x0 - P.x) * ppm, (r.z0 - P.z) * ppm, (r.x1 - r.x0) * ppm, (r.z1 - r.z0) * ppm);
         g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1;

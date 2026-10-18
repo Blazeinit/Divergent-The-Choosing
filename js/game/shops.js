@@ -293,7 +293,7 @@
       G.updateAmbience(true);
       DV.UI.fade(0, 700);
       bell();
-      setTimeout(() => DV.UI.narrate(S.name.toUpperCase() + '\n' + S.street.toUpperCase() + ' · OPEN ' + this.hoursStr(S), 2.4), 250);
+      setTimeout(() => DV.UI.narrate(S.name.toUpperCase() + '\nOPEN ' + this.hoursStr(S), 2.4), 250);
       if (!DV.State.flag('shops_shown')) {
         DV.State.setFlag('shops_shown');
         setTimeout(() => DV.UI.notify('Talk to whoever\'s behind the counter to buy and sell; you pay in ration scrip (your purse is in the Inventory). Walk back out through the door for the street.', 'quest'), 2600);

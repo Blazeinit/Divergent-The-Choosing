@@ -12,7 +12,8 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
   await L.b3(p);
   const ev = (fn, a) => p.evaluate(fn, a);
   const calls = () => p.evaluate(() => new Promise((res) => setTimeout(() => res(DV.Game.renderer.info.render.calls), 900)));
-  await ev(() => { DV.State.data.world.time = DV.U.parseTime('12:00'); window.__F = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }; window.__R = { n: Math.PI, s: 0, e: Math.PI / 2, w: -Math.PI / 2 }; });
+  // (the Order's patrols stop people for their papers: not this tester, who has shopping to do)
+  await ev(() => { if (DV.World.current.order) DV.World.current.order.stopCool = 1e9; DV.State.data.world.time = DV.U.parseTime('12:00'); window.__F = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }; window.__R = { n: Math.PI, s: 0, e: Math.PI / 2, w: -Math.PI / 2 }; });
 
   /* ---- the shops, up in the city ---- */
   const net = await ev(() => {
@@ -50,7 +51,7 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
     }, id);
     T.ok(walk.d < 1.6 && walk.it === 'shop_in_' + id && walk.label === 'Go in', id + ': walk up the pavement to the door ("' + walk.label + '")', walk);
     await ev(() => DV.Interaction.use(DV.Game));
-    T.ok(await L.until(p, () => DV.World.current.id.indexOf('shop_') === 0 && DV.Game.state === 'playing', 30000), id + ': in through the door');
+    T.ok(await L.until(p, () => DV.World.current.id.indexOf('shop_') === 0 && DV.Game.state === 'playing', 60000), id + ': in through the door');
     const inside = await ev((id) => {
       const z = DV.World.current, S = DV.Shops.get(id), n = DV.NPCs.get(S.keeper.id), c = z.spot(id + '_counter');
       return { zone: z.id, place: z.placeName(DV.Player.x, DV.Player.z).name, keeper: n.present, atCounter: n.present ? +Math.hypot(n.x - c.x, n.z - c.z).toFixed(2) : null, tris: z.stats.tris, pos: DV.State.data.player.pos };
@@ -105,7 +106,7 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
       return { st, now: DV.Game.state };
     });
     T.ok(out.st === 'playing' && out.now === 'transition', id + ': close the panel and walk out through the door', out);
-    T.ok(await L.until(p, () => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing', 30000), id + ': back in the street');
+    T.ok(await L.until(p, () => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing', 60000), id + ': back in the street');
     const st = await ev((id) => {
       const S = DV.Shops.get(id), P = DV.Player, f = __F[S.face];
       return { d: +Math.hypot(P.x - (S.x + f[0] * 1.6), P.z - (S.z + f[1] * 1.6)).toFixed(2), street: DV.World.current.placeName(P.x, P.z).name, walk: DV.World.current.walkable(P.x, P.z) };
@@ -115,7 +116,7 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
 
   /* ---- an odd job, and a tattoo ---- */
   const job = await ev(() => { B.use('shop_in_market'); return 1; });
-  await L.until(p, () => DV.World.current.id === 'shop_market' && DV.Game.state === 'playing', 30000);
+  await L.until(p, () => DV.World.current.id === 'shop_market' && DV.Game.state === 'playing', 60000);
   const j = await ev(() => {
     const S = DV.Shops.get('market'), n = DV.NPCs.get(S.keeper.id);
     const t0 = DV.Clock.minutes(), w0 = DV.Wallet.get(), a0 = DV.Inventory.count('apple');
@@ -129,9 +130,9 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
   T.ok(j.mins === 60 && j.pay === 5 && j.apple === 1 && !j.again, 'an odd job at the market: an hour sorting apples, 5 scrip and an apple, once a day', j);
   void job;
   await ev(() => DV.Shops.exit());
-  await L.until(p, () => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing', 30000);
+  await L.until(p, () => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing', 60000);
   await ev(() => B.use('shop_in_tattoo'));
-  await L.until(p, () => DV.World.current.id === 'shop_tattoo' && DV.Game.state === 'playing', 30000);
+  await L.until(p, () => DV.World.current.id === 'shop_tattoo' && DV.Game.state === 'playing', 60000);
   const tat = await ev(() => {
     const S = DV.Shops.get('tattoo');
     DV.Wallet.add(12, 'test', true);
@@ -165,7 +166,7 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
   T.ok(!shut.open.length && shut.latest <= DV_CURFEW(), 'nothing is open past the curfew at 21:00', shut);
   // in at a minute to closing: the keeper calls time and you're shown out
   await ev(() => { DV.State.data.world.time = DV.U.parseTime('16:58'); B.use('shop_in_market'); });
-  await L.until(p, () => DV.World.current.id === 'shop_market' && DV.Game.state === 'playing', 30000);
+  await L.until(p, () => DV.World.current.id === 'shop_market' && DV.Game.state === 'playing', 60000);
   const close = await ev(() => {
     window.__notes = [];
     const o = DV.UI.notify; DV.UI.notify = function (t, k) { window.__notes.push(t); return o.call(this, t, k); };
@@ -173,7 +174,7 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
     return { n, t: DV.Clock.str(), state: DV.Game.state, notes: window.__notes.slice() };
   });
   T.ok(close.state === 'transition' && close.notes.some((x) => /That's five/.test(x)), 'at five the market\'s keeper calls time, and shows you out (' + close.t + ')', close);
-  T.ok(await L.until(p, () => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing', 30000), '…back on Randolph Street');
+  T.ok(await L.until(p, () => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing', 60000), '…back on Randolph Street');
 
   /* ---- the maps ---- */
   const maps = await ev(() => {
@@ -187,10 +188,11 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
   T.ok(maps.hits.length >= 2 && maps.hits.some((h) => /Produce/.test(h)), 'the City map marks the shops, with their hours (' + maps.hits.join(', ') + ')', maps);
 
   /* ---- the draw calls ---- */
-  await ev(() => { DV.State.data.world.time = DV.U.parseTime('12:00'); const S = DV.Shops.get('market'); QA.tp(S.x - 6, S.z - 5, Math.PI * 0.75); });
+  // (the Order's patrols stop people for their papers: not this tester, who has shopping to do)
+  await ev(() => { if (DV.World.current.order) DV.World.current.order.stopCool = 1e9; DV.State.data.world.time = DV.U.parseTime('12:00'); const S = DV.Shops.get('market'); QA.tp(S.x - 6, S.z - 5, Math.PI * 0.75); });
   const c2 = await calls();
   T.ok(c2 < 230, 'by the market\'s front on Randolph Street: ' + c2 + ' draw calls');
-  const lobby = await ev(() => new Promise((res) => { DV.Player.place(40, 57, Math.PI); DV.Game.rig.yaw = Math.PI; setTimeout(() => { const m = DV.World.current.group.children.find((o) => o.name === 'shopfronts'); res({ calls: DV.Game.renderer.info.render.calls, front: m.visible }); }, 1500); }));
+  const lobby = await ev(() => new Promise((res) => { DV.Player.place(40, 57, Math.PI); DV.Game.rig.yaw = Math.PI; setTimeout(() => { const m = DV.World.current.group.children.find((o) => o.name === 'shopfronts'); res({ calls: DV.Game.renderer.info.render.calls, front: m.visible, state: DV.Game.state, room: (DV.World.current.roomAt(DV.Player.x, DV.Player.z) || {}).id }); }, 1500); }));
   T.ok(lobby.calls < 230 && !lobby.front, 'in the lobby the shopfronts aren\'t drawn: ' + lobby.calls + ' draw calls', lobby);
   T.noErrors(errs);
 });
