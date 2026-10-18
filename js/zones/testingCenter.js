@@ -707,7 +707,7 @@
         radius: CM.radius,
         hub: CM.hub,
         marshX: CM.marshX,
-        ferris: CM.ferris,
+        ferris: CM.ferris, ferrisModel: false,
         keepClear: [[-8, 92, 88, 144]],
         extras: [
           // (their cornices stop at the plaza's fence line, z 76)
@@ -766,6 +766,8 @@
       const metro = DV.Metro.attachCity(zone, city);
       // the lake that's left: the water, boats, the jetty and its anglers (js/game/waterfront.js)
       const waterfront = DV.Waterfront.attach(zone, city);
+      // Erudite's machinery: pylons, cameras and cables, the screens, the turbines on the Fence (js/game/citytech.js)
+      const tech = DV.CityTech.attach(zone, city);
       const osl = (CM.landmarks || []).find((l) => l.id === 'order_station');
       DV.Ambiance.attach(ctx, zone, { hub: CM.hub, order: osl ? [osl.x, osl.z] : null });
       ctx.update((dt) => {
@@ -777,6 +779,7 @@
         farmLife.update(dt);
         metro.update(dt);
         waterfront.update(dt);
+        tech.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 

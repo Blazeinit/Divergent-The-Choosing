@@ -754,7 +754,7 @@
     B.part = 'the Hub';
     if (hub && !o.noHubTower) theHub(B, hub[0], hub[1]); // (not when you're standing inside it)
     B.part = 'the Ferris wheel';
-    if (o.ferris) ferrisWheel(B, o.ferris[0], o.ferris[1], centre);
+    if (o.ferris && o.ferrisModel !== false) ferrisWheel(B, o.ferris[0], o.ferris[1], centre); // (the Testing Center's city has its own, alive: js/game/waterfront.js)
     B.part = 'the L';
     if (o.track) elevatedTrack(B, o.track, xs, walk ? walk.sidewalk || 3 : 0);
     B.part = 'other';
@@ -1575,7 +1575,7 @@
     for (let k = 0; k < nc; k++) {
       const a0 = (k / nc) * Math.PI * 2, a1 = ((k + 1) / nc) * Math.PI * 2, mid = (a0 + a1) / 2;
       const [x0, z0] = at(a0, CR), [x1, z1] = at(a1, CR);
-      if (Math.max(x0, x1) > marshX - 4) continue; // (the marsh has its own wall)
+      // (and on round over the marsh: the wall stands in the lake, js/game/waterfront.js has its water gate)
       if (near(mid, ga, 9 * (R / CR))) continue; // the checkpoint
       B.box(x0, z0, 0.14, 0.14, 0, 3.7, -a0, null, steel, 0, { solid: false });
       const [ix, iz] = at(a0, CR - 0.3);
@@ -1611,9 +1611,11 @@
     if (marshX < 1e8) {
       const zr = Math.sqrt(Math.max(0, CR * CR - (marshX - 3 - c[0]) * (marshX - 3 - c[0])));
       // (with a gap where Lake Street runs on out over the water: the jetty, js/game/waterfront.js)
-      const gap = ferris ? [ferris[1] - 2.6, ferris[1] + 2.6] : null;
+      // (and the steps down to the landing north of it, where the ferry ties up)
+      const gaps = ferris ? [[ferris[1] - 2.6, ferris[1] + 2.6], [ferris[1] + 19, ferris[1] + 29]] : [];
       for (let z = c[1] - zr; z < c[1] + zr; z += 20) {
-        const runs = gap && z < gap[1] && z + 20 > gap[0] ? [[z, gap[0]], [gap[1], z + 20]] : [[z, z + 20]];
+        let runs = [[z, z + 20]];
+        for (const g of gaps) runs = runs.flatMap(([a, b]) => (a < g[1] && b > g[0] ? [[a, g[0]], [g[1], b]] : [[a, b]]));
         for (const [a, b] of runs) if (b - a > 0.3) B.box(marshX - 3, (a + b) / 2, 0.6, b - a, 0, 1.1, 0, null, conc, 0, {});
       }
     }
