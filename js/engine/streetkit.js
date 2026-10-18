@@ -326,7 +326,8 @@
       this.r = U.rng(this.opts.seed || 77);
       this.solidHash = new Map();
       for (const q of city.walk.solids) this.hashRect(this.solidHash, q, q);
-      for (const q of this.opts.clear || []) this.hashRect(this.solidHash, q, q); // (kept clear: nothing stands in front of a station entrance)
+      this.clearHash = new Map();
+      for (const q of this.opts.clear || []) this.hashRect(this.clearHash, q, q); // (kept clear: nothing stands in front of a station entrance)
       const L = zone.openAir || zone.lighting.sample(zone.bx0 - 50, 1.3, zone.bz0 - 50, 0, 1, 0, null, true);
       this.mat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true, color: new THREE.Color(U.clamp(L[0] * 0.95, 0.3, 1.2), U.clamp(L[1] * 0.95, 0.3, 1.2), U.clamp(L[2] * 0.95, 0.3, 1.2)),
         // (the road paint is in this mesh, a hair over the asphalt, which is itself drawn pulled toward you:
@@ -364,9 +365,13 @@
         l.push(val);
       }
     }
-    // would something with this footprint stand in a building (or a column of the L)?
-    blocked(x, z, r) {
-      const l = this.solidHash.get(Math.floor(x / 8) * 100003 + Math.floor(z / 8));
+    // would something with this footprint stand in a building (or a column of the L), or on the pavement
+    // kept clear (in front of a station entrance)?
+    blocked(x, z, r) { return this.built(x, z, r) || this.inHash(this.clearHash, x, z, r); }
+    // in a building (people may walk past a station's doors, where nothing is put down)
+    built(x, z, r) { return this.inHash(this.solidHash, x, z, r); }
+    inHash(h, x, z, r) {
+      const l = h.get(Math.floor(x / 8) * 100003 + Math.floor(z / 8));
       if (!l) return false;
       for (const q of l) if (x + r > q[0] && x - r < q[2] && z + r > q[1] && z - r < q[3]) return true;
       return false;

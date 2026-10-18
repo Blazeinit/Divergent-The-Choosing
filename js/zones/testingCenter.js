@@ -764,6 +764,10 @@
       const farmLife = DV.FarmLife.attach(zone, farms, life);
       // the Circle Line: its entrances on the building fronts, and people coming and going (js/game/metro.js)
       const metro = DV.Metro.attachCity(zone, city);
+      // the people who live here, and their days: homes, work, lunch, the evening, the curfew (js/game/lives.js)
+      const lives = DV.Lives.attach(zone, city, life);
+      // and now and then, rain (js/game/weather.js)
+      const rain = DV.Weather.attach(zone);
       const osl = (CM.landmarks || []).find((l) => l.id === 'order_station');
       DV.Ambiance.attach(ctx, zone, { hub: CM.hub, order: osl ? [osl.x, osl.z] : null });
       ctx.update((dt) => {
@@ -774,6 +778,8 @@
         scenes.update(dt);
         farmLife.update(dt);
         metro.update(dt);
+        lives.update(dt);
+        rain.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 

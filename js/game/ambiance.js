@@ -32,7 +32,7 @@
   const A = {
     attach(ctx, zone, o) {
       o = o || {};
-      const st = { paT: U.rand(40, 80), sirenT: U.rand(60, 140), k: -1, beams: [] };
+      const st = { paT: U.rand(40, 80), sirenT: U.rand(60, 140), k: -1, beams: [], warned: -1 };
       // the searchlights: long open cones, additive, drawn against the cloud
       const mat = new THREE.MeshBasicMaterial({ color: 0xdfe8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
       const geo = new THREE.CylinderGeometry(0.8, 26, 520, 14, 1, true);
@@ -91,10 +91,18 @@
           DV.Events.emit('ambiance:pa', { line });
         }
       }
+      // the curfew warning at twenty to nine: the siren, and the PA (everyone in the street hurries home)
+      const m = DV.Clock.minutes();
+      if (m >= 20 * 60 + 40 && m < 21 * 60 && st.warned !== DV.Clock.day()) {
+        st.warned = DV.Clock.day();
+        DV.Audio.play('siren', { volume: out ? 1 : 0.4 });
+        if (out) setTimeout(() => DV.UI.subtitle('City PA', 'Citizens: twenty minutes to curfew. Return to your faction housing.', 7), 1500);
+        DV.Events.emit('city:siren', { curfew: true });
+      }
       // sirens, far off, at night
       if (n > 0.6) {
         st.sirenT -= dt;
-        if (st.sirenT <= 0) { st.sirenT = U.rand(90, 210); DV.Audio.play('siren', { volume: out ? 1 : 0.4 }); }
+        if (st.sirenT <= 0) { st.sirenT = U.rand(90, 210); DV.Audio.play('siren', { volume: out ? 1 : 0.4 }); DV.Events.emit('city:siren', { far: true }); }
       }
     },
     DAY, NIGHT,
