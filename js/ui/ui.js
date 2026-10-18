@@ -149,7 +149,12 @@
 
     targetPos(t) {
       if (!t) return null;
-      if (t.npc) { const n = DV.NPCs.get(t.npc); return n && n.present ? [n.x, n.z] : null; }
+      if (t.npc) {
+        const n = DV.NPCs.get(t.npc);
+        if (n && n.present) return [n.x, n.z];
+        // (someone out in the city, too far off to be standing there yet: where they'll be)
+        return DV.CityQuests ? DV.CityQuests.where(t.npc) : null;
+      }
       const zone = DV.World.current;
       if (!zone) return null;
       if (t.spot) { const s = zone.spot(t.spot); return s ? [s.x, s.z] : null; }

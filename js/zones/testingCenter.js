@@ -768,6 +768,8 @@
       const waterfront = DV.Waterfront.attach(zone, city);
       // Erudite's machinery: pylons, cameras and cables, the screens, the turbines on the Fence (js/game/citytech.js)
       const tech = DV.CityTech.attach(zone, city);
+      // and the people out there with a story: the city's side quests (js/game/cityquests.js)
+      const stories = DV.CityQuests.attach(zone, city);
       const osl = (CM.landmarks || []).find((l) => l.id === 'order_station');
       DV.Ambiance.attach(ctx, zone, { hub: CM.hub, order: osl ? [osl.x, osl.z] : null });
       ctx.update((dt) => {
@@ -780,6 +782,7 @@
         metro.update(dt);
         waterfront.update(dt);
         tech.update(dt);
+        stories.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 
