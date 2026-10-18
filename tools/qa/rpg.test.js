@@ -207,31 +207,35 @@ L.run('RPG: experience, perks, factions, menus, saves', async (p, T, errs) => {
   await p.keyboard.press('Tab');
   await p.waitForFunction(() => DV.Game.state === 'menu', null, { timeout: 8000 });
   const seen = [];
-  const pages = ['character', 'skills', 'factions', 'quests', 'inventory', 'codex', 'map'];
+  // a key, the way the game reads one: down, up, and one game update to read it (software-rendered
+  // frames are slow, and two real presses inside one are read as one)
+  const key = (code) => ev((c) => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: c, bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: c, bubbles: true }));
+    DV.Game.update(0.016);
+  }, code);
   for (let k = 1; k <= 7; k++) {
-    await p.keyboard.press('Digit' + k);
-    // (wait for each press to land: two inside one slow software-rendered frame read as one)
-    await p.waitForFunction((t) => DV.RPGMenu.tab === t, pages[k - 1], { timeout: 8000 }).catch(() => {});
+    await key('Digit' + k);
     seen.push(await ev(() => DV.RPGMenu.tab + ':' + document.querySelector('#rpgmenu .content').children.length));
   }
   T.eq(seen.map((x) => x.split(':')[0]), ['character', 'skills', 'factions', 'quests', 'inventory', 'codex', 'map'], 'digits 1–7 turn to each page');
   T.ok(seen.every((x) => +x.split(':')[1] > 0), 'every page draws', seen);
-  await p.keyboard.press('KeyQ'); await p.waitForFunction(() => DV.RPGMenu.tab === 'codex', null, { timeout: 8000 }).catch(() => {});
-  await p.keyboard.press('KeyQ'); await p.waitForFunction(() => DV.RPGMenu.tab === 'inventory', null, { timeout: 8000 }).catch(() => {});
+  await key('KeyQ');
+  await key('KeyQ');
   T.eq(await ev(() => DV.RPGMenu.tab), 'inventory', 'Q turns back a page');
-  await p.keyboard.press('KeyE'); await p.waitForFunction(() => DV.RPGMenu.tab === 'codex', null, { timeout: 8000 }).catch(() => {});
+  await key('KeyE');
   T.eq(await ev(() => DV.RPGMenu.tab), 'codex', 'E turns forward a page');
   const cx = await ev(() => ({ open: Object.keys(DV.State.data.codex.open).length, title: (document.querySelector('#rpgmenu .cxt') || {}).textContent, rows: document.querySelectorAll('#rpgmenu .cx').length }));
   T.ok(cx.open >= 5 && cx.title && cx.rows > cx.open - 1, 'the Codex lists what you\'ve learned and what you haven\'t', cx);
   await L.shot(p, 'rpg_codex');
   // skills: ↓ to the next tree, → through its perks, Enter learns
   await ev(() => { DV.State.data.player.perkPoints = 3; DV.RPGMenu.selTree = 'athletics'; DV.RPGMenu.show('skills'); });
-  await p.keyboard.press('ArrowDown'); await p.waitForFunction(() => DV.RPGMenu.selTree === 'melee', null, { timeout: 8000 }).catch(() => {});
+  await key('ArrowDown');
   const k1 = await ev(() => DV.RPGMenu.selTree);
-  await p.keyboard.press('ArrowRight'); await p.waitForFunction(() => DV.RPGMenu.selPerk === 'mel_heavy', null, { timeout: 8000 }).catch(() => {});
-  await p.keyboard.press('ArrowLeft'); await p.waitForFunction(() => DV.RPGMenu.selPerk === 'mel_guard', null, { timeout: 8000 }).catch(() => {});
+  await key('ArrowRight');
+  await key('ArrowLeft');
   const before = await ev(() => ({ sel: DV.RPGMenu.selPerk, st: DV.Perks.status(DV.RPGMenu.selPerk) }));
-  await p.keyboard.press('Enter'); await p.waitForFunction((id) => DV.Perks.owned(id), before.sel, { timeout: 8000 }).catch(() => {});
+  await key('Enter');
   const k2 = await ev((id) => ({ st: DV.Perks.status(id), just: !!document.querySelector('#rpgmenu .pk.just'), nodes: document.querySelectorAll('#rpgmenu .pk').length }), before.sel);
   T.ok(k1 === 'melee' && before.st === 'available' && k2.st === 'owned' && k2.just && k2.nodes === 3, 'Skills & Perks: arrows choose a tree and a perk, Enter learns it', { k1, before, k2 });
   // the mouse: hover a perk for its tooltip, click (twice) to learn
