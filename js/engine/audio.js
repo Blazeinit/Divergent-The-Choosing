@@ -461,6 +461,17 @@
           case 'clank': this.tone(1200, 0.4, 'triangle', 0.06 * v); this.tone(1800, 0.3, 'triangle', 0.04 * v); this.burst('highpass', 3000, 1, 0.1, 0.08 * v); break;
           case 'shutter': for (let i = 0; i < 10; i++) this.burst('bandpass', 900 + i * 40, 3, 0.06, 0.12 * v, i * 0.08); this.tone(60, 0.3, 'sine', 0.3 * v, 0.85); break;
           case 'splash': this.burst('lowpass', 1200, 0.5, 0.5, 0.25 * v); break;
+          // Stage Two and the night game
+          case 'glass': // a pane giving way: the crack, the burst, the bits coming down after it
+            this.burst('highpass', 4200, 0.7, 0.05, 0.5 * v); this.burst('bandpass', 2600, 1.2, 0.35, 0.35 * v, 0.02);
+            for (let i = 0; i < 9; i++) this.tone(2600 + Math.random() * 3200, 0.06, 'triangle', 0.035 * v, 0.12 + i * 0.07 + Math.random() * 0.05);
+            break;
+          case 'crack': this.burst('highpass', 3600, 2, 0.03, 0.3 * v); this.tone(1900 + Math.random() * 500, 0.05, 'triangle', 0.05 * v); break; // a fingertip on glass that isn't there
+          case 'creak': { const o = this.tone(180 + Math.random() * 60, 0.5, 'sawtooth', 0.03 * v); o.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.45); this.burst('bandpass', 700, 4, 0.4, 0.04 * v); break; } // wood under strain
+          case 'fire': this.burst('lowpass', 420, 0.5, 0.9, 0.18 * v); for (let i = 0; i < 4; i++) this.burst('highpass', 2000 + Math.random() * 2000, 0.8, 0.015, 0.05 * v, Math.random() * 0.8); break; // a room going up
+          case 'paint': this.burst('bandpass', 900, 1.5, 0.05, 0.4 * v); this.tone(240, 0.06, 'sine', 0.18 * v); break; // a paintball marker's cough
+          case 'splat': this.burst('lowpass', 700, 0.8, 0.08, 0.3 * v); this.burst('bandpass', 1600, 2, 0.03, 0.12 * v, 0.01); break;
+          case 'whistle': { const o = this.tone(2400, 0.7, 'sine', 0.05 * v); o.frequency.setValueAtTime(2400, this.ctx.currentTime + 0.3); o.frequency.linearRampToValueAtTime(2900, this.ctx.currentTime + 0.32); break; }
           case 'flare': this.burst('highpass', 2500, 0.5, 1.5, 0.12 * v); break;
           case 'type': this.tone(2000 + Math.random() * 400, 0.015, 'square', 0.012 * v); break;
           case 'beep': this.tone(1000, 0.08, 'square', 0.05 * v); break;
@@ -891,7 +902,8 @@
       g.connect(this.musicBus);
       const filt = c.createBiquadFilter();
       filt.type = 'lowpass';
-      filt.frequency.value = kind === 'sim' ? 500 : kind === 'home' ? 650 : 900;
+      const dark = kind === 'sim' || kind === 'fear' || kind === 'landscape'; // (the simulations: low and closed in)
+      filt.frequency.value = dark ? 500 : kind === 'home' ? 650 : 900;
       filt.Q.value = 0.7;
       filt.connect(g);
       const voices = [];
@@ -913,6 +925,11 @@
         ceremony: [[110, 164.8, 220, 261.6], [87.3, 130.8, 174.6, 220], [130.8, 196, 261.6, 329.6], [98, 146.8, 196, 246.9], [110, 164.8, 220, 261.6], [82.4, 123.5, 164.8, 207.7]],
         dauntless: [[73.4, 110, 146.8, 174.6], [65.4, 98, 130.8, 155.6], [58.3, 87.3, 116.5, 146.8], [65.4, 98, 130.8, 164.8]],
         orchard: [[146.8, 185, 220, 293.7], [123.5, 146.8, 185, 246.9], [98, 146.8, 196, 246.9], [110, 138.6, 164.8, 220]],
+        // Stage Two: a cluster that never resolves; Stage Three: the same, climbing; the night game: drums
+        fear: [[61.7, 65.4, 92.5, 130.8], [58.3, 61.7, 87.3, 123.5], [65.4, 69.3, 98, 138.6]],
+        landscape: [[73.4, 77.8, 110, 155.6], [77.8, 82.4, 116.5, 164.8], [82.4, 87.3, 123.5, 174.6], [87.3, 92.5, 130.8, 185]],
+        ctf: [[82.4, 123.5, 164.8, 196], [73.4, 110, 146.8, 174.6], [65.4, 98, 130.8, 164.8], [73.4, 110, 146.8, 185]],
+        serum: [[110, 116.5, 164.8, 233.1], [103.8, 110, 155.6, 220]],
       };
       const prog = progs[kind] || progs.menu;
       let step = 0;
@@ -923,16 +940,16 @@
           v.o1.frequency.setTargetAtTime(ch[i], t, 1.2);
           v.o2.frequency.setTargetAtTime(ch[i], t, 1.2);
         });
-        filt.frequency.setTargetAtTime((kind === 'sim' ? 380 : 700) + Math.random() * 300, t, 2);
+        filt.frequency.setTargetAtTime((dark ? 380 : 700) + Math.random() * 300, t, 2);
         step++;
       };
       apply();
       g.gain.setTargetAtTime(kind === 'home' || kind === 'ceremony' ? 0.7 : 1, c.currentTime, 2);
-      const timer = setInterval(apply, kind === 'sim' ? 6000 : kind === 'dauntless' ? 4000 : kind === 'ceremony' ? 10000 : 8000);
+      const timer = setInterval(apply, dark ? (kind === 'landscape' ? 4500 : 6000) : kind === 'dauntless' || kind === 'ctf' ? 4000 : kind === 'ceremony' ? 10000 : 8000);
       // the Dauntless get drums: kick on 1 and 3, a snare of noise on 2 and 4, ticks between
       let drum = null;
-      if (kind === 'dauntless') {
-        const beat = 0.46;
+      if (kind === 'dauntless' || kind === 'ctf' || kind === 'landscape') {
+        const beat = kind === 'ctf' ? 0.36 : kind === 'landscape' ? 0.9 : 0.46; // (the night game runs hot; the last test is a slow pulse)
         let n = 0;
         drum = setInterval(() => {
           const k = n++ % 8;

@@ -79,12 +79,16 @@
       { id: 'cut', kind: 'cut', t0: '08:00', t1: '09:30', title: 'Final rankings', where: 'the rankings board' },
       { id: 'fear', kind: 'fear', t0: '10:00', t1: '12:00', title: 'Stage Two', where: 'the Simulation Room' },
     ],
+    // Stage Two goes on (js/game/stagetwo.js): a session in the chair each morning, then the last test
+    7: [{ id: 'fear2', kind: 'fear', t0: '10:00', t1: '12:00', title: 'Stage Two', where: 'the Simulation Room', session: 2 }],
+    8: [{ id: 'fear3', kind: 'fear', t0: '10:00', t1: '12:00', title: 'Stage Two', where: 'the Simulation Room', session: 3 }],
+    9: [{ id: 'final', kind: 'final', t0: '10:00', t1: '12:30', title: 'Stage Three', where: 'the Simulation Room' }],
   };
   const MEALS = [['07:00', '07:45'], ['12:30', '13:15'], ['19:00', '20:00']];
   // where the class spends its free time (none of these are the members' usual places)
   const FREE = ['dorm_table_c0', 'dorm_table_c1', 'dorm_table_c2', 'dorm_table_c3', 'pit_bench_w_s0', 'pit_bench_w_s1', 'pit_bench_w_s2', 'pit_bench_e_s0', 'pit_bench_e_s1', 'pit_bench_e_s2',
     'rail0', 'rail1', 'rail3', 'hang0', 'hang1', 'hang2', 'hang3', 'hang4', 'hang5', 'hang6', 'hang7'];
-  const FIRST = 3, LAST = 6, CUT = 4; // (the bottom four of a class of sixteen)
+  const FIRST = 3, LAST = 9, CUT = 4; // (the bottom four of a class of sixteen)
 
   const I = {
     CLASS, PLAN, STAT, FIRST, LAST, CUT, FREE, MEALS,
@@ -363,7 +367,7 @@
         // the call
         if (m === T(b.t0) - 10 && !s.flags['call:' + k]) { s.flags['call:' + k] = true; this.call(b); }
         // too late: missed it
-        if (m >= T(b.t1) && !s.blocks[k] && this.busy !== b && b.kind !== 'cut' && b.kind !== 'fear') {
+        if (m >= T(b.t1) && !s.blocks[k] && this.busy !== b && b.kind !== 'cut' && b.kind !== 'fear' && b.kind !== 'final') {
           s.blocks[k] = 'missed';
           this.award('player', b.ranked ? -100 : -60, 'Missed ' + b.title.toLowerCase(), b);
           DV.Reputation.addRel('d_mark', -6, true);
@@ -382,6 +386,7 @@
         fight: 'Training Room! The ring, ten minutes. The pairings are on the board. These count.',
         cut: 'All initiates to the Training Room. Final rankings.',
         fear: 'Initiates: the Simulation Room. Stage Two.',
+        final: 'Initiates: the Simulation Room. Stage Three. The leaders are watching today.',
       };
       DV.Audio.play('chime');
       setTimeout(() => DV.UI.subtitle('PA', lines[b.kind] || ('Initiates — ' + b.title + '.'), 6), 1200);
@@ -396,7 +401,7 @@
       const L = [];
       const seat = (meal) => 'dt' + ((idx + meal) % 4) + (idx % 2 ? '_a' : '_b') + ((idx * 3 + meal) % 7);
       L.push({ t: '00:00', do: 'go', to: c.bunk, act: 'lie' });
-      if (d < 2 || d > 6) return L;
+      if (d < 2 || d > 9) return L;
       L.push({ t: '06:40', do: 'wander', room: 'dorm' });
       L.push({ t: '07:00', do: 'go', to: seat(0), act: 'sit' });
       const plan = this.blocks(d);
@@ -407,7 +412,7 @@
       if (d >= 3 && d <= 5) {
         if (!plan.some((b) => b.t0 === '13:30')) L.push({ t: '12:30', do: 'go', to: seat(1), act: 'sit' });
       } else if (d === 2) L.push({ t: '13:00', do: 'go', to: seat(1), act: 'sit' });
-      if (d === 6) { L.push({ t: '12:30', do: 'go', to: seat(1), act: 'sit' }); }
+      if (d >= 6) { L.push({ t: '12:30', do: 'go', to: seat(1), act: 'sit' }); }
       // the afternoon off, the evening: everyone somewhere different (2·idx is distinct mod the list's length)
       const FREE = I.FREE;
       const free = (slot) => FREE[(idx * 2 + d + slot * 5) % FREE.length];
@@ -447,7 +452,7 @@
         out.push({ t: at(t0 - 5), do: 'go', to: spots[idx % spots.length], act: spots[idx % spots.length].indexOf('bench') >= 0 ? 'sit' : 'arms_crossed' });
       } else if (b.kind === 'cut') {
         out.push({ t: at(t0 - 5), do: 'go', to: 'line' + (idx % 16), act: 'idle' });
-      } else if (b.kind === 'fear') {
+      } else if (b.kind === 'fear' || b.kind === 'final') {
         // waiting their turn in a line in the training hall, the Simulation Room door across the way
         out.push({ t: at(t0 - 5), do: 'go', to: 'line' + (idx % 16), act: 'arms_crossed' });
       }
@@ -457,7 +462,7 @@
     markSchedule() {
       const d = this.day();
       const L = [{ t: '06:20', do: 'arrive', to: 'dorm_door_in', act: 'arms_crossed' }, { t: '07:05', do: 'go', to: 'mark_dining' }];
-      const where = { range: 'mark_range', bags: 'mark_bags', knives: 'mark_knives', spar: 'mark_ring', fight: 'mark_ring', cut: 'mark_brief', fear: 'sim_mark' };
+      const where = { range: 'mark_range', bags: 'mark_bags', knives: 'mark_knives', spar: 'mark_ring', fight: 'mark_ring', cut: 'mark_brief', fear: 'sim_mark', final: 'sim_mark' };
       if (!this.blocks(d).length) {
         // no training (the day you arrive): about the compound
         return [{ t: '06:20', do: 'arrive', to: 'mark_dining' }, { t: '11:00', do: 'go', to: 'pit_c2', act: 'arms_crossed' }, { t: '12:35', do: 'go', to: 'mark_dining' }, { t: '14:00', do: 'go', to: 'mark_brief', act: 'arms_crossed' }, { t: '17:00', do: 'go', to: 'pit_c2', act: 'arms_crossed' }, { t: '19:05', do: 'go', to: 'mark_dining' }, { t: '20:30', do: 'go', to: 'mark_rail', act: 'lean' }, { t: '23:15', do: 'leave' }];
@@ -478,7 +483,7 @@
       const d = this.day();
       const L = [];
       const plan = this.blocks(d);
-      const big = plan.filter((b) => b.ranked || b.kind === 'cut' || b.kind === 'fight');
+      const big = plan.filter((b) => b.ranked || b.kind === 'cut' || b.kind === 'fight' || b.kind === 'final');
       for (const b of big) {
         L.push({ t: U.formatTime(T(b.t0) - 8), do: 'arrive', to: b.kind === 'cut' ? 'mark_ring' : 'dana_watch', act: 'arms_crossed' });
         L.push({ t: U.formatTime(Math.min(T(b.t1), T(b.t0) + 75)), do: 'leave' });

@@ -43,9 +43,13 @@
       // a load in the middle of a scene: put everyone back on their schedules
       for (const n of DV.NPCs.all) if (n.def.zone === 'd_compound') { n.scripted = false; const s = DV.State.npc(n.id); if (s.override && !s.override.keep) delete s.override; }
       if (opts && opts.then === 'debrief') this.after(2.4, () => this.debrief(opts.fearRes || {}));
+      // Stage Two and Three (js/game/stagetwo.js): the boards, and coming back from the chair
+      if (DV.StageTwo) { DV.StageTwo.clearGuests(); DV.StageTwo.drawBoards(); if (DV.StageTwo.applies() && !DV.Quests.started('stage_two')) DV.StageTwo.begin(); if (opts && opts.then && opts.then !== 'debrief') DV.StageTwo.onArrive(opts); }
+      if (DV.CTF && DV.CTF.onArrive) DV.CTF.onArrive(opts || {});
     },
     update(dt) {
       this.tick(dt);
+      if (DV.StageTwo) DV.StageTwo.update(dt);
       this.runSeqs(dt);
       const I_ = I();
       const d = DV.Clock.day(), m = DV.Clock.minutes();
@@ -135,6 +139,7 @@
         else if (T(b.t0) > now) out.push({ t: T(b.t0), why: b.title + ' is starting, at ' + b.where + '.' });
       }
       if (DV.Quests.obj('zip_line', 'meet') === 'active') out.push({ t: T('21:20'), why: 'Bo will be at the zip line by now.' });
+      if (DV.CTF && DV.CTF.waitStop) { const w = DV.CTF.waitStop(now); if (w) out.push(w); }
       return out;
     },
     waitTargets(now) {
@@ -152,7 +157,7 @@
       const I_ = I(), out = [];
       if (!I_.active()) return out;
       for (const b of I_.blocks()) {
-        if (I_.status(b) || b.kind === 'cut' || b.kind === 'fear') continue;
+        if (I_.status(b) || b.kind === 'cut' || b.kind === 'fear' || b.kind === 'final') continue;
         if (from >= T(b.t0) && from < T(b.t1) && to > from) out.push(b.title + ' is on now, at ' + b.where + (to >= T(b.t1) ? '. Wait that long and you\'ve missed it.' : '. You\'ll be late.'));
       }
       return out;
@@ -623,7 +628,7 @@
 
     /* ============================== Stage Two: the chair ============================== */
     sitFearChair() {
-      if (DV.Quests.obj('stage_one', 'stage2') !== 'active') return;
+      if (DV.Quests.obj('stage_one', 'stage2') !== 'active') { if (DV.StageTwo) DV.StageTwo.sit(); return; }
       this.cut(true);
       const chair = DV.World.current.spot('fear_chair');
       if (chair) DV.Game.sitOn(chair, true);
@@ -638,6 +643,7 @@
     afterFear(res) {
       const s = st();
       s.fear = res;
+      if (DV.StageTwo) DV.StageTwo.recordFirst(res);
       DV.District.enter('dauntless', { spawn: [30.5, -17.6, Math.PI], time: U.formatTime(T('10:00') + Math.round(10 + (res.secs || 300) / 60 * 5)), title: 'STAGE TWO\nYOUR FIRST SIMULATION', then: 'debrief', fearRes: res });
     },
     debrief(res) {
@@ -664,6 +670,7 @@
         DV.UI.modalOpen = null;
         G.state = 'playing';
         DV.Input.requestLock();
+        if (DV.StageTwo) DV.StageTwo.begin();
         DV.Campaign.afterBanner('dauntless');
         DV.Save.write('auto');
         DV.UI.notify('Autosaved. The compound is yours.', 'info');

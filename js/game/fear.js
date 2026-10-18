@@ -128,6 +128,7 @@
       Ch.hr = o.hr || 96; Ch.t = 0; Ch.calmT = 0; Ch.overT = 0; Ch.done = false; Ch.aware = false; Ch.beatT = 0; Ch.awareOffered = false; Ch.panic = 0;
       if (Ch.mon) Ch.mon.remove();
       Ch.mon = this.monitor(null);
+      DV.UI.hush(); // (whatever was being said in the real world stays there)
       DV.UI.root.classList.add('fearing');
       DV.UI.simMode(true);
       DV.Audio.setMusic(o.music || 'fear');
@@ -222,13 +223,14 @@
         dog: (t.bravery || 0) + (t.aggression || 0) + (t.resistance || 0) * 0.6,
         tribunal: (t.honesty || 0) + (t.deception || 0) + (t.logic || 0) * 0.5 + (t.observation || 0) * 0.5,
       };
-      const best = Object.keys(score).sort((x, y) => score[y] - score[x])[0];
+      let best = Object.keys(score).sort((x, y) => score[y] - score[x])[0];
+      if (!(score[best] > 0)) best = { abnegation: 'child', amity: 'child', dauntless: 'dog' }[a.result] || 'tribunal';
       const lines = {
         child: 'You were tested for what you would give. The fear is what you couldn\'t.',
         dog: 'You were tested for what you would fight. The fear is what fights back.',
         tribunal: 'You were tested for what you would say. The fear is being made to say it.',
       };
-      return { id: score[best] > 0 ? best : ({ abnegation: 'child', amity: 'child', dauntless: 'dog' }[a.result] || 'tribunal'), line: lines[best] };
+      return { id: best, line: lines[best] };
     },
   };
 

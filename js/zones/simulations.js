@@ -1107,4 +1107,5 @@
   };
 
   DV.Sim = Sim;
+  DV.SimDog = Dog; // (the dog comes back in Stage Two, for some: js/zones/fearscape.js)
 })();

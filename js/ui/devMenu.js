@@ -75,6 +75,18 @@
       for (const d of [2, 3, 4, 5, 6]) btn(r, 'Day ' + d, () => this.jump('dauntless', d));
       r = row('First week');
       for (const f of ['candor', 'erudite', 'abnegation', 'amity']) btn(r, DV.Factions.name(f), () => this.jump('week', f));
+      r = row('Trials: Dauntless');
+      btn(r, 'Stage Two · Day 7', () => this.jump('stage2', 2));
+      btn(r, 'Stage Two · Day 8', () => this.jump('stage2', 3));
+      btn(r, 'Stage Three', () => this.jump('stage2', 'final'));
+      btn(r, 'Capture the Flag', () => this.jump('ctf'));
+      r = row('One fear');
+      for (const f of ['crows', 'box', 'fire', 'family', 'own', 'tank', 'beam']) btn(r, DV.Fear.NAMES[f], () => this.jump('fear', f));
+      r = row('Trials: factions');
+      btn(r, 'Candor · the serum', () => this.jump('trial', 'candor'));
+      btn(r, 'Erudite · the serum lab', () => this.jump('trial', 'erudite'));
+      btn(r, 'Abnegation · the bread line', () => this.jump('trial', 'abnegation'));
+      btn(r, 'Amity · the bread', () => this.jump('trial', 'amity'));
 
       // time
       section('Time');
@@ -230,6 +242,25 @@
           DV.Build2.dressFor('dauntless');
           st.story.dauntlessName = st.story.dauntlessName || st.player.name;
           DV.District.enter('dauntless', { day: arg, time: arg === 2 ? '11:20' : '07:30', spawn: [34, 9, 0.2], instant: true, noSave: true });
+          break;
+        // the trials (js/game/stagetwo.js, js/zones/ctf.js, the faction weeks)
+        case 'stage2': {
+          const n = arg;
+          DV.StageTwo.devSetup(n === 'final' ? 9 : n === 3 ? 8 : 7, { sessions: n === 'final' ? 3 : n === 3 ? 2 : 1 });
+          break;
+        }
+        case 'fear':
+          DV.StageTwo.devSetup(7, { time: '10:05' });
+          DV.Fear.run({ kind: 'single', queue: [arg], instant: true });
+          break;
+        case 'ctf':
+          if (DV.CTF) DV.CTF.devStart();
+          break;
+        case 'trial':
+          resultsIn();
+          st.story.week = null;
+          DV.Build2.setFaction(arg);
+          if (DV.Trials) DV.Trials.devStart(arg);
           break;
         case 'week': {
           resultsIn();

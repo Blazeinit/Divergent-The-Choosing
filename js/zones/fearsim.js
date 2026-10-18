@@ -5,10 +5,13 @@
                 box in the dark, filling, with faces outside watching.
      THE BEAM — otherwise: a steel beam a hundred metres up, in the wind,
                 between two roofs.
-   The technician measures one thing: your heart. It ends when you calm
-   down — or when you do the thing the fear says you can't. And if you're
-   Divergent you might notice it isn't real, and end it in seconds… which
-   is exactly what they're watching for.
+   The technician measures one thing: your heart (js/game/fear.js). It ends
+   when you calm down, or when you do the thing the fear says you can't
+   (the crack in the glass, the far roof). And if you're Divergent you
+   might notice it isn't real: a fingertip on the glass, and the glass
+   remembers it was never there. That is exactly what they're watching for.
+   Both are fears of the engine too (DV.Fear: 'tank', 'beam'), so Stage
+   Three's landscape (js/zones/fearscape.js) can chain them with the rest.
    Also: the factionless epilogue, for anyone cut at the end of Stage One.
    ========================================================================== */
 (function () {
@@ -19,31 +22,19 @@
   const drowned = () => (DV.State.data.aptitude.choices || []).some((c) => /water closed over|fought the water|breathed underwater/.test(c.label || ''));
   const variant = () => (drowned() ? 'tank' : 'beam');
 
-  /* ------------------------------ the heart monitor ------------------------------ */
-  function monitor(A) {
-    const h = U.el('div', 'fear-hud', '<div class="fm"><div class="bpm"><span>72</span> BPM</div><canvas width="180" height="40"></canvas><div class="lbl">Heart rate</div></div><div class="fear-hint"></div><div class="fear-aware hidden"></div>', A ? A.hud : DV.UI.root);
-    const cv = h.querySelector('canvas'), g = cv.getContext('2d');
-    const pts = new Array(90).fill(20);
-    let ph = 0;
-    return {
-      el: h,
-      set(bpm, dt) {
-        h.querySelector('.bpm span').textContent = Math.round(bpm);
-        h.classList.toggle('high', bpm > 140);
-        ph += dt * bpm / 60;
-        const f = ph % 1;
-        const y = f < 0.08 ? 20 - Math.sin(f / 0.08 * Math.PI) * 16 : f < 0.14 ? 20 + Math.sin((f - 0.08) / 0.06 * Math.PI) * 6 : 20;
-        pts.push(y); pts.shift();
-        g.clearRect(0, 0, 180, 40);
-        g.strokeStyle = bpm > 140 ? '#ff6a4a' : '#7fe08a'; g.lineWidth = 1.5;
-        g.beginPath(); pts.forEach((v, i) => (i ? g.lineTo(i * 2, v) : g.moveTo(0, v))); g.stroke();
-      },
-      hint(t) { const e = h.querySelector('.fear-hint'); if (e.textContent !== t) e.textContent = t; },
-      remove() { h.remove(); },
-    };
-  }
-
   /* ============================== THE TANK ============================== */
+  const crackTex = () => DV.Tex.custom('glass_crack_b', 64, 64, (c) => {
+    c.strokeStyle = 'rgba(230,240,255,0.95)'; c.lineWidth = 1;
+    const r = U.rng('crack');
+    for (let i = 0; i < 11; i++) {
+      c.beginPath(); c.moveTo(32, 32);
+      let x = 32, y = 32;
+      const a = (i / 11) * Math.PI * 2 + r() * 0.4;
+      for (let k = 0; k < 5; k++) { x += Math.cos(a + (r() - 0.5) * 0.7) * 6.5; y += Math.sin(a + (r() - 0.5) * 0.7) * 6.5; c.lineTo(x, y); }
+      c.stroke();
+    }
+    c.beginPath(); c.arc(32, 32, 5, 0, Math.PI * 2); c.stroke(); c.beginPath(); c.arc(32, 32, 12, 0.3, 2.4); c.stroke();
+  }, { wrap: 'clamp' });
   DV.Zones.define('fear_tank', {
     name: 'Simulation', region: '', chapter: true, noDiscover: true, simulation: false,
     bounds: { x0: -12, z0: -12, x1: 12, z1: 12 },
@@ -64,9 +55,10 @@
       for (const [x, z, ry] of [[0, -S, 0], [0, S, 0], [-S, 0, Math.PI / 2], [S, 0, Math.PI / 2]]) {
         const p = new THREE.Mesh(new THREE.PlaneGeometry(S * 2, 4.2), glass); p.position.set(x, 2.1, z); p.rotation.y = ry; g.add(p);
       }
-      for (const [x, z] of [[-S, -S], [S, -S], [-S, S], [S, S]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 4.3, 0.08), frame); b.position.set(x, 2.15, z); g.add(b); }
-      const lid = new THREE.Mesh(new THREE.BoxGeometry(S * 2 + 0.1, 0.08, S * 2 + 0.1), frame); lid.position.y = 4.2; g.add(lid);
-      ctx.add(g);
+      const frames = new THREE.Group();
+      for (const [x, z] of [[-S, -S], [S, -S], [-S, S], [S, S]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 4.3, 0.08), frame); b.position.set(x, 2.15, z); frames.add(b); }
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(S * 2 + 0.1, 0.08, S * 2 + 0.1), frame); lid.position.y = 4.2; frames.add(lid);
+      ctx.add(g); ctx.add(frames);
       const cols = [];
       for (const [x0, z0, x1, z1] of [[-S - 0.1, -S - 0.1, S + 0.1, -S + 0.02], [-S - 0.1, S - 0.02, S + 0.1, S + 0.1], [-S - 0.1, -S, -S + 0.02, S], [S - 0.02, -S, S + 0.1, S]]) cols.push(zone.colliders.add(x0, z0, x1, z1, { y0: 0, y1: 4.3, tag: 'wall' }));
       // the water
@@ -75,12 +67,155 @@
       ctx.add(water);
       const surf = new THREE.Mesh(new THREE.PlaneGeometry(S * 2 - 0.04, S * 2 - 0.04), new THREE.MeshBasicMaterial({ color: 0x6aa0c0, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }));
       surf.rotation.x = -Math.PI / 2; ctx.add(surf);
-      zone.tank = { S, water, surf, glass, panes: g, cols };
-      // the crack you'll find if you look (lower corner, north-east)
-      const crack = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.5), new THREE.MeshBasicMaterial({ map: DV.Tex.custom('glass_crack', 32, 32, (c, w, h) => { c.strokeStyle = 'rgba(230,240,255,0.95)'; c.lineWidth = 1; for (let i = 0; i < 7; i++) { c.beginPath(); c.moveTo(16, 16); c.lineTo(16 + Math.cos(i) * 16, 16 + Math.sin(i * 1.7) * 16); c.stroke(); } }, { transparent: true }), transparent: true, depthWrite: false }));
+      // the water that's let out when the glass goes: a sheet across the floor
+      const spill = new THREE.Mesh(new THREE.CircleGeometry(1, 20), new THREE.MeshBasicMaterial({ color: 0x3a6e8a, transparent: true, opacity: 0.5, depthWrite: false, fog: true }));
+      spill.rotation.x = -Math.PI / 2; spill.position.y = 0.02; spill.visible = false; ctx.add(spill);
+      zone.tank = { S, water, surf, glass, panes: g, frames, cols, spill };
+      // the crack you'll find if you look (lower corner, north-east), and the ones that can spread
+      const cmat = new THREE.MeshBasicMaterial({ map: crackTex(), transparent: true, depthWrite: false });
+      const crack = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.5), cmat);
       crack.position.set(S - 0.02, 0.55, -S + 0.45); crack.rotation.y = -Math.PI / 2; ctx.add(crack);
       zone.tank.crack = crack;
+      zone.tank.spread = [[0, -S + 0.02, 0], [0, S - 0.02, Math.PI], [-S + 0.02, 0, Math.PI / 2], [S - 0.02, 0.4, -Math.PI / 2]].map(([x, z, ry], i) => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), cmat);
+        if (Math.abs(z) > 1) m.position.set(x + (i ? -0.4 : 0.5), 1.4 + i * 0.3, z); else m.position.set(x, 1.6 - i * 0.2, z);
+        m.rotation.y = ry; m.visible = false; ctx.add(m); return m;
+      });
+      // the glass, when it goes: shards in one mesh
+      const N = 70, shardGeo = new THREE.BufferGeometry();
+      shardGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.07, 0, -0.05, -0.05, 0, 0.06, -0.04, 0], 3));
+      const shards = new THREE.InstancedMesh(shardGeo, new THREE.MeshBasicMaterial({ color: 0xcfe6f2, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false, fog: true }), N);
+      shards.visible = false; shards.frustumCulled = false; ctx.add(shards);
+      zone.tank.shards = { mesh: shards, n: N, p: [] };
     },
+  });
+  // the glass gives way: shards out from every pane, the water out across the floor
+  function shatter(Ch) {
+    const T = DV.World.current.tank;
+    if (!T || Ch.shattered) return;
+    Ch.shattered = true;
+    T.panes.visible = false;
+    for (const c of T.cols) if (c) c.enabled = false;
+    for (const m of T.spread) m.visible = false;
+    T.crack.visible = false;
+    const sh = T.shards, r = U.rng('shards:' + Ch.t);
+    sh.p = [];
+    for (let i = 0; i < sh.n; i++) {
+      const side = i % 4, a = (r() - 0.5) * 2 * T.S, y = 0.3 + r() * 3.6;
+      const [x, z, nx, nz] = side === 0 ? [a, -T.S, 0, -1] : side === 1 ? [a, T.S, 0, 1] : side === 2 ? [-T.S, a, -1, 0] : [T.S, a, 1, 0];
+      sh.p.push({ x, y, z, vx: nx * (1.5 + r() * 3) + (r() - 0.5), vy: r() * 2, vz: nz * (1.5 + r() * 3) + (r() - 0.5), rx: r() * 6, ry: r() * 6, s: 0.7 + r() * 1.6 });
+    }
+    sh.mesh.visible = true;
+    T.spill.visible = true; T.spill.scale.setScalar(1.6);
+    DV.Audio.play('glass', { volume: 1 });
+    DV.Audio.play('splash', { volume: 1 });
+    setTimeout(() => DV.Audio.play('splash', { volume: 0.6 }), 300);
+    DV.Game.rig.shake = 0.35;
+    Ch.drain = true;
+  }
+  function stepShards(Ch, dt) {
+    const T = DV.World.current && DV.World.current.tank;
+    if (!T) return;
+    if (Ch.drain) {
+      Ch.level = Math.max(0.02, Ch.level - dt * 2.4);
+      T.spill.scale.setScalar(Math.min(9, T.spill.scale.x + dt * 5));
+      T.spill.material.opacity = Math.max(0.15, T.spill.material.opacity - dt * 0.08);
+      T.water.scale.y = Ch.level; T.water.position.y = Ch.level / 2; T.surf.position.y = Ch.level + 0.005;
+    }
+    const sh = T.shards;
+    if (!sh.mesh.visible) return;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+    sh.p.forEach((s, i) => {
+      if (s.y > 0.02) { s.vy -= 9.8 * dt; s.x += s.vx * dt; s.y = Math.max(0.02, s.y + s.vy * dt); s.z += s.vz * dt; s.rx += dt * 7; s.ry += dt * 5; } else { s.vx *= 0.9; s.vz *= 0.9; }
+      e.set(s.y > 0.03 ? s.rx : -Math.PI / 2, s.ry, 0); q.setFromEuler(e);
+      m.compose(new THREE.Vector3(s.x, s.y, s.z), q, new THREE.Vector3(s.s, s.s, s.s));
+      sh.mesh.setMatrixAt(i, m);
+    });
+    sh.mesh.instanceMatrix.needsUpdate = true;
+  }
+  DV.Fear.define('tank', {
+    title: 'DROWNING', zone: 'fear_tank',
+    start(Ch, zone) {
+      const P = DV.Player;
+      Ch.v = 'tank';
+      P.place(0, 0, 0);
+      Ch.level = 0.05; Ch.air = 1; Ch.cracks = 0; Ch.shattered = false; Ch.drain = false;
+      // the faces outside the glass
+      Ch.watchers = [[-3.6, -2.4], [3.4, -2.8], [-3, 3.2], [3.8, 2.6], [0, -4.4]].map(([x, z], i) => {
+        const a = Ch.actor({ id: 'w' + i, name: '', app: DV.Character.fromFaction(['dauntless', 'erudite', 'candor', 'dauntless', 'abnegation'][i], i % 2 ? 'f' : 'm', 'fearface' + i, { age: 30 + i * 6 }), x, z, rot: 0, action: 'arms_crossed' });
+        a.face(0, 0); return a;
+      });
+      Ch.voice('', '[Glass on four sides. Something cold at your ankles. It\'s rising.]', 4);
+      const T = zone.tank;
+      Ch.crackNeed = Math.max(4, 12 - DV.Stats.attr('strength'));
+      Ch.interact({ id: 'crack', kind: 'action', x: T.crack.position.x - 0.3, y: 0.6, z: T.crack.position.z, radius: 1.2, label: 'Hit the crack', name: 'The glass', cond: () => Ch.crackNear && !Ch.done && !Ch.bending, onUse: () => {
+        Ch.cracks++; Ch.hitCrack = true;
+        DV.Audio.play('punch', { volume: 0.7 }); DV.Audio.play('crack', { volume: 0.6 }); DV.Game.rig.shake = 0.2;
+        T.crack.scale.setScalar(1 + Ch.cracks * 0.35);
+        // past halfway, it starts to run across the pane
+        if (Ch.cracks >= Ch.crackNeed / 2) T.spread[3].visible = true;
+      } });
+    },
+    update(Ch, dt) {
+      const P = DV.Player, T = DV.World.current.tank;
+      stepShards(Ch, dt);
+      if (Ch.shattered) return 0.2;
+      // the water rises (faster in the last test)
+      Ch.level = Math.min(4.0, Ch.level + dt * 0.055 * (Ch.fast ? 1.35 : 1));
+      T.water.scale.y = Ch.level; T.water.position.y = Ch.level / 2; T.surf.position.y = Ch.level + 0.005;
+      const head = 1.55 * P.scale;
+      const under = Ch.level > head;
+      let fear = Ch.level / 2.2 + (under ? 1.2 : 0);
+      P.moveScale = Ch.level > 0.9 ? 0.55 : 0.85;
+      P.surfaceOverride = 'water';
+      if (Math.random() < dt * 0.6) DV.Audio.play('splash', { volume: 0.25 });
+      if (under) {
+        Ch.air = Math.max(0, Ch.air - dt / (8 + DV.Stats.attr('resolve') * 0.8));
+        Ch.vig = 0.5 + (1 - Ch.air) * 0.5;
+        if (Ch.air <= 0) { Ch.endFear('blackout'); return fear; }
+      } else { Ch.air = Math.min(1, Ch.air + dt * 0.5); Ch.vig = undefined; }
+      // the crack in the corner: PERCEPTION sees it from further away
+      const cr = T.crack.position, dc = Math.hypot(P.x - cr.x, P.z - cr.z);
+      Ch.crackNear = dc < (DV.Stats.attr('perception') >= 6 ? 1.2 : 0.75);
+      if (Ch.crackNear && !Ch.saidCrack) { Ch.saidCrack = true; Ch.voice('', '[A hairline crack in the glass, low in the corner.]', 3); }
+      if (Ch.hitCrack) {
+        Ch.hitCrack = false; fear += 0.3;
+        if (Ch.cracks >= Ch.crackNeed) {
+          shatter(Ch);
+          Ch.voice('', '[The crack runs, and runs, and the whole wall lets go at once. The water goes out of the tank like a held breath.]', 4.5);
+          Ch.after(2.2, () => Ch.endFear('faced'));
+        }
+      }
+      return fear;
+    },
+    heart: { blackoutAfter: 60 },
+    threatened: (Ch) => Ch.level > 0.9,
+    vignette: (Ch) => Ch.vig,
+    hint(Ch) {
+      const under = Ch.level > 1.55 * DV.Player.scale;
+      return under ? 'You can\'t breathe. Find a way out — or slow your heart. (hold Space)' : Ch.crackNear ? 'Hit the crack — again, and again (E)' : 'Hold Space, standing still: slow your breathing. Or look for a way out.';
+    },
+    // the moment from the film, in our own words: one fingertip, and the glass remembers it isn't there
+    bend(Ch) {
+      const P = DV.Player, T = DV.World.current.tank;
+      // to the nearest pane, a hand up to it
+      const pane = Math.abs(P.x) > Math.abs(P.z) ? (P.x > 0 ? 3 : 2) : (P.z > 0 ? 1 : 0);
+      P.cineAction = 'point';
+      Ch.voice('', '[You stop thrashing. You put one fingertip to the glass, and tap it — the way you\'d tap a window to wake someone. This is glass the way a picture of a door is a door.]', 6);
+      DV.Audio.play('crack', { volume: 0.9 });
+      T.spread[pane].visible = true; T.spread[pane].scale.setScalar(0.2);
+      let k = 0;
+      const grow = () => {
+        k++;
+        T.spread[pane].scale.setScalar(Math.min(1.6, 0.2 + k * 0.18));
+        if (k % 2) DV.Audio.play('crack', { volume: 0.5 + k * 0.05 });
+        if (k === 4) for (const m of T.spread) m.visible = true;
+        if (k < 9) Ch.after(0.28, grow);
+        else { P.cineAction = null; shatter(Ch); Ch.after(2.6, () => Ch.endFear('aware')); }
+      };
+      Ch.after(1.4, grow);
+    },
+    end(Ch) { DV.Player.moveScale = 1; DV.Player.surfaceOverride = null; DV.Player.cineAction = null; },
   });
 
   /* ============================== THE BEAM ============================== */
@@ -124,116 +259,36 @@
       if (zone.city && zone.city.train && zone.city.train.sound) { zone.city.train.sound.stop(); zone.city.train.sound = null; }
     },
   });
-
-  /* ============================== the simulation ============================== */
-  DV.Chapter.define('fear_sim', {
-    zone: () => (variant() === 'tank' ? 'fear_tank' : 'fear_beam'),
-    start(Ch, zone, opts) {
-      const P = DV.Player;
-      Ch.v = variant();
-      Ch.hr = 96; Ch.t = 0; Ch.calmT = 0; Ch.done = false; Ch.aware = false; Ch.beatT = 0; Ch.awareOffered = false;
-      Ch.mon = monitor(null);
-      DV.UI.root.classList.add('fearing');
-      DV.UI.simMode(true);
-      DV.Audio.setMusic('sim');
-      const div = !!DV.State.data.aptitude.divergent;
-      Ch.canAware = div || DV.Stats.attr('resolve') >= 9;
-      if (Ch.v === 'tank') {
-        P.place(0, 0, 0);
-        Ch.level = 0.05; Ch.air = 1; Ch.cracks = 0;
-        // the faces outside the glass
-        Ch.watchers = [[-3.6, -2.4], [3.4, -2.8], [-3, 3.2], [3.8, 2.6], [0, -4.4]].map(([x, z], i) => {
-          const a = Ch.actor({ id: 'w' + i, name: '', app: DV.Character.fromFaction(['dauntless', 'erudite', 'candor', 'dauntless', 'abnegation'][i], i % 2 ? 'f' : 'm', 'fearface' + i, { age: 30 + i * 6 }), x, z, rot: 0, action: 'arms_crossed' });
-          a.face(0, 0); return a;
-        });
-        Ch.voice('', '[Glass on four sides. Something cold at your ankles. It\'s rising.]', 4);
-        const T = zone.tank;
-        Ch.interact({ id: 'crack', kind: 'action', x: T.crack.position.x - 0.3, y: 0.6, z: T.crack.position.z, radius: 1.2, label: 'Hit the crack', name: 'The glass', cond: () => Ch.crackNear && !Ch.done, onUse: () => {
-          Ch.cracks++; Ch.hitCrack = true;
-          DV.Audio.play('punch', { volume: 0.7 }); DV.Game.rig.shake = 0.2;
-          T.crack.scale.setScalar(1 + Ch.cracks * 0.35);
-        } });
-      } else {
-        P.place(4.5, 3, Math.PI / 2);
-        Ch.gust = 0; Ch.gustT = 2.5; Ch.windV = 0; Ch.falls = 0; Ch.wide = false;
-        Ch.voice('', '[Wind. A roof the size of a room. In front of you, the only way off it: a steel beam, a hand\'s width, over nothing.]', 4.5);
-      }
-      Ch.hint = null;
-      DV.Input.requestLock();
+  DV.Fear.define('beam', {
+    title: 'FALLING', zone: 'fear_beam',
+    start(Ch) {
+      Ch.v = 'beam';
+      DV.Player.place(4.5, 3, Math.PI / 2);
+      Ch.gust = 0; Ch.gustT = 2.5; Ch.windV = 0; Ch.falls = 0; Ch.wide = false;
+      Ch.voice('', '[Wind. A roof the size of a room. In front of you, the only way off it: a steel beam, a hand\'s width, over nothing.]', 4.5);
     },
     update(Ch, dt) {
-      if (Ch.done) return;
       const P = DV.Player;
-      Ch.t += dt;
-      const input = DV.Input;
-      const breathing = input.down('Space') && P.speed < 0.3;
-      let fear = 0;
-      if (Ch.v === 'tank') {
-        // the water rises
-        Ch.level = Math.min(4.0, Ch.level + dt * 0.055);
-        const T = DV.World.current.tank;
-        T.water.scale.y = Ch.level; T.water.position.y = Ch.level / 2; T.surf.position.y = Ch.level + 0.005;
-        const head = 1.55 * P.scale;
-        const under = Ch.level > head;
-        fear = Ch.level / 2.2 + (under ? 1.2 : 0);
-        P.moveScale = Ch.level > 0.9 ? 0.55 : 0.85;
-        P.surfaceOverride = 'water';
-        if (Math.random() < dt * 0.6) DV.Audio.play('splash', { volume: 0.25 });
-        if (under) {
-          Ch.air = Math.max(0, Ch.air - dt / (8 + DV.Stats.attr('resolve') * 0.8));
-          DV.UI.setFear(0.5 + (1 - Ch.air) * 0.5);
-          if (Ch.air <= 0) return this.end(Ch, 'blackout');
-        } else { Ch.air = Math.min(1, Ch.air + dt * 0.5); DV.UI.setFear(U.clamp((Ch.hr - 80) / 120, 0, 0.7)); }
-        // the crack in the corner: PERCEPTION sees it from further away
-        const cr = T.crack.position, dc = Math.hypot(P.x - cr.x, P.z - cr.z);
-        const per = DV.Stats.attr('perception');
-        Ch.crackNear = dc < (per >= 6 ? 1.2 : 0.75);
-        if (Ch.crackNear && !Ch.saidCrack) { Ch.saidCrack = true; Ch.voice('', '[A hairline crack in the glass, low in the corner.]', 3); }
-        if (Ch.hitCrack) { Ch.hitCrack = false; fear += 0.3; if (Ch.cracks >= Math.max(4, 12 - DV.Stats.attr('strength'))) return this.end(Ch, 'faced'); }
-        Ch.mon.hint(under ? 'You can\'t breathe. Find a way out — or slow your heart. (hold Space)' : Ch.crackNear ? 'Hit the crack — again, and again' : 'Hold Space, standing still: slow your breathing. Or look for a way out.');
-      } else {
-        // the beam: gusts push you sideways; correct with A / D
-        Ch.gustT -= dt;
-        if (Ch.gustT <= 0) { Ch.gustT = U.rand(2.2, 4.2); Ch.gust = (Math.random() < 0.5 ? -1 : 1) * U.rand(0.5, 1.1) * (P.x > 6 && P.x < 30 ? 1 : 0.2); DV.Audio.play('gust', { volume: 0.9 }); }
-        Ch.gust *= Math.pow(0.35, dt);
-        const onBeam = P.x > 6 && P.x < 30;
-        const W = Ch.wide ? 3 : 0.3;
-        if (onBeam) {
-          Ch.windV += (Ch.gust - Ch.windV * 0.8) * dt * 2.2;
-          P.z += Ch.windV * dt * (Ch.wide ? 0.1 : 1);
-          if (Math.abs(P.z - 3) > W) return this.fall(Ch);
-          fear = 0.9 + Math.abs(P.z - 3) / W * 0.9 + Math.abs(Ch.windV) * 0.6;
-        } else fear = P.x >= 30 ? 0 : 0.5;
-        if (P.x >= 30.6) return this.end(Ch, 'faced');
-        // nobody waits out a fear: stay on the roof long enough and the roof goes
-        if (P.x < 6) { Ch.roofT = (Ch.roofT || 0) + dt; if (Ch.roofT > 32) { Ch.roofT = 0; Ch.hr = Math.min(190, Ch.hr + 25); DV.Audio.play('shutter', { volume: 0.8 }); DV.Game.rig.shake = 0.5; Ch.voice('', '[The roof behind you cracks and falls away into the city. There is only the beam.]', 4); P.place(7.4, 3, Math.PI / 2); } }
-        Ch.mon.hint(onBeam ? 'The wind pushes you — lean into it with A / D. Hold Space to steady your breathing.' : P.x < 6 ? 'Walk the beam. Or stand here and slow your heart (hold Space).' : '');
-        DV.UI.setFear(U.clamp((Ch.hr - 80) / 120, 0, 0.75));
-      }
-      // the heart: fear pushes it up, breathing slowly (still) brings it down, Composure helps
-      const comp = DV.Stats.skill('composure');
-      const target = 72 + fear * 70 * U.clamp(1.25 - comp / 160 - DV.Stats.attr('resolve') * 0.03, 0.55, 1.2);
-      if (breathing) Ch.hr -= (10 + DV.Stats.attr('resolve') * 1.2) * dt;
-      Ch.hr += (target - Ch.hr) * dt * (breathing ? 0.12 : 0.5);
-      Ch.hr = U.clamp(Ch.hr, 60, 190);
-      Ch.mon.set(Ch.hr, dt);
-      Ch.beatT -= dt;
-      if (Ch.beatT <= 0) { Ch.beatT = 60 / Ch.hr; DV.Audio.play('heartbeat', { volume: U.clamp((Ch.hr - 60) / 100, 0.15, 0.8) }); }
-      // calm under the threat: that's how a normal simulation ends
-      const threatened = Ch.v === 'tank' ? Ch.level > 0.9 : P.x > 6.2;
-      if (threatened && Ch.hr < 88) { Ch.calmT += dt; if (Ch.calmT > 3) return this.end(Ch, 'calm'); } else Ch.calmT = 0;
-      if (breathing && Math.random() < dt * 0.3) DV.Stats.practice('composure', 0.2);
-      // the thing a Divergent mind notices
-      if (Ch.canAware && !Ch.awareOffered && Ch.t > 9 && Ch.hr > 110) {
-        Ch.awareOffered = true;
-        const el = Ch.mon.el.querySelector('.fear-aware');
-        el.textContent = '[AWARE]  This isn\'t real.  — press R';
-        el.classList.remove('hidden');
-        DV.Audio.play('glitch');
-        DV.UI.glitch();
-      }
-      if (Ch.awareOffered && !Ch.aware && input.consume('KeyR')) this.seeThrough(Ch);
+      // the wind: gusts push you sideways; correct with A / D
+      Ch.gustT -= dt;
+      if (Ch.gustT <= 0) { Ch.gustT = U.rand(2.2, 4.2); Ch.gust = (Math.random() < 0.5 ? -1 : 1) * U.rand(0.5, 1.1) * (P.x > 6 && P.x < 30 ? 1 : 0.2); DV.Audio.play('gust', { volume: 0.9 }); }
+      Ch.gust *= Math.pow(0.35, dt);
+      const onBeam = P.x > 6 && P.x < 30;
+      const W = Ch.wide ? 3 : 0.3;
+      let fear;
+      if (onBeam) {
+        Ch.windV += (Ch.gust - Ch.windV * 0.8) * dt * 2.2;
+        P.z += Ch.windV * dt * (Ch.wide ? 0.1 : 1);
+        if (Math.abs(P.z - 3) > W) { this.fall(Ch); return 1.5; }
+        fear = 0.9 + Math.abs(P.z - 3) / W * 0.9 + Math.abs(Ch.windV) * 0.6;
+      } else fear = P.x >= 30 ? 0 : 0.5;
+      if (P.x >= 30.6) { Ch.endFear('faced'); return 0; }
+      // nobody waits out a fear: stay on the roof long enough and the roof goes
+      if (P.x < 6) { Ch.roofT = (Ch.roofT || 0) + dt; if (Ch.roofT > 32) { Ch.roofT = 0; Ch.hr = Math.min(190, Ch.hr + 25); DV.Audio.play('shutter', { volume: 0.8 }); DV.Game.rig.shake = 0.5; Ch.voice('', '[The roof behind you cracks and falls away into the city. There is only the beam.]', 4); P.place(7.4, 3, Math.PI / 2); } }
+      return fear;
     },
+    threatened: () => DV.Player.x > 6.2,
+    hint(Ch) { const x = DV.Player.x; return x > 6 && x < 30 ? 'The wind pushes you — lean into it with A / D. Hold Space to steady your breathing.' : x < 6 ? 'Walk the beam. Or stand here and slow your heart (hold Space).' : ''; },
     fall(Ch) {
       const P = DV.Player;
       Ch.falls++;
@@ -246,43 +301,54 @@
       });
       DV.UI.glitch();
     },
-    seeThrough(Ch) {
-      Ch.aware = true;
-      Ch.mon.el.querySelector('.fear-aware').classList.add('hidden');
-      DV.Stats.addXP(20, 'Saw through it');
-      if (Ch.v === 'tank') {
-        Ch.voice('', '[You stop. You put your palm flat on the glass, and think, very clearly: this is glass the way a picture of a door is a door. It isn\'t there. And then it isn\'t.]', 6);
-        const T = DV.World.current.tank;
-        T.panes.visible = false;
-        for (const c of T.cols) if (c) c.enabled = false;
-        DV.Audio.play('glitch');
-        Ch.after(3, () => this.end(Ch, 'aware'));
-      } else {
-        Ch.voice('', '[You stop, out on the beam. Steel doesn\'t care how wide you think it is. Except it does, here. You think it wider — and the beam spreads under your feet into a bridge.]', 6);
-        Ch.wide = true;
-        const z = DV.World.current;
-        if (z.beam) z.beam.scale.z = 10;
-        DV.Audio.play('glitch');
-        Ch.after(3.5, () => this.end(Ch, 'aware'));
-      }
+    bend(Ch) {
+      Ch.voice('', '[You stop, out on the beam. Steel doesn\'t care how wide you think it is. Except it does, here. You think it wider — and the beam spreads under your feet into a bridge.]', 6);
+      Ch.wide = true;
+      const z = DV.World.current;
+      if (z.beam) z.beam.scale.z = 10;
+      DV.Audio.play('glitch');
+      Ch.after(3.5, () => Ch.endFear('aware'));
+    },
+  });
+
+  /* ============================== the first simulation ============================== */
+  // Day 6: one fear, the one the serum finds first. (Later sessions and Stage Three run as 'fear_land'.)
+  DV.Chapter.define('fear_sim', {
+    zone: () => (variant() === 'tank' ? 'fear_tank' : 'fear_beam'),
+    start(Ch, zone, opts) {
+      Ch.mod = DV.Fear.get(variant());
+      DV.Fear.begin(Ch, { music: 'fear' });
+      Ch.endFear = (how) => this.end(Ch, how);
+      Ch.bending = false; Ch.fast = false;
+      Ch.mod.start(Ch, zone);
+      Ch.mon.title(Ch.mod.title);
+      Ch.hint = null;
+      DV.Input.requestLock();
+    },
+    update(Ch, dt) {
+      if (Ch.done) return;
+      const M = Ch.mod;
+      const fear = M.update(Ch, dt);
+      if (Ch.done) return;
+      if (Ch.bending) { DV.Fear.heart(Ch, dt, 0.3, { calm: false }); return; }
+      const r = DV.Fear.heart(Ch, dt, fear, Object.assign({ threatened: M.threatened(Ch), vignette: M.vignette ? M.vignette(Ch) : undefined }, M.heart || {}));
+      Ch.mon.hint(M.hint(Ch));
+      if (r === 'calm' || r === 'blackout') this.end(Ch, r);
+      else if (r === 'aware') { Ch.bending = true; DV.Stats.addXP(20, 'Saw through it'); M.bend(Ch); }
     },
     end(Ch, how) {
       if (Ch.done) return;
       Ch.done = true;
-      const P = DV.Player;
-      P.moveScale = 1; P.surfaceOverride = null;
+      if (Ch.mod.end) Ch.mod.end(Ch);
       const secs = Math.round(Ch.t);
       DV.Audio.play('whoosh');
       DV.UI.glitch();
       const text = { calm: 'Your heart slows. The world goes white at the edges —', faced: 'You do it. You actually do it — and the world goes white —', aware: 'And the simulation simply stops, like a held breath let go —', blackout: 'The dark comes in from the edges —' }[how];
       Ch.voice('', '[' + text + ']', 3);
-      const res = { how, secs, aware: Ch.aware, fear: Ch.v === 'tank' ? 'drowning' : 'falling', falls: Ch.falls || 0 };
+      const res = { how, secs, aware: Ch.aware, fear: Ch.v === 'tank' ? 'drowning' : 'falling', id: Ch.v, falls: Ch.falls || 0 };
       DV.Stats.practice('composure', how === 'calm' ? 3 : 1.5);
       DV.UI.fade(1, 1800, true).then(() => {
-        Ch.mon.remove();
-        DV.UI.root.classList.remove('fearing');
-        DV.UI.simMode(false);
-        DV.UI.setFear(0);
+        DV.Fear.stop(Ch);
         DV.Audio.setMusic('none');
         DV.StageOne.afterFear(res);
       });
@@ -309,19 +375,5 @@
     },
   });
 
-  /* ------------------------------ styles ------------------------------ */
-  const css = document.createElement('style');
-  css.textContent = [
-    '.fear-hud { position: absolute; inset: 0; pointer-events: none; }',
-    '.fear-hud .fm { position: absolute; right: 16px; top: 16px; padding: 8px 12px; background: rgba(6, 10, 8, 0.75); border: 1px solid #000; box-shadow: inset 0 0 0 1px #24402a; text-align: right; }',
-    '.fear-hud .bpm { font-family: var(--mono); font-size: 26px; color: #9fe8a8; }',
-    '.fear-hud.high .bpm { color: #ff7a5a; }',
-    '.fear-hud canvas { display: block; margin-top: 4px; }',
-    '.fear-hud .lbl { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #6a8a70; }',
-    '.fear-hint { position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); font-size: 13px; color: var(--text); background: rgba(0,0,0,0.55); padding: 5px 12px; border: 1px solid #000; white-space: nowrap; }',
-    '.fear-hint:empty { display: none; }',
-    '.fear-aware { position: absolute; left: 50%; top: 38%; transform: translateX(-50%); font-family: var(--serif); font-size: 22px; letter-spacing: 0.18em; color: #c8e8ff; text-shadow: 0 0 12px #4af, 0 2px 0 #000; animation: awarepulse 1.2s ease-in-out infinite; }',
-    '@keyframes awarepulse { 50% { opacity: 0.5; } }',
-  ].join('\n');
-  document.head.appendChild(css);
+  DV.FearSim = { shatter, stepShards, variant };
 })();
