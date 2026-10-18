@@ -189,7 +189,7 @@
         barks: ['Order up!', 'Sit, sit.', 'More coffee, hon?'],
       },
       job: { pay: 6, ask: 'Dishes. There\'s always dishes. An hour, six scrip, and a slice of cake if you don\'t break anything.', done: '[You wash, dry and stack what feels like every plate in the city. You break nothing.] Not one! Here. And the cake — I said I would.', gift: 'chocolate_cake' },
-      shoppers: { faction: 'erudite', lines: ['The salt is in the wrong place. It\'s always in the wrong place.', 'Mm. Don\'t talk to me before my coffee.', 'Is it true about the cake? It is. It\'s true.'], sets: [{ id: 'booths', when: [['06:30', '20:00']], people: [{ x: 3.15, z: 2.0, rot: -Math.PI / 2, act: 'sit', seatY: 0.45, faction: 'erudite' }, { x: 3.15, z: 5.6, rot: -Math.PI / 2, act: 'sit', seatY: 0.45, faction: 'candor' }] }] },
+      shoppers: { faction: 'erudite', lines: ['The salt is in the wrong place. It\'s always in the wrong place.', 'Mm. Don\'t talk to me before my coffee.', 'Is it true about the cake? It is. It\'s true.'], sets: [{ id: 'booths', when: [['06:30', '20:00']], people: [{ x: 4.0, z: 1.42, rot: 0, act: 'sit', seatY: 0.45, faction: 'erudite' }, { x: 4.4, z: 5.68, rot: Math.PI, act: 'sit', seatY: 0.45, faction: 'candor' }] }] },
     },
 
     /* ---------------- the Testing District: the clinic and pharmacy on Halsted Street ---------------- */
@@ -212,7 +212,7 @@
         barks: ['Sit, please.', 'Wash your hands.', 'Next.'],
       },
       job: { pay: 5, ask: 'Bandages want rolling, and the shelves want counting against the list. An hour, five scrip.', done: '[You roll forty bandages and find the list two bottles of aspirin short. She writes it down.] Thank you. That\'s the third time this month.' },
-      shoppers: { faction: 'factionless', lines: ['I\'m waiting. I\'ve been waiting since eight.', 'It\'s nothing. It\'s my wrist. It\'s nothing.', 'She\'s kind. Don\'t tell her I said so.'], sets: [{ id: 'waiting', when: [['08:30', '18:30']], people: [{ x: -3.9, z: 3.4, rot: Math.PI / 2, act: 'sit', seatY: 0.45 }] }] },
+      shoppers: { faction: 'factionless', lines: ['I\'m waiting. I\'ve been waiting since eight.', 'It\'s nothing. It\'s my wrist. It\'s nothing.', 'She\'s kind. Don\'t tell her I said so.'], sets: [{ id: 'waiting', when: [['08:30', '18:30']], people: [{ x: -4.4, z: 3.4, rot: Math.PI / 2, act: 'sit', seatY: 0.45 }] }] },
     },
   ];
 

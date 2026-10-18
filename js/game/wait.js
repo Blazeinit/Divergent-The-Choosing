@@ -64,6 +64,8 @@
           targets.push({ t: c, label: 'Until you\'re called', key: 'called' });
         }
       }
+      // in a shop: closing time (the keeper shows you out)
+      if (DV.Shops && DV.Shops.inShop()) { const S = DV.Shops.here; stops.push({ t: DV.Shops.closeAt(S), why: S.keeper.name + ' is closing up.' }); }
       // the plain times of day, when there's room for them
       for (const [s, name] of TIMES) {
         const t = T(s);

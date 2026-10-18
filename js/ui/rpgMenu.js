@@ -302,6 +302,11 @@
         const t = el('div', 'subtab' + (this.invCat === id ? ' on' : ''), nm, st);
         t.onclick = () => { this.invCat = id; this.render(); };
       }
+      // your purse: ration scrip, what the shops take
+      const purse = el('div', 'list-item inv-purse', null, a);
+      purse.appendChild(itemIcon({ icon: { shape: 'scrip', color: '#c8b890' } }));
+      el('span', null, 'Ration Scrip <span class="faint">— spent at the city\'s shops</span>', purse);
+      el('span', 'qty', String(DV.Wallet.get()), purse);
       const list = this.invCat === 'all' ? DV.Inventory.list() : DV.Inventory.byCategory(this.invCat);
       if (!list.length) el('div', 'faint', 'Nothing here.', a).style.padding = '8px';
       const detail = el('div', 'col', null, cols);

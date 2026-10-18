@@ -741,3 +741,28 @@ body.cutscene #hud-prompt, body.cutscene #hud-quest, body.cutscene #hud-compass,
 #hud-minimap.hidden { display: none; }
 #hud-compass .wpt { position: absolute; top: 3px; color: #8fd8ff; font-size: 12px; transform: translateX(-50%); text-shadow: 0 0 4px #000; }
 #hud-fps { bottom: 216px !important; }
+
+/* ------------------------------ Build 7: the trading panel ------------------------------ */
+#shop { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, 94vw); height: min(560px, 90vh); display: flex; flex-direction: column; z-index: 25; }
+#shop .sh-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; font-size: 12px; border-bottom: 1px solid #000; background: linear-gradient(180deg, #1a1916, #121110); }
+#shop .sh-purse { font-family: var(--mono); letter-spacing: 0.08em; }
+#shop .sh-purse b { color: var(--accent-2); font-size: 15px; margin-left: 4px; }
+#shop .sh-cols { flex: 1; display: flex; min-height: 0; }
+#shop .sh-col { flex: 1; display: flex; flex-direction: column; min-width: 0; opacity: 0.8; }
+#shop .sh-col.on { opacity: 1; }
+#shop .sh-col + .sh-col { border-left: 1px solid rgba(0,0,0,0.8); box-shadow: -1px 0 0 rgba(255,255,255,0.04); }
+#shop .sh-h { font-family: var(--serif); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); padding: 6px 10px 4px; border-bottom: 1px solid rgba(0,0,0,0.7); }
+#shop .sh-col.on .sh-h { color: var(--accent-2); text-shadow: 0 0 8px rgba(216,162,74,0.4); }
+#shop .sh-list { flex: 1; overflow-y: auto; }
+#shop .sh-row .sh-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#shop .sh-row .qty { margin-left: 0; min-width: 34px; text-align: right; }
+#shop .sh-row .sh-price { font-family: var(--mono); color: var(--accent-2); min-width: 28px; text-align: right; }
+#shop .sh-row.dim .sh-price { color: var(--faint); }
+#shop .sh-none { padding: 10px; }
+#shop .sh-detail { height: 104px; padding: 8px 14px; border-top: 1px solid #000; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); overflow: hidden; }
+#shop .sh-dn { font-family: var(--serif); font-size: 15px; color: var(--accent-2); margin-bottom: 4px; }
+#shop .sh-msg { margin-top: 6px; font-size: 12px; color: var(--info); }
+#shop .foot { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid #000; }
+#shop .foot .sh-keys { flex: 1; font-size: 11px; text-align: center; }
+#rpgmenu .inv-purse { cursor: default; border-bottom: 1px solid rgba(216,162,74,0.25); }
+#rpgmenu .inv-purse .qty { color: var(--accent-2); font-size: 14px; }

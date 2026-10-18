@@ -753,7 +753,8 @@
       // what's on the streets (the zone dresses its own stretch of Lake Street), and who's on them
       const b = zone.def.bounds;
       DV.Metro.snap(city); // (where the station entrances go, so the street keeps clear of their doorways)
-      const kit = DV.StreetKit.attach(zone, city, { skip: [CM.campus[0] - 6.5, b.z1 - 11, CM.campus[2] + 6.5, b.z1 + 6.5], clear: DV.Metro.clearRects() });
+      DV.Shops.snap(city); // (and the shops' doors, the same)
+      const kit = DV.StreetKit.attach(zone, city, { skip: [CM.campus[0] - 6.5, b.z1 - 11, CM.campus[2] + 6.5, b.z1 + 6.5], clear: DV.Metro.clearRects().concat(DV.Shops.clearRects()) });
       // the farms, and the ragged edge between them and the city, dressed (js/engine/farms.js)
       const farms = DV.Farms.attach(zone, city);
       const life = DV.StreetLife.attach(zone, city, kit);
@@ -764,6 +765,8 @@
       const farmLife = DV.FarmLife.attach(zone, farms, life);
       // the Circle Line: its entrances on the building fronts, and people coming and going (js/game/metro.js)
       const metro = DV.Metro.attachCity(zone, city);
+      // the shops: their fronts on the buildings (one mesh), their doors in (js/game/shops.js)
+      const shops = DV.Shops.attachCity(zone, city);
       const osl = (CM.landmarks || []).find((l) => l.id === 'order_station');
       DV.Ambiance.attach(ctx, zone, { hub: CM.hub, order: osl ? [osl.x, osl.z] : null });
       ctx.update((dt) => {
@@ -774,6 +777,7 @@
         scenes.update(dt);
         farmLife.update(dt);
         metro.update(dt);
+        shops.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 
