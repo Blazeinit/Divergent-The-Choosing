@@ -231,7 +231,7 @@ L.run('build 4: the walkable city', async (p, T, errs) => {
     // Clinton (x 170) and on along the block you're in
     const lake = life.lanes.filter((l) => l.line.name === 'Lake St');
     let car = null;
-    for (let i = 0; i < 900 && !car; i++) {
+    for (let i = 0; i < 1800 && !car; i++) { // (up to three minutes: a car can sit a long while at the Clinton lights)
       // (traffic comes and goes at random: put some on Lake Street, upstream, if there's none)
       if (i % 50 === 0 && !life.cars.some((c) => c.lane.line.name === 'Lake St' && c.x > 128)) life.spawnCar(128, 82, (l) => l.line.name === 'Lake St');
       QA.step(0.1, [128, 76.9]);

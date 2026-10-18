@@ -29,6 +29,20 @@
       jumpSpeed: 3.9, // m/s upward (≈0.75 m hop)
       jumpCost: 14, // stamina per jump
       gravity: 10.5,
+      // how it feels: getting going (a walk at once, a run building up), turning (a run carries you
+      // wide), stopping (from a run you slide), steps you just walk up, and a forgiving jump button
+      walkAccel: 12, // m/s² from a standstill to a walk
+      runAccel: 13, // …into a run, easing off toward full speed
+      easeDecel: 7, // a run eased back to a walk
+      stopDecel: 16, // stopping from a walk
+      skidDecel: 9.5, // stopping (or turning back) from a run: a slide
+      skidSpeed: 3.4, // faster than this, a stop is a slide
+      grip: 26, // m/s² of turn at a walk…
+      runGrip: 10, // …and at a run
+      step: 0.3, // a ledge you step straight up (a kerb, a step, a pallet)
+      stepDown: 0.42, // further down than this and you're off an edge, falling
+      coyote: 0.12, // s after stepping off an edge you can still jump
+      jumpBuffer: 0.15, // s before landing that Space still counts
     },
 
     CAMERA: {

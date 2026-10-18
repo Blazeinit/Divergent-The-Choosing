@@ -669,6 +669,14 @@
             break;
           case 'hop': this.burst('bandpass', 700, 0.8, 0.12, 0.12 * v); this.tone(160, 0.08, 'sine', 0.1 * v); break;
           case 'land': this.burst('lowpass', 260, 0.8, 0.18, 0.35 * v); this.tone(70, 0.12, 'sine', 0.22 * v); this.burst('bandpass', 1800, 1.2, 0.05, 0.06 * v, 0.02); break;
+          // the loose things in the street (js/engine/physics.js), knocked about
+          case 'bin': this.burst('lowpass', 420, 1.4, 0.14, 0.3 * v); this.tone(118 + Math.random() * 20, 0.16, 'triangle', 0.16 * v); this.tone(236, 0.08, 'triangle', 0.05 * v, 0.01); break; // hollow plastic, a boom inside it
+          case 'cone': this.burst('bandpass', 950 + Math.random() * 200, 2.2, 0.05, 0.16 * v); this.tone(310, 0.06, 'triangle', 0.07 * v); break; // a light rubber pock
+          case 'crate': this.burst('bandpass', 620, 2.4, 0.06, 0.3 * v); this.tone(205 + Math.random() * 30, 0.07, 'triangle', 0.14 * v); this.burst('bandpass', 900, 2, 0.04, 0.1 * v, 0.045); break; // a wooden knock, and its rattle
+          case 'tin': for (let i = 0; i < 3; i++) this.tone(1900 + Math.random() * 900, 0.07, 'triangle', (0.04 * v) / (i + 1), i * 0.06 + Math.random() * 0.02); this.burst('highpass', 3500, 1, 0.03, 0.06 * v); break; // a can, clattering
+          case 'ball': { const o = this.tone(210, 0.12, 'sine', 0.22 * v); o.frequency.exponentialRampToValueAtTime(130, this.ctx.currentTime + 0.1); this.burst('lowpass', 500, 0.8, 0.04, 0.12 * v); break; } // a football's thock
+          case 'skid': { const f = this.burst('bandpass', 2600, 1.4, 0.32, 0.09 * v); f.frequency.exponentialRampToValueAtTime(1300, this.ctx.currentTime + 0.3); this.burst('lowpass', 400, 1, 0.12, 0.06 * v); break; } // soles sliding on the paving
+          case 'carhit': this.burst('lowpass', 220, 0.9, 0.28, 0.75 * v); this.tone(58, 0.22, 'sine', 0.45 * v); this.burst('bandpass', 1400, 1.5, 0.08, 0.2 * v, 0.01); this.tone(900, 0.25, 'triangle', 0.03 * v, 0.02); break; // a body against a bonnet
           case 'keys': for (let i = 0; i < 5; i++) this.tone(2100 + Math.random() * 600, 0.012, 'square', 0.025 * v, i * 0.1 + Math.random() * 0.04); break;
           case 'badge': this.burst('lowpass', 520, 1, 0.12, 0.22 * v); this.tone(1700, 0.03, 'square', 0.04 * v, 0.55); this.burst('bandpass', 3200, 3, 0.03, 0.06 * v, 0.56); break;
           case 'scanner': this.tone(880, 0.14, 'triangle', 0.07 * v); this.tone(1320, 0.22, 'triangle', 0.06 * v, 0.1); break;

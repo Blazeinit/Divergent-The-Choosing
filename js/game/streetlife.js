@@ -14,7 +14,10 @@
    the L. Buses, cars, Erudite vans, Amity trucks, Dauntless jeeps; they keep
    their distance, stop for you (and lean on the horn if you stand there),
    and you can't walk through them either. Each one you're near has its own
-   engine sound.
+   engine sound. They have weight: they pull away and brake progressively,
+   their bodies pitch and roll on their springs, and one that can't stop in
+   time knocks you down (and the people round about stop and stare, and say
+   so). People walking step round a bin knocked over on the pavement.
 
    Everything is spawned out of sight (or at least far off) and let go once
    it's far behind you, so the city is busy wherever you go without the cost
@@ -45,6 +48,15 @@
     amity: ['Oh! Hello.', 'Sorry, love.', 'Hello there.'],
     dauntless: ['Move it.', 'Heads up.', 'Coming through.'],
     factionless: ['…', 'Spare anything?', 'Hey.'],
+  };
+  // what people say when a car knocks you down in front of them
+  const SHOCK = {
+    abnegation: ['Are you hurt? Here — let me help you up.', 'Don\'t try to stand yet.', 'Someone fetch a doctor!'],
+    erudite: ['Don\'t move your neck. You could be concussed.', 'Did anyone see the driver\'s face?', 'Statistically, you\'re lucky.'],
+    candor: ['That driver didn\'t even slow down!', 'I saw that! That was the driver\'s fault!', 'Are you all right? Be honest.'],
+    amity: ['Oh no — are you all right, love?', 'Breathe. You\'re all right.', 'Oh, the poor thing!'],
+    dauntless: ['Ha! Walk it off.', 'Get up. Come on.', 'Should\'ve jumped.'],
+    factionless: ['…you all right, kid?', 'Happens all the time out here.', 'They never stop for us either.'],
   };
   const FACTION_NAME = { abnegation: 'Abnegation', erudite: 'Erudite', candor: 'Candor', amity: 'Amity', dauntless: 'Dauntless', factionless: 'Factionless' };
 
@@ -213,6 +225,8 @@
       this.idN = 0;
       this.first = true;
       this.awake = true;
+      // a car knocks you down: everyone round about reacts
+      this.offKnock = DV.Events.on('player:knocked', (e) => { if (DV.World.current === this.zone) this.react(e.x, e.z); });
     }
     // how busy it is here and now (0..1): the sector, and the time (curfew's at ten)
     busy(x, z) {
@@ -300,7 +314,7 @@
       const W = this.walk, e = W.edges[p.edge], A = W.nodes[p.from], B = W.nodes[p.to];
       const k = U.clamp(p.t / e.len, 0, 1);
       const dx = (B.x - A.x) / e.len, dz = (B.z - A.z) / e.len;
-      const lat = e.cross ? 0 : p.lat + p.side;
+      const lat = e.cross ? 0 : p.lat + p.side + (p.dodge || 0);
       p.x = A.x + (B.x - A.x) * k - dz * lat;
       p.z = A.z + (B.z - A.z) * k + dx * lat;
       p.wantRot = Math.atan2(dx, dz);
@@ -377,6 +391,7 @@
         if (dp > PED_FAR) { this.releasePed(p); this.peds.splice(i, 1); continue; }
         let spd = p.pace;
         if (p.listen > 0) { p.listen -= dt; spd = 0; }
+        if (p.shock > 0) { p.shock -= dt; spd = 0; p.listen = Math.max(p.listen, 0.05); } // (stopped, staring at you)
         if (p.wait > 0) { p.wait -= dt; spd = 0; }
         // the player in the way: stop, then step round
         const fx = Math.sin(p.wantRot), fz = Math.cos(p.wantRot);
@@ -392,6 +407,10 @@
           p.stuck = Math.max(0, p.stuck - dt);
           if (p.stuck === 0) p.side = U.damp(p.side, 0, 1.5, dt);
         }
+        // a loose thing lying in the way (a bin knocked over on the pavement): step round it
+        p.dodgeT = (p.dodgeT || 0) - dt;
+        if (p.dodgeT <= 0) { p.dodgeT = 0.25 + this.r() * 0.1; p.dodgeTo = this.dodge(p); }
+        p.dodge = U.damp(p.dodge || 0, p.dodgeTo || 0, 4, dt);
         // a word as you brush past
         p.barkCool -= dt;
         if (dp < 2.2 && p.barkCool <= 0 && this.barkT <= 0 && this.r() < 0.15) {
@@ -441,6 +460,40 @@
         p.model.setTint(U.clamp(L[0] * 0.9, 0.25, 1.3), U.clamp(L[1] * 0.9, 0.25, 1.3), U.clamp(L[2] * 0.9, 0.25, 1.3));
       }
       void cam;
+    }
+
+    // how far over someone walking along a pavement has to step to get round the loose things lying
+    // ahead of them on it (0: nothing in the way). Round the nearer side, and never far off the line
+    dodge(p) {
+      const Wp = this.kit && this.kit.physics, W = this.walk, e = W.edges[p.edge];
+      if (!Wp || e.cross) return 0;
+      const A = W.nodes[p.from], B = W.nodes[p.to], dx = (B.x - A.x) / e.len, dz = (B.z - A.z) / e.len;
+      const lat0 = p.lat + p.side;
+      let best = 0;
+      for (const b of Wp.around(p.x, p.z, 2.6, this._nb || (this._nb = []))) {
+        if (b.y > 0.5) continue;
+        const [bx, bz, br] = Wp.plan(b);
+        const along = (bx - A.x) * dx + (bz - A.z) * dz - p.t, lat = (bx - A.x) * -dz + (bz - A.z) * dx;
+        if (along < -0.3 || along > 2.4) continue;
+        const clear = br + 0.42;
+        if (Math.abs(lat - lat0) >= clear) continue;
+        const go = lat0 >= lat ? lat + clear - lat0 : lat - clear - lat0;
+        if (Math.abs(go) > Math.abs(best)) best = go;
+      }
+      return U.clamp(best, -1.3, 1.3);
+    }
+    // you've been knocked down at (x, z): the people near stop and stare, and the nearest says something
+    react(x, z) {
+      let near = null, nd = 1e9;
+      for (const p of this.peds) {
+        const d = Math.hypot(p.x - x, p.z - z);
+        if (d > 22) continue;
+        p.shock = 2.5 + this.r() * 2.5;
+        if (d < nd) { nd = d; near = p; }
+      }
+      if (near) { const l = SHOCK[near.f] || SHOCK.abnegation; this.say(near, l[Math.floor(this.r() * l.length)], 4); }
+      const cl = this.zone.cityLife;
+      if (cl && cl.scenes) for (const sc of cl.scenes) for (const q of sc.people) if (Math.hypot(q.x - x, q.z - z) < 22) q.listen = 3 + this.r() * 2;
     }
 
     /* ---- traffic ---- */
@@ -732,10 +785,22 @@
           const ij = this.inJunction(c);
           if (ij && (!nj || nj.j !== ij.j)) yieldTo(this.crossingBusy(ij.j, l.axis, l.dir), (ij.exit - f) * l.dir);
         }
+        // (it's just hit you: it stays stopped a while)
+        if (c.hitT > 0) { c.hitT -= dt; want = 0; forPlayer = true; c.why = 'hit you'; }
         const was = c.speed;
-        // (it brakes as hard as 8 m/s² if it has to: someone stepping out in front of it)
-        c.speed += U.clamp(want - c.speed, -(forPlayer || c.why === 'someone crossing' || c.why === 'crossing' ? 8 : 6) * dt, 2.2 * dt);
-        if (c.speed < 0.05) c.speed = 0;
+        // its weight: it pulls away gently (less and less as it nears its speed; a bus least of all), and
+        // the brake and the throttle come on progressively, not all at once; it brakes as hard as 8 m/s²
+        // if it has to (someone stepping out in front of it), and then at once
+        const urgent = forPlayer || c.why === 'someone crossing' || c.why === 'crossing';
+        const amax = (c.kind === 'bus' ? 1.5 : 2.4) * (1 - 0.55 * U.clamp(c.speed / c.top, 0, 1) ** 2);
+        // (speeding up it eases into its speed; slowing, it gets down to what it wants at once if it can)
+        let acc = want >= c.speed ? Math.min(amax, (want - c.speed) * 1.4) : U.clamp(dt > 0 ? (want - c.speed) / dt : 0, urgent ? -8 : -6, 0);
+        // (how fast the pedal goes down, m/s³: a hard stop it doesn't ease into, it stands on the brake)
+        const J = urgent || acc < -2.5 ? Infinity : acc < 0 ? 30 : 12;
+        acc = U.clamp(acc, (c.acc || 0) - J * dt, (c.acc || 0) + J * dt);
+        c.acc = acc;
+        c.speed += acc * dt;
+        if (c.speed < 0.05 && acc <= 0) { c.speed = 0; c.acc = 0; }
         c.brake = c.speed < was - 0.4 * dt || (c.speed < 0.2 && want < 0.2);
         if (c.turn) {
           c.turn.u += c.speed * dt;
@@ -803,6 +868,20 @@
     pushPlayer() {
       const P = DV.Player, R = 0.32;
       for (const c of this.cars) {
+        // its front coming at you faster than it could stop: you're knocked down (and it stops)
+        if (P.state === 'free' && c.speed > 2.2 && P.y < 1.2 && !(c.hitT > 0)) {
+          const dx = P.x - c.x, dz = P.z - c.z, a = dx * c.hx + dz * c.hz, s = dx * c.hz - dz * c.hx;
+          if (a > c.v.length / 2 - 0.9 && a < c.v.length / 2 + R && Math.abs(s) < c.v.width / 2 + R * 0.6) {
+            const sp = c.speed, sd = s >= 0 ? 1 : -1;
+            if (P.knockDown(c.hx * sp * 0.8 + c.hz * sd * 1.3, c.hz * sp * 0.8 - c.hx * sd * 1.3, sp)) {
+              c.speed *= 0.5; c.acc = -8; c.hitT = 4;
+              if (c.spr) c.spr.vp -= 0.35; // (a jolt through it)
+              DV.Audio.play('carhorn', { x: c.x, z: c.z, range: 60, big: c.kind === 'bus' });
+              c.honk = 4;
+              continue;
+            }
+          }
+        }
         const ax = Math.abs(c.hx), az = Math.abs(c.hz);
         const ex = (ax * c.v.length + az * c.v.width) / 2 + R, ez = (az * c.v.length + ax * c.v.width) / 2 + R;
         const dx = P.x - c.x, dz = P.z - c.z;
@@ -875,14 +954,16 @@
       const R = DV.Config.PLAYER.radius, zone = this.zone;
       const free = DV.Game && (DV.Game.state === 'playing' || DV.Game.state === 'cutscene') && Pl.state === 'free';
       const me = free ? {
-        x: Pl.x, z: Pl.z, vx: Pl.vx, vz: Pl.vz, r: R, hp: 0.8,
+        x: Pl.x, z: Pl.z, y: Pl.y, vx: Pl.vx, vz: Pl.vz, r: R, hp: 0.8,
         // pushing something heavy takes it out of you
         slow: (dx, dz, k) => { const vn = Pl.vx * dx + Pl.vz * dz; if (vn > 0) { const cut = Math.min(vn, k * 0.5); Pl.vx -= dx * cut; Pl.vz -= dz * cut; } },
       } : null;
-      W.step(dt, { player: me, peds: this.shown === null ? [] : this.peds, cars: this.shown === null ? [] : this.cars });
+      // (the people in the scenes on the pavements push things about too: children running round)
+      const cl = zone.cityLife, peds = this.shown === null ? [] : cl && cl.movers ? this.peds.concat(cl.movers()) : this.peds;
+      W.step(dt, { player: me, peds, cars: this.shown === null ? [] : this.cars });
       // something that couldn't get out of your way (against a wall) moved you instead
       if (me && (me.x !== Pl.x || me.z !== Pl.z)) {
-        const [nx, nz] = zone.colliders.resolveCircle(me.x, me.z, R, 'player', 0);
+        const [nx, nz] = zone.colliders.resolveCircle(me.x, me.z, R, 'player', Pl.y - (zone.groundAt ? zone.groundAt(me.x, me.z) : 0));
         if (zone.walkable(nx, nz)) { Pl.x = nx; Pl.z = nz; Pl.syncModel(); }
       }
     }

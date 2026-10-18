@@ -74,18 +74,20 @@
 
     /**
      * Push a circle out of all blocking boxes. who: 'player' | 'npc'
+     * step: anything whose top is no higher than this over feetY is stepped up onto, not
+     * walked into (default 0.15: knee-high clutter clears a jump, nothing more)
      * Returns adjusted [x, z].
      */
-    resolveCircle(x, z, r, who, feetY) {
+    resolveCircle(x, z, r, who, feetY, step) {
       const list = this.query(x - r - 0.1, z - r - 0.1, x + r + 0.1, z + r + 0.1, this._tmp || (this._tmp = []));
-      const fy = feetY || 0;
+      const fy = feetY || 0, st = Math.max(0.15, step || 0);
       for (let iter = 0; iter < 3; iter++) {
         let moved = false;
         for (const b of list) {
           if (!b.enabled) continue;
           if (b.playerOnly && who !== 'player') continue;
           // vertical overlap with a body standing at feetY (0.15 .. 1.7 above feet)
-          if (b.y1 <= fy + 0.15 || b.y0 >= fy + 1.2) continue;
+          if (b.y1 <= fy + st || b.y0 >= fy + 1.2) continue;
           const cx = U.clamp(x, b.x0, b.x1), cz = U.clamp(z, b.z0, b.z1);
           let dx = x - cx, dz = z - cz;
           const d2 = dx * dx + dz * dz;
@@ -109,6 +111,19 @@
         if (!moved) break;
       }
       return [x, z];
+    }
+
+    // the highest top of anything that could be stood on at (x, z) (your middle within r of it), no
+    // higher than upTo; 0 if nothing (heights from the floor, as the boxes are)
+    topAt(x, z, r, upTo) {
+      const list = this.query(x - r, z - r, x + r, z + r, this._tmp4 || (this._tmp4 = []));
+      let best = 0;
+      for (const b of list) {
+        if (!b.enabled || b.playerOnly || b.y1 > upTo || b.y1 <= best || b.y1 < 0.03 || b.y0 > 0.05) continue;
+        if (x < b.x0 - r || x > b.x1 + r || z < b.z0 - r || z > b.z1 + r) continue;
+        best = b.y1;
+      }
+      return best;
     }
 
     // true if circle overlaps any blocking box
