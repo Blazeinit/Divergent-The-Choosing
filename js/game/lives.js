@@ -997,12 +997,18 @@
       a.listen = Math.max(0, a.listen - dt);
       a.barkCool -= dt;
       const ox = a.x, oz = a.z;
-      let speed = 0, act = 'idle', look = null, talking = false;
+      let speed = 0, act = 'idle', look = null, talking = false, fight = null;
       if (a.react) {
         // drawn to something (a fight, a stop): over to it, watch, then back to where they were
         const R = a.react, path = R.phase === 'back' ? R.backPath : R.path;
         if (R.phase === 'watch') {
-          act = R.act; look = [R.ev.x, R.ev.z]; a.rot = U.dampAngle(a.rot, Math.atan2(R.ev.x - a.x, R.ev.z - a.z), 5, dt);
+          const foe = R.fighter && R.foe();
+          if (foe && foe.react && foe.react.phase === 'watch' && this.t < R.ev.until) {
+            // (at it: jab, cross, cover up, round and round; the Order's word for it is a disturbance)
+            look = [foe.x, foe.z]; a.rot = U.dampAngle(a.rot, Math.atan2(foe.x - a.x, foe.z - a.z), 8, dt);
+            const cyc = (this.t * 1.4 + p.i * 0.37) % 4, fr = cyc % 1;
+            fight = { move: cyc < 1 ? 'jab' : cyc < 2 ? 'cross' : cyc < 3 ? 'block' : 'stance', ext: cyc < 2 ? Math.sin(Math.PI * fr) : 0 };
+          } else { act = R.act; look = [R.ev.x, R.ev.z]; a.rot = U.dampAngle(a.rot, Math.atan2(R.ev.x - a.x, R.ev.z - a.z), 5, dt); }
           if (this.t > R.ev.until + R.linger) { R.phase = 'back'; R.s = 0; }
           if (a.barkCool <= 0 && this.barkT <= 0 && this.r() < 0.02) { const L = (CROWD[R.ev.kind] || CROWD.fight)[a.f]; this.say(a, pick(this.r, L), 2.6); this.barkT = 1.5; a.barkCool = 6; }
         } else if (R.wait > 0) { R.wait -= dt; a.model.root.visible = false; return; }
@@ -1098,7 +1104,7 @@
       if (!this.shown || (dp > 30 && a.lodT < 0.12)) return;
       const adt = a.lodT; a.lodT = 0;
       const lookYaw = look ? U.clamp(U.wrapAngle(Math.atan2(look[0] - a.x, look[1] - a.z) - a.rot), -1.1, 1.1) : 0;
-      a.model.animate(adt, { speed, action: act, seatY: a.seg && a.seg.seatY ? a.seg.seatY : 0.45, lookYaw, talking: talking || !!(a.bark && a.bark.until > now) });
+      a.model.animate(adt, { speed, action: act, seatY: a.seg && a.seg.seatY ? a.seg.seatY : 0.45, lookYaw, fight, talking: talking || !!(a.bark && a.bark.until > now) });
       const L = this.zone.lightAt(a.x, a.z);
       a.model.setTint(U.clamp(L[0] * 0.9, 0.25, 1.3), U.clamp(L[1] * 0.9, 0.25, 1.3), U.clamp(L[2] * 0.9, 0.25, 1.3));
     }
@@ -1231,15 +1237,30 @@
       }
       ev.ring = ring;
       let n = 0;
-      const join = (a, back) => {
-        if (n >= ring.length) return false;
-        const path = this.adhoc(a.x, a.z, ring[n][0], ring[n][1]);
+      // a fight needs two to have it: squared up in the middle, along the pavement (o.fighters: false for none)
+      const ln = this.nearestLine(x, z, 4), mid = [];
+      if (kind === 'fight' && o.fighters !== false && ln) {
+        const E = this.W.edges[ln.edge], A = this.W.nodes[E.a], B = this.W.nodes[E.b], ux = (B.x - A.x) / E.len, uz = (B.z - A.z) / E.len;
+        for (const sg of [1, -1]) { const px = x + ux * 0.6 * sg, pz = z + uz * 0.6 * sg; if (!this.solid(px, pz, 0.25) && !this.onRoad(px, pz, 0.2)) mid.push([px, pz]); }
+        if (mid.length < 2) mid.length = 0;
+      }
+      ev.fighters = [];
+      const join = (a, back, fighter) => {
+        const at = fighter ? mid[ev.fighters.length] : ring[n];
+        if (!at) return false;
+        const path = this.adhoc(a.x, a.z, at[0], at[1]);
         if (!path) return false;
         const act = kind === 'fight' ? { dauntless: 'cheer', candor: 'point', abnegation: 'arms_crossed', amity: 'cower', erudite: 'idle', factionless: 'idle' }[a.f] : { candor: 'argue', dauntless: 'arms_crossed' }[a.f] || 'idle';
-        a.react = { ev, at: ring[n++], back, path, backPath: this.reversed(path), s: 0, phase: 'go', act, linger: this.r() * 3 };
+        a.react = { ev, at, back, path, backPath: this.reversed(path), s: 0, phase: 'go', act, linger: this.r() * 3, fighter: !!fighter };
+        if (fighter) { ev.fighters.push(a); a.react.foe = () => ev.fighters[ev.fighters[0] === a ? 1 : 0]; } else n++;
         a.listen = 0; a.hide = 0;
         return true;
       };
+      // (the fighters: the nearest Dauntless or factionless, or whoever's nearest)
+      if (mid.length) {
+        const near = [...this.agents.values()].filter((a) => !a.react && Math.hypot(a.x - x, a.z - z) < R).sort((a, b) => (a.f === 'dauntless' || a.f === 'factionless' ? 0 : 30) + Math.hypot(a.x - x, a.z - z) - (b.f === 'dauntless' || b.f === 'factionless' ? 0 : 30) - Math.hypot(b.x - x, b.z - z));
+        for (const a of near) { if (ev.fighters.length >= 2) break; join(a, [a.x, a.z], true); }
+      }
       for (const a of this.agents.values()) {
         if (a.react || Math.hypot(a.x - x, a.z - z) > R || (a.seg && a.seg.tag === 'work' && a.seg.k === 'at' && a.seg.place.venue)) continue;
         if (a.seg && a.seg.k === 'at' && a.seg.act === 'sit' && this.r() < 0.5) continue;
@@ -1249,7 +1270,7 @@
       if (kind === 'fight') {
         const day = DV.Clock.day(), m = DV.Clock.minutes();
         for (const p of this.pop) {
-          if (n >= ring.length || this.agents.size >= MAX_DRAWN + 6) break;
+          if ((n >= ring.length && (!mid.length || ev.fighters.length >= 2)) || this.agents.size >= MAX_DRAWN + 6) break;
           if (this.agents.has(p.id)) continue;
           const w = this.where(p, day, m);
           if (!w || w.seg.k !== 'at' || !w.place.indoor || w.place.edge < 0 || w.place.away || Math.hypot(w.place.x - x, w.place.z - z) > 65 || w.tag === 'home' && m < 6.5 * 60) continue;
@@ -1258,7 +1279,7 @@
           const a = { id: p.id, p, model, name: p.name, f: p.f, x: w.place.x, z: w.place.z, rot: 0, s: 0, seg: w.seg, side: 0, lat: p.lat, stuck: 0, listen: 0, barkCool: 2, greetT: 0, lodT: 0, edge: -1, vx: 0, vz: 0, bark: null, hurry: 0, react: null, released: false };
           a.headY = () => 1.62 * (model.app.height || 1);
           a.it = { id: 'life:' + p.id, kind: 'action', x: a.x, y: 1.2, z: a.z, radius: 1.9, name: p.name, label: 'Talk to', onUse: () => this.talk(a) };
-          if (!join(a, [w.place.x, w.place.z])) continue;
+          if (!join(a, [w.place.x, w.place.z], mid.length && ev.fighters.length < 2)) continue;
           a.react.wait = (n % 4) * 0.7 + this.r() * 0.5; // (out of the door one after another)
           this.zone.interactables.push(a.it);
           this.agents.set(p.id, a);
