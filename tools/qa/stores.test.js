@@ -11,7 +11,10 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
   await L.quickStart(p);
   await L.b3(p);
   const ev = (fn, a) => p.evaluate(fn, a);
-  const calls = () => p.evaluate(() => new Promise((res) => setTimeout(() => res(DV.Game.renderer.info.render.calls), 900)));
+  // draw calls of a frame actually drawn from here (a few frames on: under load a timer can fire before one is)
+  const calls = () => p.evaluate(() => new Promise((res) => { let n = 0; const f = () => (++n >= 4 ? res(DV.Game.renderer.info.render.calls) : requestAnimationFrame(f)); requestAnimationFrame(f); }));
+  // wait out a fade into or out of a shop: real time (the fade is on the wall clock), without stepping the game
+  const settle = (cond) => p.waitForFunction(cond, null, { timeout: 60000, polling: 200 }).then(() => true, () => false);
   // (the Order's patrols stop people for their papers: not this tester, who has shopping to do)
   await ev(() => { if (DV.World.current.order) DV.World.current.order.stopCool = 1e9; DV.State.data.world.time = DV.U.parseTime('12:00'); window.__F = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }; window.__R = { n: Math.PI, s: 0, e: Math.PI / 2, w: -Math.PI / 2 }; });
 
@@ -51,7 +54,8 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
     }, id);
     T.ok(walk.d < 1.6 && walk.it === 'shop_in_' + id && walk.label === 'Go in', id + ': walk up the pavement to the door ("' + walk.label + '")', walk);
     await ev(() => DV.Interaction.use(DV.Game));
-    T.ok(await L.until(p, () => DV.World.current.id.indexOf('shop_') === 0 && DV.Game.state === 'playing', 60000), id + ': in through the door');
+    const inOk = await settle(() => DV.World.current.id.indexOf('shop_') === 0 && DV.Game.state === 'playing');
+    T.ok(inOk, id + ': in through the door', inOk ? null : await ev(() => ({ zone: DV.World.current.id, state: DV.Game.state, dlg: QA.view(), err: (document.querySelector('#error') || {}).textContent, modal: DV.UI.modalOpen })));
     const inside = await ev((id) => {
       const z = DV.World.current, S = DV.Shops.get(id), n = DV.NPCs.get(S.keeper.id), c = z.spot(id + '_counter');
       return { zone: z.id, place: z.placeName(DV.Player.x, DV.Player.z).name, keeper: n.present, atCounter: n.present ? +Math.hypot(n.x - c.x, n.z - c.z).toFixed(2) : null, tris: z.stats.tris, pos: DV.State.data.player.pos };
@@ -77,10 +81,12 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
     const buy = await ev((id) => {
       const S = DV.Shops.get(id), it = DV.Shops.forSale(S).find((q) => q.qty > 0 && !q.service && DV.Wallet.can(q.price));
       const w0 = DV.Wallet.get(), n0 = DV.Inventory.count(it.id), q0 = it.qty;
-      const a = QA.click('#shop .sh-col.buy .sh-row', it.name), b = QA.click('#shop .foot .btn', 'Buy');
-      const after = DV.Shops.forSale(S).find((q) => q.id === it.id);
+      window.__b = { it, w0, n0, q0 };
+      return QA.click('#shop .sh-col.buy .sh-row', it.name);
+    }, id).then(async (a) => { await p.waitForTimeout(300); const b = await ev(() => QA.click('#shop .foot .btn', 'Buy')); await p.waitForTimeout(300); return ev(([id, a, b]) => {
+      const S = DV.Shops.get(id), { it, w0, n0, q0 } = window.__b, after = DV.Shops.forSale(S).find((q) => q.id === it.id);
       return { item: it.id, a, b, paid: w0 - DV.Wallet.get(), price: it.price, got: DV.Inventory.count(it.id) - n0, stock: q0 - after.qty, msg: DV.ShopUI.msg };
-    }, id);
+    }, [id, a, b]); });
     T.ok(buy.paid === buy.price && buy.got === 1 && buy.stock === 1, id + ': buy ' + buy.item + ' for ' + buy.price + ' scrip ("' + buy.msg + '")', buy);
     bought[id] = buy.item;
     // sell: something they deal in (what's just been bought, or something given for it), by clicking it
@@ -90,14 +96,18 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
       let it = DV.Shops.sellable(S)[0];
       if (!it) { const want = S.buys.ids ? S.buys.ids[0] : 'ration_bar'; DV.Inventory.add(want, 1, true); DV.ShopUI.render(); it = DV.Shops.sellable(S)[0]; }
       const w0 = DV.Wallet.get(), n0 = DV.Inventory.count(it.id);
-      const a = QA.click('#shop .sh-col.sell .sh-row', it.name), b = QA.click('#shop .foot .btn', 'Sell');
+      window.__s = { it, w0, n0 };
+      return { a: QA.click('#shop .sh-col.sell .sh-row', it.name) };
+    }, id).then(async (r) => { if (r.none) return r; await p.waitForTimeout(300); const b = await ev(() => QA.click('#shop .foot .btn', 'Sell')); await p.waitForTimeout(300); return ev(([a, b]) => {
+      const { it, w0, n0 } = window.__s;
       return { item: it.id, a, b, got: DV.Wallet.get() - w0, price: it.price, gone: n0 - DV.Inventory.count(it.id), msg: DV.ShopUI.msg };
-    }, id);
+    }, [r.a, b]); });
     if (sell.none) T.ok(sell.list === 0 && /pawn/.test(sell.msg), id + ': they don\'t buy ("' + sell.msg + '")', sell);
     else T.ok(sell.got === sell.price && sell.price > 0 && sell.gone === 1, id + ': sell ' + sell.item + ' back for ' + sell.price + ' scrip', sell);
     // done, and back out through the door on foot
+    await ev(() => QA.click('#shop .foot .btn', 'Done'));
+    await p.waitForTimeout(300);
     const out = await ev(() => {
-      QA.click('#shop .foot .btn', 'Done');
       const st = DV.Game.state;
       QA.tp(0, 2.6, Math.PI);
       DV.Input.keys.KeyW = true;
@@ -106,7 +116,7 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
       return { st, now: DV.Game.state };
     });
     T.ok(out.st === 'playing' && out.now === 'transition', id + ': close the panel and walk out through the door', out);
-    T.ok(await L.until(p, () => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing', 60000), id + ': back in the street');
+    T.ok(await settle(() => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing'), id + ': back in the street');
     const st = await ev((id) => {
       const S = DV.Shops.get(id), P = DV.Player, f = __F[S.face];
       return { d: +Math.hypot(P.x - (S.x + f[0] * 1.6), P.z - (S.z + f[1] * 1.6)).toFixed(2), street: DV.World.current.placeName(P.x, P.z).name, walk: DV.World.current.walkable(P.x, P.z) };
@@ -116,7 +126,7 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
 
   /* ---- an odd job, and a tattoo ---- */
   const job = await ev(() => { B.use('shop_in_market'); return 1; });
-  await L.until(p, () => DV.World.current.id === 'shop_market' && DV.Game.state === 'playing', 60000);
+  await settle(() => DV.World.current.id === 'shop_market' && DV.Game.state === 'playing');
   const j = await ev(() => {
     const S = DV.Shops.get('market'), n = DV.NPCs.get(S.keeper.id);
     const t0 = DV.Clock.minutes(), w0 = DV.Wallet.get(), a0 = DV.Inventory.count('apple');
@@ -130,9 +140,9 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
   T.ok(j.mins === 60 && j.pay === 5 && j.apple === 1 && !j.again, 'an odd job at the market: an hour sorting apples, 5 scrip and an apple, once a day', j);
   void job;
   await ev(() => DV.Shops.exit());
-  await L.until(p, () => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing', 60000);
+  await settle(() => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing');
   await ev(() => B.use('shop_in_tattoo'));
-  await L.until(p, () => DV.World.current.id === 'shop_tattoo' && DV.Game.state === 'playing', 60000);
+  await settle(() => DV.World.current.id === 'shop_tattoo' && DV.Game.state === 'playing');
   const tat = await ev(() => {
     const S = DV.Shops.get('tattoo');
     DV.Wallet.add(12, 'test', true);
@@ -166,7 +176,7 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
   T.ok(!shut.open.length && shut.latest <= DV_CURFEW(), 'nothing is open past the curfew at 21:00', shut);
   // in at a minute to closing: the keeper calls time and you're shown out
   await ev(() => { DV.State.data.world.time = DV.U.parseTime('16:58'); B.use('shop_in_market'); });
-  await L.until(p, () => DV.World.current.id === 'shop_market' && DV.Game.state === 'playing', 60000);
+  await settle(() => DV.World.current.id === 'shop_market' && DV.Game.state === 'playing');
   const close = await ev(() => {
     window.__notes = [];
     const o = DV.UI.notify; DV.UI.notify = function (t, k) { window.__notes.push(t); return o.call(this, t, k); };
@@ -174,7 +184,7 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
     return { n, t: DV.Clock.str(), state: DV.Game.state, notes: window.__notes.slice() };
   });
   T.ok(close.state === 'transition' && close.notes.some((x) => /That's five/.test(x)), 'at five the market\'s keeper calls time, and shows you out (' + close.t + ')', close);
-  T.ok(await L.until(p, () => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing', 60000), '…back on Randolph Street');
+  T.ok(await settle(() => DV.World.current.id === 'testing_center' && DV.Game.state === 'playing'), '…back on Randolph Street');
 
   /* ---- the maps ---- */
   const maps = await ev(() => {
@@ -189,10 +199,12 @@ L.run('the shops: doors, keepers, trading, hours', async (p, T, errs) => {
 
   /* ---- the draw calls ---- */
   // (the Order's patrols stop people for their papers: not this tester, who has shopping to do)
-  await ev(() => { if (DV.World.current.order) DV.World.current.order.stopCool = 1e9; DV.State.data.world.time = DV.U.parseTime('12:00'); const S = DV.Shops.get('market'); QA.tp(S.x - 6, S.z - 5, Math.PI * 0.75); });
+  await ev(() => { if (DV.World.current.order) DV.World.current.order.stopCool = 1e9; DV.State.data.world.time = DV.U.parseTime('12:00'); const S = DV.Shops.get('market'); QA.tp(S.x - 6, S.z - 5, Math.PI * 0.75); QA.step(0.6); });
   const c2 = await calls();
   T.ok(c2 < 230, 'by the market\'s front on Randolph Street: ' + c2 + ' draw calls');
-  const lobby = await ev(() => new Promise((res) => { DV.Player.place(40, 57, Math.PI); DV.Game.rig.yaw = Math.PI; setTimeout(() => { const m = DV.World.current.group.children.find((o) => o.name === 'shopfronts'); res({ calls: DV.Game.renderer.info.render.calls, front: m.visible, state: DV.Game.state, room: (DV.World.current.roomAt(DV.Player.x, DV.Player.z) || {}).id }); }, 1500); }));
+  await ev(() => { DV.Player.place(40, 57, Math.PI); DV.Game.rig.yaw = Math.PI; DV.Game.rig.follow(true); QA.step(0.6); });
+  const lc = await calls();
+  const lobby = await ev((calls) => { const m = DV.World.current.group.children.find((o) => o.name === 'shopfronts'); return { calls, front: m.visible, state: DV.Game.state, room: (DV.World.current.roomAt(DV.Player.x, DV.Player.z) || {}).id }; }, lc);
   T.ok(lobby.calls < 230 && !lobby.front, 'in the lobby the shopfronts aren\'t drawn: ' + lobby.calls + ' draw calls', lobby);
   T.noErrors(errs);
 });
