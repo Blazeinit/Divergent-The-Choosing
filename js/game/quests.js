@@ -129,6 +129,9 @@
       if (rw.xp) DV.Stats.addXP(rw.xp, def.title);
       if (rw.rep) for (const f in rw.rep) DV.Reputation.add(f, rw.rep[f]);
       if (rw.items) for (const it of rw.items) DV.Inventory.add(it);
+      // (and the work is paid: ration scrip, as the quest says, or a tenth of the experience)
+      const scrip = rw.scrip !== undefined ? rw.scrip : Math.round((rw.xp || 0) / 10);
+      if (scrip > 0 && DV.Wallet) DV.Wallet.add(scrip, def.title);
       if (this.tracked === id) this.tracked = this.firstActive();
       DV.Events.emit('quest:changed', { id, type: 'complete', outcome });
       if (def.onComplete) def.onComplete(outcome);
