@@ -290,6 +290,13 @@
     ud_josh: {
       text: who === 'd_daniel'
         ? '[A flinch he tries to turn into a shrug.] He calls me "Stiff". Knocks my tray. Last night somebody put my mattress in the shower. It\'s fine. It\'s nothing. In Abnegation you\'re taught that being humiliated is a small price for —' : '[He rubs his ribs.] He keeps "accidentally" walking into me. Three times today. Big guy, Josh. I\'m bigger. Doesn\'t matter, does it? You have to want to.',
+      lie: who === 'd_daniel' ? {
+        tell: '"It\'s nothing" — and his hand goes to his ribs while he says it.',
+        call: 'It\'s not nothing. What else has he done?',
+        press: '[He looks at the floor.] Nothing I can prove.',
+        truth: '[Very quietly.] He said if I\'m still here after the cut he\'ll put me over the railing. At the chasm. He said everyone would say I jumped. [He swallows.] I believed him.',
+        onTruth: (c) => { c.addRel(4, true); c.setFlag('josh_threat_known'); },
+      } : null,
       choices: [
         { text: 'It\'s not nothing. I\'ll deal with him.', end: true, effect: () => DV.StageOne && DV.StageOne.startBadBlood() },
         { text: 'Keep your head down. It\'ll pass.', end: true, effect: (c) => { c.addRel(-3, true); DV.StageOne && DV.StageOne.startBadBlood(true); } },

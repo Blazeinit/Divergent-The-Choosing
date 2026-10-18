@@ -223,26 +223,67 @@
         if (node.next) raw = [{ text: node.nextText || 'Continue.', to: node.next }];
         else raw = [{ text: node.endText || (s.npcId ? 'Goodbye.' : 'Continue.'), end: true }];
       }
+      // perks and standing: choices only some players get (calling a lie, talking someone down,
+      // a faction's own tone), slotted in before the way out
+      const extra = DV.Perks ? DV.Perks.extraChoices(node, c, s) : [];
+      if (extra.length) {
+        const last = raw.length && raw[raw.length - 1].end ? raw.length - 1 : raw.length;
+        raw = raw.slice(0, last).concat(extra, raw.slice(last));
+      }
+      const ctx = this.checkCtx(c, faction);
       const choices = [];
       raw.forEach((ch, i) => {
         if (ch.if && !ch.if(c)) return;
+        // a perk's choice (perk: id), or a seam only a Divergent eye sees (seam: true)
+        if (ch.perk && !(DV.Perks && DV.Perks.has(ch.perk))) return;
+        if (ch.seam && !(DV.Perks && DV.Perks.on('seams'))) return;
         const onceKey = ch.once ? s.tree.id + ':' + (typeof ch.once === 'string' ? ch.once : s.node + ':' + i) : null;
         if (onceKey && c.s.chosen && c.s.chosen[onceKey]) return;
         let label = resolveText(ch.text, c);
-        let enabled = true, checkLabel = null, checkPass = null;
+        let enabled = true, checkLabel = null, checkPass = null, checkBonus = null, ptag = ch.ptag || null, pfaction = ch.pfaction || null;
         if (ch.check) {
           const a = ch.check.attr;
           const dc = ch.check.dc;
           const attrDef = DV.RPG.attributes.find((x) => x.id === a);
           checkLabel = '[' + (attrDef ? attrDef.name.toUpperCase() : a.toUpperCase()) + ' ' + dc + ']';
-          checkPass = DV.Stats.check(a, dc);
+          const cx = Object.assign({ choice: ch }, ctx);
+          checkPass = DV.Stats.check(a, dc, cx);
+          checkBonus = DV.Perks ? DV.Perks.checkBonus(a, cx) : null;
           if (!checkPass && !ch.check.roll) enabled = false;
         }
         if (ch.req && !ch.req(c)) enabled = false;
-        choices.push({ index: choices.length, label, enabled, checkLabel, checkPass, tag: ch.tag || null, raw: ch, onceKey });
+        // standing: { faction, min } — a line a faction only takes from someone it rates
+        if (ch.standing) {
+          const sf = ch.standing.faction, st = DV.Reputation.standing(sf), need = ch.standing.min || 1;
+          const T = DV.FactionStanding, idx = T.ranks.indexOf(need);
+          if (st.rank < need) enabled = false;
+          ptag = ptag || DV.Factions.name(sf).toUpperCase() + ' \u00b7 ' + (st.rank >= need ? st.title : T.titles[sf][idx]);
+          pfaction = pfaction || sf;
+        }
+        if (ch.perk && !ptag) { const pk = DV.PerkData.perk(ch.perk); ptag = (DV.Perks.treeName(pk.tree) + ' \u00b7 ' + pk.name).toUpperCase(); pfaction = DV.PerkData.tree(pk.tree).faction || pk.tree; }
+        if (ch.seam && !ptag) { ptag = '\u2735 SEAM'; pfaction = 'divergent'; }
+        choices.push({ index: choices.length, label, enabled, checkLabel, checkPass, checkBonus, tag: ch.tag || null, ptag, pfaction, raw: ch, onceKey });
       });
       if (!choices.some((x) => x.enabled)) choices.push({ index: choices.length, label: s.npcId ? 'Goodbye.' : 'Continue.', enabled: true, raw: { end: true } });
-      return { speaker, faction, factionName: faction ? DV.Factions.name(faction) : '', text, choices, npcId: s.npcId, nodeId: s.node, mood: node.mood || null, portrait: node.portrait };
+      // Candor: a lie, and its tell, for those with the ear for it
+      const lie = DV.Perks && DV.Perks.lieOf(node, c);
+      const seenLie = lie && DV.Perks.on('lie.detect') ? { tell: lie.tell || 'Something in the way it was said.' } : null;
+      // Erudite / Empathy: what they think of you
+      let read = null;
+      if (s.npcId && DV.Perks && (DV.Perks.on('npc.disp') || DV.Stats.skill('empathy') >= 30)) {
+        const d = DV.Reputation.disposition(s.npcId);
+        read = { disp: d, label: DV.Reputation.dispositionLabel(d) };
+        if (DV.Perks.on('npc.analyze')) {
+          const def = c.def, f = def && def.faction;
+          read.analyze = { rel: c.s.rel, trust: c.s.trust, faction: f && DV.State.data.reputation[f] !== undefined ? Math.round(DV.State.data.reputation[f] / 4) : 0, factionName: f ? DV.Factions.name(f) : '' };
+        }
+      }
+      return { speaker, faction, factionName: faction ? DV.Factions.name(faction) : '', text, choices, npcId: s.npcId, nodeId: s.node, mood: node.mood || null, portrait: node.portrait, lie: seenLie, read };
+    },
+    // who a check is made against: their faction, the tree, the person
+    checkCtx(c, faction) {
+      const s = c.session;
+      return { faction: (c.def && c.def.faction) || faction || null, tree: s.tree.id, npcId: s.npcId || null };
     },
 
     choose(index) {
@@ -256,13 +297,18 @@
       DV.Events.emit('dialogue:choice', { label: ch.label, npcId: s.npcId, raw });
       let target = raw.to;
       if (raw.check) {
-        const pass = DV.Stats.check(raw.check.attr, raw.check.dc);
+        const pass = DV.Stats.check(raw.check.attr, raw.check.dc, Object.assign({ choice: raw }, this.checkCtx(c, s.view.faction)));
         DV.Audio.play(pass ? 'check_ok' : 'check_fail');
         if (pass) {
           const sk = raw.check.skill || { strength: 'intimidation', agility: 'athletics', intelligence: 'logic', perception: 'observation', charisma: 'persuasion', resolve: 'composure' }[raw.check.attr];
           if (sk) DV.Stats.practice(sk, 1);
-          DV.Stats.addXP(raw.check.xp || 10);
-        } else target = raw.fail || target;
+          // a check passed: the harder it was, the more it pays
+          DV.Stats.award('check', null, null, raw.check.xp ? raw.check.xp / 10 : 1 + Math.max(0, raw.check.dc - 5) * 0.2);
+          DV.Events.emit('dialogue:check', { attr: raw.check.attr, dc: raw.check.dc, pass: true });
+        } else {
+          target = raw.fail || target;
+          DV.Events.emit('dialogue:check', { attr: raw.check.attr, dc: raw.check.dc, pass: false });
+        }
       }
       if (raw.skill) DV.Stats.practice(raw.skill, 1);
       if (raw.apt && DV.Aptitude) DV.Aptitude.record(raw.apt, raw.aptLabel || ch.label);

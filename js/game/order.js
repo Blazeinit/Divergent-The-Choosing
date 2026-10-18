@@ -39,6 +39,9 @@
     const w = DV.State.data.world;
     return w.order || (w.order = { notice: 0, stops: 0, scans: 0, detained: 0, cleared: 0 });
   };
+  // Cover Story, Grey Coat, Hidden in Plain Sight: the Office takes less notice (the 100 of a
+  // caught lie still lands: that one isn't notice, it's the arm on your sleeve)
+  const scaleNotice = (n) => (n > 0 && n < 100 ? Math.max(1, Math.round(n * Math.max(0.15, 1 + DV.Perks.mod('notice.gain')))) : n);
   const curfew = () => { const m = DV.Clock.minutes(); return m >= CURFEW[0] || m < CURFEW[1]; };
   // the drones only come down and look at people after nine at night: there's someone out there in the
   // dark the Office is looking for (a killer; more of that in a later build). By day they fly their rounds
@@ -520,7 +523,7 @@
     }
     finishScan(dr) {
       if (dr.target === 'player') {
-        const st = state(), p = DV.State.data.player, div = !!DV.State.data.aptitude.divergent;
+        const st = state(), p = DV.State.data.player, div = !!DV.State.data.aptitude.divergent && !DV.Perks.on('div.hide');
         st.scans++;
         this.scanCool = performance.now() + 90000;
         const night = curfew();
@@ -586,6 +589,7 @@
     /* ---- what the Office thinks of you ---- */
     addNotice(n, why) {
       const st = state();
+      n = scaleNotice(n);
       st.notice = U.clamp(st.notice + n, 0, 100);
       if (why && n > 0) DV.UI.notify(why, 'rep_down');
       if (st.notice >= 100 && !this.detaining) this.detain();
@@ -630,7 +634,7 @@
       if (away) return;
       // the Office forgets, slowly
       this.decayT += dt;
-      if (this.decayT > 20) { this.decayT = 0; const st = state(); if (st.notice > 0) st.notice = Math.max(0, st.notice - 1); }
+      if (this.decayT > (DV.Perks.on('notice.decay') ? 10 : 20)) { this.decayT = 0; const st = state(); if (st.notice > 0) st.notice = Math.max(0, st.notice - 1); }
       // a couple of patrols near you (another after curfew, and round the station)
       const S = this.station, nearStation = S && Math.hypot(px - S.x, pz - S.z) < 260;
       const want = (curfew() ? 3 : 2) + (nearStation ? 1 : 0);
@@ -674,7 +678,7 @@
 
   /* ---------------- what they say ---------------- */
   const T = (id, tree) => DV.DialogueDB.add(id, tree);
-  const notice = (n) => (c) => { if (DV.Order.current) DV.Order.current.addNotice(n, null); else { const st = state(); st.notice = U.clamp(st.notice + n, 0, 100); } void c; };
+  const notice = (n) => (c) => { if (DV.Order.current) DV.Order.current.addNotice(n, null); else { const st = state(); st.notice = U.clamp(st.notice + scaleNotice(n), 0, 100); } void c; };
   const ofWhom = () => (DV.State.data.player.faction ? '{name}. ' + DV.Factions.name(DV.State.data.player.faction) + '.' : '{name}. No faction yet — I tested today.');
 
   // a stop: name and faction
@@ -687,6 +691,8 @@
           { text: () => '[Tell him] ' + ofWhom(), to: 'check' },
           { text: 'What\'s this about?', check: { attr: 'resolve', dc: 5 }, to: 'why_ok', fail: 'why_bad' },
           { text: '[Give a false name]', check: { attr: 'charisma', dc: 7 }, to: 'lie_ok', fail: 'lie_bad', skill: 'deception' },
+          // (a Divergent eye sees what the wrist unit is listening for, and gives it exactly that)
+          { text: '(Answer the way the wrist unit expects: flat, quick, bored.) ' + ofWhom(), to: 'seam_ok', seam: true },
           { text: '[Say nothing]', to: 'silent' },
         ],
       },
@@ -709,13 +715,14 @@
       },
       check: {
         text: (c) => {
-          const div = c.divergent(), st = state();
+          const div = c.divergent() && !DV.Perks.on('div.hide'), st = state();
           if (div && st.notice > 50) return '[The supervisor reads her tablet for a long time.] Your aptitude record is... incomplete. [She looks up.] Go home. Stay there. We\'ll know if you don\'t.';
           return '[He reads it off his wrist unit, then reads your face.] ...Fine. You\'re clear. Move along.';
         },
-        onEnter: (c) => { const st = state(); if (c.divergent() && st.notice > 50) notice(10)(c); else { st.cleared++; notice(-6)(c); c.xp(5); } },
+        onEnter: (c) => { const st = state(); if (c.divergent() && !DV.Perks.on('div.hide') && st.notice > 50) notice(10)(c); else { st.cleared++; notice(-6)(c); c.xp(5); } },
         end: true,
       },
+      seam_ok: { text: '[He reads it off his wrist unit. It agrees with you before he does.] ...Clear. Move along.', onEnter: (c) => { const st = state(); st.cleared++; notice(-10)(c); DV.Stats.practice('deception', 1); c.xp(10, 'Gave the system what it wanted'); }, end: true },
       lie_ok: { text: '[He checks it. Something on his screen agrees with you.] ...Fine. Move along.', onEnter: (c) => { c.setFlag('order_lied'); c.xp(15, 'Talked past an Order patrol'); }, end: true },
       lie_bad: { text: '[He doesn\'t even look down.] That\'s not what the system says. [His hand closes on your arm.] You\'re coming with us.', onEnter: notice(100), end: true },
       silent: { text: 'Silent type. [He writes something down and looks at you a moment longer than he has to.] Go on. We\'ll be seeing you.', onEnter: notice(14), end: true },

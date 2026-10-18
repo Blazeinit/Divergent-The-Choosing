@@ -137,7 +137,7 @@
       DV.UI.simMode(true);
       DV.Audio.setMusic('sim');
       const div = !!DV.State.data.aptitude.divergent;
-      Ch.canAware = div || DV.Stats.attr('resolve') >= 9;
+      Ch.canAware = div || DV.Stats.attr('resolve') >= 9 || DV.Perks.on('sim.aware');
       if (Ch.v === 'tank') {
         P.place(0, 0, 0);
         Ch.level = 0.05; Ch.air = 1; Ch.cracks = 0;
@@ -167,10 +167,14 @@
       Ch.t += dt;
       const input = DV.Input;
       const breathing = input.down('Space') && P.speed < 0.3;
+      // Slow Time (Divergent): breathe steadily while it's bad and the world slows round you
+      const slowing = DV.Perks.on('sim.slow') && breathing && Ch.hr > 96;
+      if (slowing !== !!Ch.slowing) { Ch.slowing = slowing; Ch.mon.el.classList.toggle('slowtime', slowing); if (slowing) DV.Audio.play('glitch', { volume: 0.4 }); }
+      const wdt = slowing ? dt * 0.5 : dt; // (what the fear does runs on this; your heart doesn't)
       let fear = 0;
       if (Ch.v === 'tank') {
         // the water rises
-        Ch.level = Math.min(4.0, Ch.level + dt * 0.055);
+        Ch.level = Math.min(4.0, Ch.level + wdt * 0.055);
         const T = DV.World.current.tank;
         T.water.scale.y = Ch.level; T.water.position.y = Ch.level / 2; T.surf.position.y = Ch.level + 0.005;
         const head = 1.55 * P.scale;
@@ -180,7 +184,7 @@
         P.surfaceOverride = 'water';
         if (Math.random() < dt * 0.6) DV.Audio.play('splash', { volume: 0.25 });
         if (under) {
-          Ch.air = Math.max(0, Ch.air - dt / (8 + DV.Stats.attr('resolve') * 0.8));
+          Ch.air = Math.max(0, Ch.air - wdt / (8 + DV.Stats.attr('resolve') * 0.8));
           DV.UI.setFear(0.5 + (1 - Ch.air) * 0.5);
           if (Ch.air <= 0) return this.end(Ch, 'blackout');
         } else { Ch.air = Math.min(1, Ch.air + dt * 0.5); DV.UI.setFear(U.clamp((Ch.hr - 80) / 120, 0, 0.7)); }
@@ -193,14 +197,14 @@
         Ch.mon.hint(under ? 'You can\'t breathe. Find a way out — or slow your heart. (hold Space)' : Ch.crackNear ? 'Hit the crack — again, and again' : 'Hold Space, standing still: slow your breathing. Or look for a way out.');
       } else {
         // the beam: gusts push you sideways; correct with A / D
-        Ch.gustT -= dt;
+        Ch.gustT -= wdt;
         if (Ch.gustT <= 0) { Ch.gustT = U.rand(2.2, 4.2); Ch.gust = (Math.random() < 0.5 ? -1 : 1) * U.rand(0.5, 1.1) * (P.x > 6 && P.x < 30 ? 1 : 0.2); DV.Audio.play('gust', { volume: 0.9 }); }
-        Ch.gust *= Math.pow(0.35, dt);
+        Ch.gust *= Math.pow(0.35, wdt);
         const onBeam = P.x > 6 && P.x < 30;
         const W = Ch.wide ? 3 : 0.3;
         if (onBeam) {
-          Ch.windV += (Ch.gust - Ch.windV * 0.8) * dt * 2.2;
-          P.z += Ch.windV * dt * (Ch.wide ? 0.1 : 1);
+          Ch.windV += (Ch.gust - Ch.windV * 0.8) * wdt * 2.2;
+          P.z += Ch.windV * wdt * (Ch.wide ? 0.1 : 1);
           if (Math.abs(P.z - 3) > W) return this.fall(Ch);
           fear = 0.9 + Math.abs(P.z - 3) / W * 0.9 + Math.abs(Ch.windV) * 0.6;
         } else fear = P.x >= 30 ? 0 : 0.5;
@@ -212,8 +216,9 @@
       }
       // the heart: fear pushes it up, breathing slowly (still) brings it down, Composure helps
       const comp = DV.Stats.skill('composure');
-      const target = 72 + fear * 70 * U.clamp(1.25 - comp / 160 - DV.Stats.attr('resolve') * 0.03, 0.55, 1.2);
-      if (breathing) Ch.hr -= (10 + DV.Stats.attr('resolve') * 1.2) * dt;
+      // (Lucid, Steady, Fear Is a Choice: fear has less hold; Box Breathing: the breath works faster)
+      const target = 72 + fear * 70 * U.clamp(1.25 - comp / 160 - DV.Stats.attr('resolve') * 0.03, 0.55, 1.2) * Math.max(0.3, 1 + DV.Perks.mod('sim.fear'));
+      if (breathing) Ch.hr -= (10 + DV.Stats.attr('resolve') * 1.2) * dt * (1 + DV.Perks.mod('sim.breath'));
       Ch.hr += (target - Ch.hr) * dt * (breathing ? 0.12 : 0.5);
       Ch.hr = U.clamp(Ch.hr, 60, 190);
       Ch.mon.set(Ch.hr, dt);
@@ -317,6 +322,7 @@
     '.fear-hud .bpm { font-family: var(--mono); font-size: 26px; color: #9fe8a8; }',
     '.fear-hud.high .bpm { color: #ff7a5a; }',
     '.fear-hud canvas { display: block; margin-top: 4px; }',
+    '.fear-hud.slowtime .fm, .fear-hud .fm.slowtime { box-shadow: inset 0 0 0 1px #6ab0ff, 0 0 18px rgba(106, 176, 255, 0.45); }',
     '.fear-hud .lbl { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #6a8a70; }',
     '.fear-hint { position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); font-size: 13px; color: var(--text); background: rgba(0,0,0,0.55); padding: 5px 12px; border: 1px solid #000; white-space: nowrap; }',
     '.fear-hint:empty { display: none; }',

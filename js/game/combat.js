@@ -71,10 +71,13 @@
       if (this.ai) Object.assign(this.ai, { cool: 0.8, queue: [], reactIn: null, react: null, seen: -1, strafeDir: Math.random() < 0.5 ? 1 : -1, strafeT: 0, blockT: 0, guardT: 0, guardRoll: 0.6, recent: [], counterIn: null, wasHit: false });
       this.s = { dealt: 0, taken: 0, landed: 0, thrown: 0, counters: 0, blocked: 0, dodged: 0, knockdowns: 0 };
       this.downs = 0;
+      // perks (the player's): harder hits, less taken, a cheaper guard, sharper counters
+      this.pk = { dmg: 0, armor: 0, block: 0, counter: 0 };
+      if (this.isPlayer && DV.Perks) for (const k in this.pk) this.pk[k] = DV.Perks.mod('melee.' + k);
     }
     // STR and the Melee skill hit harder; RESOLVE takes it better; AGILITY is quicker
-    get dmgMul() { return 0.74 + this.st.strength * 0.052 + (this.st.melee || 20) / 420; }
-    get armor() { return U.clamp(1.1 - this.st.resolve * 0.022, 0.84, 1.06); }
+    get dmgMul() { return (0.74 + this.st.strength * 0.052 + (this.st.melee || 20) / 420) * (1 + this.pk.dmg); }
+    get armor() { return U.clamp(1.1 - this.st.resolve * 0.022, 0.84, 1.06) * Math.max(0.5, 1 + this.pk.armor); }
     get quick() { return U.clamp(1.12 - this.st.agility * 0.026, 0.82, 1.1) * (this.exhausted ? 1.25 : 1); }
     get footSpeed() { return (1.45 + this.st.agility * 0.055) * (this.exhausted ? 0.75 : 1); }
     get busy() { return !FREE[this.state]; }
@@ -126,6 +129,10 @@
       if (this.opActor) this.opActor.activity = true;
       model.root.visible = true;
       this.them = new Fighter({ name: op.name, model, x: so[0], z: so[1], stats: op.stats, ai: op.ai || {} });
+      // Menace: they come in rattled and slow to start; Open Hands: they come in less hard
+      const K = DV.Perks;
+      if (K && K.mod('melee.menace')) { this.them.poise = Math.max(30, this.them.poise - K.mod('melee.menace')); if (this.them.ai) this.them.ai.cool += 0.6; }
+      if (K && K.mod('melee.calmfoe') && this.them.ai) this.them.ai.aggression *= Math.max(0.4, 1 - K.mod('melee.calmfoe'));
       this.me.rot = U.yawTo(sp[0], sp[1], so[0], so[1]);
       this.them.rot = U.yawTo(so[0], so[1], sp[0], sp[1]);
       this.fighters = [this.me, this.them];
@@ -406,7 +413,7 @@
         const raw = mv.dmg * att.dmgMul;
         this.damage(att, def, raw * chip);
         // a guard shrugs off jabs, feels a cross, and a kick is what breaks it
-        def.useStam(raw * (mv.kind === 'light' ? 0.55 : mv.kind === 'heavy' ? 1.25 : 2.6) * U.clamp(1.2 - def.st.resolve * 0.035, 0.75, 1.15));
+        def.useStam(raw * (mv.kind === 'light' ? 0.55 : mv.kind === 'heavy' ? 1.25 : 2.6) * U.clamp(1.2 - def.st.resolve * 0.035, 0.75, 1.15) * Math.max(0.3, 1 + def.pk.block));
         def.s.blocked++;
         att.connected = true;
         att.blockedBy = true; // (their recovery runs long: the defender gets a beat to answer)
@@ -428,12 +435,12 @@
       }
       // a clean hit — worth more if they were winding up something of their own
       const counter = def.state === 'attack' && def.phase === 'windup';
-      const dmg = mv.dmg * att.dmgMul * def.armor * (counter ? 1.4 : 1) * (att.exhausted ? 0.7 : 1) * U.rand(0.9, 1.1);
+      const dmg = mv.dmg * att.dmgMul * def.armor * (counter ? 1.4 + att.pk.counter : 1) * (att.exhausted ? 0.7 : 1) * U.rand(0.9, 1.1);
       this.damage(att, def, dmg);
       att.connected = true;
       att.s.landed++;
       if (counter) { att.s.counters++; if (att.isPlayer) this.A.announce('COUNTER', 0.8, 'good'); }
-      def.poise -= mv.poise * (counter ? 1.5 : 1) * U.clamp(1.15 - def.st.resolve * 0.03, 0.8, 1.1);
+      def.poise -= mv.poise * (counter ? 1.5 + att.pk.counter : 1) * U.clamp(1.15 - def.st.resolve * 0.03, 0.8, 1.1);
       def.flash = 0.16;
       def.side = Math.random() < 0.5 ? 1 : -1;
       const heavy = mv.kind !== 'light';

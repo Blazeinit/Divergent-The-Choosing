@@ -102,7 +102,7 @@
       this.ay = U.clamp(this.ay - mx * sens, -0.45, 0.45);
       this.ap = U.clamp(this.ap - my * sens * (DV.Settings.get('invertY') ? -1 : 1), -0.25, 0.3);
       // breathing: sway shrinks with skill; holding your breath steadies it, for a few seconds
-      const steady = U.clamp(1.3 - S().attr('perception') * 0.035 - S().attr('resolve') * 0.03 - S().skill('firearms') / 260, 0.25, 1.2);
+      const steady = U.clamp(1.3 - S().attr('perception') * 0.035 - S().attr('resolve') * 0.03 - S().skill('firearms') / 260, 0.25, 1.2) * Math.max(0.4, 1 + DV.Perks.mod('firearms.sway'));
       const wantHold = input.down('ShiftLeft') || input.down('ShiftRight');
       if (wantHold && this.breath > 0 && this.shaky <= 0) { this.holding = true; this.breath = Math.max(0, this.breath - dt / 3.2); if (this.breath <= 0) this.shaky = 2.2; }
       else { this.holding = false; this.breath = Math.min(1, this.breath + dt / 2.5); }
@@ -159,7 +159,7 @@
       this.cool = 0.32;
       DV.Audio.play('gunshot', { volume: 0.9 });
       this.gun.userData.flash.opacity = 1;
-      this.recoilV += 1.6 * U.clamp(1.25 - S().attr('strength') * 0.04 - S().skill('firearms') / 400, 0.5, 1.2);
+      this.recoilV += 1.6 * U.clamp(1.25 - S().attr('strength') * 0.04 - S().skill('firearms') / 400, 0.5, 1.2) * Math.max(0.4, 1 + DV.Perks.mod('firearms.recoil'));
       DV.Game.rig.shake = Math.max(DV.Game.rig.shake, 0.06);
       S().practice('firearms', 0.35);
       // what did it hit?
@@ -275,7 +275,7 @@
       this.dist = R.dist;
       // the power that gets the point there first, and how much slack you have
       this.ideal = 0.5 + (R.dist - 6.3) * 0.13;
-      this.slack = U.clamp(0.055 + S().attr('agility') * 0.006 + S().skill('throwing') / 900, 0.06, 0.16) * (this.r > 0 ? 0.85 : 1);
+      this.slack = U.clamp(0.055 + S().attr('agility') * 0.006 + S().skill('throwing') / 900, 0.06, 0.16) * (this.r > 0 ? 0.85 : 1) * (1 + DV.Perks.mod('throw.slack'));
       this.A.announce('ROUND ' + (this.r + 1) + ' · ' + R.dist.toFixed(1) + ' M', 1.4);
       for (const k of this.knives) { if (k.parent) k.parent.remove(k); }
       this.knives = [];

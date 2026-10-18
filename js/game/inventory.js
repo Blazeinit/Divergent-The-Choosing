@@ -79,6 +79,7 @@
         }
         case 'buff': {
           DV.Stats.addBuff(id, u.attr, u.amount, u.minutes, u.label);
+          if (u.stamina) { DV.Player.stamina = Math.min(DV.Config.PLAYER.staminaMax, DV.Player.stamina + u.stamina); DV.Player.exhausted = false; }
           this.remove(id, 1, true);
           DV.Audio.play(u.sound || 'item');
           return { ok: true, message: 'You consume the ' + def.name + '. ' + u.label + ': +' + u.amount + ' ' + DV.U.capitalize(u.attr) + '.' };

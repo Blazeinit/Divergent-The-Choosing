@@ -8,7 +8,7 @@
   const DV = window.DV;
   const U = DV.U;
 
-  const SAVE_VERSION = 3;
+  const SAVE_VERSION = 4;
 
   // v2 renamed several NPCs (and their ids) to fit the setting, and turned the
   // candidate card into a name badge. Old saves are rewritten through this map.
@@ -105,6 +105,10 @@
         level: 1,
         xp: 0,
         unspent: 0,
+        // v4: perks ({id: {day, t}}), perk points, and which once-only experience you've had (DV.Stats.award)
+        perks: {},
+        perkPoints: DV.RPG.PERK_START,
+        xpSeen: {},
         faction: null, // null = UNDECIDED until the Choosing Ceremony
         outfit: 'neutral',
         pos: { x: 0, z: 0, rot: 0 },
@@ -140,6 +144,7 @@
       },
       journal: [], // free-form notes (important events)
       shops: {}, // Build 7: per shop: { day, stock: {item: qty}, job: day, … } (js/game/shops.js)
+      codex: { open: {}, init: false }, // v4: lore entries you've opened ({id: {day, t, read}})
     };
   }
 
@@ -203,6 +208,24 @@
       if (d.version < 3) {
         d = rename(d, RENAMES_V3);
         d.version = 3;
+      }
+      // v4 added perks, perk points and the Codex. An older save gets the perk points its levels
+      // would have earned (one to start, one a level, one more at each milestone), keeps every
+      // attribute point it hadn't spent, and counts the rooms and sectors it had already found as
+      // discovered (so walking back into them pays nothing twice). Its Codex opens quietly on load.
+      if (d.version < 4) {
+        const p = d.player || (d.player = {});
+        const lvl = Math.max(1, p.level || 1);
+        let pts = DV.RPG.PERK_START;
+        for (let l = 2; l <= lvl; l++) pts += DV.RPG.perkPointsAt(l);
+        p.perks = p.perks || {};
+        p.perkPoints = pts;
+        const seen = p.xpSeen || (p.xpSeen = {});
+        const w = d.world || {};
+        for (const z in w.zones || {}) for (const r in (w.zones[z] && w.zones[z].visited) || {}) seen['discovery:' + z + ':' + r] = 0;
+        for (const id in w.visited || {}) seen['sector:' + id] = 0;
+        d.codex = { open: {}, init: false };
+        d.version = 4;
       }
       U.fillDefaults(d, blank());
       return d;

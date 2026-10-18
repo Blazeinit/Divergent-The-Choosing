@@ -406,6 +406,15 @@
       job: { text: 'I ensure that forty-one sixteen-year-olds are measured accurately, safely, and without... irregularity. Then I report to Oversight, who report to people who report to no one. It\'s a very tall staircase.', next: 'hub', nextText: 'I see.' },
       irregular: {
         text: '[He smiles.] "Irregular" is a word technicians use when a machine coughs. We recalibrate. We re-test. The city does not run on coughs.',
+        // (Candor hears it: nobody is re-tested)
+        lie: {
+          tell: 'He smiles before he answers, and his eyes don\'t join in. People smile first when they\'ve rehearsed.',
+          call: 'You don\'t re-test anyone, Director. Do you?',
+          press: '[The smile stays exactly where it is.] We re-test everything, candidate. That is what a test is for.',
+          truth: '[He takes off his glasses and cleans them, slowly.] Not all of them. Some results are... referred. To Oversight. Oversight decides what the city needs to know. [The glasses go back on.] You did not hear that from me, and I will say so under serum.',
+          onTruth: (c) => { c.setFlag('pierce_admitted'); c.setFlag('pierce_watching'); if (c.qActive('protocol_d')) c.qlog('protocol_d', 'Dr. Pierce admitted that irregular results are "referred to Oversight", not re-tested.'); },
+          back: 'hub', backText: 'I see.',
+        },
         choices: [
           { text: 'You paused before you said "re-test."', check: { attr: 'perception', dc: 7 }, to: 'irr_per' },
           { text: 'Okay.', to: 'hub' },
@@ -421,6 +430,14 @@
       },
       pd: {
         text: '[A very small pause.] Where did you hear that? ...No matter. It is an administrative procedure for data integrity. Dull. Exceedingly dull. Don\'t let anyone make it sound otherwise.',
+        lie: {
+          tell: 'A very small pause, and then too many words. Nobody insists that hard on "dull".',
+          call: 'It isn\'t dull. It\'s about people.',
+          press: '[His pen taps once.] It is about data, candidate. People are where data comes from.',
+          truth: '[He sets the pen down.] It is a list. A short one, every year. Names that do not sort. [He meets your eyes.] The list is not a punishment. It is a precaution. I would very much like you to believe that.',
+          onTruth: (c) => { c.setFlag('pierce_admitted_list'); if (c.qActive('protocol_d')) c.qlog('protocol_d', 'Dr. Pierce admitted Protocol D keeps a list of names "that do not sort".'); },
+          back: 'hub', backText: '...',
+        },
         onEnter: (c) => { c.setMem('askedPD', true); c.setFlag('asked_pierce_pd'); c.addRel(-3, true); c.qlog('protocol_d', 'Dr. Pierce called Protocol D "an administrative procedure for data integrity." He did not like being asked.'); },
         next: 'hub', nextText: 'Of course.',
       },
@@ -454,11 +471,22 @@
           ? [
             { text: 'Thank you, Director.', end: true },
             { text: 'Is something wrong, Director?', check: { attr: 'resolve', dc: 6 }, to: 'post_res' },
+            { text: '(Give him the face he\'s looking for: bored, a little slow, already thinking about lunch.)', to: 'post_seam', seam: true },
             { text: '(Look away.)', to: 'post_fail' },
           ]
           : [bye]),
       },
-      post_res: { text: 'Not at all. [He smiles.] You\'re very calm for someone who has just been inside their own head. Most candidates aren\'t. Good day.', onEnter: (c) => c.practice('composure', 2), end: true },
+      post_res: {
+        text: 'Not at all. [He smiles.] You\'re very calm for someone who has just been inside their own head. Most candidates aren\'t. Good day.', onEnter: (c) => c.practice('composure', 2), end: true,
+        lie: (c) => (c.divergent() ? {
+          tell: 'He smiles with half his face. The other half is memorising yours.',
+          call: 'Something is wrong. You\'re looking for something in my face.',
+          press: '[A small, dry laugh.] Everyone looks for something in a candidate\'s face. Good day.',
+          truth: '[He looks at the door, then back.] Dawson\'s records are very neat. Too neat, this year. If you were mine to advise — you are not — I would be very ordinary for a while. Good day.',
+          onTruth: (c2) => c2.setFlag('pierce_warned'),
+        } : null),
+      },
+      post_seam: { text: '[His eyes move over you once and slide off, the way eyes slide off furniture.] ...Yes. Good day, candidate.', onEnter: (c) => { c.setMem('postTest', true); c.practice('deception', 2); }, end: true },
       post_fail: { text: '[You feel his eyes on you all the way to the door.] ...Good day, candidate.', onEnter: (c) => c.setFlag('pierce_suspicious'), end: true },
     },
   });

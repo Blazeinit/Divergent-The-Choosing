@@ -937,7 +937,11 @@
         const was = this.distId;
         this.distId = did;
         if (did && was !== undefined && this.exposed() && !this.zone.roomAt(px, pz)) DV.UI.notify(did === 'marsh' ? 'The Marsh' : did === 'farm' ? 'Amity Farmland' : here.d.name, 'info');
-        if (did) { const w = DV.State.data.world; (w.visited || (w.visited = {}))[did] = true; }
+        if (did) {
+          const w = DV.State.data.world;
+          (w.visited || (w.visited = {}))[did] = true;
+          if (was !== undefined) DV.Stats.award('sector', did, 'Discovered ' + (did === 'marsh' ? 'the Marsh' : did === 'farm' ? 'Amity Farmland' : here.d.name));
+        }
       }
       const busy = this.busy(px, pz);
       // (the city's own people near you (js/game/lives.js) are most of who's about: strangers make up the rest;
