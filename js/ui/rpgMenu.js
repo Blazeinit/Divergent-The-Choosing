@@ -41,6 +41,9 @@
       case 'book': g.fillRect(3, 3, 10, 11); g.fillStyle = 'rgba(255,255,255,0.4)'; g.fillRect(4, 4, 1, 9); break;
       case 'bottle': g.fillRect(6, 3, 4, 2); g.fillRect(5, 5, 6, 8); break;
       case 'token': g.beginPath(); g.arc(8, 8, 5, 0, 6.3); g.fill(); g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(6, 7, 4, 2); break;
+      case 'tin': g.fillRect(4, 4, 8, 9); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(4, 4, 8, 1); g.fillRect(4, 12, 8, 1); g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(5, 7, 6, 3); break;
+      case 'jar': g.fillRect(4, 5, 8, 9); g.fillStyle = '#d8d0c0'; g.fillRect(5, 3, 6, 2); g.fillStyle = 'rgba(255,255,255,0.3)'; g.fillRect(5, 6, 1, 6); break;
+      case 'scrip': g.fillRect(2, 4, 12, 8); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(3, 5, 10, 1); g.fillRect(3, 10, 10, 1); g.beginPath(); g.arc(8, 8, 2, 0, 6.3); g.fill(); break;
       default: g.fillRect(3, 3, 10, 10);
     }
     return c;
@@ -299,6 +302,11 @@
         const t = el('div', 'subtab' + (this.invCat === id ? ' on' : ''), nm, st);
         t.onclick = () => { this.invCat = id; this.render(); };
       }
+      // your purse: ration scrip, what the shops take
+      const purse = el('div', 'list-item inv-purse', null, a);
+      purse.appendChild(itemIcon({ icon: { shape: 'scrip', color: '#c8b890' } }));
+      el('span', null, 'Ration Scrip <span class="faint">— spent at the city\'s shops</span>', purse);
+      el('span', 'qty', String(DV.Wallet.get()), purse);
       const list = this.invCat === 'all' ? DV.Inventory.list() : DV.Inventory.byCategory(this.invCat);
       if (!list.length) el('div', 'faint', 'Nothing here.', a).style.padding = '8px';
       const detail = el('div', 'col', null, cols);

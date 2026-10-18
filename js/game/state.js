@@ -111,6 +111,9 @@
         zone: 'testing_center',
         stamina: 100,
         buffs: {},
+        // Build 7: ration scrip, the city's money: every citizen's faction issues an allowance, and
+        // work (quests, jobs at the shops) earns more. Spent and earned at the shops (js/game/shops.js)
+        scrip: 25,
       },
       world: {
         day: 1,
@@ -136,6 +139,7 @@
         divergent: false,
       },
       journal: [], // free-form notes (important events)
+      shops: {}, // Build 7: per shop: { day, stock: {item: qty}, job: day, … } (js/game/shops.js)
     };
   }
 

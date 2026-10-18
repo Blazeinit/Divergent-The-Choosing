@@ -56,6 +56,7 @@ To use a Chromium you already have, set `CHROMIUM_PATH=/path/to/chrome`. Screens
 | `audio` | Per-room reverb, indoor vs. outdoor layers, open-door bleed, accents, the simulation beds, and the reverb setting |
 | `save-migration` | A v1 save with old NPC ids and names loads into the current version with everything intact |
 | `npc-day` | A full day of schedules from two vantage points: nobody stuck, teleported, path-less or double-seated |
+| `stores` | The eight shops: doors on real building fronts with the pavement clear, interiors built only when entered; for each, walk to the door, go in, the keeper at the counter, talk, buy and sell through the panel by clicking, walk back out; an odd job, a tattoo, a save in a shop loading outside it, closing hours and being shown out, the City map's marks, draw calls |
 | `colliders` | Invisible walls: every city collider within reach against the footprint of what it was built for (turned ones too); every Testing Center collider against the triangles drawn there; walking up to the rubble in the empty lot by the FURNITURE sign; out of the front plaza through the gate and along Lake Street; the plaza's fence stopping you where it stands |
 | `perf` | Draw-call budget in the heaviest views, including the plaza looking out at the city |
 

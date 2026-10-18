@@ -424,6 +424,11 @@
         if (input.consume('Tab') || input.consume('Escape')) this.closeOverlay();
         else if (input.consume('KeyM') && DV.RPGMenu.tab !== 'map') DV.RPGMenu.show('map');
         else DV.RPGMenu.update(input);
+      } else if (this.state === 'shop') {
+        // the trading panel (js/ui/shopUI.js): the shop carries on round it
+        DV.ShopUI.update(dt, input);
+        this.updateWorldSystems(dt, zone, false);
+        DV.Player.model.animate(dt, { speed: 0, action: DV.Player.action, seatY: DV.Player.seat ? DV.Player.seat.seatY : 0.45 });
       } else if (this.state === 'paused') {
         if (input.consume('Escape')) { if (!DV.Menus.closeSide()) this.resume(); }
       } else if (this.state === 'wait') {
