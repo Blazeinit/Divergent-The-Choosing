@@ -726,7 +726,7 @@
       for (const l of walk.landmarks || []) if (LANDMARKS[l.id]) { B.part = 'landmark:' + l.id; LANDMARKS[l.id](B, l); }
       for (const f in walk.homes || {}) { B.part = 'home:' + f; homeFor(B, f, walk.homes[f]); }
       B.part = 'other';
-      theFence(B, centre, walk, walk.gate, marshX);
+      theFence(B, centre, walk, walk.gate, marshX, o.ferris);
       if (walk.edge) farmland(B, centre);
       for (const sg of walk.signs || []) sign(B, sg.x, sg.y, sg.z, sg.rot, sg.w, sg.h, sg.tex);
     }
@@ -1436,7 +1436,7 @@
   // gatehouse with two towers and doors you could drive a train through. In front of it, a
   // cordon nobody crosses: a security fence (signs every so often), a strip of open ground, the
   // patrol road, floodlights. You can walk up to the cordon and look; that's all.
-  function theFence(B, c, Wd, gate, marshX) {
+  function theFence(B, c, Wd, gate, marshX, ferris) {
     const WL = Wd.wall, R = Wd.fence, IR = WL.inner, OR = WL.outer, H = WL.height, TOP = WL.top, CR = WL.cordon;
     const ga = gate ? Math.atan2(gate[1] - c[1], gate[0] - c[0]) : 99;
     const conc = [0.62, 0.61, 0.58], steel = [0.21, 0.21, 0.22], dark = [0.12, 0.12, 0.13];
@@ -1574,7 +1574,12 @@
     // the shore wall along the marsh, inside the cordon
     if (marshX < 1e8) {
       const zr = Math.sqrt(Math.max(0, CR * CR - (marshX - 3 - c[0]) * (marshX - 3 - c[0])));
-      for (let z = c[1] - zr; z < c[1] + zr; z += 20) B.box(marshX - 3, z + 10, 0.6, 20, 0, 1.1, 0, null, conc, 0, {});
+      // (with a gap where Lake Street runs on out over the water: the jetty, js/game/waterfront.js)
+      const gap = ferris ? [ferris[1] - 2.6, ferris[1] + 2.6] : null;
+      for (let z = c[1] - zr; z < c[1] + zr; z += 20) {
+        const runs = gap && z < gap[1] && z + 20 > gap[0] ? [[z, gap[0]], [gap[1], z + 20]] : [[z, z + 20]];
+        for (const [a, b] of runs) if (b - a > 0.3) B.box(marshX - 3, (a + b) / 2, 0.6, b - a, 0, 1.1, 0, null, conc, 0, {});
+      }
     }
     B.part = 'other';
   }
