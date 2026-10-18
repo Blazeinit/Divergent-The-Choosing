@@ -53,7 +53,7 @@ Saves, settings and autosaves live in the browser's `localStorage` under the `di
 | **Space** | Jump (uses stamina; you can't jump when you're winded) |
 | **C** | Crouch / sneak. Slower, and staff don't hear you coming. Shift or C stands you back up |
 | **E** | Interact: talk, take, sit, open, examine. Also advances dialogue |
-| **Tab** | RPG menu: Character · Skills · Inventory · Quests · Reputation · Map |
+| **Tab** | RPG menu: Character · Skills & Perks · Factions · Journal · Inventory · Codex · Map. **1–7** jump to a page, **Q / E** turn pages, **arrows** move inside one, **Enter** spends a point, learns a perk, uses an item or crafts |
 | **M / J / I** | Open the RPG menu on Map / Quests / Inventory |
 | **T** | Wait, anywhere you're free to (not in a story scene). Pick how long (← →), or a time ("until the call", "until lunch", "until the evening"), and press Enter. The day goes by in a time-lapse; Esc stops it. A call to training, the PA calling your name, or anyone who needs you stops it early. Waiting won't take you past midnight: for the night, go to bed |
 | **Map (Tab → Map)** | **Local** for the building you're in, **City** for the whole city. Wheel or **+ / −** to zoom, drag to pan, **Fit** to see it all, hover for names |
@@ -90,6 +90,18 @@ All of these are also listed in-game under **Pause → Controls**.
 
 ---
 
+## Character, perks and factions
+
+**Experience** comes from quests, places you discover (a room, a sector of the city), checks you pass in conversation (harder ones pay more), fights won or lost, the drills and trials of initiation (once a day each), reading, the Codex, and things off the path (a Circle Line ride, a stallholder's gift, a lock picked, something made at the workbench). **Tab → Journal → Experience** lists every source. There are twenty levels; each brings an attribute point and a perk point (two at levels 5, 10, 15 and 20), and a fanfare.
+
+**Perks.** Every skill has a tree of three tiers, opened at skill 25, 40 and 60 (skills still grow by use). Each of the five factions has a tree opened by your **standing** with it: members start two ranks ahead, and those raised in a faction one rank, until they choose another. A sixth tree, **Divergent**, opens when your aptitude result is inconclusive. Some of what they do: Dauntless sprint further and roll out of falls; Erudite read a person's disposition to the number, bypass card readers and craft tonics; Candor see a lie marked in the dialogue window with the tell that gave it away, and can call it out; Abnegation are trusted, given plenty, and overlooked by the Order Office; Amity talk hostile people down and gather healing herbs every morning; the Divergent see choices nobody else is offered and can slow a fear simulation by breathing through it.
+
+**Standing.** Each faction has a title for you at every tier (Dauntless: Outsider, Hopeful, Daredevil, Brave… Candor: Witness, Plain Speaker, Truth-Teller…), shown on the Factions page with its manifesto. Respected standing helps your checks with that faction's people; distrust hurts them; Liked or better opens a faction's own way of talking in conversation. **Transfer** at the Choosing and the perks of the faction you were raised in go dormant until you earn your standing back with them.
+
+**The Codex** fills with lore as you play: the five manifestos (once you know a faction), the test, the city's places, initiation, and every document you've read.
+
+---
+
 ## Project structure
 
 ```
@@ -102,8 +114,13 @@ js/
     utils.js               DV.U math/time/DOM helpers, seeded RNG, DV.Events bus
     config.js              Tunables (speeds, camera, LOD, save slots) + persisted DV.Settings (incl. clock speed)
   data/                    Pure data, no engine code
-    factions.js            Six factions: descriptions, colours, clothing palettes; skin/hair/eye palettes
-    rpg.js                 Attributes (STR AGI INT PER CHA RES), skills, XP curve, upbringings
+    factions.js            Six factions: descriptions, colours, clothing palettes; skin/hair/eye palettes; standing titles
+                           per tier (and members' titles); each faction's manifesto
+    rpg.js                 Attributes (STR AGI INT PER CHA RES), skills, XP curve (20 levels), points per level,
+                           the table of experience sources, upbringings
+    perks.js               Perk trees: three tiers for every skill, one per faction, and Divergent; each perk's mods
+                           (the named numbers the game's systems read); Erudite's workbench recipes
+    codex.js               The Codex: lore entries and what opens each one
     items.js               Item database (clothing, consumables, quest, misc)
     citymap.js             Build 4: the city's one shared map (avenues and streets by name, the sectors,
                            landmarks, every family's home, the Fence) — the city, the HUD and the map read it
@@ -153,8 +170,12 @@ js/
     clock.js               In-game clock (an hour every 6 real minutes by default; Settings → Clock speed)
     stats.js               Attributes, skills (practice-based), XP/levels, checks, buffs
     inventory.js           Add/remove/use/equip
-    reputation.js          Faction reputation + per-NPC relationship and disposition
+    reputation.js          Faction reputation and standing (tiers, titles, members), per-NPC relationship and disposition
+    perks.js               Perks: what's open (skill level, standing, the result), learning, dormant perks after a
+                           transfer, mod(key); dialogue hooks (checks, lies, seams, talking someone down, a faction's tone),
+                           Amity's herbs, the workbench
     quests.js              Quest framework: NOT STARTED → ACTIVE → UPDATED → COMPLETE / FAILED
+    codex.js               The Codex at runtime: opens entries as their conditions come true, keeps what you've read
     dialogue.js            Dialogue engine: trees, conditions, checks, effects, memory, placeholders
     npc.js, npcAI.js       NPC runtime: schedules, pathing, spot claiming, queues, LOD, barks, conversations
     player.js, camera.js   Third-person controller and camera rig (orbit, collision, dialogue framing)
@@ -213,7 +234,8 @@ js/
   ui/
     ui.js                  HUD, compass, quest tracker, notifications, subtitles, barks, banners, fades
     dialogueUI.js          Old-school dialogue window (typewriter text, numbered choices, check labels)
-    rpgMenu.js             Tab menu: Character / Skills / Inventory / Quests / Reputation / Map
+    rpgMenu.js             Tab menu: Character (paper doll) / Skills & Perks (the trees) / Factions / Journal /
+                           Inventory (and workbench) / Codex / Map; tooltips, keyboard; the level-up fanfare
     worldMap.js            Build 4: the City map (sectors, streets by name, landmarks, the Fence, you, home)
     menus.js               Main menu (the bowls of the Choosing, keyboard), pause, save/load, settings, controls, credits, wait
     menuReel.js            The main menu's highlights reel: the factions' days in real places, cut together

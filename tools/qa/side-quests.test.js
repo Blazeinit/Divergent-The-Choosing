@@ -65,7 +65,7 @@ L.run('side quests, menus, save/load', async (p, T, errs) => {
   await p.keyboard.press('Tab');
   await p.waitForFunction(() => DV.Game.state === 'menu', null, { timeout: 8000 }).catch(() => {}); // (read on the next frame, however slow)
   T.eq(await ev(() => DV.Game.state), 'menu', 'Tab opens the RPG menu');
-  for (const k of ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6']) { await p.keyboard.press(k); await p.waitForTimeout(250); }
+  for (const k of ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7']) { await p.keyboard.press(k); await p.waitForTimeout(250); }
   try { await p.waitForFunction(() => DV.RPGMenu.tab === 'map', null, { timeout: 8000 }); } catch (e) { /* asserted below */ }
   T.eq(await ev(() => DV.RPGMenu.tab), 'map', 'number keys switch tabs');
   await L.shot(p, 'side_map');
