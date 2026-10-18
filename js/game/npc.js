@@ -123,7 +123,8 @@
       for (const n of this.all) {
         const here = (n.def.zone || 'testing_center') === zoneId;
         if (n.model) n.model.root.visible = here && n.present;
-        if (here) n.ensureModel(this.scene);
+        // (`lazy` people are built by whoever places them, when you're near enough: js/game/cityquests.js)
+        if (here && (!n.def.lazy || n.model)) n.ensureModel(this.scene);
         if (n.model && !here && n.model.root.parent) n.model.root.parent.remove(n.model.root);
       }
     },

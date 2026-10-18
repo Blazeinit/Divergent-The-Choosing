@@ -546,6 +546,7 @@
           { text: 'Why count moves and not time?', to: 'moves' },
           { text: 'What are the benches for, really?', to: 'really', check: { attr: 'perception', dc: 6 } },
           { text: () => DV.Campaign.mentorLine(), if: () => DV.Campaign.available(), end: true, effect: () => DV.Campaign.takeNextSoon() },
+          DV.CityQuests.mentorChoice(), // (between cases: out into the city, js/game/cityquests.js)
           { text: 'Nothing.', end: true },
         ],
       }),

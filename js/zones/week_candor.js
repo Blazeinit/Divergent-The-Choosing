@@ -634,6 +634,7 @@
           { text: 'How do I know when he\'s lying?', to: 'how', if: () => !FW().was('verdict') },
           { text: 'What happens to him?', to: 'happens', if: () => !FW().was('verdict') },
           { text: () => DV.Campaign.mentorLine(), if: () => DV.Campaign.available(), end: true, effect: () => DV.Campaign.takeNextSoon() },
+          DV.CityQuests.mentorChoice(), // (between cases: out into the city, js/game/cityquests.js)
           { text: 'Nothing. Sorry.', end: true },
         ],
       }),

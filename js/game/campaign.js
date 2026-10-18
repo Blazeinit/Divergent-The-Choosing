@@ -40,18 +40,19 @@
 
   /* ------------------------------ the allies ------------------------------ */
   // name, which faction they belong to, and the flags that start them off trusting you
+  // (the cq_ flags are the city's side quests, js/data/cityquests.js: what you did out on the streets)
   const ALLIES = {
-    rosa: { name: 'Rosa Medina', faction: 'candor', seed: { rosa_protects: 2, rosa_knows: 0, lied_to_rosa: -1 } },
+    rosa: { name: 'Rosa Medina', faction: 'candor', seed: { rosa_protects: 2, rosa_knows: 0, lied_to_rosa: -1, cq_scan_printed: 1 } },
     park: { name: 'Dr. Helen Park', faction: 'erudite', seed: { park_ally: 2, park_interested: 1 } },
-    joan: { name: 'Elder Joan Hayes', faction: 'abnegation', seed: { joan_protects: 2, opened_joan_envelope: -1 } },
+    joan: { name: 'Elder Joan Hayes', faction: 'abnegation', seed: { joan_protects: 2, opened_joan_envelope: -1, cq_sheets_warned: 1, cq_card_given: 1, cq_agnes_taken: -2 } },
     aaron: { name: 'Aaron Hayes', faction: 'abnegation', seed: { joan_protects: 1 } },
-    ezra: { name: 'Ezra', faction: 'factionless', seed: { ezra_contact: 2 } },
-    mary: { name: 'Mary Ellis', faction: 'amity', seed: { mary_doubts: 2, knows_peace_bread: 1 } },
+    ezra: { name: 'Ezra', faction: 'factionless', seed: { ezra_contact: 2, cq_nell_home: 1, cq_nell_shelter: 1, cq_nell_turned_in: -2 } },
+    mary: { name: 'Mary Ellis', faction: 'amity', seed: { mary_doubts: 2, knows_peace_bread: 1, cq_lena_out: 1, cq_lena_reported: -1 } },
     mark: { name: 'Mark Rivera', faction: 'dauntless', seed: { mark_warned: 1, mark_knows_josh: 1 } },
     claire: { name: 'Claire Dawson', faction: 'erudite', seed: { claire_ally: 2, claire_hinted: 1 } },
     ama: { name: 'Dr. Ama Mensah', faction: 'dauntless', seed: {} },
     nina: { name: 'Nina Kaur', faction: 'dauntless', seed: { nina_warned: 1 } },
-    bo: { name: 'Bo Kaminski', faction: 'dauntless', seed: { rode_zip_line: 1 } },
+    bo: { name: 'Bo Kaminski', faction: 'dauntless', seed: { rode_zip_line: 1, cq_gap_crossed: 1 } },
     tess: { name: 'Tess Navarro', faction: 'dauntless', seed: {} },
     dale: { name: 'Dale Hollis', faction: 'candor', seed: { hollis_spared: 2, hollis_sentenced: -2 } },
     marta: { name: 'Marta Hollis', faction: 'candor', seed: {} },

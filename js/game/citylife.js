@@ -146,6 +146,7 @@
         if (d > FAR || d < (near ? 8 : NEAR)) continue;
         if (!near && ((x - px) * fx + (z - pz) * fz) / d > 0.4 && d < 55) continue; // (out of sight, mostly)
         if (this.scenes.some((s) => Math.hypot(s.x - x, s.z - z) < APART)) continue;
+        if (DV.CityQuests && DV.CityQuests.crowded(x, z, 9)) continue; // (someone with a story to tell stands there)
         if (this.zone.roomAt(x, z)) continue;
         if (this.life.kit && this.life.kit.chunk && !this.life.kit.chunk(x, z).built) continue; // (its street furniture isn't built yet: we can't see what's in the way)
         const S = DV.CityMap.landmark('order_station');

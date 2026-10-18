@@ -335,6 +335,7 @@
         choices: [
           { text: 'What happens if they can\'t agree?', to: 'nope', if: () => DV.Chapter.step !== 'end' },
           { text: () => DV.Campaign.mentorLine(), if: () => DV.Campaign.available(), end: true, effect: () => DV.Campaign.takeNextSoon() },
+          DV.CityQuests.mentorChoice(), // (between cases: out into the city, js/game/cityquests.js)
           { text: 'Thanks, Mary.', end: true },
         ],
       },

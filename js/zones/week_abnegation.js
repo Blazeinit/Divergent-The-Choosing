@@ -499,6 +499,7 @@
         choices: [
           { text: 'How do I choose, when there isn\'t enough?', to: 'choose', if: () => !FW().was('run_done') },
           { text: () => DV.Campaign.mentorLine(), if: () => DV.Campaign.available(), end: true, effect: () => DV.Campaign.takeNextSoon() },
+          DV.CityQuests.mentorChoice(), // (between cases: out into the city, js/game/cityquests.js)
           { text: 'Nothing. Sorry.', end: true },
         ],
       }),

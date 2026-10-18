@@ -165,6 +165,9 @@ js/
     soundscape.js          What you hear where you stand: reverb, indoor/outdoor layers, accents, one-shots
     wildlife.js            Pigeon flocks, crows and gulls, blowing litter, flags flying in the wind
     citylife.js            Scenes on the pavements: stalls, a bread line, buskers, children, readers, arguments, crews, fires
+    cityquests.js          The city's side quests: their people stood on the pavements (built when you're near),
+                           the things you use out there, going out between cases and back (data: js/data/cityquests.js,
+                           js/data/dialogue/city.js)
     order.js               Erudite's police: the Order Station's guards and vans, patrols, drones, stops, notice
     metro.js               Build 6: the Circle Line: the network and timetable, trains arriving, dwelling and
                            leaving, riding (the station slides past a train that holds still), the commuters'
@@ -282,6 +285,14 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
    - The commuters keep the rules: they wait beside the doors and let people off first, sit with a gap beside them when they can, give their seat to someone older (the Abnegation do), fall asleep and wake with a start at their stop, and run for doors that are already closing.
 
 **Side quests:** *The Wooden Bird* (Lucy, Amity; a social quest about a lost carving and a gruff custodian), *Cold Feet* (Daniel, Abnegation; talk a frightened candidate into going back to his test before noon), *Paper Trail* (Martha; a sealed envelope you can deliver, read or open), *Initiation Starts Early* (Nate, Dauntless; steal the guard's coffee without being seen), *Protocol D* (Jenna, Candor; what are the staff hiding?) and *Finders Keepers* (lost property).
+
+**Side quests in the city.** Once your results are in, and again between cases in the Chalk Year, there are people out on the streets with something to ask. Each story has a way through without a check, checks that make it kinder or quicker, a choice that costs somebody, and flags the campaign reads afterwards (your allies' trust, clues in the Casebook). Between cases, your mentor (or the stairs up from the Pit) lets you out into the city, and your own sector's door takes you back.
+- *Last Seen at Hub Central* (Toby Kerr, factionless, on the Hub Central steps): his sister went down to the Circle Line with a bag of stolen signal cable and never came up. Ask the ticket clerk at Merciless Mart, find her in the ruins, and bring her home, send her to the Abnegation, or sell her to the Order for a commendation.
+- *The Night Sheets* (Gordon Lyle, an Erudite clerk outside Erudite headquarters): carry a copy of the Order's patrol rota to Agnes on the bench at California station. Read it first and Thursday is empty on the grey streets: a trap. Warn her, keep quiet, or report them both.
+- *Scan Lines* (Iris Dunn of the Candor Daily, outside the Merciless Mart): a downed drone on Randolph Street holds a log card that shows who the drones hold for ten seconds and why. Print it, print it without the names, lie that it's blank, or hand it in at the Order Station's front desk.
+- *The Ration Card* (Ellen Pruitt, an Abnegation widow on California Avenue): the bread-line volunteer at the Council Hall saw a factionless boy run west. Take the card back by force, trade for it, or let him keep it; Ellen may ask you to give it back to him.
+- *The Gap* (Sid Garrett, a Dauntless initiate at State & Grand): six floors up a fire escape, a four-metre jump between roofs, and Sid's thirteen-year-old brother stuck on the far side. Bring him back, leave him, or go for help, and decide what Sid gets told.
+- *Apples After Dark* (Hank Barlow, an Amity driver where Madison Street leaves the city): tell an Erudite runaway under the Hancock building the truck leaves at ten, and get past the new Order checkpoint at Pulaski, or give her to it.
 
 ---
 

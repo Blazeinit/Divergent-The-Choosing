@@ -726,6 +726,8 @@
       // the knife line and the ring are stations too
       ctx.interact({ id: 'knife_line', kind: 'action', action: 'knife_line', x: 37.6, y: 1.0, z: -37.3, radius: 1.8, label: 'Step up to the line', name: 'Knife Wall' });
       ctx.interact({ id: 'fear_chair_use', kind: 'action', action: 'fear_chair', x: 30.5, y: 1.0, z: -18.3, radius: 1.6, label: 'Sit in the chair', name: 'Simulation Chair', cond: () => DV.Quests.obj('stage_one', 'stage2') === 'active' });
+      // between cases in the Chalk Year, the stairs up to the street and the rest of the city (js/game/cityquests.js)
+      ctx.interact({ id: 'cq_stairs_up', kind: 'action', x: 10, y: 1.2, z: -8, radius: 1.6, label: 'Go up', name: 'Stairs to the Street', cond: () => !!(DV.CityQuests && DV.CityQuests.canGoOut()), onUse: () => DV.Dialogue.startScene('cq_go_out', { speaker: 'The Stairs', faction: 'dauntless' }) });
       ctx.interact({ id: 'ring_step', kind: 'action', action: 'ring', x: 32.5, y: 1.0, z: -25.2, radius: 2.0, label: 'Step into the ring', name: 'The Ring', cond: () => !!(DV.Initiation && (DV.Initiation.canStart('spar') || DV.Initiation.canStart('fight'))) });
     },
   });

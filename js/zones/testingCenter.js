@@ -764,6 +764,8 @@
       const farmLife = DV.FarmLife.attach(zone, farms, life);
       // the Circle Line: its entrances on the building fronts, and people coming and going (js/game/metro.js)
       const metro = DV.Metro.attachCity(zone, city);
+      // and the people out there with a story: the city's side quests (js/game/cityquests.js)
+      const stories = DV.CityQuests.attach(zone, city);
       const osl = (CM.landmarks || []).find((l) => l.id === 'order_station');
       DV.Ambiance.attach(ctx, zone, { hub: CM.hub, order: osl ? [osl.x, osl.z] : null });
       ctx.update((dt) => {
@@ -774,6 +776,7 @@
         scenes.update(dt);
         farmLife.update(dt);
         metro.update(dt);
+        stories.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 

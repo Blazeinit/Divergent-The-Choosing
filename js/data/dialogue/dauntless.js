@@ -141,6 +141,7 @@
           { text: 'Mark says you were Erudite.', to: 'eru', once: 'eru' },
           { text: 'How am I doing?', to: 'doing', if: () => c.day() >= 4 },
           { text: () => DV.Campaign.mentorLine(), if: () => DV.Campaign.available(), end: true, effect: () => DV.Campaign.takeNextSoon() },
+          { text: 'I\'m going out into the city for a while.', if: () => !!(DV.CityQuests && DV.CityQuests.canGoOut()), end: true, effect: () => DV.CityQuests.goOutSoon() }, // (between cases: js/game/cityquests.js)
           { text: 'Nothing. Sorry.', end: true },
         ],
       },
