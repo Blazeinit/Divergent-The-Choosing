@@ -165,6 +165,10 @@ js/
     soundscape.js          What you hear where you stand: reverb, indoor/outdoor layers, accents, one-shots
     wildlife.js            Pigeon flocks, crows and gulls, blowing litter, flags flying in the wind
     citylife.js            Scenes on the pavements: stalls, a bread line, buskers, children, readers, arguments, crews, fires
+    lives.js               The city's people: a few hundred residents with homes in their own sector, jobs and a day
+                           planned at dawn by the clock (work, lunch, errands, the evening, home by the curfew); the
+                           near ones drawn and walked, the rest a timetable; they react to you, the Order, trouble, sirens
+    weather.js             The odd shower off the lake, settled from the day (streaks round the camera, one draw call)
     order.js               Erudite's police: the Order Station's guards and vans, patrols, drones, stops, notice
     metro.js               Build 6: the Circle Line: the network and timetable, trains arriving, dwelling and
                            leaving, riding (the station slides past a train that holds still), the commuters'
@@ -286,6 +290,15 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 ---
 
 ## Implemented features
+
+**The city's people**
+- **A few hundred residents** (`js/game/lives.js`), every one with a name, a faction, a front door in that faction's sector (the Abnegation rows, Erudite's flats, the warehouses by the tracks, squats in the ruins; the Amity live on the farms and come in on the truck), and a job: the council hall, Erudite headquarters, the Merciless Mart, offices and shops downtown, the Dauntless compound, the depot and the Order Station, a fruit stall or the newsstand, the bread line, a stretch of pavement to sweep, a beat to walk, bins to pick through, crates to carry.
+- **A day by the clock.** Each person's day is planned at dawn from the day itself: up between six and seven, out of the door in good time for work, lunch at twelve-thirty (a bench, a stall, a café, the bread line for the factionless), an errand on the way home, then the evening their own way: Candor arguing on a corner or at the bar, Erudite reading on a bench, Abnegation calling on a neighbour, the factionless round a fire, the Dauntless at the bar or lounging by the tracks long after the others have gone in. Everyone but the Dauntless is home before the curfew at nine. Far trips go by the Circle Line: down at the nearest entrance, up at the one by work. Rain is in the forecast too: nobody plans a bench into a shower.
+- **Where anyone is at any minute is a lookup**, so a wait (T), a loaded game or a jump of the clock puts everyone where they should be. Only the people near you, out of doors, are drawn (up to 22, the street's own passers-by thinning to make room, so the draw calls stay where they were): they come out of their doors, walk the pavements, wait for the white man at the crossings (the traffic stops for them), step round you and go in at the other end. The rest of the city is a timetable.
+- **They notice you.** They look at you as you pass and say hello their faction's way; talk to them (E) and they'll tell you where they're going or what the job's like. They remember: help someone carrying a crate (**Help carry**) or give a factionless person your bread and they'll be warm the next time; knock one down running and they won't forget it. Both reach your faction reputation. A bad name with a faction makes its people cool with you.
+- **They notice everything else.** The factionless keep to the wall till a patrol or a drone has gone by; Candor stop and tell the patrols what they think of them; the drones scan them as they scan you. A fight draws a crowd, people out of the shops and houses included, and they go back to what they were doing after; an Order stop draws onlookers; a siren (the curfew warning at twenty to nine, sirens at night) hurries everyone along; rain makes them hurry and keeps them off the benches; after dark they walk faster.
+- **Weather** (`js/game/weather.js`): some days a shower comes in off the lake for an hour or so, drawn as rain round you out of doors. Aptitude Day is dry.
+- **Fixed:** the pavement past each Circle Line entrance had no walking line, so nobody ever walked past a station's doors; the keep-clear rectangle in front of them now keeps furniture off but not people.
 
 **Textures, repainted**
 - Every surface is painted at a higher resolution (256–512 px), the way a texture artist of the early 2000s would have done it by hand: fractal noise for the body of the material, then its structure, then the wear. Brick in stretcher bond, each brick a shade apart with chipped arrises, recessed mortar, soot and rain run down it and salts blooming low down. Board-formed concrete panels with plugged tie holes and rust bled from them. Asphalt with aggregate, patches with cut edges, tar snakes, alligator cracking and oil. Paving slabs with chipped corners, dirty joints, gum and stains. Glazed tiles with grimy grout, marble with veins, terrazzo chips, wood grain with knots, brushed, painted and tread-plate steel, rust, carpet pile, the Pit's bedded rock.
@@ -486,7 +499,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
 
 ## QA performed for this build
 
-The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 40 test files covering the following, all run in headless Chromium (SwiftShader WebGL):
+The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Playwright, and `tools/qa/README.md` explains the setup. It has 41 test files covering the following, all run in headless Chromium (SwiftShader WebGL):
 
 - Boot and the full UI new-game flow (menu → creator → intro → world) with zero console errors.
 - **Static validation:**
@@ -494,6 +507,11 @@ The suite lives in `tools/qa/`. Run it with `node tools/qa/run.js`; it needs Pla
   - No two people book the same spot at the same time.
   - Every dialogue target node exists, all quest references are valid and every interactable can be reached.
   - All 13 story and simulation zones build.
+- **The city's people** (`lives`):
+  - A few hundred residents from all six factions, every household in its own faction's sector; stalls, bread lines, fires, corners, benches and station entrances to use.
+  - From the timetable: all at home at 05:30, out by ten, the workers at work at noon, everyone but the Dauntless home by the curfew, all in bed at 01:30; a sample routine through three or more places; trips by the Circle Line.
+  - A day fast-forwarded in the street by Wells: seen commuting, at work, out in the evening and going home; nobody in a building or the road, no NaN, in five other sectors too; an hour's wait (T) leaving everyone where the timetable has them.
+  - A fight draws a crowd (out of the shops too) that goes back after; a siren hurries them; a word, a shove and a hand with a crate, all remembered (and in the save); rain drawn, hurrying walkers, nobody on a bench in a shower; draw calls downtown at the rush hour; nothing drawn from the lobby; no console errors.
 - **Build 6, the Circle Line** (`metro`):
   - Six entrances, each on a real building front with nothing in the doorway.
   - Down the stairs at Halsted; people waiting; trains due inside the headway; through a gate on foot.
@@ -638,7 +656,7 @@ Bugs found and fixed during QA (Build 1 and the pre-Build 2 pass):
 ## Known limitations
 
 - **Free roam.** The Testing Center (with the city outside it) and the Dauntless compound are the two places you live in. The other four factions' weeks are scripted chapters: you can walk around afterwards, but their headquarters aren't yet full districts with schedules.
-- **The city's buildings are outsides only.** Apart from the Testing Center you can't go into them, and the landmarks are exteriors for now. Cars keep to one lane per direction (no overtaking or lane changes) and turn without giving way to people crossing on the same green (they stop for anyone in front of them). People in the street have a line each, not conversations.
+- **The city's buildings are outsides only.** Apart from the Testing Center you can't go into them, and the landmarks are exteriors for now. Cars keep to one lane per direction (no overtaking or lane changes) and turn without giving way to people crossing on the same green (they stop for anyone in front of them). People in the street have a line each, not conversations. The city's residents go into buildings you can't enter (they vanish at the door), only the Circle Line's street entrances hand them over (the platforms and trains have their own commuters), and the Amity farm hands stay on the farms.
 - **The hour only shows outside the Testing Center.** The compound is underground, and the story scenes keep the time of day they were made for.
 - **Waiting stops at midnight.** For the night, sleep. During a time-lapse the crowd catches up in jumps rather than walking.
 - **The ceremony is long.** The ceremony takes a few minutes if you let every name play. Hold Space to hurry it.

@@ -37,7 +37,7 @@
   const U = DV.U;
 
   // how many of each faction live in the city (the Amity mostly on the farms, in on the truck)
-  const POP = { abnegation: 64, erudite: 58, candor: 54, dauntless: 54, factionless: 52, amity: 30 };
+  const POP = { abnegation: 80, erudite: 72, candor: 66, dauntless: 64, factionless: 62, amity: 36 };
   const DRAW_R = 70, KEEP_R = 78, PATH_R = 170, MAX_DRAWN = 22, MODEL_CAP = 40;
   const DAY0 = 300; // a day's plan runs from 05:00 to 05:00 the next morning
   const IN_BY = 20 * 60 + 52; // everyone but the Dauntless is in by then (the curfew's at nine)
@@ -172,7 +172,7 @@
       this.agents = new Map(); // id → the drawn ones
       this.models = new Map(); // id → a model kept from the last time (the nearest few)
       this.events = [];
-      this.barkT = 0; this.tick = 0; this.lastTotal = null;
+      this.barkT = 0; this.tick = 0; this.lastTotal = null; this.t = 0; // (t: game seconds, for what's going on in the street)
       this.routes = new Map();
       this.plans = new Map(); // day → planned?
       this.stats = { routes: 0, planned: 0, gathered: 0, shoved: 0, helped: 0, argued: 0, hid: 0, metro: {} };
@@ -462,13 +462,13 @@
           const J = (kind, front, o) => (front ? Object.assign({ kind, place: front.slots ? null : this.inside(front) }, o || {}) : null);
           switch (f) {
             case 'abnegation':
-              job = q < 0.28 ? J('hall', fromHQ(HQ.hall)) : q < 0.46 ? { kind: 'sweep' } : q < 0.6 ? { kind: 'bread' } : q < 0.84 ? J('office', r() < 0.35 ? downtown() : nearest('work', h.lx, h.lz, 400)) : J('shop', nearest('shop', h.lx, h.lz, 300));
+              job = q < 0.28 ? J('hall', fromHQ(HQ.hall)) : q < 0.46 ? { kind: 'sweep' } : q < 0.6 ? { kind: 'bread' } : q < 0.84 ? J('office', r() < 0.5 ? downtown() : nearest('work', h.lx, h.lz, 400)) : J('shop', nearest('shop', h.lx, h.lz, 300));
               break;
             case 'erudite':
-              job = q < 0.5 ? J('hq_erudite', fromHQ(HQ.erudite)) : q < 0.85 ? J('office', r() < 0.5 ? downtown() : nearest('work', h.lx, h.lz, 300)) : J('shop', nearest('shop', h.lx, h.lz, 300));
+              job = q < 0.5 ? J('hq_erudite', fromHQ(HQ.erudite)) : q < 0.85 ? J('office', r() < 0.7 ? downtown() : nearest('work', h.lx, h.lz, 300)) : J('shop', nearest('shop', h.lx, h.lz, 300));
               break;
             case 'candor':
-              job = q < 0.4 ? J('hq_candor', fromHQ(HQ.candor)) : q < 0.7 ? J('office', r() < 0.5 ? downtown() : nearest('work', h.lx, h.lz, 300)) : q < 0.86 ? { kind: 'papers' } : J('shop', nearest('shop', h.lx, h.lz, 300));
+              job = q < 0.4 ? J('hq_candor', fromHQ(HQ.candor)) : q < 0.7 ? J('office', r() < 0.7 ? downtown() : nearest('work', h.lx, h.lz, 300)) : q < 0.86 ? { kind: 'papers' } : J('shop', nearest('shop', h.lx, h.lz, 300));
               break;
             case 'dauntless':
               job = q < 0.34 ? { kind: 'watch', late: r() < 0.3 } : q < 0.58 ? J('compound', fromHQ(HQ.compound)) : q < 0.8 ? J('depot', nearest('depot', h.lx, h.lz, 400)) : J('order', fromHQ(HQ.order), { late: r() < 0.4 });
@@ -549,7 +549,8 @@
     // the day ahead for one person: [{ k: 'at' | 'walk' | 'metro', t0, t1, tag, act, place | from/to }]
     planDay(p, day) {
       const r = U.rng(p.seed + day * 7919), job = p.job, f = p.f;
-      const wet = (t) => (DV.Weather ? DV.Weather.at(day, t) : 0) > 0.25;
+      // (is it due to rain at any time from t, for dur minutes?)
+      const wet = (t, dur) => { if (!DV.Weather) return false; for (let u = t - 10; u <= t + (dur || 0) + 10; u += 5) if (DV.Weather.at(day, u) > 0.2) return true; return false; };
       const limit = f === 'dauntless' ? LATE : IN_BY;
       const out = [];
       let now = DAY0, cur = { place: p.home, act: 'sleep', tag: 'home' };
@@ -575,9 +576,9 @@
       const outing = (tag, near, t, dur, kinds) => {
         for (const k of kinds) {
           let to = null;
-          if (k === 'seat') { if (wet(t) || t > 19.25 * 60) continue; const l = this.near('seat', near.lx, near.lz, 220); for (const s of l.slice(0, 6)) { const arr = Math.max(now + cost(cur.place, s), t); to = this.book([s], day, arr, arr + dur); if (to) break; } }
+          if (k === 'seat') { if (wet(t, dur + 30) || t > 19.25 * 60) continue; const l = this.near('seat', near.lx, near.lz, 220); for (const s of l.slice(0, 6)) { const arr = Math.max(now + cost(cur.place, s), t); to = this.book([s], day, arr, arr + dur); if (to) break; } }
           else if (k === 'stall' || k === 'bread' || k === 'fire' || k === 'corner') {
-            if (wet(t) && k !== 'bread') continue;
+            if (wet(t, dur + 30) && k !== 'bread') continue;
             const vk = k === 'stall' ? (r() < 0.6 ? 'stall_fruit' : 'stall_papers') : k;
             const vs = this.near(vk, near.lx, near.lz, k === 'bread' ? 450 : 300).filter((v) => t / 60 >= v.hours[0] && t / 60 < (v.hours[1] || 24) || !v.hours[1]);
             for (const v of vs.slice(0, 3)) { const arr = Math.max(now + cost(cur.place, v.slots.other[0]), t); to = this.book(v.slots.other, day, arr, arr + dur); if (to) break; }
@@ -736,9 +737,9 @@
     /* ================================================================ the routes */
     // along the pavements from a to b: the door (or the spot) to the walking line, round the
     // corners and over the crossings, to the line outside b, and in (or to the spot)
-    route(a, b) {
+    route(a, b, once) {
       const key = a.id + '>' + b.id;
-      let R = this.routes.get(key);
+      let R = once ? null : this.routes.get(key);
       if (R) return R;
       const W = this.W, pts = [], segs = [];
       const add = (x, z, e, lat) => {
@@ -765,6 +766,7 @@
       const cum = [0];
       for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
       R = { ok: ok && pts.length > 1, pts, segs, cum, L: cum[cum.length - 1] || 0 };
+      if (once) return R;
       if (this.routes.size > 4000) this.routes.clear();
       this.routes.set(key, R);
       this.stats.routes++;
@@ -797,6 +799,20 @@
       for (let u = best; u >= 0; u = pN[u]) { out.unshift([u, pE[u]]); if (out.length > 4000) return null; }
       return out;
     }
+    // a way from wherever someone is to wherever they want to be (off the timetable: to see a fight)
+    adhoc(x0, z0, x1, z1) {
+      const la = this.nearestLine(x0, z0, 4), lb = this.nearestLine(x1, z1, 4);
+      if (!la || !lb) return null;
+      const A = { id: '~', x: x0, z: z0, lx: la.x, lz: la.z, edge: la.edge, t: la.t }, B = { id: '~', x: x1, z: z1, lx: lb.x, lz: lb.z, edge: lb.edge, t: lb.t };
+      const R = this.route(A, B, true);
+      // (over one street at most: they'll cross to see, and the traffic stops for them)
+      return R.ok && R.L < 90 && R.segs.filter((q) => q.cross).length <= 1 ? R : null;
+    }
+    reversed(R) {
+      const pts = R.pts.slice().reverse(), segs = R.segs.slice().reverse(), cum = [0];
+      for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+      return { ok: R.ok, pts, segs, cum, L: cum[cum.length - 1] };
+    }
     pathAt(R, s) {
       const c = R.cum;
       s = U.clamp(s, 0, R.L);
@@ -807,10 +823,10 @@
     }
 
     /* ================================================================ drawing the near ones */
-    model(p) {
+    model(p, budget) {
       let m = this.models.get(p.id);
       if (m) { this.models.delete(p.id); this.models.set(p.id, m); return m; }
-      if ((this.built || 0) >= 2) return null; // (a couple a tick: no hitch)
+      if ((this.built || 0) >= (budget || 2)) return null; // (a couple a tick: no hitch; a few more for a crowd)
       this.built = (this.built || 0) + 1;
       const app = DV.Character.fromFaction(p.f, p.sex, 'life:' + p.id, { age: p.age });
       m = DV.Character.create(app);
@@ -956,10 +972,10 @@
       // a jump in place (a load, a scene that moved you): afresh
       const moved = this.last && Math.hypot(px - this.last[0], pz - this.last[1]) > 30;
       this.last = [px, pz];
-      this.tick -= dt; this.barkT -= dt;
+      this.tick -= dt; this.barkT -= dt; this.t += dt;
       if (this.tick <= 0 || jumped || moved) { this.tick = 0.4; if (jumped || moved) for (const a of [...this.agents.values()]) this.release(a); this.choose(px, pz); }
       const day = DV.Clock.day(), m = DV.Clock.minutes(), now = performance.now();
-      this.events = this.events.filter((e) => e.until > now);
+      this.events = this.events.filter((e) => e.until > this.t);
       const others = [];
       for (const a of [...this.agents.values()]) {
         this.step(a, dt, this.segAt(a.p, day, m), now);
@@ -984,18 +1000,26 @@
       let speed = 0, act = 'idle', look = null, talking = false;
       if (a.react) {
         // drawn to something (a fight, a stop): over to it, watch, then back to where they were
-        const R = a.react, tx = R.phase === 'back' ? R.back[0] : R.at[0], tz = R.phase === 'back' ? R.back[1] : R.at[1];
-        const dx = tx - a.x, dz = tz - a.z, d = Math.hypot(dx, dz);
+        const R = a.react, path = R.phase === 'back' ? R.backPath : R.path;
         if (R.phase === 'watch') {
           act = R.act; look = [R.ev.x, R.ev.z]; a.rot = U.dampAngle(a.rot, Math.atan2(R.ev.x - a.x, R.ev.z - a.z), 5, dt);
-          if (now > R.ev.until + R.linger) R.phase = 'back';
+          if (this.t > R.ev.until + R.linger) { R.phase = 'back'; R.s = 0; }
           if (a.barkCool <= 0 && this.barkT <= 0 && this.r() < 0.02) { const L = (CROWD[R.ev.kind] || CROWD.fight)[a.f]; this.say(a, pick(this.r, L), 2.6); this.barkT = 1.5; a.barkCool = 6; }
-        } else if (d > 0.08) {
-          const v = p.pace * 1.25, k = Math.min(d, v * dt);
-          a.x += (dx / d) * k; a.z += (dz / d) * k; speed = v;
-          a.rot = U.dampAngle(a.rot, Math.atan2(dx, dz), 8, dt);
+        } else if (R.wait > 0) { R.wait -= dt; a.model.root.visible = false; return; }
+        else if (R.s < path.L - 0.02) {
+          if (!a.model.root.visible && this.shown) a.model.root.visible = true;
+          // (along the pavement, like anyone: hurrying over to see, strolling back)
+          const v = R.phase === 'go' ? Math.max(2.4, p.pace * 1.8) : p.pace;
+          R.s = Math.min(path.L, R.s + v * dt);
+          const q = this.pathAt(path, R.s);
+          a.x = q.x; a.z = q.z; speed = v;
+          a.rot = U.dampAngle(a.rot, Math.atan2(q.dx, q.dz), 8, dt);
         } else if (R.phase === 'go') R.phase = 'watch';
-        else { a.react = null; if (!this.adopt(a, st, false)) { this.release(a); return; } }
+        else {
+          // back where they left off: on with it (a walk catches up with the timetable; indoors, they go back in)
+          a.react = null;
+          if (a.seg && a.seg.k === 'at' && a.seg.place.indoor) { this.release(a); return; }
+        }
       } else {
         if (st.seg !== a.seg) {
           // the plan's moved on: finish the walk they're on (if it's nearly done), then take up the next thing
@@ -1182,18 +1206,26 @@
     // something happens in the street: a fight, a stop (people gather round), a siren (they hurry)
     event(kind, x, z, o) {
       o = o || {};
-      const now = performance.now(), ev = { kind, x, z, until: now + (o.secs || 18) * 1000, t: now };
+      const ev = { kind, x, z, until: this.t + (o.secs || 18), t: this.t };
       this.events.push(ev);
       if (kind === 'siren') {
         for (const a of this.agents.values()) { a.hurry = 60; if (this.r() < 0.25) this.say(a, pick(this.r, SIREN), 2.5); }
         return ev;
       }
       const R = o.r || (kind === 'fight' ? 34 : 20);
-      // the ring they stand in: on this side of the street, clear of everything
+      // where they stand to watch: round it, on this side of the street (a pavement's only three metres
+      // across, so mostly up and down it from the trouble), clear of everything, and not on top of each other
+      const cand = [];
+      for (let i = -7; i <= 7; i++) for (let j = -7; j <= 7; j++) {
+        const px = x + i * 0.75, pz = z + j * 0.75, d = Math.hypot(px - x, pz - z);
+        if (d < 1.8 || d > 6.2) continue;
+        cand.push([d + (this.r() - 0.5) * 0.4, px, pz]);
+      }
+      cand.sort((a, b) => a[0] - b[0]);
       const ring = [];
-      for (let k = 0; k < 28 && ring.length < 14; k++) {
-        const ang = (k / 14) * Math.PI * 2 + (k >= 14 ? 0.22 : 0), rr = k >= 14 ? 4.6 : 3.4;
-        const px = x + Math.sin(ang) * rr, pz = z + Math.cos(ang) * rr;
+      for (const [, px, pz] of cand) {
+        if (ring.length >= 14) break;
+        if (ring.some((q) => Math.hypot(q[0] - px, q[1] - pz) < 0.85)) continue;
         if (this.solid(px, pz, 0.3) || this.onRoad(px, pz, 0.3) || !this.clearLine(x, z, px, pz)) continue;
         ring.push([px, pz]);
       }
@@ -1201,9 +1233,10 @@
       let n = 0;
       const join = (a, back) => {
         if (n >= ring.length) return false;
-        if (!this.clearLine(a.x, a.z, ring[n][0], ring[n][1])) return false;
+        const path = this.adhoc(a.x, a.z, ring[n][0], ring[n][1]);
+        if (!path) return false;
         const act = kind === 'fight' ? { dauntless: 'cheer', candor: 'point', abnegation: 'arms_crossed', amity: 'cower', erudite: 'idle', factionless: 'idle' }[a.f] : { candor: 'argue', dauntless: 'arms_crossed' }[a.f] || 'idle';
-        a.react = { ev, at: ring[n++], back, phase: 'go', act, linger: this.r() * 3000 };
+        a.react = { ev, at: ring[n++], back, path, backPath: this.reversed(path), s: 0, phase: 'go', act, linger: this.r() * 3 };
         a.listen = 0; a.hide = 0;
         return true;
       };
@@ -1219,21 +1252,25 @@
           if (n >= ring.length || this.agents.size >= MAX_DRAWN + 6) break;
           if (this.agents.has(p.id)) continue;
           const w = this.where(p, day, m);
-          if (!w || w.seg.k !== 'at' || !w.place.indoor || w.place.edge < 0 || w.place.away || Math.hypot(w.place.x - x, w.place.z - z) > 40 || w.tag === 'home' && m < 6.5 * 60) continue;
-          const model = this.model(p);
+          if (!w || w.seg.k !== 'at' || !w.place.indoor || w.place.edge < 0 || w.place.away || Math.hypot(w.place.x - x, w.place.z - z) > 65 || w.tag === 'home' && m < 6.5 * 60) continue;
+          const model = this.model(p, 8);
           if (!model) continue;
           const a = { id: p.id, p, model, name: p.name, f: p.f, x: w.place.x, z: w.place.z, rot: 0, s: 0, seg: w.seg, side: 0, lat: p.lat, stuck: 0, listen: 0, barkCool: 2, greetT: 0, lodT: 0, edge: -1, vx: 0, vz: 0, bark: null, hurry: 0, react: null, released: false };
           a.headY = () => 1.62 * (model.app.height || 1);
           a.it = { id: 'life:' + p.id, kind: 'action', x: a.x, y: 1.2, z: a.z, radius: 1.9, name: p.name, label: 'Talk to', onUse: () => this.talk(a) };
           if (!join(a, [w.place.x, w.place.z])) continue;
+          a.react.wait = (n % 4) * 0.7 + this.r() * 0.5; // (out of the door one after another)
           this.zone.interactables.push(a.it);
           this.agents.set(p.id, a);
           model.root.visible = this.shown;
           a.outOfDoors = true;
         }
       }
+      // (and the strangers passing stop and stare)
+      let g = 0;
+      for (const q of this.life.peds) if (Math.hypot(q.x - x, q.z - z) < R) { q.gawk = { x, z, until: this.t + (o.secs || 18) + this.r() * 3, lives: this }; g++; }
       this.stats.gathered += n;
-      ev.n = n;
+      ev.n = n; ev.gawk = g;
       return ev;
     }
     clearLine(x0, z0, x1, z1) {
@@ -1255,7 +1292,7 @@
     bodies(px, pz, r) {
       const out = [];
       if (!this.shown) return out;
-      for (const a of this.agents.values()) if (Math.abs(a.x - px) < r && Math.abs(a.z - pz) < r && !(a.seg && a.seg.act === 'sit' && a.seg.k === 'at')) out.push({ x: a.x, z: a.z, r: 0.28 });
+      for (const a of this.agents.values()) if (Math.abs(a.x - px) < r && Math.abs(a.z - pz) < r && !(a.seg && a.seg.act === 'sit' && a.seg.k === 'at') && !(a.react && a.react.wait > 0)) out.push({ x: a.x, z: a.z, r: 0.28 });
       for (const V of this.venues) for (const b of V.solid) if (Math.abs(b.x - px) < r + 1 && Math.abs(b.z - pz) < r + 1) out.push(b);
       return out;
     }

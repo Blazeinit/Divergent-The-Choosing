@@ -379,6 +379,8 @@
         let spd = p.pace;
         if (p.listen > 0) { p.listen -= dt; spd = 0; }
         if (p.wait > 0) { p.wait -= dt; spd = 0; }
+        // something going on in the street (a fight, a stop: js/game/lives.js): stop and stare
+        if (p.gawk) { if (p.gawk.lives.t < p.gawk.until) spd = 0; else p.gawk = null; }
         // the player in the way: stop, then step round
         const fx = Math.sin(p.wantRot), fz = Math.cos(p.wantRot);
         const ax = P.x - p.x, az = P.z - p.z, ahead = ax * fx + az * fz, beside = ax * fz - az * fx;
@@ -427,6 +429,7 @@
         p.vx = dt > 0 ? (p.x - ox) / dt : 0; p.vz = dt > 0 ? (p.z - oz) / dt : 0;
         const moving = spd > 0.2;
         if (p.listen > 0) p.rot = U.dampAngle(p.rot, Math.atan2(P.x - p.x, P.z - p.z), 6, dt);
+        else if (p.gawk) p.rot = U.dampAngle(p.rot, Math.atan2(p.gawk.x - p.x, p.gawk.z - p.z), 4, dt);
         else if (moving) p.rot = U.dampAngle(p.rot, p.wantRot, 7, dt);
         const root = p.model.root;
         root.position.set(p.x, 0.012, p.z);

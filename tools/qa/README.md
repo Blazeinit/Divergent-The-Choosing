@@ -56,6 +56,7 @@ To use a Chromium you already have, set `CHROMIUM_PATH=/path/to/chrome`. Screens
 | `save-migration` | A v1 save with old NPC ids and names loads into the current version with everything intact |
 | `npc-day` | A full day of schedules from two vantage points: nobody stuck, teleported, path-less or double-seated |
 | `colliders` | Invisible walls: every city collider within reach against the footprint of what it was built for (turned ones too); every Testing Center collider against the triangles drawn there; walking up to the rubble in the empty lot by the FURNITURE sign; out of the front plaza through the gate and along Lake Street; the plaza's fence stopping you where it stands |
+| `lives` | The city's people: a few hundred residents, homes in their own sectors; from the timetable, at home at dawn, out by ten, at work at noon, home by the curfew (Dauntless excepted), routines through three or more places, the Circle Line; a day fast-forwarded in the street (commuting, working, evenings, going home), nobody in a building or the road, no NaN; a wait (T); a fight draws a crowd; a siren; talking, a shove and a helping hand remembered; rain; draw calls; nothing drawn from the lobby |
 | `perf` | Draw-call budget in the heaviest views, including the plaza looking out at the city |
 
 Tests render at the lowest resolution and step game time (`QA.step`, `L.until`) instead of
