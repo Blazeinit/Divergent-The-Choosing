@@ -363,6 +363,8 @@
       this.stopSquad = sq;
       const st = state();
       st.stops++;
+      // (people stop to watch: js/game/lives.js)
+      if (this.zone.lives) this.zone.lives.event('stop', DV.Player.x, DV.Player.z, { secs: 16 });
       DV.Dialogue.startScene('order_stop', { speaker: sq.lead.name, faction: 'dauntless', onEnd: () => { this.stopSquad = null; if (sq.mode === 'talk') sq.mode = 'return'; } });
     }
     // E on an officer: a word (or, if they've already stopped you, the stop)
@@ -471,7 +473,7 @@
             if (!dr.said) { dr.said = true; this.say(dr, DRONE.scan, 2.2); DV.Audio.play('scan', { x: dr.x, z: dr.z, range: 30 }); }
             if (dr.scanK > 2.2) this.finishScan(dr);
           }
-          if ((t !== 'player' && (t.released || !life.peds.includes(t))) || (t === 'player' && !this.mayStop()) || Math.hypot(dr.x - px, dr.z - pz) > 50 || (dr.scanAll = (dr.scanAll || 0) + dt) > 12) this.endScan(dr);
+          if ((t !== 'player' && (t.released || !life.walkers().includes(t))) || (t === 'player' && !this.mayStop()) || Math.hypot(dr.x - px, dr.z - pz) > 50 || (dr.scanAll = (dr.scanAll || 0) + dt) > 12) this.endScan(dr);
         } else if (dr.mode === 'back') {
           // up and back onto its street
           const bx = dr.ax === 'x' ? dr.x : dr.line, bz = dr.ax === 'x' ? dr.line : dr.z, dd = Math.hypot(bx - dr.x, bz - dr.z);
@@ -508,7 +510,7 @@
       // you, sometimes (more often after curfew, and once the Office has noticed you)
       const st = state(), youK = 0.22 + st.notice / 200 + (curfew() ? 0.3 : 0);
       if (dp < 32 && this.mayStop() && this.r() < youK && (this.scanCool || 0) <= performance.now()) { this.startScan(dr, 'player'); return; }
-      const peds = this.life.peds.filter((p) => Math.hypot(p.x - dr.x, p.z - dr.z) < 28);
+      const peds = this.life.walkers().filter((p) => Math.hypot(p.x - dr.x, p.z - dr.z) < 28);
       if (peds.length) this.startScan(dr, peds[Math.floor(this.r() * peds.length)]);
     }
     startScan(dr, target) {

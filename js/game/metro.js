@@ -920,7 +920,8 @@
         if (out.t <= 0) {
           out.t = b > 0 ? U.lerp(12, 3.5, b) * (0.6 + out.r() * 0.8) : 999;
           const e = out.entrances.filter((q) => Math.hypot(q.door[0] - P.x, q.door[1] - P.z) < 70).sort((p, q) => Math.hypot(p.door[0] - P.x, p.door[1] - P.z) - Math.hypot(q.door[0] - P.x, q.door[1] - P.z))[0];
-          if (e && out.peds.length < 8) this.cityPed(zone, out, e);
+          // (not where the city's own people are already going in and out: js/game/lives.js)
+          if (e && out.peds.length < 8 && !(zone.lives && zone.lives.usedEntrance(e.S.id, 20))) this.cityPed(zone, out, e);
         }
         for (let i = out.peds.length - 1; i >= 0; i--) {
           const p = out.peds[i];

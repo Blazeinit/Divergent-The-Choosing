@@ -773,6 +773,10 @@
       const stories = DV.CityQuests.attach(zone, city);
       // the shops: their fronts on the buildings (one mesh), their doors in (js/game/shops.js)
       const shops = DV.Shops.attachCity(zone, city);
+      // the people who live here, and their days: homes, work, lunch, the evening, the curfew (js/game/lives.js)
+      const lives = DV.Lives.attach(zone, city, life);
+      // and now and then, rain (js/game/weather.js)
+      const rain = DV.Weather.attach(zone);
       const osl = (CM.landmarks || []).find((l) => l.id === 'order_station');
       DV.Ambiance.attach(ctx, zone, { hub: CM.hub, order: osl ? [osl.x, osl.z] : null });
       ctx.update((dt) => {
@@ -787,6 +791,8 @@
         tech.update(dt);
         stories.update(dt);
         shops.update(dt);
+        lives.update(dt);
+        rain.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 

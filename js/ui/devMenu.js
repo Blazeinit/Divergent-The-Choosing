@@ -262,6 +262,8 @@
         G.fps + ' fps · ' + info.calls + ' calls · ' + Math.round(info.triangles / 1000) + 'k tris',
       ];
       if (life) { const s = life.stats(); lines.push(s.peds + ' people · ' + s.cars + ' cars · ' + s.lanes + ' lanes'); }
+      const lv = zone && zone.lives;
+      if (lv) lines.push(lv.pop.length + ' residents · ' + lv.agents.size + ' drawn near you');
       e.textContent = lines.join('\n');
     },
   };

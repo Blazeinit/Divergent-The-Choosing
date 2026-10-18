@@ -203,7 +203,8 @@
       this.kit = kit;
       this.r = U.rng(4242);
       const blocked = (x, z, r) => kit.blocked(x, z, r);
-      this.walk = new Walkways(city.walk.pads, blocked);
+      // (people walk past a station entrance's doors; nothing else is put down there)
+      this.walk = new Walkways(city.walk.pads, (x, z, r) => kit.built(x, z, r));
       this.lanes = buildLanes(city, blocked, zone.roads);
       // the lanes of each street (for turning into one)
       this.laneBy = new Map();
@@ -393,6 +394,8 @@
         if (p.listen > 0) { p.listen -= dt; spd = 0; }
         if (p.shock > 0) { p.shock -= dt; spd = 0; p.listen = Math.max(p.listen, 0.05); } // (stopped, staring at you)
         if (p.wait > 0) { p.wait -= dt; spd = 0; }
+        // something going on in the street (a fight, a stop: js/game/lives.js): stop and stare
+        if (p.gawk) { if (p.gawk.lives.t < p.gawk.until) spd = 0; else p.gawk = null; }
         // the player in the way: stop, then step round
         const fx = Math.sin(p.wantRot), fz = Math.cos(p.wantRot);
         const ax = P.x - p.x, az = P.z - p.z, ahead = ax * fx + az * fz, beside = ax * fz - az * fx;
@@ -445,6 +448,7 @@
         p.vx = dt > 0 ? (p.x - ox) / dt : 0; p.vz = dt > 0 ? (p.z - oz) / dt : 0;
         const moving = spd > 0.2;
         if (p.listen > 0) p.rot = U.dampAngle(p.rot, Math.atan2(P.x - p.x, P.z - p.z), 6, dt);
+        else if (p.gawk) p.rot = U.dampAngle(p.rot, Math.atan2(p.gawk.x - p.x, p.gawk.z - p.z), 4, dt);
         else if (moving) p.rot = U.dampAngle(p.rot, p.wantRot, 7, dt);
         const root = p.model.root;
         root.position.set(p.x, 0.012, p.z);
@@ -660,11 +664,11 @@
       const on = (x, z, m) => x > q[0] - ex * m && x < q[2] + ex * m && z > q[1] - ez * m && z < q[3] + ez * m;
       const P = DV.Player;
       if (on(P.x, P.z, 1.2)) return 'you';
-      for (const p of this.peds) {
+      for (const p of this.walkers()) {
         if (on(p.x, p.z, 1)) return p;
         // (just stepped onto its line from the corner)
-        const e = W.edges[p.edge];
-        if (e.cross) { const A = W.nodes[e.a], B = W.nodes[e.b]; if (on((A.x + B.x) / 2, (A.z + B.z) / 2, 0)) return p; }
+        const e = p.edge >= 0 ? W.edges[p.edge] : null;
+        if (e && e.cross) { const A = W.nodes[e.a], B = W.nodes[e.b]; if (on((A.x + B.x) / 2, (A.z + B.z) / 2, 0)) return p; }
       }
       const O = this.zone.order;
       if (O && O.squads) for (const sq of O.squads) for (const m of sq.members) if (on(m.x, m.z, 1)) return m;
@@ -718,7 +722,7 @@
         const ahead = (x, z) => { const dx = x - c.x, dz = z - c.z, a = dx * c.hx + dz * c.hz, b = Math.abs(dx * c.hz - dz * c.hx); return b < hw ? a : -1; };
         const ap = ahead(P.x, P.z);
         if (ap > 0 && ap < look) { want = Math.min(want, stopIn(ap - c.v.length / 2 - 2.5)); forPlayer = true; c.why = 'you'; }
-        for (const p of this.peds) { const a = ahead(p.x, p.z); if (a > 0 && a < look) { want = Math.min(want, stopIn(a - c.v.length / 2 - 2.5)); c.why = 'someone crossing'; } }
+        for (const p of this.walkers()) { const a = ahead(p.x, p.z); if (a > 0 && a < look) { want = Math.min(want, stopIn(a - c.v.length / 2 - 2.5)); c.why = 'someone crossing'; } }
         for (const o of this.cars) {
           if (o === c) continue;
           const a = ahead(o.x, o.z);
@@ -936,7 +940,10 @@
         if (did) { const w = DV.State.data.world; (w.visited || (w.visited = {}))[did] = true; }
       }
       const busy = this.busy(px, pz);
-      const wantPeds = Math.round(MAX_PEDS * busy), wantCars = Math.round(MAX_CARS * busy * (DV.CityMap.district(px, pz).d && DV.CityMap.district(px, pz).d.id === 'factionless' ? 0.2 : 1));
+      // (the city's own people near you (js/game/lives.js) are most of who's about: strangers make up the rest;
+      // and fewer of anyone out in the rain)
+      const lives = this.zone.lives ? this.zone.lives.onStreet() : 0, wet = DV.Weather ? DV.Weather.now() : 0;
+      const wantPeds = Math.max(0, Math.round(MAX_PEDS * busy * (1 - wet * 0.45)) - Math.round(lives * 0.85)), wantCars = Math.round(MAX_CARS * busy * (DV.CityMap.district(px, pz).d && DV.CityMap.district(px, pz).d.id === 'factionless' ? 0.2 : 1));
       // fill up: the first time all at once (scattered round you), then one at a time, out of sight
       this.pedT -= dt; this.carT -= dt;
       if (this.first) { for (let k = 0; k < wantPeds * 2 && this.peds.length < wantPeds; k++) this.spawnPed(px, pz, true); this.first = false; }
@@ -961,12 +968,16 @@
       // (the people in the scenes on the pavements push things about too: children running round)
       const cl = zone.cityLife, peds = this.shown === null ? [] : cl && cl.movers ? this.peds.concat(cl.movers()) : this.peds;
       W.step(dt, { player: me, peds, cars: this.shown === null ? [] : this.cars });
+      W.step(dt, { player: me, peds: this.shown === null ? [] : this.walkers(), cars: this.shown === null ? [] : this.cars });
       // something that couldn't get out of your way (against a wall) moved you instead
       if (me && (me.x !== Pl.x || me.z !== Pl.z)) {
         const [nx, nz] = zone.colliders.resolveCircle(me.x, me.z, R, 'player', Pl.y - (zone.groundAt ? zone.groundAt(me.x, me.z) : 0));
         if (zone.walkable(nx, nz)) { Pl.x = nx; Pl.z = nz; Pl.syncModel(); }
       }
     }
+    // everyone on foot out here: these strangers, and the city's own people near you (js/game/lives.js
+    // hands them over as `others`); the traffic stops for them all, and they all shove the bins about
+    walkers() { return this.others && this.others.length ? this.peds.concat(this.others) : this.peds; }
     // people you can bump into (the player's collision)
     bodies(px, pz, r) {
       const out = [];
