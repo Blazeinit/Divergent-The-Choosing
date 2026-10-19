@@ -147,12 +147,13 @@ L.run('the city\'s people: homes, work and a day by the clock', async (p, T, err
     QA.step(34);
     let watching = 0, out = 0;
     for (const a of lv.agents.values()) if (a.react && a.react.ev === e && a.react.phase === 'watch' && Math.hypot(a.x - e.x, a.z - e.z) < 6) { watching++; if (a.outOfDoors) out++; }
+    // (and the strangers passing, stopped to stare while it's on)
+    const staring = DV.World.current.streetLife.peds.filter((q) => q.gawk && q.gawk.until > lv.t).length;
     const c = LV.check();
     QA.step(10);
     let still = 0; for (const a of lv.agents.values()) if (a.react) still++;
     QA.step(80);
     let back = 0; for (const a of lv.agents.values()) if (a.react) back++;
-    const staring = DV.World.current.streetLife.peds.filter((q) => q.gawk && q.gawk.until > lv.t).length;
     return { at: best.street, joined: e.n, watching, out, staring, bad: c.bad, still, back };
   });
   T.ok(crowd.watching >= 3 && crowd.watching + crowd.staring >= 5, 'a fight on ' + crowd.at + ': ' + crowd.watching + ' residents gather round to watch (' + crowd.out + ' out of the shops and offices by it), ' + crowd.staring + ' passers-by stop and stare', crowd);
