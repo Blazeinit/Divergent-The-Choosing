@@ -289,17 +289,26 @@
         { pos: [], nor: [], col: [], uv: [], si: [] },
       ];
     }
-    tri(group, bone, a, b, c, col, ua, ub, uc) {
+    // ns: the three corners' own normals, for the round things (heads, hair, limbs) to be shaded smooth
+    // over their few faces (Gouraud, as the consoles did); without, the face's own (boxes stay crisp)
+    tri(group, bone, a, b, c, col, ua, ub, uc, ns) {
       const G = this.g[group];
-      const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+      let e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
       let nx = e1[1] * e2[2] - e1[2] * e2[1], ny = e1[2] * e2[0] - e1[0] * e2[2], nz = e1[0] * e2[1] - e1[1] * e2[0];
       const l = Math.hypot(nx, ny, nz) || 1;
       nx /= l; ny /= l; nz /= l;
+      if (ns) {
+        // (wound to face the way its normals do: drawn both sides, a face turned away is shaded from behind)
+        const ax = ns[0][0] + ns[1][0] + ns[2][0], ay = ns[0][1] + ns[1][1] + ns[2][1], az = ns[0][2] + ns[1][2] + ns[2][2];
+        if (ax * nx + ay * ny + az * nz < 0) { [b, c] = [c, b]; [ub, uc] = [uc, ub]; ns = [ns[0], ns[2], ns[1]]; }
+      }
       const cc = typeof col === 'string' ? U.hexToRgb(col) : col;
       const R = ua ? null : this.hair ? ATLAS.hair : this.plain.has(rgbKey(cc)) ? null : ATLAS.cloth;
+      let k = 0;
       for (const [p, u] of [[a, ua], [b, ub], [c, uc]]) {
         G.pos.push(p[0], p[1], p[2]);
-        G.nor.push(nx, ny, nz);
+        if (ns) { const n = ns[k], q = Math.hypot(n[0], n[1], n[2]) || 1; G.nor.push(n[0] / q, n[1] / q, n[2] / q); } else G.nor.push(nx, ny, nz);
+        k++;
         G.col.push(cc[0], cc[1], cc[2]);
         if (u) G.uv.push(u[0], u[1]);
         else if (!R) G.uv.push(WHITE_UV[0], WHITE_UV[1]);
@@ -336,13 +345,26 @@
         const cx = Math.cos(ang) * rx, cz = Math.sin(ang) * rz;
         return [p[0] + u[0] * cx + v[0] * cz, p[1] + u[1] * cx + v[1] * cz, p[2] + u[2] * cx + v[2] * cz];
       };
+      // (the side's normal there: straight out from the axis, across the ellipse)
+      const rn = (k, rx, rz) => {
+        const ang = (k / sides) * Math.PI * 2 + Math.PI / sides + off;
+        const cx = Math.cos(ang) / Math.max(rx, 1e-4), cz = Math.sin(ang) / Math.max(rz, 1e-4);
+        return [u[0] * cx + v[0] * cz, u[1] * cx + v[1] * cz, u[2] * cx + v[2] * cz];
+      };
+      const smooth = opts.flat !== true;
       const cols = Array.isArray(col) && typeof col[0] !== 'number' ? col : null;
       for (let k = 0; k < sides; k++) {
         const b0 = ring(p0, rx0, rz0, k), b1 = ring(p0, rx0, rz0, k + 1);
         const t0 = ring(p1, rx1, rz1, k), t1 = ring(p1, rx1, rz1, k + 1);
         const cc = cols ? cols[k % cols.length] : col;
-        this.tri(0, bone, b0, t1, b1, cc);
-        this.tri(0, bone, b0, t0, t1, cc);
+        if (smooth) {
+          const nb0 = rn(k, rx0, rz0), nb1 = rn(k + 1, rx0, rz0), nt0 = rn(k, rx1, rz1), nt1 = rn(k + 1, rx1, rz1);
+          this.tri(0, bone, b0, t1, b1, cc, null, null, null, [nb0, nt1, nb1]);
+          this.tri(0, bone, b0, t0, t1, cc, null, null, null, [nb0, nt0, nt1]);
+        } else {
+          this.tri(0, bone, b0, t1, b1, cc);
+          this.tri(0, bone, b0, t0, t1, cc);
+        }
         if (opts.capTop !== false) this.tri(0, bone, p1, t1, t0, opts.topCol || cc);
         if (opts.capBottom) this.tri(0, bone, p0, b0, b1, opts.botCol || cc);
       }
@@ -485,13 +507,18 @@
       B.prism(BI.chest, top, [0, yChest + 0.04, 0.06 * TD], [0, yChest + 0.15, 0.065 * TD], 0.11 * TW, 0.05, 0.12 * TW, 0.045, 6);
     }
     // --- neck & shoulders ---
-    B.prism(BI.neck, skin, [0, yNeck - 0.03, 0.0], [0, yHeadBase + 0.03, 0.005], 0.045, 0.045, 0.042, 0.043, 6, { capTop: false });
+    B.prism(BI.neck, skin, [0, yNeck - 0.03, -0.004], [0, yHeadBase + 0.03, 0.002], (fem ? 0.047 : 0.054) * (child ? 0.85 : 1), 0.05, (fem ? 0.043 : 0.049) * (child ? 0.85 : 1), 0.046, 8, { capTop: false });
+    // the slope of the shoulders up to the neck (the trapezius), in what's worn over them, so the neck
+    // doesn't stand up out of a flat plate
+    const trapCol = topStyle === 'tank' ? skin : top;
+    B.prism(BI.chest, trapCol, [0, yShoulder - 0.01, -0.008], [0, yNeck + 0.035, -0.012], SW * 0.82, 0.088 * TD, (fem ? 0.056 : 0.064), 0.052, 8, { capTop: false, capBottom: false });
     // --- arms ---
     for (const s of [1, -1]) {
       const side = s > 0 ? 'L' : 'R';
       const ar = 0.046 * L * (fem ? 0.9 : 1);
       const x0 = SW * s;
-      B.box(BI.chest, top, x0 * 0.9, yShoulder - 0.03, 0, 0.1 * body.sw, 0.08, 0.11 * TD); // shoulder cap
+      // the shoulder: a rounded cap over the top of the arm, not a block
+      B.prism(BI.chest, armUpperCol === skin ? top : armUpperCol, [x0 * 0.72, yShoulder - 0.035, 0], [x0 * 1.06 + 0.012 * s, yShoulder - 0.045, 0], 0.052 * body.sw, 0.056 * TD, 0.047 * body.sw, 0.05 * TD, 8, { capBottom: true });
       if (sleeveShort) {
         B.prism(BI['uArm' + side], top, [x0 + 0.005 * s, yShoulder - 0.17, 0], [x0, yShoulder - 0.01, 0], ar * 1.15, ar * 1.15, ar * 1.2, ar * 1.2, 6, { capBottom: true });
         B.prism(BI['uArm' + side], skin, [x0 + 0.01 * s, yElbow, 0], [x0 + 0.005 * s, yShoulder - 0.17, 0], ar * 0.9, ar * 0.9, ar, ar, 6, { capTop: false });
@@ -629,16 +656,20 @@
       return [x, y, z];
     };
     const tris = roundedBox(3, w, h, d, 0.55, shape);
+    // smooth over the head: each corner's normal the way out from its middle (a little flatter at the
+    // face, so the painted features keep their light)
+    const headN = (n) => { const q = Math.hypot(n[0], n[1], n[2]) || 1; return [n[0] / q, n[1] / q, n[2] / q * 1.25]; };
     const skin = app.skin || '#d8a27c';
     const skinRGB = U.hexToRgb(skin);
     for (const [a, b, c] of tris) {
       const pa = [a.p[0], a.p[1] + cy, a.p[2] + cz], pb = [b.p[0], b.p[1] + cy, b.p[2] + cz], pc = [c.p[0], c.p[1] + cy, c.p[2] + cz];
       const front = a.n[2] > 0.99 && b.n[2] > 0.99 && c.n[2] > 0.99;
+      const ns = [a.n, b.n, c.n].map(headN);
       if (front) {
         const UVf = (p) => [U.clamp(0.5 + p[0] / (w * 1.02), 0, 1) * 0.5, U.clamp(0.5 + (p[1] - cy) / (h * 1.0), 0, 1)];
-        B.tri(1, BI.head, pa, pb, pc, [1, 1, 1], UVf(pa), UVf(pb), UVf(pc));
+        B.tri(1, BI.head, pa, pb, pc, [1, 1, 1], UVf(pa), UVf(pb), UVf(pc), ns);
       } else {
-        B.tri(0, BI.head, pa, pb, pc, skinRGB);
+        B.tri(0, BI.head, pa, pb, pc, skinRGB, null, null, null, ns);
       }
     }
     // nose
@@ -684,7 +715,7 @@
       for (const [a, b, c] of tris2) {
         const ny = (a.n[1] + b.n[1] + c.n[1]) / 3, nz = (a.n[2] + b.n[2] + c.n[2]) / 3;
         if (ny < (app.beard === 'full' ? -0.35 : -0.6) && nz > -0.3) {
-          B.tri(0, BI.head, [a.p[0], a.p[1] + cy, a.p[2] + cz], [b.p[0], b.p[1] + cy, b.p[2] + cz], [c.p[0], c.p[1] + cy, c.p[2] + cz], bc);
+          B.tri(0, BI.head, [a.p[0], a.p[1] + cy, a.p[2] + cz], [b.p[0], b.p[1] + cy, b.p[2] + cz], [c.p[0], c.p[1] + cy, c.p[2] + cz], bc, null, null, null, [a.n, b.n, c.n]);
         }
       }
     }    B.hair = false;
@@ -710,7 +741,7 @@
           const k = jitter * (0.5 + 0.5 * Math.sin(nn[0] * 13 + nn[1] * 7 + nn[2] * 5));
           return [p[0] * (1 + k), p[1] * (1 + k * 0.6) + cy, p[2] * (1 + k) + cz];
         };
-        B.tri(0, BI.head, J(a.p, a.n), J(b.p, b.n), J(c.p, c.n), col);
+        B.tri(0, BI.head, J(a.p, a.n), J(b.p, b.n), J(c.p, c.n), col, null, null, null, [a.n, b.n, c.n]);
       }
     };
     const frontCut = (ny, nz, hairline) => !(nz > 0.45 && ny < hairline);
@@ -816,7 +847,7 @@
     build() {
       const app = this.app;
       const { geo, bp } = buildGeometry(app);
-      this.bodyMat = new THREE.MeshLambertMaterial({ map: faceTexture(app), vertexColors: true, side: THREE.DoubleSide, flatShading: true });
+      this.bodyMat = new THREE.MeshLambertMaterial({ map: faceTexture(app), vertexColors: true, side: THREE.DoubleSide });
       DV.Mat.applyWobble(this.bodyMat);
       // bones
       const bones = [];
