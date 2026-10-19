@@ -137,7 +137,8 @@
     },
     // fear: how bad it is right now (0 nothing, ~1 frightening, 2+ unbearable)
     // o: { threatened, calm: false (calm isn't a way out of this one), breath: false (no breathing it away),
-    //      harder (a multiplier), awareAfter (seconds), blackoutAfter (seconds pinned at the top) }
+    //      harder (a multiplier), awareAfter (seconds), blackoutAfter (seconds pinned at the top),
+    //      minCalm (no calming your way out before this many seconds: the fear has to have happened) }
     heart(Ch, dt, fear, o) {
       o = o || {};
       const P = DV.Player, input = DV.Input;
@@ -158,7 +159,7 @@
       if (Ch.panic > 0.88 && DV.Game.rig.shake < 0.05) DV.Game.rig.shake = 0.08;
       if (breathing && Math.random() < dt * 0.3) DV.Stats.practice('composure', 0.2);
       // calm under the threat: that's how a normal simulation ends
-      if (o.calm !== false && o.threatened && Ch.hr < 88) { Ch.calmT += dt; if (Ch.calmT > 3) return 'calm'; } else Ch.calmT = 0;
+      if (o.calm !== false && o.threatened && Ch.hr < 88 && Ch.t > (o.minCalm || 12)) { Ch.calmT += dt; if (Ch.calmT > 3) return 'calm'; } else Ch.calmT = 0;
       // pinned at the top for too long: the simulation lets you go, and the board knows it
       if (Ch.hr >= 184) { Ch.overT += dt; if (Ch.overT > (o.blackoutAfter || 10)) return 'blackout'; } else Ch.overT = Math.max(0, Ch.overT - dt * 0.5);
       // the thing a Divergent mind notices
