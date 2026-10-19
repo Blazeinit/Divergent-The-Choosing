@@ -352,12 +352,7 @@
      The city lays the street itself (asphalt, the pavement along the fence, the kerbs, the far
      pavement under the L between its columns). Here: what's on it. One-way, westbound: the
      Route 5 bus stops on this side, at the kerb outside the gate. */
-  add('road_paint', 40, 82.6, { kind: 'zebra', w: 4, d: 7.4 }); // the crossing at the gate
-  add('road_paint', 51, 81.75, { kind: 'busbay', len: 15 });
-  add('road_paint', 24, 83.6, { kind: 'arrow', rotDeg: -90 });
-  add('road_paint', 66, 83.6, { kind: 'arrow', rotDeg: -90 });
-  add('manhole', 29.5, 82.1);
-  add('manhole', 61, 84.4);
+  // (the road itself, its paint and its manholes: one surface, js/game/gateroad.js, laid in build below)
   // the stop: shelter against the fence, the pole at the kerb where the bus's front door opens
   add('bus_shelter', 51, 76.95, { id: 'shelter', ad: 'factions' });
   add('bus_stop_sign', 44.6, 78.35, { rotDeg: 90 });
@@ -719,7 +714,8 @@
         hazeK: 0.0049,
         cover: 0.17,
         puffs: 34,
-        exterior: zone.def.rooms.filter((r) => r.exterior).map((r) => [r.x0, r.z0, r.x1, r.z1]).concat(roof.rects),
+        // (not the street: the city lays that, and its clouds' shadow, itself; twice over, it was a dark band)
+        exterior: zone.def.rooms.filter((r) => r.exterior && !r.noFloor).map((r) => [r.x0, r.z0, r.x1, r.z1]).concat(roof.rects),
         districts: CM.districts,
         walk: {
           fence: CM.fence, wall: CM.wall, edge: CM.edge, gate: [CM.fenceGate.x, CM.fenceGate.z], sidewalk: CM.sidewalk, landmarks: CM.landmarks, homes: CM.homes,
@@ -734,6 +730,8 @@
       });
       ctx.add(city.group);
       zone.city = city;
+      // Lake Street outside the gate, laid again: one surface, its paint in it (js/game/gateroad.js)
+      DV.GateRoad.attach(zone, city);
       // everything standing out there is solid, the Testing Center's outside included (so you slide
       // along its walls instead of stopping dead at the edge of the grounds)
       for (const q of city.walk.solids) zone.colliders.add(q[0], q[1], q[2], q[3], { y1: q[4], tag: 'city' });
