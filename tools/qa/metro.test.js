@@ -56,7 +56,7 @@ L.run('the Circle Line: stations, trains, riding, commuters', async (p, T, errs)
     return { st: A.state, doorK: A.doorK, psdOff: !M.boxes.psdA[A.kit.doors[2]].enabled, doorOff: !M.boxes.doorA[A.kit.doors[2]].enabled, riders: M.people.filter((a) => a.frame === 'A').length, x: A.x };
   });
   T.ok(arr.st === 'dwell' && arr.x === 0 && arr.psdOff && arr.doorOff, 'an inner-loop train runs in and stops; its doors and the screen doors open together', arr);
-  const pa1 = await L.until(p, () => window.__subs.some((s) => /approaching/.test(s)), 5000);
+  const pa1 = await L.until(p, () => window.__subs.some((s) => /approaching/.test(s)), 20000); // (the PA speaks a moment after the doors: give a slow software-GL frame time)
   T.ok(pa1, 'the PA calls it in', await ev(() => window.__subs.slice(-3)));
   const walk = await ev(() => {
     const M = DV.Metro, A = M.trains.A, P = DV.Player, dx = A.kit.doors[2];

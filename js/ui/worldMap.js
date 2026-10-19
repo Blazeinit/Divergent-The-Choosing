@@ -216,6 +216,21 @@
         label(q.name, px, py - 13, 10, false, '#e0a07a');
         this._hits.push({ x: px, y: py, tip: 'Circle Line — ' + q.name + ' (' + q.sub + ')' });
       }
+      // the shops: a tile with the shop's letter, its name once you're zoomed in, its hours on the tooltip
+      if (DV.Shops) for (const S of DV.Shops.STORES) {
+        const px = X(S.x), py = Y(S.z);
+        if (px < -40 || py < -40 || px > w + 40 || py > h + 40) continue;
+        const open = DV.Shops.isOpen(S);
+        g.globalAlpha = open ? 1 : 0.6;
+        g.fillStyle = '#1a1712'; g.fillRect(px - 7, py - 7, 14, 14);
+        g.strokeStyle = S.colour; g.lineWidth = 2; g.strokeRect(px - 7, py - 7, 14, 14);
+        g.fillStyle = '#f0e6c8'; g.font = 'bold 11px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(S.letter, px, py + 0.5);
+        g.textBaseline = 'alphabetic'; g.globalAlpha = 1;
+        placed.push([px - 7, py - 7, px + 7, py + 7]);
+        if (this.zoom >= 2.4) label(S.short, px, py + 19, 10, false, '#d8c8a0');
+        this._hits.push({ x: px, y: py, tip: S.name + ' — ' + S.short + ', ' + S.street + ' · open ' + DV.Shops.hoursStr(S) + (open ? ' (open now)' : ' (closed)') });
+      }
       // your waypoint
       const wp = DV.Waypoint && DV.Waypoint.get();
       if (wp) {

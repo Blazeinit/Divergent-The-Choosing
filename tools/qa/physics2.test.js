@@ -249,6 +249,10 @@ L.run('physics 2: weight, stacking, rolling, movement feel, knock-downs', async 
 
   // you can stand on a crate (jump onto it), and walk off it
   const onCrate = await ev(() => {
+    // (nobody walking by to shove it while you're on it)
+    const life = DV.World.current.streetLife;
+    for (const q of life.peds.splice(0)) life.releasePed(q);
+    life.pedT = 99;
     const P = DV.Player, at = openNear(-200, 150, 4), b = W.add('crate', at[0], at[1], 0);
     P.place(at[0], at[1], 0); P.y = 0.9; P.onGround = false; P.vy = 0;
     let top = 0;
@@ -301,6 +305,9 @@ L.run('physics 2: weight, stacking, rolling, movement feel, knock-downs', async 
       P.place(px, pz, 0); P.stamina = 100;
       // somebody walking by on the pavement, to see it
       for (let i = 0; i < 6; i++) life.spawnPed(px, pz, true);
+      // (who's within earshot when it happens: they're the ones who should stop and stare)
+      let witnesses = [];
+      const off = DV.Events.on('player:knocked', (e) => { witnesses = life.peds.filter((q) => Math.hypot(q.x - e.x, q.z - e.z) < 22); });
       const c = life.carAt(lane, sp - lane.dir * (gap + 2.3 + 0.32), { kind: 'sedan' });
       c.speed = 11; c.acc = 0;
       let down = false, downFor = 0, minGap = 99, upAt = null, finite = true, lay = 0, thrown = 0;
@@ -312,7 +319,8 @@ L.run('physics 2: weight, stacking, rolling, movement feel, knock-downs', async 
         else if (down && upAt === null) upAt = +t.toFixed(2);
         finite = finite && [P.x, P.y, P.z, P.vx, P.vz, c.x, c.z, c.speed].every(Number.isFinite);
       }
-      const stared = life.peds.filter((q) => Math.hypot(q.x - P.x, q.z - P.z) < 22);
+      DV.Events.off('player:knocked', off);
+      const stared = witnesses;
       out[k] = { down, downFor: +downFor.toFixed(2), upAt, minGap: +minGap.toFixed(2), carSpeed: +c.speed.toFixed(2), why: c.why, finite, state: P.state, lay, thrown: +thrown.toFixed(2), near: stared.length, said: stared.some((q) => q.bark && q.bark.until > performance.now() - 8000), stopped: stared.filter((q) => q.shock !== undefined).length };
     }
     return out;

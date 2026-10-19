@@ -133,7 +133,7 @@
       DV.UI.simMode(true);
       DV.Audio.setMusic(o.music || 'fear');
       const div = !!DV.State.data.aptitude.divergent;
-      Ch.canAware = o.canAware !== undefined ? o.canAware : div || DV.Stats.attr('resolve') >= 9;
+      Ch.canAware = o.canAware !== undefined ? o.canAware : div || DV.Stats.attr('resolve') >= 9 || !!(DV.Perks && DV.Perks.on('sim.aware'));
     },
     // fear: how bad it is right now (0 nothing, ~1 frightening, 2+ unbearable)
     // o: { threatened, calm: false (calm isn't a way out of this one), breath: false (no breathing it away),
@@ -145,9 +145,16 @@
       Ch.t += dt;
       const breathing = o.breath !== false && input.down('Space') && P.speed < 0.3;
       Ch.breathing = breathing;
+      // Slow Time (a Divergent perk): breathe steadily while it's bad and the world slows round you
+      // (the fear's own update runs at Ch.slow next frame; your heart doesn't)
+      const slowing = !!(DV.Perks && DV.Perks.on('sim.slow')) && breathing && Ch.hr > 96;
+      if (slowing !== !!Ch.slowing) { Ch.slowing = slowing; Ch.mon.el.classList.toggle('slowtime', slowing); if (slowing) DV.Audio.play('glitch', { volume: 0.4 }); }
+      Ch.slow = slowing ? 0.5 : 1;
       const comp = DV.Stats.skill('composure'), res = DV.Stats.attr('resolve');
-      const target = 72 + fear * 70 * U.clamp(1.25 - comp / 160 - res * 0.03, 0.55, 1.2) * (o.harder || 1);
-      if (breathing) Ch.hr -= (10 + res * 1.2) * dt;
+      // (perks: Lucid, Steady, Fear Is a Choice give fear less hold; Box Breathing makes the breath work faster)
+      const pm = (k) => (DV.Perks ? DV.Perks.mod(k) : 0);
+      const target = 72 + fear * 70 * U.clamp(1.25 - comp / 160 - res * 0.03, 0.55, 1.2) * (o.harder || 1) * Math.max(0.3, 1 + pm('sim.fear'));
+      if (breathing) Ch.hr -= (10 + res * 1.2) * dt * (1 + pm('sim.breath'));
       Ch.hr += (target - Ch.hr) * dt * (breathing ? 0.12 : 0.5);
       Ch.hr = U.clamp(Ch.hr, 60, 190);
       Ch.panic = U.clamp((Ch.hr - 70) / 110, 0, 1);
@@ -243,6 +250,7 @@
     '.fear-hud .bpm { font-family: var(--mono); font-size: 26px; color: #9fe8a8; }',
     '.fear-hud.high .bpm { color: #ff7a5a; }',
     '.fear-hud canvas { display: block; margin-top: 4px; }',
+    '.fear-hud.slowtime .fm { box-shadow: inset 0 0 0 1px #6ab0ff, 0 0 18px rgba(106, 176, 255, 0.45); }',
     '.fear-hud .lbl { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #6a8a70; }',
     '.fear-hud .panic { margin-top: 6px; display: flex; align-items: center; gap: 8px; }',
     '.fear-hud .panic .pl { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #a08070; }',

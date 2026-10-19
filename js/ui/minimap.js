@@ -162,6 +162,7 @@
       const marks = [];
       if (city) {
         if (DV.Metro) for (const s of DV.Metro.STATIONS) marks.push({ x: s.x, z: s.z, kind: 'metro' });
+        if (DV.Shops) for (const S of DV.Shops.STORES) marks.push({ x: S.x, z: S.z, kind: 'shop', S });
         for (const l of DV.CityMap.landmarks) marks.push({ x: l.x, z: l.z, kind: 'land' });
       }
       const cur = DV.Quests.current && DV.Quests.current();
@@ -176,7 +177,7 @@
         let px = mx * c - mz * s, py = mx * s + mz * c;
         const d = Math.hypot(px, py);
         if (d > R - 8) { if (!m.pin) continue; px *= (R - 8) / d; py *= (R - 8) / d; }
-        this.icon(g, px, py, m.kind);
+        this.icon(g, px, py, m.kind, m);
       }
       // you: an arrow the way you're facing (relative to the camera)
       const rel = P.rot - yaw;
@@ -193,8 +194,17 @@
       const txt = wd !== null ? '◆ ' + Math.round(wd) + ' m' : '';
       if (this._lt !== txt) { this._lt = txt; this.label.textContent = txt; }
     },
-    icon(g, x, y, kind) {
-      if (kind === 'metro') {
+    icon(g, x, y, kind, m) {
+      if (kind === 'shop') {
+        // a shop: its letter on a tile in its sector's colour (dimmed while it's shut)
+        const open = DV.Shops.isOpen(m.S);
+        g.globalAlpha = open ? 1 : 0.55;
+        g.fillStyle = '#1a1712'; g.fillRect(x - 5.5, y - 5.5, 11, 11);
+        g.strokeStyle = m.S.colour; g.lineWidth = 1.5; g.strokeRect(x - 5.5, y - 5.5, 11, 11);
+        g.fillStyle = '#f0e6c8'; g.font = 'bold 9px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(m.S.letter, x, y + 0.5);
+        g.globalAlpha = 1;
+      } else if (kind === 'metro') {
         g.fillStyle = '#14181c'; g.strokeStyle = '#c0582a'; g.lineWidth = 2.5;
         g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2); g.fill(); g.stroke();
         g.fillStyle = '#e8e4d8'; g.fillRect(x - 5.5, y - 1, 11, 2);
@@ -214,7 +224,7 @@
       const P = DV.Player, vis = (DV.State.zoneState(zone.id) || {}).visited || {};
       for (const r of zone.rooms) {
         if (r.noMap) continue;
-        const seen = vis[r.id] || r.exterior || zone.id === 'metro';
+        const seen = vis[r.id] || r.exterior || zone.id === 'metro' || !!zone.def.shop;
         g.fillStyle = r.exterior ? '#2a2e26' : seen ? '#4a4840' : '#24231f';
         g.fillRect((r.x0 - P.x) * ppm, (r.z0 - P.z) * ppm, (r.x1 - r.x0) * ppm, (r.z1 - r.z0) * ppm);
         g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1;

@@ -850,7 +850,7 @@
       const run = DV.Fear.st().run, id = DV.Fear.current();
       if (!run || !id) { Ch.after(0.3, () => DV.District.enter('dauntless', {})); return; }
       // (a fear starts with nothing on the controller from the one before)
-      for (const k of ['own', 'dog', 'child', 'faces', 'techs', 'coming', 'ended', 'answered', 'lied', 'passing', 'calmed', 'decided', 'boardBroken', 'saidBoard', 'saidCrack', 'shattered', 'drain', 'hidden', 'roofT', 'calmWait', 'bending', 'vig', 'circling', 'inSmoke']) delete Ch[k];
+      for (const k of ['own', 'dog', 'child', 'faces', 'techs', 'coming', 'ended', 'answered', 'lied', 'passing', 'calmed', 'decided', 'boardBroken', 'saidBoard', 'saidCrack', 'shattered', 'drain', 'hidden', 'roofT', 'calmWait', 'bending', 'vig', 'circling', 'inSmoke', 'slow', 'slowing']) delete Ch[k];
       Ch.fid = id; Ch.mod = DV.Fear.get(id); Ch.run = run;
       Ch.fast = run.kind === 'final';
       Ch.checkpoint(id + ':' + run.i);
@@ -866,7 +866,7 @@
     update(Ch, dt) {
       if (Ch.done || !Ch.mod) return;
       const M = Ch.mod;
-      const fear = M.update(Ch, dt);
+      const fear = M.update(Ch, dt * (Ch.slow || 1));
       if (Ch.done) return;
       if (Ch.bending || Ch.calmWait) { DV.Fear.heart(Ch, dt, 0.25, { calm: false }); return; }
       const r = DV.Fear.heart(Ch, dt, fear, Object.assign({ threatened: M.threatened ? M.threatened(Ch) : true, vignette: M.vignette ? M.vignette(Ch) : undefined }, M.heart || {}));

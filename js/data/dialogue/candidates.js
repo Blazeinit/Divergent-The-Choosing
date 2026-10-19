@@ -238,6 +238,14 @@
       found: {
         text: '[He\'s crouched in the corner by the stalls, knees drawn up. He startles.] Please — I\'m fine. I\'m just... waiting. Here.',
         onEnter: (c) => { c.startQuest('cold_feet'); },
+        lie: {
+          tell: 'He says "fine" to his knees. His hands are white where they hold them.',
+          call: 'You\'re not fine, Daniel.',
+          press: '[He hugs his knees tighter.] I am. I will be. That\'s the same thing, in Abnegation.',
+          truth: '[His voice cracks on the second word.] I\'m not. I haven\'t been fine since breakfast. I think if I stand up I\'ll be sick. [A breath.] Thank you for not pretending I am.',
+          onTruth: (c) => c.addRel(3, true),
+          back: 'hub', backText: '...',
+        },
         choices: [
           { text: 'You don\'t look fine.', to: 'notfine' },
           { text: 'Your test is at 11:30. Hiding won\'t make it go away.', to: 'time' },
@@ -263,6 +271,14 @@
       },
       why: {
         text: 'I\'m not hiding. I\'m... collecting myself.',
+        lie: {
+          tell: 'He\'s behind a stall door while he says it.',
+          call: 'You\'re hiding, Daniel. From something specific.',
+          press: '[He flushes.] From a lot of things. Pick one.',
+          truth: '[He goes very still.] From the result. From what it\'ll say about my family. [Barely audible.] From what it\'ll say about me.',
+          truthBack: 'reason',
+          back: 'why', backText: '...',
+        },
         choices: [
           { text: 'You\'ve been "collecting yourself" for an hour.', check: { attr: 'perception', dc: 5 }, to: 'reason' },
           { text: 'I\'m not going anywhere. You can tell me.', check: { attr: 'charisma', dc: 5 }, to: 'reason' },

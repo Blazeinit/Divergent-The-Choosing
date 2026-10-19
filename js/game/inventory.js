@@ -79,6 +79,7 @@
         }
         case 'buff': {
           DV.Stats.addBuff(id, u.attr, u.amount, u.minutes, u.label);
+          if (u.stamina) { DV.Player.stamina = Math.min(DV.Config.PLAYER.staminaMax, DV.Player.stamina + u.stamina); DV.Player.exhausted = false; }
           this.remove(id, 1, true);
           DV.Audio.play(u.sound || 'item');
           return { ok: true, message: 'You consume the ' + def.name + '. ' + u.label + ': +' + u.amount + ' ' + DV.U.capitalize(u.attr) + '.' };
@@ -96,5 +97,28 @@
       }
       return { ok: false, message: 'Nothing happens.' };
     },
+  };
+
+  /* Build 7: ration scrip. Paper chits, stamped by your faction's ration office: what the city's
+     shops take (js/game/shops.js). Every citizen draws an allowance; quests and odd jobs pay more. */
+  DV.Wallet = {
+    get() { return Math.max(0, Math.floor(DV.State.data.player.scrip || 0)); },
+    can(n) { return this.get() >= n; },
+    add(n, why, silent) {
+      n = Math.round(n);
+      if (!(n > 0)) return this.get();
+      DV.State.data.player.scrip = this.get() + n;
+      if (!silent) DV.Events.emit('notify', { text: '+' + n + ' scrip' + (why ? ' — ' + why : ''), kind: 'item' });
+      DV.Events.emit('wallet:changed', { d: n, why });
+      return this.get();
+    },
+    spend(n, why) {
+      n = Math.round(n);
+      if (n < 0 || !this.can(n)) return false;
+      DV.State.data.player.scrip = this.get() - n;
+      DV.Events.emit('wallet:changed', { d: -n, why });
+      return true;
+    },
+    str(n) { n = n === undefined ? this.get() : n; return n + ' scrip'; },
   };
 })();

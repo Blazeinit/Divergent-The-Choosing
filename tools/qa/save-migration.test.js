@@ -27,11 +27,12 @@ L.run('save migration v1 → current', async (p, T, errs) => {
   });
   const raw = await ev(() => localStorage.getItem(DV.Config.SAVE_PREFIX + 'slot_5'));
   T.ok(/theo_vance/.test(raw) && /candidate_card/.test(raw), 'v1 save written with the old ids');
+  const DV_VERSION = await ev(() => DV.State.SAVE_VERSION);
   const m = await ev(() => {
     const d = DV.Save.read('5');
     return { v: d.version, theo: !!d.npcs.theo_vance || !!d.npcs.edmund_kell, edmund: d.npcs.ben_fischer, nora: d.npcs.nora_kelly, flag: d.world.flags.talked_to_ben_fischer, conv: d.world.flags.daniel_convinced, oldConv: d.world.flags.elias_convinced, badge: d.inventory.items.some((i) => i.id === 'name_badge'), card: JSON.stringify(d).indexOf('candidate_card') >= 0, shown: d.world.flags.badge_shown };
   });
-  T.eq(m.v, 3, 'migrated to version 3');
+  T.eq(m.v, DV_VERSION, 'migrated to the current version (' + DV_VERSION + ')');
   T.ok(!m.theo && m.edmund && m.edmund.rel === 23 && m.edmund.mem.met, 'theo_vance → edmund_kell → ben_fischer keeps relationship and memory', m.edmund);
   T.ok(m.nora && m.nora.mem.favour === 'owed', 'iris_kwan → nora_halloran → nora_kelly keeps memory');
   T.ok(m.flag, 'flags that mention an id are renamed too');

@@ -254,6 +254,8 @@
       if (order) others(order.barkSources(), 'po:', 26);
       const scenes = DV.CityLife && DV.CityLife.active();
       if (scenes) others(scenes.barkSources(), 'cl:', 18);
+      const lives = DV.Lives && DV.Lives.active();
+      if (lives) others(lives.barkSources(), 'lv:', 18);
       const farm = DV.FarmLife && DV.FarmLife.active();
       if (farm) others(farm.barkSources(), 'fl:', 18);
       const zx = DV.World.current && DV.World.current.extras;

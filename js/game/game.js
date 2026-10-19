@@ -46,6 +46,11 @@
       DV.Cursor.init();
       DV.DialogueUI.init();
       DV.RPGMenu.init();
+      DV.Perks.init();
+      DV.Codex.init();
+      // experience from the hands-on parts: fights won and lost, drills and trials (DV.RPG.xpSources)
+      DV.Events.on('activity:end', (e) => this.activityXP(e));
+      DV.Events.on('metro:depart', () => DV.Stats.award('activity', 'metro', 'First ride on the Circle Line'));
       this.resize();
       window.addEventListener('resize', () => this.resize());
       DV.Events.on('settings:changed', () => { this.resize(); if (DV.World.current) DV.World.applyAtmosphere(DV.World.current); });
@@ -424,6 +429,11 @@
         if (input.consume('Tab') || input.consume('Escape')) this.closeOverlay();
         else if (input.consume('KeyM') && DV.RPGMenu.tab !== 'map') DV.RPGMenu.show('map');
         else DV.RPGMenu.update(input);
+      } else if (this.state === 'shop') {
+        // the trading panel (js/ui/shopUI.js): the shop carries on round it
+        DV.ShopUI.update(dt, input);
+        this.updateWorldSystems(dt, zone, false);
+        DV.Player.model.animate(dt, { speed: 0, action: DV.Player.action, seatY: DV.Player.seat ? DV.Player.seat.seatY : 0.45 });
       } else if (this.state === 'paused') {
         if (input.consume('Escape')) { if (!DV.Menus.closeSide()) this.resume(); }
       } else if (this.state === 'wait') {
@@ -485,6 +495,7 @@
       if (zone.streetLife) for (const b of zone.streetLife.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
       if (zone.order) for (const b of zone.order.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
       if (zone.cityLife) for (const b of zone.cityLife.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
+      if (zone.lives) for (const b of zone.lives.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
       if (zone.farmLife) for (const b of zone.farmLife.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
       if (zone.extras) for (const b of zone.extras.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
       if (zone.metro) for (const b of zone.metro.bodies(DV.Player.x, DV.Player.z, 2)) bodies.push(b);
@@ -561,7 +572,7 @@
             const minor = /corr|pass|plaza|lobby|hall|street/.test(room.id);
             if (!minor) {
               DV.UI.notify('Discovered: ' + room.name, 'info');
-              DV.Stats.addXP(5);
+              DV.Stats.award('discovery', zone.id + ':' + room.id, null);
             }
           }
         }
@@ -665,6 +676,9 @@
         return;
       }
       DV.Audio.play('locked');
+      // Erudite's Override: a keycard reader is only a circuit
+      const hack = { proctor: 7, security: 8 }[door.lock];
+      if (hack && DV.Perks.on('terminal') && !this.inChapter()) { this.overrideDoor(door, hack); return; }
       const pick = { storage: 6, records: 8 }[door.lock];
       if (pick) {
         this.pickDoor = door;
@@ -703,6 +717,61 @@
         return;
       }
       DV.UI.notify(d.lockMsg || 'Locked.');
+    },
+
+    // the Override scene: an Intelligence check at the reader, and nobody watching
+    overrideDoor(door, dc) {
+      const d = door.def;
+      DV.DialogueDB.add('terminal', {
+        entry: () => 'start',
+        noPerks: true,
+        nodes: {
+          start: {
+            speaker: d.label || 'Card Reader', faction: 'erudite',
+            text: (d.lockMsg || 'The reader blinks red.') + ' [Under the plate: four screws, a ribbon cable, and a test header nobody bothered to seal.]',
+            choices: [
+              { text: 'Short the test header and walk it through a reset.', ptag: 'ERUDITE \u00b7 Override', pfaction: 'erudite', check: { attr: 'intelligence', dc, skill: 'logic', xp: 20 }, to: 'try', fail: 'fail' },
+              { text: 'Leave it.', end: true },
+            ],
+          },
+          try: {
+            speaker: d.label || 'Card Reader',
+            text: () => {
+              const seen = DV.Story.watchers(9, 140);
+              if (seen.length) {
+                seen[0].say('Step away from that reader.', 4);
+                DV.Reputation.addRel(seen[0].id, -5);
+                return 'The light turns green — and ' + seen[0].def.name + ' is looking straight at you. You let the door close again.';
+              }
+              DV.State.zoneState(this.zone().id).doors[d.id] = 'unlocked';
+              DV.Stats.award('activity', 'override:' + d.id, 'Bypassed a card reader');
+              return '[A click, a chirp.] GREEN. ACCESS GRANTED. The reader thinks you are somebody else now. It will go on thinking so.';
+            },
+            choices: [{ text: 'Continue.', end: true }],
+          },
+          fail: { speaker: d.label || 'Card Reader', text: '[The reader buzzes and resets itself. Whoever designed it was cleverer than you are today.]', choices: [{ text: 'Leave it.', end: true }] },
+        },
+      });
+      DV.Dialogue.startScene('terminal', {});
+      this.onSceneStart();
+    },
+    // what a finished activity pays (once per kind per day for the drills, every time for a fight)
+    activityXP(e) {
+      if (!e || !e.result) return;
+      const r = e.result, id = e.id;
+      if (id === 'fight') {
+        if (r.winner === 'player') DV.Stats.award('fight_win', null, 'Fight won');
+        else if (r.winner === 'opponent') DV.Stats.award('fight_loss', null, 'Fight lost');
+        return;
+      }
+      const T = { range: 'The range', knives: 'The knife wall', bags: 'The bags', dig: 'The culvert', vessels: 'The benches', relays: 'The relay board', interview: 'The interview', serum: 'The serum', zipride: 'The zip line' };
+      if (!T[id]) return;
+      const sc = typeof r.score === 'number' ? r.score : 60;
+      const key = id + ':' + DV.State.data.world.day;
+      const p = DV.State.data.player, seen = p.xpSeen || (p.xpSeen = {});
+      if (seen['trial:' + key]) return; // (drill as much as you like; a trial pays once a day)
+      seen['trial:' + key] = 1;
+      DV.Stats.award('trial', key, T[id], U.clamp(0.6 + sc / 100, 0.6, 1.6));
     },
 
     /* ------------------------------ overlays ------------------------------ */

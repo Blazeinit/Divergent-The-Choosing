@@ -328,7 +328,7 @@
     update(Ch, dt) {
       if (Ch.done) return;
       const M = Ch.mod;
-      const fear = M.update(Ch, dt);
+      const fear = M.update(Ch, dt * (Ch.slow || 1));
       if (Ch.done) return;
       if (Ch.bending) { DV.Fear.heart(Ch, dt, 0.3, { calm: false }); return; }
       const r = DV.Fear.heart(Ch, dt, fear, Object.assign({ threatened: M.threatened(Ch), vignette: M.vignette ? M.vignette(Ch) : undefined }, M.heart || {}));

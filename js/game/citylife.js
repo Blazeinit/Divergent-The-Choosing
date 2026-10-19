@@ -147,6 +147,8 @@
         if (!near && ((x - px) * fx + (z - pz) * fz) / d > 0.4 && d < 55) continue; // (out of sight, mostly)
         if (this.scenes.some((s) => Math.hypot(s.x - x, s.z - z) < APART)) continue;
         if (DV.CityQuests && DV.CityQuests.crowded(x, z, 9)) continue; // (someone with a story to tell stands there)
+        // (nor on top of the city's own people's stalls, fires and corners: js/game/lives.js)
+        if (this.zone.lives && this.zone.lives.venues.some((v) => Math.hypot(v.x - x, v.z - z) < APART)) continue;
         if (this.zone.roomAt(x, z)) continue;
         if (this.life.kit && this.life.kit.chunk && !this.life.kit.chunk(x, z).built) continue; // (its street furniture isn't built yet: we can't see what's in the way)
         const S = DV.CityMap.landmark('order_station');
@@ -320,8 +322,11 @@
       // the stallholders (and the volunteer with the bread) give you something, once
       if (p.role === 'vendor' && sc.gift && !sc.gave && DV.Items.get(sc.gift)) {
         sc.gave = true;
-        DV.Inventory.add(sc.gift, 1);
-        DV.UI.notify('Received: ' + DV.Items.get(sc.gift).name, 'item');
+        // (Shared Plenty: they press a second on you — there's no price to discount, only plenty)
+        const n = DV.Perks.on('vendor.extra') ? 2 : 1;
+        DV.Inventory.add(sc.gift, n);
+        DV.UI.notify('Received: ' + DV.Items.get(sc.gift).name + (n > 1 ? ' \u00d7' + n : ''), 'item');
+        DV.Stats.award('activity', 'gift:' + sc.kind, 'A stallholder\'s kindness');
       }
       DV.Stats.practice('empathy', 0.05);
     }
@@ -427,6 +432,7 @@
 
   DV.CityLife = {
     SCENES,
+    propGeo, // (the people of js/game/lives.js set out the same stalls, and carry the same brooms and loaves)
     attach(zone, city, life) {
       const c = new CityLife(zone, city, life);
       zone.cityLife = c;

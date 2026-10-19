@@ -22,7 +22,7 @@
     init() {
       const p = U.el('div', 'panel hidden', null, DV.UI.root);
       p.id = 'dialogue';
-      p.innerHTML = '<div class="dh"><span class="speaker"></span><span class="faction"></span><span class="disp"></span></div><div class="text"></div><div class="choices"></div><div class="dhint"></div>';
+      p.innerHTML = '<div class="dh"><span class="speaker"></span><span class="faction"></span><span class="disp"></span></div><div class="liemark hidden"><b>\u2696 DECEPTION</b><span class="tell"></span></div><div class="text"></div><div class="choices"></div><div class="dhint"></div>';
       this.el = p;
       DV.Events.on('dialogue:node', (v) => this.show(v));
       DV.Events.on('dialogue:end', () => this.hide());
@@ -39,14 +39,20 @@
         fe.style.color = v.faction === 'candor' ? '#111' : '#f4ecd8';
         fe.style.background = v.faction === 'candor' ? '#e8e6e0' : f.color;
       } else fe.style.display = 'none';
-      // disposition hint (empathy skill)
+      // disposition (Empathy 30, Read Faces, Read the Room); Erudite's Analyze shows the working
       const de = this.el.querySelector('.disp');
-      if (v.npcId && DV.Stats.skill('empathy') >= 30) {
-        const d = DV.Reputation.disposition(v.npcId);
-        de.textContent = 'Disposition: ' + DV.Reputation.dispositionLabel(d);
-      } else if (v.npcId && DV.State.npc(v.npcId).mem.met) {
-        de.textContent = '';
-      } else de.textContent = '';
+      de.innerHTML = '';
+      de.className = 'disp';
+      if (v.read) {
+        const r = v.read;
+        de.classList.add(r.disp >= 10 ? 'good' : r.disp <= -15 ? 'bad' : 'mid');
+        de.innerHTML = 'Disposition: <b>' + U.esc(r.label) + '</b>' + (r.analyze ? ' <span class="an">(' + (r.disp > 0 ? '+' : '') + r.disp + ' \u00b7 personal ' + (r.analyze.rel > 0 ? '+' : '') + r.analyze.rel + (r.analyze.factionName ? ' \u00b7 ' + U.esc(r.analyze.factionName) + ' ' + (r.analyze.faction >= 0 ? '+' : '') + r.analyze.faction : '') + ' \u00b7 trust ' + r.analyze.trust + ')</span>' : '');
+      }
+      // Candor's Ear for Lies: the line is marked, and the tell named
+      const lm = this.el.querySelector('.liemark');
+      lm.classList.toggle('hidden', !v.lie);
+      this.el.classList.toggle('lying', !!v.lie);
+      if (v.lie) { lm.querySelector('.tell').textContent = v.lie.tell; DV.Audio.play('lie'); }
       // text: [bracketed stage directions] in italics
       this.full = v.text;
       this.shown = 0;
@@ -84,10 +90,16 @@
       this.view.choices.forEach((ch, i) => {
         const d = U.el('div', 'choice' + (ch.enabled ? '' : ' dis') + (ch.raw && ch.raw.end ? ' end' : ''), null, box);
         let html = '<span class="n">' + (i + 1) + '.</span><span>';
-        if (ch.checkLabel) html += '<span class="chk' + (ch.checkPass ? ' pass' : '') + '">' + ch.checkLabel + '</span> ';
+        if (ch.ptag) html += '<span class="ptag" data-f="' + U.esc(ch.pfaction || '') + '">[' + U.esc(ch.ptag) + ']</span> ';
+        if (ch.checkLabel) html += '<span class="chk' + (ch.checkPass ? ' pass' : '') + '">' + ch.checkLabel + (ch.checkBonus && ch.checkBonus.total ? '<sup>' + (ch.checkBonus.total > 0 ? '+' : '') + ch.checkBonus.total + '</sup>' : '') + '</span> ';
         if (ch.tag) html += '<span class="tag">[' + U.esc(ch.tag) + ']</span> ';
         html += U.esc(ch.label) + '</span>';
         d.innerHTML = html;
+        // what moved the check (perks, standing): on hover
+        if (ch.checkBonus && ch.checkBonus.parts.length) {
+          const tip = 'Your ' + ch.checkLabel.slice(1, ch.checkLabel.lastIndexOf(' ')).toLowerCase() + ': ' + DV.Stats.attr(ch.raw.check.attr) + ch.checkBonus.parts.map((x) => ' ' + (x[1] > 0 ? '+' : '') + x[1] + ' ' + x[0]).join(',');
+          if (DV.Cursor.enabled()) d.dataset.tip = tip; else d.title = tip;
+        }
         d.onmouseenter = () => { if (ch.enabled) { this.sel = i; this.highlight(); DV.Audio.play('hover', { volume: 0.5 }); } };
         d.onclick = () => this.pick(i);
       });
