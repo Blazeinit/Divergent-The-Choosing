@@ -158,7 +158,7 @@
     } else {
       const ey = 54, exL = 38, exR = 90;
       const nl = f.nose === 'long' ? 26 : f.nose === 'button' ? 16 : 20;
-      const my = ey + nl + 14;
+      const my = ey + nl + 18; // (the mouth: a little way below the nose, toward the chin)
       // the modelling of the face: the temples and the sides falling away, the jaw's shade, light on
       // the forehead, the bridge of the nose and the cheekbones
       const side = c.createLinearGradient(0, 0, S, 0);
