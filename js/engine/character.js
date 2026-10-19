@@ -12,7 +12,10 @@
   /* ----------------------------- data tables ----------------------------- */
   // 'tag' is the clip-on name badge: its own bone so it can be shown/hidden (scaled to
   // nothing) without a separate mesh or draw call
-  const BONES = ['root', 'hips', 'spine', 'chest', 'neck', 'head', 'uArmL', 'lArmL', 'handL', 'uArmR', 'lArmR', 'handR', 'uLegL', 'lLegL', 'footL', 'uLegR', 'lLegR', 'footR', 'tag'];
+  // 'hem' and 'hairB' are the cloth's and the hair's: what hangs below the waist (a skirt, a robe's
+  // or a coat's skirts) and what hangs off the back of the head (long hair, a ponytail), swung by a
+  // spring as the body moves (see CharacterModel.cloth)
+  const BONES = ['root', 'hips', 'spine', 'chest', 'neck', 'head', 'uArmL', 'lArmL', 'handL', 'uArmR', 'lArmR', 'handR', 'uLegL', 'lLegL', 'footL', 'uLegR', 'lLegR', 'footR', 'tag', 'hem', 'hairB'];
   const BI = {};
   BONES.forEach((b, i) => (BI[b] = i));
 
@@ -97,36 +100,90 @@
     const [r, g, b] = U.hexToRgb(hex);
     return U.rgbToCss(r * f, g * f, b * f);
   }
-  // The character's one texture, 256 × 128: the face on the left half (its front is mapped over it),
-  // and on the right what the rest of the body samples: a white band at the top (skin, and anything
-  // else of one flat colour), hair in strands, and cloth (a twill weave, slubs, the soft folds of how
-  // it hangs). The body's own colours come from its vertices; these only shade them.
-  const ATLAS = { white: [0.75, 1 - 8 / 128], hair: [132 / 256, 1 - 62 / 128, 252 / 256, 1 - 18 / 128], cloth: [132 / 256, 1 - 126 / 128, 252 / 256, 1 - 66 / 128] };
+  // The character's one texture, 256 × 256: the face in the top left quarter (its front is mapped over
+  // it), and round it what the rest of the body samples: a white band at the top (skin, and anything
+  // else of one flat colour), hair in strands, and the cloths a person's clothes are made of. The
+  // body's own colours come from its vertices; these only shade them (all about as light, so a
+  // garment's colour reads the same whatever it's made of).
+  const AW = 256, AH = 256;
+  const reg = (x0, y0, x1, y1) => [x0 / AW, 1 - y1 / AH, x1 / AW, 1 - y0 / AH];
+  const ATLAS = {
+    white: [0.75, 1 - 8 / AH],
+    hair: reg(132, 18, 252, 62),
+    // (each cloth a tall patch, so a texel is near square on the body: ~15 mm either way)
+    twill: reg(130, 66, 190, 158), // shirts, suits, blazers: a close diagonal weave
+    wool: reg(194, 66, 254, 158), // Abnegation's grey: coarse, flecked, a little felted
+    knit: reg(130, 162, 190, 254), // sweaters, tees, hoodies: ribs and rows of stitches
+    denim: reg(194, 162, 254, 254), // work trousers: a strong twill, faded down the front
+    leather: reg(2, 130, 62, 254), // the Dauntless jackets (and the boots and belts): creased, scuffed
+    linen: reg(66, 130, 126, 254), // Amity: an open, slubbed weave
+  };
+  ATLAS.cloth = ATLAS.twill;
+  // the cloth each kind of top is usually made of (an outfit can say otherwise: outfit.fabricTop/Bottom)
+  const FABRIC = { robe: 'wool', tunic: 'wool', sweater: 'knit', cardigan: 'knit', hoodie: 'knit', tshirt: 'knit', tank: 'knit', jacket: 'twill', blazer: 'twill', labcoat: 'twill', vest: 'twill', shirt: 'twill' };
   let bodyAtlas = null;
   function paintBodyAtlas() {
     if (bodyAtlas) return bodyAtlas;
     const P = DV.Tex.paint, cv = document.createElement('canvas');
-    cv.width = 128; cv.height = 128;
+    cv.width = AW; cv.height = AH;
     const c = P.ctx2d(cv), r = U.rng('body_atlas');
-    c.fillStyle = '#ffffff'; c.fillRect(0, 0, 128, 128);
+    c.fillStyle = '#ffffff'; c.fillRect(0, 0, AW, AH);
+    // each cloth: a function of (x, y) in its own patch → a grey level, written into the patch (a
+    // texel is ~7 mm across the body, ~3 cm down it: the patch is stretched four times as tall)
+    const patch = (x0, y0, w, h, f) => {
+      const img = c.getImageData(x0, y0, w, h), d = img.data;
+      for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) { const v = U.clamp(f(x, y, y * w + x), 0, 255); d[i] = d[i + 1] = d[i + 2] = v; }
+      c.putImageData(img, x0, y0);
+    };
     // hair: strands down the region (a texel across is ~3 mm), lighter where the light catches them
     const hairF = P.fbm(128, 48, r, 16, 3, 0.6, 1 / 8);
-    const img = c.getImageData(0, 16, 128, 48), d = img.data;
-    for (let y = 0, i = 0; y < 48; y++) for (let x = 0; x < 128; x++, i += 4) {
-      const v = 214 + (hairF[y * 128 + x] - 0.5) * 70 + (Math.sin(x * 2.3 + hairF[y * 128 + x] * 9) * 0.5 + 0.5) * 30 - 10;
-      d[i] = d[i + 1] = d[i + 2] = v;
+    patch(128, 16, 128, 48, (x, y, p) => 214 + (hairF[p] - 0.5) * 70 + (Math.sin(x * 2.3 + hairF[p] * 9) * 0.5 + 0.5) * 30 - 10);
+    // the cloths: 64 texels across (0.9 m of body), 96 or 128 down (1.9 m), so ~15 mm a texel. What
+    // reads at that size is the large of it (the folds, the creases, the fading); the weave is a whisper
+    const W = 64, H = 96, H2 = 128;
+    const fine = () => 0.985 + r() * 0.03;
+    // twill: folds where it hangs, a faint diagonal
+    {
+      const folds = P.fbm(W, H, r, 4, 3, 0.55), wk = P.fbm(W, H, r, 16, 2, 0.6);
+      patch(128, 64, W, H, (x, y, p) => 234 * ((x + y) % 3 === 0 ? 0.975 : 1.008) * (0.9 + folds[p] * 0.14) * (0.97 + wk[p] * 0.05) * fine());
     }
-    c.putImageData(img, 0, 16);
-    // cloth: (the region is stretched four times as tall on the body as it is across: 0.9 m by
-    // 1.9 m) the weave's slubs, a texel apart, and the soft folds where it hangs and creases
-    const folds = P.fbm(128, 64, r, 6, 3, 0.55, 1 / 3), wk = P.fbm(128, 64, r, 32, 2, 0.6);
-    const im2 = c.getImageData(0, 64, 128, 64), e = im2.data;
-    for (let y = 0, i = 0; y < 64; y++) for (let x = 0; x < 128; x++, i += 4) {
-      const p = y * 128 + x, rib = (x + y) % 3 === 0 ? 0.965 : 1.01;
-      const v = 238 * rib * (0.92 + folds[p] * 0.12) * (0.97 + wk[p] * 0.05) * (0.98 + r() * 0.04);
-      e[i] = e[i + 1] = e[i + 2] = v;
+    // wool: felted clumps, heathered lighter and darker, the odd fleck
+    {
+      const folds = P.fbm(W, H, r, 3, 3, 0.55), clump = P.fbm(W, H, r, 12, 2, 0.55), heather = P.fbm(W, H, r, 28, 1, 0.5);
+      patch(192, 64, W, H, (x, y, p) => 230 * (0.9 + folds[p] * 0.14) * (0.93 + clump[p] * 0.09) * (0.96 + heather[p] * 0.07) * (r() < 0.03 ? (r() < 0.5 ? 0.92 : 1.06) : 1) * fine());
     }
-    c.putImageData(im2, 0, 64);
+    // knit: ribs down it (every other texel), soft rows across, and the way it bunches
+    {
+      const folds = P.fbm(W, H, r, 4, 3, 0.55), bunch = P.fbm(W, H, r, 10, 2, 0.5);
+      patch(128, 160, W, H, (x, y, p) => 232 * (x % 2 ? 0.95 : 1.03) * (y % 2 ? 0.985 : 1.01) * (0.9 + folds[p] * 0.13) * (0.96 + bunch[p] * 0.06) * fine());
+    }
+    // denim: the diagonal, faded paler down the middle of each leg and at the knees, darker in the
+    // seams' line up the outside and in the creases
+    {
+      const fade = P.fbm(W, H, r, 2, 3, 0.5), folds = P.fbm(W, H, r, 5, 3, 0.55);
+      patch(192, 160, W, H, (x, y, p) => {
+        const seam = x % 32 === 0 || x % 32 === 31 ? 0.86 : 1; // (the outside seams, where the legs' sides come round)
+        return 222 * ((x + y) % 3 === 0 ? 0.93 : 1.03) * (0.84 + fade[p] * 0.24) * (0.9 + folds[p] * 0.14) * seam * fine();
+      });
+    }
+    // leather: smooth, worn into creases (where the noise crosses its middle), a sheen on the broad
+    // of it, paler scuffs
+    {
+      const cr = P.fbm(W, H2, r, 3, 4, 0.55), cr2 = P.fbm(W, H2, r, 7, 3, 0.5), scuff = P.fbm(W, H2, r, 9, 3, 0.6);
+      patch(0, 128, W, H2, (x, y, p) => {
+        const a = Math.abs(cr[p] - 0.5), b = Math.abs(cr2[p] - 0.5);
+        const crease = (a < 0.03 ? 0.8 + a * 6.6 : 1) * (b < 0.025 ? 0.88 + b * 4.8 : 1);
+        return 226 * crease * (scuff[p] > 0.8 ? 1.07 : 1) * (0.93 + cr[p] * 0.12) * fine();
+      });
+    }
+    // linen: an open weave of uneven threads (a thick one here and there), soft folds
+    {
+      const rows = new Float32Array(H2), cols = new Float32Array(W);
+      for (let i = 0; i < H2; i++) rows[i] = r() < 0.1 ? 0.94 : 0.985 + r() * 0.03;
+      for (let i = 0; i < W; i++) cols[i] = r() < 0.1 ? 0.94 : 0.985 + r() * 0.03;
+      const folds = P.fbm(W, H2, r, 4, 3, 0.55);
+      patch(64, 128, W, H2, (x, y, p) => 236 * ((x + y) % 2 ? 0.985 : 1.015) * rows[y] * cols[x] * (0.9 + folds[p] * 0.14) * fine());
+    }
     bodyAtlas = cv;
     return cv;
   }
@@ -136,9 +193,9 @@
     if (faceCache[key]) return faceCache[key];
     const P = DV.Tex.paint, S = 128;
     const cv = document.createElement('canvas');
-    cv.width = S * 2; cv.height = S;
+    cv.width = AW; cv.height = AH;
     const c = P.ctx2d(cv);
-    c.drawImage(paintBodyAtlas(), S, 0);
+    c.drawImage(paintBodyAtlas(), 0, 0);
     c.save(); c.beginPath(); c.rect(0, 0, S, S); c.clip();
     const skin = app.skin, sk = U.hexToRgb(skin).map((v) => v * 255);
     const tone = (k, a) => P.rgba([sk[0] * k, sk[1] * k, sk[2] * k], a === undefined ? 1 : a);
@@ -284,6 +341,7 @@
     constructor() {
       this.plain = new Set(); // colours that stay flat (the skin)
       this.hair = false; // set while the hair is built
+      this.fabric = null; // what the clothes being built are made of (ATLAS)
       this.g = [
         { pos: [], nor: [], col: [], uv: [], si: [] },
         { pos: [], nor: [], col: [], uv: [], si: [] },
@@ -303,7 +361,7 @@
         if (ax * nx + ay * ny + az * nz < 0) { [b, c] = [c, b]; [ub, uc] = [uc, ub]; ns = [ns[0], ns[2], ns[1]]; }
       }
       const cc = typeof col === 'string' ? U.hexToRgb(col) : col;
-      const R = ua ? null : this.hair ? ATLAS.hair : this.plain.has(rgbKey(cc)) ? null : ATLAS.cloth;
+      const R = ua ? null : this.hair ? ATLAS.hair : this.plain.has(rgbKey(cc)) ? null : ATLAS[this.fabric] || ATLAS.twill;
       let k = 0;
       for (const [p, u] of [[a, ua], [b, ub], [c, uc]]) {
         G.pos.push(p[0], p[1], p[2]);
@@ -460,6 +518,8 @@
     const topStyle = o.top || 'shirt';
     const botStyle = o.bottom || 'pants';
     const acc = o.acc || [];
+    // what each is made of (the shoes, belts and boots: leather)
+    const fTop = o.fabricTop || FABRIC[topStyle] || 'twill', fBot = o.fabricBottom || 'twill';
 
     const SW = (fem ? 0.172 : 0.2) * body.sw; // shoulder half width
     const HW = (fem ? 0.112 : 0.1) * body.hip;
@@ -478,6 +538,7 @@
       uLegL: [HW * 0.95, yHip, 0], lLegL: [HW * 0.95, yKnee, 0.01], footL: [HW * 0.95, yAnkle, 0],
       uLegR: [-HW * 0.95, yHip, 0], lLegR: [-HW * 0.95, yKnee, 0.01], footR: [-HW * 0.95, yAnkle, 0],
       tag: [-0.075 * TW, yChest + 0.08, 0.125 * TD + 0.012],
+      hem: [0, yWaist, 0], hairB: [0, yHeadBase + 0.1, -0.09],
     };
 
     const sleeveLong = ['shirt', 'jacket', 'blazer', 'robe', 'cardigan', 'hoodie', 'labcoat', 'tunic', 'sweater', 'vest'].indexOf(topStyle) >= 0;
@@ -488,6 +549,7 @@
     const boots = o.shoes === 'boots';
 
     // --- legs ---
+    B.fabric = fBot;
     for (const s of [1, -1]) {
       const side = s > 0 ? 'L' : 'R';
       const x = HW * 0.95 * s;
@@ -502,16 +564,19 @@
       }
       // foot / shoe
       const fw = 0.05 * L, fl = boots ? 0.27 : 0.25;
+      B.fabric = 'leather';
       B.box(BI['foot' + side], shoe, x, yAnkle / 2 + 0.005, 0.06, fw * 2, yAnkle + 0.01, fl);
       if (boots) B.box(BI['foot' + side], shadeHex(shoe, 0.6), x, 0.012, 0.06, fw * 2 + 0.01, 0.025, fl + 0.01);
       // the joints: hip, knee, ankle
       B.ball(BI['uLeg' + side], legCol, [x, yHip + 0.005, 0], lr * 1.0, 2);
       B.ball(BI['lLeg' + side], botStyle === 'skirt' ? skin : legCol, [x, yKnee + 0.005, 0.006], lr * 0.8, 2);
       B.ball(BI['foot' + side], boots ? shoe : shin, [x, yAnkle + 0.012, 0.004], lr * (boots ? 0.7 : 0.54), 1);
+      B.fabric = fBot;
     }
     // --- pelvis ---
     B.prism(BI.hips, bottom, [0, yHip - 0.06, 0], [0, yWaist + 0.01, 0], HW * 1.75 * TW, 0.1 * TD, 0.15 * TW * (fem ? 0.92 : 1), 0.1 * TD, 8, { capBottom: true });
     // --- torso ---
+    B.fabric = fTop;
     const waistCol = topStyle === 'robe' || topStyle === 'tunic' || topStyle === 'labcoat' ? top : top;
     B.prism(BI.spine, waistCol, [0, yWaist - 0.02, 0], [0, yChest + 0.01, 0], 0.15 * TW * (fem ? 0.9 : 1), 0.1 * TD, 0.165 * TW * (fem ? 0.92 : 1), 0.11 * TD, 8, { capTop: false });
     if (body.belly) B.prism(BI.spine, waistCol, [0, yWaist + 0.02, 0.03], [0, yChest - 0.02, 0.03], 0.15 * TW, 0.11 * TD, 0.15 * TW, 0.11 * TD, 8);
@@ -564,10 +629,16 @@
     // --- clothing overlays ---
     const coat = (col, yBottom, open) => {
       B.prism(BI.chest, col, [0, yChest - 0.01, 0], [0, yShoulder + 0.03, 0], 0.175 * TW, 0.12 * TD, SW * 1.0, 0.105 * TD, 8, { capTop: true });
-      B.prism(BI.hips, col, [0, yBottom, 0], [0, yChest, 0], (topStyle === 'robe' ? 0.22 : 0.19) * TW, 0.15 * TD, 0.168 * TW, 0.115 * TD, 8, { capTop: false, capBottom: false });
+      // below the waist it hangs free (the hem bone swings it); above, it's the body's
+      const rx0 = (topStyle === 'robe' ? 0.22 : 0.19) * TW, rz0 = 0.15 * TD, rx1 = 0.168 * TW, rz1 = 0.115 * TD;
+      const at = (y) => { const t = (y - yBottom) / (yChest - yBottom); return [U.lerp(rx0, rx1, t), U.lerp(rz0, rz1, t)]; };
+      const yw = yWaist - 0.03, [wx, wz] = at(yw + 0.05);
+      B.prism(BI.hips, col, [0, yw, 0], [0, yChest, 0], at(yw)[0], at(yw)[1], rx1, rz1, 8, { capTop: false, capBottom: false });
+      B.prism(BI.hem, col, [0, yBottom, 0], [0, yw + 0.05, 0], rx0, rz0, wx * 0.985, wz * 0.985, 8, { capTop: false, capBottom: false });
       if (open) {
         B.box(BI.chest, top2, 0, (yChest + yShoulder) / 2 - 0.02, 0.112 * TD + 0.004, 0.06, yShoulder - yChest - 0.04, 0.01);
-        B.box(BI.hips, top2, 0, (yBottom + yChest) / 2 + 0.05, 0.13 * TD + 0.01, 0.04, yChest - yBottom - 0.1, 0.01);
+        B.box(BI.hips, top2, 0, (yw + yChest) / 2, 0.13 * TD + 0.01, 0.04, yChest - yw - 0.02, 0.01);
+        B.box(BI.hem, top2, 0, (yBottom + yw) / 2 + 0.04, 0.135 * TD + 0.012, 0.04, yw - yBottom - 0.08, 0.01);
       }
     };
     if (topStyle === 'robe') coat(top, 0.36, false);
@@ -603,11 +674,16 @@
       B.prism(BI.neck, shadeHex(top, 0.9), [0, yNeck - 0.035, 0], [0, yNeck + 0.01, -0.005], 0.06, 0.058, 0.058, 0.055, 6, { capTop: false });
     }
     // skirts
-    if (botStyle === 'skirt') B.prism(BI.hips, bottom, [0, 0.56, 0], [0, yWaist, 0], 0.2 * TW, 0.15 * TD, 0.155 * TW, 0.105 * TD, 8, { capTop: false, capBottom: true });
-    if (botStyle === 'longskirt') B.prism(BI.hips, bottom, [0, 0.16, 0], [0, yWaist, 0], 0.25 * TW, 0.2 * TD, 0.155 * TW, 0.105 * TD, 8, { capTop: false, capBottom: true });
+    B.fabric = fBot;
+    // (under a coat, a robe or a jacket, a size in: two layers the same size fight for the same pixels)
+    const under = ['robe', 'tunic', 'labcoat', 'jacket', 'blazer', 'hoodie', 'cardigan'].indexOf(topStyle) >= 0 ? 0.92 : 1;
+    if (botStyle === 'skirt') B.prism(BI.hem, bottom, [0, 0.56, 0], [0, yWaist, 0], 0.2 * TW * under, 0.15 * TD * under, 0.155 * TW * under, 0.105 * TD * under, 8, { capTop: false, capBottom: true });
+    if (botStyle === 'longskirt') B.prism(BI.hem, bottom, [0, 0.16, 0], [0, yWaist, 0], 0.25 * TW * under, 0.2 * TD * under, 0.155 * TW * under, 0.105 * TD * under, 8, { capTop: false, capBottom: true });
     // belt
+    B.fabric = 'leather';
     if (acc.includes('belt') || topStyle === 'tank' || topStyle === 'tshirt') B.prism(BI.hips, '#1a1612', [0, yWaist - 0.035, 0], [0, yWaist + 0.0, 0], 0.158 * TW, 0.106 * TD, 0.158 * TW, 0.106 * TD, 8);
     // tie
+    B.fabric = 'twill';
     if (acc.includes('tie')) {
       B.box(BI.chest, o.tieColor || '#101010', 0, yChest + 0.06, 0.12 * TD + 0.008, 0.035, 0.24, 0.008);
       B.box(BI.spine, o.tieColor || '#101010', 0, yChest - 0.03, 0.118 * TD + 0.012, 0.04, 0.1, 0.008);
@@ -643,6 +719,7 @@
     if (o.tattoos && o.tattoos.indexOf('neck') >= 0) B.box(BI.neck, '#1d2a33', 0.032, yNeck + 0.04, 0.02, 0.012, 0.05, 0.03);
 
     // --- head ---
+    B.fabric = fTop;
     buildHead(B, app, yHeadBase);
 
     return { geo: B.build(), bp };
@@ -682,7 +759,7 @@
       const front = a.n[2] > 0.99 && b.n[2] > 0.99 && c.n[2] > 0.99;
       const ns = [a.n, b.n, c.n].map(headN);
       if (front) {
-        const UVf = (p) => [U.clamp(0.5 + p[0] / (w * 1.02), 0, 1) * 0.5, U.clamp(0.5 + (p[1] - cy) / (h * 1.0), 0, 1)];
+        const UVf = (p) => [U.clamp(0.5 + p[0] / (w * 1.02), 0, 1) * 0.5, 0.5 + U.clamp(0.5 + (p[1] - cy) / (h * 1.0), 0, 1) * 0.5];
         B.tri(1, BI.head, pa, pb, pc, [1, 1, 1], UVf(pa), UVf(pb), UVf(pc), ns);
       } else {
         B.tri(0, BI.head, pa, pb, pc, skinRGB, null, null, null, ns);
@@ -784,15 +861,15 @@
         shell(1.08, (x, y, z) => (y > -0.05 && frontCut(y, z, 0.58)) || (Math.abs(x) > 0.55 && y > -0.85 && z < 0.5) || (z < -0.2 && y > -0.9), hc);
         if (style === 'long') {
           // back panel falls to the shoulder blades
-          B.prism(BI.head, hc, [0, cy - h * 0.95, cz - d * 0.4], [0, cy - h * 0.1, cz - d * 0.45], w * 0.5, d * 0.16, w * 0.55, d * 0.2, 6);
+          B.prism(BI.hairB, hc, [0, cy - h * 0.95, cz - d * 0.4], [0, cy - h * 0.1, cz - d * 0.45], w * 0.5, d * 0.16, w * 0.55, d * 0.2, 6);
           for (const s of [1, -1]) B.prism(BI.head, hc, [s * w * 0.45, cy - h * 0.75, cz - d * 0.05], [s * w * 0.5, cy - h * 0.1, cz - d * 0.05], 0.022, 0.035, 0.025, 0.04, 5);
         } else {
-          for (const s of [1, -1]) B.prism(BI.head, hc, [s * w * 0.45, cy - h * 1.35, cz + d * 0.1], [s * w * 0.5, cy - h * 0.3, cz - d * 0.05], 0.016, 0.016, 0.022, 0.022, 5);
+          for (const s of [1, -1]) B.prism(BI.hairB, hc, [s * w * 0.45, cy - h * 1.35, cz + d * 0.1], [s * w * 0.5, cy - h * 0.3, cz - d * 0.05], 0.016, 0.016, 0.022, 0.022, 5);
         }
         break;
       case 'ponytail':
         shell(1.06, (x, y, z) => (y > -0.05 && frontCut(y, z, 0.62)) || (z < -0.3 && y > -0.6) || (Math.abs(x) > 0.75 && y > -0.2 && z < 0.3), hc, 0, 0.98);
-        B.prism(BI.head, hc, [0, cy - h * 0.75, cz - d * 0.78], [0, cy + h * 0.05, cz - d * 0.58], 0.018, 0.018, 0.035, 0.035, 5);
+        B.prism(BI.hairB, hc, [0, cy - h * 0.75, cz - d * 0.78], [0, cy + h * 0.05, cz - d * 0.58], 0.018, 0.018, 0.035, 0.035, 5);
         B.box(BI.head, '#2a2a2a', 0, cy + h * 0.02, cz - d * 0.6, 0.04, 0.025, 0.04);
         break;
       case 'bun':
@@ -867,7 +944,7 @@
       DV.Mat.applyWobble(this.bodyMat);
       // bones
       const bones = [];
-      const parents = { root: null, hips: 'root', spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', uArmL: 'chest', lArmL: 'uArmL', handL: 'lArmL', uArmR: 'chest', lArmR: 'uArmR', handR: 'lArmR', uLegL: 'hips', lLegL: 'uLegL', footL: 'lLegL', uLegR: 'hips', lLegR: 'uLegR', footR: 'lLegR', tag: 'chest' };
+      const parents = { root: null, hips: 'root', spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', uArmL: 'chest', lArmL: 'uArmL', handL: 'lArmL', uArmR: 'chest', lArmR: 'uArmR', handR: 'lArmR', uLegL: 'hips', lLegL: 'uLegL', footL: 'lLegL', uLegR: 'hips', lLegR: 'uLegR', footR: 'lLegR', tag: 'chest', hem: 'hips', hairB: 'head' };
       for (const name of BONES) {
         const b = new THREE.Bone();
         b.name = name;
@@ -1307,6 +1384,7 @@
         b.rotation.y += (P[i * 3 + 1] - b.rotation.y) * k;
         b.rotation.z += (P[i * 3 + 2] - b.rotation.z) * k;
       }
+      this.cloth(dt, s, act);
       this.hipY += (hipY - this.hipY) * k;
       this.hipZ += (hipZ - this.hipZ) * k;
       const hips = this.bones[BI.hips];
@@ -1327,6 +1405,52 @@
       }
       // (no blob shadow in the air: it would hang under the feet)
       this.shadow.visible = !this.noShadow && !lying && !this.shadowFar && !(s.pk && s.pk.air);
+    }
+    /**
+     * What hangs free: the hem (a skirt, a robe's or a coat's skirts) and the hair off the back of the
+     * head, each on a damped spring. They lag behind as the body sets off, swing on past as it stops,
+     * sway out as it turns, bob with the stride; the hem flares as the legs open (so a stride doesn't
+     * come through it) and follows the thighs forward when sitting; the hair keeps hanging down as
+     * the head tips.
+     */
+    cloth(dt, s, act) {
+      const hem = this.bones[BI.hem], hb = this.bones[BI.hairB];
+      if (!hem || !hb) return;
+      const p = this.root.position, yaw = this.root.rotation.y;
+      let C = this.cl;
+      if (!C) C = this.cl = { px: p.x, pz: p.z, yaw, vf: 0, vs: 0, hx: 0, hz: 0, hvx: 0, hvz: 0, ax: 0, az: 0, avx: 0, avz: 0 };
+      dt = Math.min(dt, 0.05);
+      if (dt <= 0) return;
+      // the body's own motion, turned into its frame (forward along +z)
+      let vx = (p.x - C.px) / dt, vz = (p.z - C.pz) / dt;
+      if (vx * vx + vz * vz > 400) vx = vz = 0; // (put somewhere else: not a motion)
+      const sn = Math.sin(yaw), cs = Math.cos(yaw);
+      const vf = vx * sn + vz * cs, vs = vx * cs - vz * sn;
+      const af = U.clamp((vf - C.vf) / dt, -25, 25), as = U.clamp((vs - C.vs) / dt, -25, 25);
+      let dy = yaw - C.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      const turn = U.clamp(dy / dt, -6, 6);
+      C.px = p.x; C.pz = p.z; C.yaw = yaw; C.vf = vf; C.vs = vs;
+      const B = this.bones, legL = B[BI.uLegL].rotation.x, legR = B[BI.uLegR].rotation.x;
+      const spread = Math.abs(legL - legR), thighs = Math.min(0, (legL + legR) / 2);
+      const bob = Math.sin(this.phase * 2) * U.clamp(Math.abs(vf) / 4, 0, 1);
+      // targets: + x swings the bottom back (behind the body), + z out to the body's left
+      const tHx = U.clamp(vf * 0.045 + af * 0.012, -0.25, 0.5) + thighs * 0.75;
+      const tHz = U.clamp(-vs * 0.05 - as * 0.012 + turn * 0.05, -0.35, 0.35);
+      const tilt = B[BI.spine].rotation.x + B[BI.chest].rotation.x + B[BI.neck].rotation.x + B[BI.head].rotation.x + this.mesh.rotation.x;
+      const tAx = U.clamp(vf * 0.07 + af * 0.016 + bob * 0.07 - tilt * 0.8, -0.35, 0.9);
+      const tAz = U.clamp(-vs * 0.06 + turn * 0.07 - B[BI.head].rotation.z * 0.8, -0.5, 0.5);
+      // the springs (stiff for the cloth, looser for hair), a step or two a frame
+      const n = dt > 1 / 45 ? 2 : 1, h = dt / n;
+      for (let i = 0; i < n; i++) {
+        C.hvx += (70 * (tHx - C.hx) - 9 * C.hvx) * h; C.hx += C.hvx * h;
+        C.hvz += (70 * (tHz - C.hz) - 9 * C.hvz) * h; C.hz += C.hvz * h;
+        C.avx += (45 * (tAx - C.ax) - 5.5 * C.avx) * h; C.ax += C.avx * h;
+        C.avz += (45 * (tAz - C.az) - 5.5 * C.avz) * h; C.az += C.avz * h;
+      }
+      const lying = act === 'lie' || act === 'recline';
+      hem.rotation.set(lying ? 0 : C.hx, 0, lying ? 0 : C.hz);
+      hem.scale.set(1 + spread * 0.12, 1, 1 + Math.min(spread, 1.6) * 0.5);
+      hb.rotation.set(lying ? 0 : Math.max(-0.15, C.ax), 0, lying ? 0 : C.az);
     }
     /**
      * Free-running. s.pk = { move, t, air } with t running 0 → 1 through the move:
@@ -1539,6 +1663,9 @@
       o.topColor2 = r.pick(st.topColors);
       if (!fem && r.chance(0.5)) app.beard = r.pick(['stubble', 'short', 'full']);
     }
+    // what their clothes are made of (no dice: the same people keep the same looks)
+    const FAB = { abnegation: ['wool', 'wool'], amity: ['linen', 'linen'], dauntless: [o.top === 'jacket' || o.top === 'vest' ? 'leather' : null, 'denim'], factionless: [o.top === 'sweater' || o.top === 'hoodie' ? 'knit' : 'wool', 'denim'], erudite: [null, 'twill'], candor: [null, 'twill'] }[faction];
+    if (FAB) { if (FAB[0] && !(faction === 'abnegation' && (o.top === 'sweater' || o.top === 'cardigan'))) o.fabricTop = FAB[0]; o.fabricBottom = FAB[1]; }
     if (!fem && faction !== 'abnegation' && faction !== 'factionless' && r.chance(0.08)) app.beard = 'stubble';
     if (overrides) deepAssign(app, overrides);
     if (app.age > 30 && overrides && !overrides.hairColor && r.chance(0.4)) app.hairColor = r.pick(['#8d8a85', '#5a4a3a', '#d9d7d2']);
