@@ -158,7 +158,7 @@
     } else {
       const ey = 54, exL = 38, exR = 90;
       const nl = f.nose === 'long' ? 26 : f.nose === 'button' ? 16 : 20;
-      const my = ey + nl + 24; // (the mouth: a little way below the nose, toward the chin)
+      const my = ey + nl + 29; // (the mouth: a little way below the nose, toward the chin)
       // the modelling of the face: the temples and the sides falling away, the jaw's shade, light on
       // the forehead, the bridge of the nose and the cheekbones
       const side = c.createLinearGradient(0, 0, S, 0);
@@ -369,6 +369,15 @@
         if (opts.capBottom) this.tri(0, bone, p0, b0, b1, opts.botCol || cc);
       }
     }
+    // a joint: a small ball, shaded smooth, so a limb bending at it stays whole (it goes with the bone
+    // below the joint, filling the notch the two parts open as they fold). n: its subdivision
+    ball(bone, col, c, r, n) {
+      const w = (2 * r) / 1.15;
+      for (const [a, b, d] of roundedBox(n || 2, w, w, w, 1.0)) {
+        const P = (q) => [q.p[0] + c[0], q.p[1] + c[1], q.p[2] + c[2]];
+        this.tri(0, bone, P(a), P(b), P(d), col, null, null, null, [a.n, b.n, d.n]);
+      }
+    }
     box(bone, col, cx, cy, cz, sx, sy, sz, rotY) {
       const hx = sx / 2, hy = sy / 2, hz = sz / 2;
       const cr = Math.cos(rotY || 0), sr = Math.sin(rotY || 0);
@@ -495,6 +504,10 @@
       const fw = 0.05 * L, fl = boots ? 0.27 : 0.25;
       B.box(BI['foot' + side], shoe, x, yAnkle / 2 + 0.005, 0.06, fw * 2, yAnkle + 0.01, fl);
       if (boots) B.box(BI['foot' + side], shadeHex(shoe, 0.6), x, 0.012, 0.06, fw * 2 + 0.01, 0.025, fl + 0.01);
+      // the joints: hip, knee, ankle
+      B.ball(BI['uLeg' + side], legCol, [x, yHip + 0.005, 0], lr * 1.0, 2);
+      B.ball(BI['lLeg' + side], botStyle === 'skirt' ? skin : legCol, [x, yKnee + 0.005, 0.006], lr * 0.8, 2);
+      B.ball(BI['foot' + side], boots ? shoe : shin, [x, yAnkle + 0.012, 0.004], lr * (boots ? 0.7 : 0.54), 1);
     }
     // --- pelvis ---
     B.prism(BI.hips, bottom, [0, yHip - 0.06, 0], [0, yWaist + 0.01, 0], HW * 1.75 * TW, 0.1 * TD, 0.15 * TW * (fem ? 0.92 : 1), 0.1 * TD, 8, { capBottom: true });
@@ -530,6 +543,9 @@
       // hand + thumb
       B.box(BI['hand' + side], skin, x0 + 0.017 * s, yWrist - 0.075, 0.005, 0.035, 0.15, 0.075);
       B.box(BI['hand' + side], skin, x0 + 0.012 * s - 0.0, yWrist - 0.045, 0.045, 0.025, 0.06, 0.025);
+      // the joints: elbow (in the sleeve, or bare), wrist
+      B.ball(BI['lArm' + side], armLowerCol, [x0 + 0.01 * s, yElbow + 0.005, 0], ar * 0.9, 2);
+      B.ball(BI['hand' + side], skin, [x0 + 0.016 * s, yWrist - 0.005, 0.002], ar * 0.62, 1);
       // tattoos
       if (o.tattoos && o.tattoos.indexOf('arm' + side) >= 0) {
         const ink = '#1d2a33';
