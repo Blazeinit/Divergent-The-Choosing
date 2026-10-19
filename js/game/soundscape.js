@@ -157,7 +157,10 @@
       // the hour, out of doors: crickets from dusk to first light (zones on the clock)
       const m = DV.Clock.minutes();
       const nightK = zone.def.timeOfDay ? U.clamp(Math.min((m - 1200) / 60, (330 - m + (m < 720 ? 0 : 1440)) / 50), 0, 1) : 0;
-      if (nightK > 0 && !zone.def.underground) L.night = nightK * (outside ? 0.9 : 0.5);
+      // rain (js/game/weather.js): on the roof indoors, all round you out of doors; the crickets keep quiet
+      const wet = zone.def.timeOfDay && !zone.def.underground && DV.Weather ? DV.Weather.now() : 0;
+      if (nightK > 0 && !zone.def.underground) L.night = nightK * (outside ? 0.9 : 0.5) * (1 - wet);
+      if (wet > 0) L.rain = wet * (outside ? 1 : 0.4);
       // out in the streets: people about make a murmur, louder where it's busy
       const life = zone.streetLife;
       if (life && outside && life.shown !== false) {

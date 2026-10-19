@@ -774,6 +774,12 @@
       const traffic = layer('traffic', ofilt);
       noise(this.brown, 'lowpass', 150, 0.5, 0.55, traffic, 0.05, 0.2);
       noise(this.white, 'bandpass', 1100, 0.6, 0.018, traffic, 0.09, 0.008);
+      // rain: the hiss of it on everything, the patter close by, the gutters running (walls muffle it
+      // like the rest of out of doors)
+      const rain = layer('rain', ofilt);
+      noise(this.white, 'highpass', 3200, 0.4, 0.09, rain, 0.17, 0.02);
+      noise(this.white, 'bandpass', 1300, 0.7, 0.07, rain, 0.43, 0.03);
+      noise(this.brown, 'lowpass', 520, 0.5, 0.22, rain, 0.09, 0.06);
       // accents
       osc(120, 'sawtooth', 0.02, layer('buzz'), ['bandpass', 2400, 3]); // fluorescent tubes
       const hum = layer('hum'); osc(110, 'sine', 0.03, hum); osc(220.5, 'sine', 0.01, hum); noise(this.brown, 'lowpass', 70, 0.4, 0.2, hum); // simulation core
