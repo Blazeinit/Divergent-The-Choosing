@@ -1614,7 +1614,7 @@
       su.glow.value = sky.glow !== undefined ? sky.glow : 0.22;
       su.sunCol.value.set(sky.sun || 0xfff2dc);
       su.clouds.value = sky.clouds !== undefined ? sky.clouds : 0.55;
-      this.base = { top: su.top.value.clone(), horizon: su.horizon.value.clone(), ground: su.ground.value.clone(), stars: su.stars.value, glow: su.glow.value, fog: new THREE.Color(fog.color), fogOut: fo ? new THREE.Color(fo.color) : null, lights: [this.ambient.intensity, this.hemi.intensity, this.dir.intensity] };
+      this.base = { top: su.top.value.clone(), horizon: su.horizon.value.clone(), ground: su.ground.value.clone(), stars: su.stars.value, glow: su.glow.value, clouds: su.clouds.value, fog: new THREE.Color(fog.color), fogOut: fo ? new THREE.Color(fo.color) : null, lights: [this.ambient.intensity, this.hemi.intensity, this.dir.intensity] };
       this.tod = null;
       this.todLight = undefined;
       this.sky.userData.cyl.visible = sky.skyline !== false;
@@ -1633,19 +1633,34 @@
     timeOfDay(zone) {
       if (!zone.def.timeOfDay || !this.base || !DV.Clock) return;
       const m = DV.Clock.minutes();
-      if (this.tod && Math.abs(this.tod.m - m) < 0.5) return;
+      // (and the weather: a shower brings the cloud down over it, js/game/weather.js)
+      const wet = DV.Weather ? DV.Weather.now() : 0;
+      if (this.tod && Math.abs(this.tod.m - m) < 0.5 && Math.abs(this.tod.wet - wet) < 0.01) return;
       const T = todAt(m), B = this.base, u = this.sky.userData.dome.material.uniforms;
-      this.tod = Object.assign({ m }, T);
+      // overcast: the light goes flat and grey, the windows and the lamps come on early
+      T.sky *= 1 - 0.32 * wet;
+      T.glow *= 1 - 0.85 * wet;
+      T.lit += (1 - T.lit) * 0.35 * wet;
+      const grey = (T.tint[0] + T.tint[1] + T.tint[2]) / 3;
+      T.tint = T.tint.map((c) => c + (grey * 0.96 - c) * 0.7 * wet);
+      this.tod = Object.assign({ m, wet }, T);
       const tint = (c, base, k) => c.copy(base).multiplyScalar(k).multiply(new THREE.Color(T.tint[0], T.tint[1], T.tint[2]));
       u.top.value.copy(B.top).multiplyScalar(T.sky * (T.sky < 1 ? 0.85 : 1));
       tint(u.horizon.value, B.horizon, 0.35 + 0.65 * T.sky);
+      if (wet > 0) { const g = (u.top.value.r + u.top.value.g + u.top.value.b) / 3; u.top.value.lerp(new THREE.Color(g, g, g * 1.04), 0.6 * wet); }
+      u.clouds.value = Math.min(1, B.clouds + 0.5 * wet);
       u.ground.value.copy(B.ground).multiplyScalar(T.sky);
       u.glow.value = T.glow;
       u.stars.value = Math.max(B.stars, T.stars);
       sunAt(m, u.sunDir.value);
-      u.sunCol.value.setRGB(1, 0.9 + 0.08 * T.sky, 0.75 + 0.2 * T.sky);
+      u.sunCol.value.setRGB(1, 0.9 + 0.08 * T.sky, 0.75 + 0.2 * T.sky).multiplyScalar(1 - 0.6 * wet);
       const fb = this.fogBlend;
-      if (fb && B.fogOut) { tint(fb.b.c, B.fogOut, 0.3 + 0.7 * T.sky); tint(fb.a.c, B.fog, 0.6 + 0.4 * T.sky); fb.k = -1; }
+      if (fb && B.fogOut) {
+        tint(fb.b.c, B.fogOut, 0.3 + 0.7 * T.sky); tint(fb.a.c, B.fog, 0.6 + 0.4 * T.sky); fb.k = -1;
+        // (the rain closes the distance in)
+        if (fb.b.far0 === undefined) { fb.b.near0 = fb.b.near; fb.b.far0 = fb.b.far; }
+        fb.b.near = fb.b.near0 * (1 - 0.5 * wet); fb.b.far = fb.b.far0 * (1 - 0.42 * wet);
+      }
       const city = zone.city;
       if (city) {
         if (!city.baseHaze) city.baseHaze = city.shared.hazeColor.value.clone();
@@ -1658,8 +1673,8 @@
       if (zone.lamps && !zone.lampGlow) zone.lampGlow = DV.StreetKit.glow(zone, zone.lamps);
       DV.StreetKit.lampsOn((T.lit - 0.28) / 0.42, zone);
       if (city) {
-        // the streets themselves, the signs, and the clouds overhead
-        const k = 0.35 + 0.65 * T.sky;
+        // the streets themselves, the signs, and the clouds overhead (darker wet)
+        const k = (0.35 + 0.65 * T.sky) * (1 - 0.22 * wet);
         for (const mt of (city.walk ? city.walk.mats : []).concat(city.walk ? city.walk.signs.map((q) => q.material) : [])) {
           if (!mt.userData.base) mt.userData.base = mt.color.clone();
           mt.color.copy(mt.userData.base).multiplyScalar(k);
