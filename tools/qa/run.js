@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const all = fs.readdirSync(__dirname).filter((f) => f.endsWith('.test.js')).sort();
-const order = ['static', 'boot', 'dialogue', 'reception', 'doors', 'checkpoint', 'main-flow', 'divergent', 'side-quests', 'sims-idle', 'movement', 'input', 'cursor', 'city', 'wildlife', 'build2-story', 'build2-factions', 'build3-combat', 'build3-dauntless', 'build3-stageone', 'beds', 'build3-weeks', 'weeks-walk', 'campaign', 'camp-all', 'camp-walk', 'build4-city', 'build4-wait', 'metro', 'stores', 'colliders', 'physics', 'physics2', 'order', 'citylife', 'lives', 'city-quests', 'devmenu', 'menu', 'playthrough', 'audio', 'save-migration', 'rpg', 'npc-day', 'perf'];
+const order = ['static', 'boot', 'dialogue', 'reception', 'doors', 'checkpoint', 'main-flow', 'divergent', 'side-quests', 'sims-idle', 'movement', 'input', 'cursor', 'city', 'wildlife', 'build2-story', 'build2-factions', 'build3-combat', 'build3-dauntless', 'build3-stageone', 'beds', 'build3-weeks', 'weeks-walk', 'campaign', 'trials', 'trials-factions', 'camp-all', 'camp-walk', 'build4-city', 'build4-wait', 'metro', 'stores', 'colliders', 'physics', 'physics2', 'order', 'citylife', 'lives', 'city-quests', 'devmenu', 'menu', 'playthrough', 'audio', 'save-migration', 'rpg', 'npc-day', 'perf'];
 all.sort((a, b) => (order.indexOf(a.replace('.test.js', '')) + 1 || 99) - (order.indexOf(b.replace('.test.js', '')) + 1 || 99));
 const want = process.argv.slice(2);
 const files = want.length ? all.filter((f) => want.some((w) => f.startsWith(w))) : all;
