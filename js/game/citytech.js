@@ -56,7 +56,14 @@
       const CM = DV.CityMap, net = CM.roadNet(), roads = net.roads.filter((q) => q.kind !== 'out').map((q) => q.r);
       const inRoad = (x, z, m) => roads.some((q) => x > q[0] - m && x < q[2] + m && z > q[1] - m && z < q[3] + m);
       const kit = zone.streetKit;
-      const free = (x, z, r) => !inRoad(x, z, 0.6) && !zone.colliders.blocked(x, z, r, 'npc') && !(kit && kit.blocked && kit.blocked(x, z, r + 0.4)) && city.walkable(x, z);
+      // (and off the lines people walk along the pavements: js/game/streetlife.js, js/game/lives.js)
+      const W = zone.streetLife && zone.streetLife.walk;
+      const onWalk = (x, z, r) => W && W.edgesNear(x, z, r + 2).some((ei) => {
+        const e = W.edges[ei], A = W.nodes[e.a], B = W.nodes[e.b], len = e.len || Math.hypot(B.x - A.x, B.z - A.z) || 1;
+        const t = U.clamp(((x - A.x) * (B.x - A.x) + (z - A.z) * (B.z - A.z)) / (len * len), 0, 1);
+        return Math.hypot(A.x + (B.x - A.x) * t - x, A.z + (B.z - A.z) * t - z) < r;
+      });
+      const free = (x, z, r) => !inRoad(x, z, 0.6) && !zone.colliders.blocked(x, z, r, 'npc') && !(kit && kit.blocked && kit.blocked(x, z, r + 0.4)) && city.walkable(x, z) && !onWalk(x, z, r + 0.75);
       const M = new DV.Vehicles.MB(), LED = new DV.Vehicles.MB();
       const steel = [0.26, 0.28, 0.3], band = [0.18, 0.36, 0.56], head = [0.16, 0.17, 0.18];
       // the pylons: one corner of every other junction (a hash picks which), clear of everything
