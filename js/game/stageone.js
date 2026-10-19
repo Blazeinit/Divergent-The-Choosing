@@ -50,6 +50,7 @@
     update(dt) {
       this.tick(dt);
       if (DV.StageTwo) DV.StageTwo.update(dt);
+      if (DV.CTF) DV.CTF.district(dt);
       this.runSeqs(dt);
       const I_ = I();
       const d = DV.Clock.day(), m = DV.Clock.minutes();
