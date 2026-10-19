@@ -374,6 +374,7 @@
       DV.World.update(dt, this.camera);
       DV.Soundscape.update(dt);
       DV.Cursor.update(this);
+      DV.Character.shadowPass(this.scene); // (everyone's blob shadow: one draw call)
       DV.Post.render(this.renderer, this.scene, this.camera, dt); // (the film look over it: js/engine/post.js)
       DV.Input.endFrame();
     },

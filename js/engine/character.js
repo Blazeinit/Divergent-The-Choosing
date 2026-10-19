@@ -120,7 +120,7 @@
   };
   ATLAS.cloth = ATLAS.twill;
   // the cloth each kind of top is usually made of (an outfit can say otherwise: outfit.fabricTop/Bottom)
-  const FABRIC = { robe: 'wool', tunic: 'wool', sweater: 'knit', cardigan: 'knit', hoodie: 'knit', tshirt: 'knit', tank: 'knit', jacket: 'twill', blazer: 'twill', labcoat: 'twill', vest: 'twill', shirt: 'twill' };
+  const FABRIC = { duster: 'leather', robe: 'wool', tunic: 'wool', sweater: 'knit', cardigan: 'knit', hoodie: 'knit', tshirt: 'knit', tank: 'knit', jacket: 'twill', blazer: 'twill', labcoat: 'twill', vest: 'twill', shirt: 'twill' };
   let bodyAtlas = null;
   function paintBodyAtlas() {
     if (bodyAtlas) return bodyAtlas;
@@ -541,7 +541,7 @@
       hem: [0, yWaist, 0], hairB: [0, yHeadBase + 0.1, -0.09],
     };
 
-    const sleeveLong = ['shirt', 'jacket', 'blazer', 'robe', 'cardigan', 'hoodie', 'labcoat', 'tunic', 'sweater', 'vest'].indexOf(topStyle) >= 0;
+    const sleeveLong = ['duster', 'shirt', 'jacket', 'blazer', 'robe', 'cardigan', 'hoodie', 'labcoat', 'tunic', 'sweater', 'vest'].indexOf(topStyle) >= 0;
     const sleeveShort = topStyle === 'tshirt';
     const armUpperCol = topStyle === 'tank' ? skin : topStyle === 'vest' ? top2 : top;
     const armLowerCol = sleeveLong ? (topStyle === 'vest' ? top2 : top) : skin;
@@ -661,6 +661,35 @@
         B.box(BI.spine, shadeHex(top, 0.85), 0, yWaist + 0.04, 0.12 * TD, 0.18 * TW, 0.1, 0.01); // pocket
       }
     }
+    // the long coat: a shell over the shoulders and chest, a stand collar turned up, lapels lying open
+    // over the tee, a belt, and below the waist its skirts, which are cloth (js/engine/cloth.js)
+    let garment = null;
+    if (topStyle === 'duster') {
+      B.prism(BI.chest, top, [0, yChest - 0.02, 0], [0, yShoulder + 0.03, 0], 0.178 * TW, 0.123 * TD, SW * 1.01, 0.107 * TD, 8, { capTop: true, topCol: shadeHex(top, 0.92) });
+      B.prism(BI.spine, top, [0, yHip, 0], [0, yChest + 0.01, 0], 0.172 * TW, 0.121 * TD, 0.176 * TW, 0.122 * TD, 8, { capTop: false });
+      const iz = 0.123 * TD + 0.003;
+      // the tee in the open neck
+      B.tri(0, BI.chest, [-0.055, yShoulder + 0.015, iz], [0, yChest - 0.01, iz + 0.002], [0.055, yShoulder + 0.015, iz], top2);
+      B.tri(0, BI.chest, [-0.055, yShoulder + 0.015, iz], [0.055, yShoulder + 0.015, iz], [0, yChest - 0.01, iz + 0.002], top2);
+      // lapels: folded back, a shade lighter where they catch the light, a dark edge under them
+      const lap = shadeHex(top, 1.35), edge = shadeHex(top, 0.55);
+      for (const s of [1, -1]) {
+        const a = [s * 0.058, yShoulder + 0.02, iz + 0.004], b = [s * 0.112, yChest + 0.04, iz + 0.016], c = [s * 0.01, yChest - 0.03, iz + 0.006];
+        B.tri(0, BI.chest, a, b, c, lap);
+        B.tri(0, BI.chest, a, c, b, lap);
+        B.tri(0, BI.chest, b, [s * 0.112, yChest + 0.035, iz + 0.002], c, edge);
+      }
+      // the collar, turned up
+      B.prism(BI.neck, shadeHex(top, 0.88), [0, yNeck - 0.035, -0.006], [0, yNeck + 0.075, -0.016], 0.084, 0.078, 0.093, 0.084, 8, { capTop: false });
+      // the belt and its buckle
+      B.fabric = 'leather';
+      B.prism(BI.spine, '#121214', [0, yWaist - 0.045, 0], [0, yWaist + 0.0, 0], 0.18 * TW, 0.126 * TD, 0.18 * TW, 0.126 * TD, 8);
+      B.box(BI.spine, '#9a9a96', 0, yWaist - 0.022, 0.126 * TD + 0.004, 0.05, 0.04, 0.008);
+      B.box(BI.spine, '#121214', 0, yWaist - 0.022, 0.126 * TD + 0.008, 0.03, 0.022, 0.006);
+      B.fabric = fTop;
+      // (the skirts start at the belt and fall to mid-calf, open at the front, a vent up the back)
+      garment = { y0: yWaist - 0.035, y1: 0.3, rx0: 0.183 * TW, rz0: 0.13 * TD, rx1: 0.29 * TW, rz1: 0.25 * TD, cols: 16, rows: 9, gap: 0.75, vent: 4, color: top, lining: o.liningColor || '#4a1612', uv: ATLAS.leather };
+    }
     if (topStyle === 'vest') {
       // shirt collar + V showing beneath the vest
       const iy0 = yChest + 0.04, iy1 = yShoulder + 0.02, iz = 0.096 * TD + 0.012;
@@ -696,7 +725,7 @@
         B.box(k === 2 ? BI.uLegL : BI.chest, pc, k === 2 ? HW : (r() - 0.5) * 0.18, k === 2 ? 0.75 : yChest + 0.05 + r() * 0.1, k === 2 ? 0.07 : 0.115 * TD, 0.06, 0.06, 0.01);
       }
     }
-    if (acc.includes('badge')) B.box(BI.chest, '#c8b060', 0.08, yChest + 0.12, 0.12 * TD + 0.004, 0.03, 0.04, 0.008);
+    if (acc.includes('badge')) B.box(BI.chest, '#c8b060', 0.08, yChest + 0.12, (topStyle === 'duster' ? 0.13 : 0.12) * TD + 0.004, 0.03, 0.04, 0.008);
     // staff ID on a lanyard
     if (acc.includes('lanyard')) {
       const lz = 0.12 * TD + 0.006, lc = o.lanyardColor || '#2f5f9e';
@@ -722,7 +751,7 @@
     B.fabric = fTop;
     buildHead(B, app, yHeadBase);
 
-    return { geo: B.build(), bp };
+    return { geo: B.build(), bp, garment };
   }
 
   function shadeHex(hex, f) {
@@ -904,6 +933,12 @@
 
   /* ----------------------------- shared shadow ----------------------------- */
   let shadowGeo = null, shadowMat = null;
+  // Everyone's blob shadow is one instanced mesh: each model carries only a marker where its shadow
+  // goes (shown or hidden as before), and shadowPass gathers the shown ones in a scene into the batch
+  // just before the frame is drawn (one draw call for the lot, not one each). The markers are held
+  // weakly, so a model nobody keeps is let go.
+  let shadowMarks = [], shadowBatch = null;
+  const SHADOW_MAX = 384;
   function blobShadow() {
     if (!shadowGeo) {
       shadowGeo = new THREE.PlaneGeometry(0.9, 0.9);
@@ -917,10 +952,35 @@
       });
       shadowMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, fog: true });
     }
-    const m = new THREE.Mesh(shadowGeo, shadowMat);
+    const m = new THREE.Object3D();
+    m.name = 'blob_shadow';
     m.position.y = 0.015;
-    m.renderOrder = 1;
+    shadowMarks.push(new WeakRef(m));
     return m;
+  }
+  function shadowPass(scene) {
+    if (!shadowGeo || !scene) return;
+    if (!shadowBatch) {
+      shadowBatch = new THREE.InstancedMesh(shadowGeo, shadowMat, SHADOW_MAX);
+      shadowBatch.name = 'blob_shadows'; shadowBatch.frustumCulled = false; shadowBatch.renderOrder = 1;
+    }
+    if (shadowBatch.parent !== scene) scene.add(shadowBatch);
+    let n = 0, live = 0;
+    for (let i = 0; i < shadowMarks.length; i++) {
+      const m = shadowMarks[i].deref();
+      if (!m || m.dead) continue;
+      shadowMarks[live++] = shadowMarks[i];
+      if (n >= SHADOW_MAX) continue;
+      // (drawn only if it and everything it hangs from is shown, all the way up to this scene)
+      let o = m;
+      while (o && o !== scene && o.visible) o = o.parent;
+      if (o !== scene) continue;
+      m.updateWorldMatrix(true, false);
+      shadowBatch.setMatrixAt(n++, m.matrixWorld);
+    }
+    shadowMarks.length = live;
+    shadowBatch.count = n;
+    shadowBatch.instanceMatrix.needsUpdate = true;
   }
 
   /* ----------------------------- model class ----------------------------- */
@@ -939,7 +999,8 @@
     }
     build() {
       const app = this.app;
-      const { geo, bp } = buildGeometry(app);
+      const { geo, bp, garment } = buildGeometry(app);
+      this.bp = bp;
       this.bodyMat = new THREE.MeshLambertMaterial({ map: faceTexture(app), vertexColors: true, side: THREE.DoubleSide });
       DV.Mat.applyWobble(this.bodyMat);
       // bones
@@ -964,6 +1025,9 @@
       this.root.add(mesh);
       this.shadow = blobShadow();
       this.root.add(this.shadow);
+      // a garment that hangs free (the long coat's skirts): cloth, simulated (js/engine/cloth.js)
+      if (this.garment) { this.garment.dispose(); this.garment = null; }
+      if (garment && DV.Cloth) this.garment = DV.Cloth.skirt(this, garment);
       const hs = app.child ? 0.62 : (app.sex === 'f' ? 0.955 : 1) * (app.height || 1);
       this.mesh.scale.setScalar(hs);
       this.scale = hs;
@@ -976,6 +1040,7 @@
       if (b) b.scale.setScalar(on ? 1 : 0.0001);
     }
     rebuild(app) {
+      if (this.shadow) this.shadow.dead = true;
       this.dispose(true);
       this.app = app;
       this.root.remove(this.mesh);
@@ -990,11 +1055,12 @@
       this.root.visible = v;
     }
     dispose(keepRoot) {
+      if (this.garment) { this.garment.dispose(); this.garment = null; }
       if (this.mesh) {
         this.mesh.geometry.dispose();
         this.bodyMat.dispose();
       }
-      if (!keepRoot && this.root.parent) this.root.parent.remove(this.root);
+      if (!keepRoot) { if (this.shadow) this.shadow.dead = true; if (this.root.parent) this.root.parent.remove(this.root); }
     }
     // hold something (a pistol, a knife) in a hand: the object follows the bone
     attach(boneName, obj) {
@@ -1403,6 +1469,7 @@
         this.mesh.position.y += ((lying ? (s.seatY || 0.6) + 0.12 : 0) - this.mesh.position.y) * k;
         this.mesh.position.z += ((lying ? 0.85 * this.scale : 0) - this.mesh.position.z) * k;
       }
+      if (this.garment) this.garment.update(dt);
       // (no blob shadow in the air: it would hang under the feet)
       this.shadow.visible = !this.noShadow && !lying && !this.shadowFar && !(s.pk && s.pk.air);
     }
@@ -1691,6 +1758,8 @@
 
   DV.Character = {
     BONES,
+    BI,
+    ATLAS,
     FACES,
     HAIRSTYLES,
     BODY_TYPES: Object.keys(BODY),
@@ -1700,6 +1769,7 @@
       return new CharacterModel(app);
     },
     fromFaction,
+    shadowPass,
     shadeHex,
     deepAssign,
   };

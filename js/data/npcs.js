@@ -42,7 +42,7 @@
     id: 'dean_walsh', name: 'Dean Walsh', age: 27, sex: 'm', faction: 'dauntless', role: 'staff', tier: 2,
     title: 'Dauntless Security',
     personality: 'Blunt, bored, secretly decent. Transferred from Candor, which he never mentions.',
-    appearance: { build: 'athletic', face: 1, skin: '#a8704a', hair: 'buzzed', hairColor: '#141210', height: 1.07, outfit: { top: 'jacket', topColor: '#1d1d1f', topColor2: '#3a1d1a', bottomColor: '#1a1a1c', shoes: 'boots', tattoos: ['armL', 'neck'], piercings: ['ear', 'brow'], acc: ['badge'] } },
+    appearance: { build: 'athletic', face: 1, skin: '#a8704a', hair: 'buzzed', hairColor: '#141210', height: 1.07, outfit: { top: 'duster', topColor: '#1c1c1e', topColor2: '#2b2b2e', liningColor: '#5a1a14', bottomColor: '#1a1a1c', fabricBottom: 'denim', shoes: 'boots', tattoos: ['armL', 'neck'], piercings: ['ear', 'brow'], acc: ['badge'] } }, // (the long leather coat: its skirts are cloth, js/engine/cloth.js)
     access: STAFF_ALL,
     dialogue: 'dean',
     schedule: [
