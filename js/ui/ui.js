@@ -56,12 +56,36 @@
       return e;
     },
 
+    // something broke: a panel that says so plainly and offers the ways on (keep playing, go back to the
+    // last save, start the page again), with the details folded away and a report to copy. The game keeps
+    // running behind it; a second error while it's up is added to the details, not stacked on top
     showError(msg) {
       if (!DV.Config.DEBUG && /ResizeObserver|pointer lock|Pointer lock/i.test(msg)) return;
-      let b = document.getElementById('errbox');
-      if (!b) { b = el('div', null, null, this.root || document.body); b.id = 'errbox'; b.onclick = () => b.remove(); }
-      b.textContent = 'Error: ' + msg + '\n(click to dismiss)';
       console.error(msg);
+      this.errors = (this.errors || []).concat(String(msg).slice(0, 4000)).slice(-5);
+      let b = document.getElementById('errbox');
+      if (b) { b.querySelector('pre').textContent = this.errors.join('\n\n'); return; }
+      b = el('div', 'ornate', null, this.root || document.body);
+      b.id = 'errbox';
+      this.ornate(b);
+      el('div', 'eh', 'Something went wrong', b);
+      el('div', 'et', 'The game hit an error it didn\'t expect. You can usually keep playing; if things look broken, go back to your last save. A report of what happened is below, if you\'d like to send it.', b);
+      const det = el('details', null, '<summary>Details</summary>', b);
+      el('pre', null, null, det).textContent = this.errors.join('\n\n');
+      const row = el('div', 'eb', null, b);
+      const btn = (t, f) => { const x = el('span', 'btn small', t, row); x.onclick = (e) => { e.stopPropagation(); f(x); }; return x; };
+      btn('Keep playing', () => { b.remove(); this.errors = []; });
+      const latest = DV.Save && DV.Save.latest && DV.Save.latest();
+      if (latest) btn('Load last save', () => { b.remove(); this.errors = []; DV.Game.loadSlot(latest.slot); });
+      btn('Copy report', (x) => {
+        const st = DV.State && DV.State.data, z = DV.World && DV.World.current;
+        const rep = ['Divergent: The Choosing — error report', 'When: ' + new Date().toISOString(), 'Where: ' + (z ? z.id : '?') + (st && st.world ? ' · day ' + st.world.day + ' ' + DV.U.formatTime(st.world.time) : ''), 'Browser: ' + navigator.userAgent, '', this.errors.join('\n\n')].join('\n');
+        const ok = () => { x.textContent = 'Copied'; };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(rep).then(ok, () => { det.open = true; });
+        else det.open = true;
+      });
+      btn('Restart', () => location.reload());
+      if (DV.Input && DV.Input.locked) DV.Input.exitLock();
     },
 
     showHUD(v) {

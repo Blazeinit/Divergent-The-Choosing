@@ -363,6 +363,7 @@
         s.onchange = () => { S.set(key, s.value); DV.Audio.play('click'); };
       };
       el('div', 'h', 'Controls', body);
+      { const r = el('div', 'row', '<label>Key bindings and gamepad</label>', body); const b = el('span', 'btn small', 'Open…', r); b.onclick = () => { DV.Audio.play('click'); this.showControls(); }; }
       range('Mouse sensitivity', 'mouseSensitivity', 0.2, 3, 0.05);
       toggle('Invert vertical look', 'invertY');
       toggle('In-game cursor (menus keep the mouse captured)', 'softCursor');
@@ -395,14 +396,40 @@
     showControls() {
       this.closeSide();
       const p = this.side('Controls');
-      p.querySelector('.body').innerHTML = [
+      const body = p.querySelector('.body'), I = DV.Input;
+      // the bindings: click one, press the key you want (Esc cancels); a key another action had swaps over
+      el('div', 'h', 'Key bindings', body);
+      el('div', 'faint', 'Click a key, then press the one you want. Esc cancels.', body).style.fontSize = '11.5px';
+      for (const [code, name] of I.ACTIONS) {
+        const r = el('div', 'row keybind', '<label>' + name + '</label>', body);
+        const b = el('span', 'btn small', U.esc(I.label(I.keyFor(code))), r);
+        b.dataset.action = code;
+        b.onclick = () => {
+          DV.Audio.play('click');
+          for (const x of body.querySelectorAll('.keybind .btn')) x.classList.remove('on');
+          b.classList.add('on'); b.textContent = 'Press a key…';
+          I.capture = (k) => {
+            if (k !== 'Escape') { I.bind(code, k); DV.Audio.play('click'); }
+            this.showControls();
+          };
+        };
+      }
+      const rs = el('span', 'btn small', 'Reset key bindings', body);
+      rs.style.marginTop = '6px';
+      rs.onclick = () => { DV.Settings.set('keymap', {}); DV.Audio.play('click'); this.showControls(); };
+      el('div', 'h', 'Gamepad', body);
+      el('div', 'faint', I.pad ? 'Connected: ' + U.esc(I.pad) : 'None connected (plug one in and press a button).', body).style.fontSize = '11.5px';
+      const pad = [['Left stick', 'Move (all the way: run)'], ['Right stick', 'Look'], ['A', 'Jump · confirm'], ['X / RB', 'Interact · talk'], ['B / Start', 'Back · pause'], ['Y', 'RPG menu'], ['Back', 'Map'], ['LB', 'Page back · yield'], ['LT / RT', 'Aim · fire, block · strike'], ['D-pad', 'Choose in menus and dialogue'], ['R3', 'Crouch']];
+      el('div', null, pad.map(([k, v]) => '<div class="kv"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>').join(''), body);
+      el('div', 'h', 'Everything', body);
+      el('div', null, [
         ['W A S D / Arrows', 'Move'], ['Mouse', 'Look / orbit camera (click to capture; or hold a button and drag)'], ['Mouse wheel', 'Zoom camera'],
         ['Shift', 'Run (uses stamina)'], ['Space', 'Jump (uses stamina)'], ['C', 'Crouch / sneak (quieter; Shift or C to stand)'], ['E', 'Interact · talk · take · sit'], ['Tab', 'RPG menu (Character, Skills, Inventory, Quests, Reputation, Map)'],
         ['M', 'Map'], ['J', 'Quests'], ['I', 'Inventory'], ['T', 'Wait (anywhere you\'re free to: pick how long, or until something)'], ['Dialogue', 'Move the mouse or scroll to choose, click / E / Enter to confirm (or 1-9)'], ['Esc', 'Pause / close windows'],
         ['Fights', 'LMB / J jab · RMB / K cross · F / L kick · hold Shift block · Space + direction dodge · hold Q yield'],
         ['Range', 'Mouse aim · LMB fire · hold RMB sights · hold Shift hold your breath'], ['Knives', 'Hold LMB to wind up, release to throw'],
         ['Activities', 'Each one shows its keys along the bottom of the screen'],
-      ].map(([k, v]) => '<div class="kv"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>').join('');
+      ].map(([k, v]) => '<div class="kv"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>').join(''), body);
     },
 
     /* ------------------------------ credits ------------------------------ */

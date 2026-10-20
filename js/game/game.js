@@ -365,6 +365,7 @@
       this.fpsAcc = (this.fpsAcc || 0) + dt;
       this.fpsN = (this.fpsN || 0) + 1;
       if (this.fpsAcc > 0.5) { this.fps = Math.round(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0; }
+      DV.Input.pollPad(dt);
       try {
         this.update(dt);
       } catch (e) {

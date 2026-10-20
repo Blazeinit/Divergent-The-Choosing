@@ -103,6 +103,7 @@
     devMenu: false, // the developer menu (` or Pause → Developer), for testing
     showFps: false,
     drawDistance: 'normal', // 'near' | 'normal' | 'far'
+    keymap: {}, // rebound keys: {the action's key: the key pressed for it} (js/engine/input.js)
   };
 
   DV.Settings = {
