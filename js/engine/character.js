@@ -15,8 +15,9 @@
   // 'hem' and 'hairB' are the cloth's and the hair's: what hangs below the waist (a skirt, a robe's
   // or a coat's skirts) and what hangs off the back of the head (long hair, a ponytail), swung by a
   // spring as the body moves (see CharacterModel.cloth)
-  const BONES = ['root', 'hips', 'spine', 'chest', 'neck', 'head', 'uArmL', 'lArmL', 'handL', 'uArmR', 'lArmR', 'handR', 'uLegL', 'lLegL', 'footL', 'uLegR', 'lLegR', 'footR', 'tag', 'hem', 'hairB'];
+  const BONES = ['root', 'hips', 'spine', 'chest', 'neck', 'head', 'uArmL', 'lArmL', 'handL', 'uArmR', 'lArmR', 'handR', 'uLegL', 'lLegL', 'footL', 'uLegR', 'lLegR', 'footR', 'tag', 'hem', 'hairB', 'hem2'];
   const BI = {};
+  const HEM_KNEE = 0.52; // (where a long skirt or robe folds, sitting)
   BONES.forEach((b, i) => (BI[b] = i));
 
   const FACES = [
@@ -547,7 +548,7 @@
       uLegL: [HW * 0.95, yHip, 0], lLegL: [HW * 0.95, yKnee, 0.01], footL: [HW * 0.95, yAnkle, 0],
       uLegR: [-HW * 0.95, yHip, 0], lLegR: [-HW * 0.95, yKnee, 0.01], footR: [-HW * 0.95, yAnkle, 0],
       tag: [-0.075 * TW, yChest + 0.08, 0.125 * TD + 0.012],
-      hem: [0, yWaist, 0], hairB: [0, yHeadBase + 0.1, -0.09],
+      hem: [0, yWaist, 0], hairB: [0, yHeadBase + 0.1, -0.09], hem2: [0, HEM_KNEE, 0],
     };
 
     const sleeveLong = ['duster', 'shirt', 'jacket', 'blazer', 'robe', 'cardigan', 'hoodie', 'labcoat', 'tunic', 'sweater', 'vest'].indexOf(topStyle) >= 0;
@@ -615,8 +616,13 @@
       B.prism(BI['lArm' + side], armLowerCol, [x0 + 0.015 * s, yWrist + 0.01, 0], [x0 + 0.01 * s, yElbow + 0.01, 0], ar * 0.72, ar * 0.72, ar * 0.88, ar * 0.88, 6, { capTop: false, capBottom: true, botCol: skin });
       if (sleeveLong && !acc.includes('rolled')) B.prism(BI['lArm' + side], shadeHex(armLowerCol, 0.8), [x0 + 0.015 * s, yWrist + 0.01, 0], [x0 + 0.015 * s, yWrist + 0.04, 0], ar * 0.78, ar * 0.78, ar * 0.78, ar * 0.78, 6);
       // hand + thumb
-      B.box(BI['hand' + side], skin, x0 + 0.017 * s, yWrist - 0.075, 0.005, 0.035, 0.15, 0.075);
-      B.box(BI['hand' + side], skin, x0 + 0.012 * s - 0.0, yWrist - 0.045, 0.045, 0.025, 0.06, 0.025);
+      // the hand: a palm (rounded, a little narrower at the wrist), the fingers together and curled in a
+      // little (two joints' worth, the tips tucked toward the palm), and the thumb off the front of it
+      const hx = x0 + 0.017 * s, hw = fem ? 0.9 : 1;
+      B.prism(BI['hand' + side], skin, [hx, yWrist - 0.085, 0.006], [hx, yWrist - 0.01, 0.004], 0.019 * hw, 0.04 * hw, 0.016 * hw, 0.032 * hw, 6);
+      B.prism(BI['hand' + side], skin, [hx, yWrist - 0.13, 0.016], [hx, yWrist - 0.083, 0.008], 0.016 * hw, 0.036 * hw, 0.018 * hw, 0.04 * hw, 6, { capTop: false });
+      B.prism(BI['hand' + side], shadeHex(skin, 0.94), [hx - 0.004 * s, yWrist - 0.158, 0.03], [hx, yWrist - 0.128, 0.016], 0.012 * hw, 0.03 * hw, 0.015 * hw, 0.034 * hw, 6, { capTop: false });
+      B.prism(BI['hand' + side], skin, [hx - 0.008 * s, yWrist - 0.085, 0.05], [hx - 0.004 * s, yWrist - 0.03, 0.03], 0.009 * hw, 0.01 * hw, 0.012 * hw, 0.013 * hw, 5);
       // the joints: elbow (in the sleeve, or bare), wrist
       B.ball(BI['lArm' + side], armLowerCol, [x0 + 0.01 * s, yElbow + 0.005, 0], ar * 0.9, 2);
       B.ball(BI['hand' + side], skin, [x0 + 0.016 * s, yWrist - 0.005, 0.002], ar * 0.62, 1);
@@ -635,6 +641,15 @@
         void ac;
       }
     }
+    // what hangs below the waist, on the hem bone; a long one in two, at the knee (the part below on
+    // hem2, which hangs straight down from the knee when sitting instead of sticking out with the thighs)
+    const hemPrism = (col, y0, y1, rx0, rz0, rx1, rz1, opts) => {
+      if (y0 >= HEM_KNEE - 0.02) { B.prism(BI.hem, col, [0, y0, 0], [0, y1, 0], rx0, rz0, rx1, rz1, 8, opts); return; }
+      const t = (HEM_KNEE - y0) / (y1 - y0), kx = U.lerp(rx0, rx1, t), kz = U.lerp(rz0, rz1, t);
+      B.prism(BI.hem, col, [0, HEM_KNEE, 0], [0, y1, 0], kx, kz, rx1, rz1, 8, Object.assign({}, opts, { capBottom: false }));
+      // (the lower part runs a little way up inside the upper, so no gap opens as they fold)
+      B.prism(BI.hem2, col, [0, y0, 0], [0, HEM_KNEE + 0.06, 0], rx0, rz0, kx * 0.97, kz * 0.97, 8, Object.assign({}, opts, { capTop: false }));
+    };
     // --- clothing overlays ---
     const coat = (col, yBottom, open) => {
       B.prism(BI.chest, col, [0, yChest - 0.01, 0], [0, yShoulder + 0.03, 0], 0.175 * TW, 0.12 * TD, SW * 1.0, 0.105 * TD, 8, { capTop: true });
@@ -643,11 +658,11 @@
       const at = (y) => { const t = (y - yBottom) / (yChest - yBottom); return [U.lerp(rx0, rx1, t), U.lerp(rz0, rz1, t)]; };
       const yw = yWaist - 0.03, [wx, wz] = at(yw + 0.05);
       B.prism(BI.hips, col, [0, yw, 0], [0, yChest, 0], at(yw)[0], at(yw)[1], rx1, rz1, 8, { capTop: false, capBottom: false });
-      B.prism(BI.hem, col, [0, yBottom, 0], [0, yw + 0.05, 0], rx0, rz0, wx * 0.985, wz * 0.985, 8, { capTop: false, capBottom: false });
+      hemPrism(col, yBottom, yw + 0.05, rx0, rz0, wx * 0.985, wz * 0.985, { capTop: false, capBottom: false });
       if (open) {
         B.box(BI.chest, top2, 0, (yChest + yShoulder) / 2 - 0.02, 0.112 * TD + 0.004, 0.06, yShoulder - yChest - 0.04, 0.01);
         B.box(BI.hips, top2, 0, (yw + yChest) / 2, 0.13 * TD + 0.01, 0.04, yChest - yw - 0.02, 0.01);
-        B.box(BI.hem, top2, 0, (yBottom + yw) / 2 + 0.04, 0.135 * TD + 0.012, 0.04, yw - yBottom - 0.08, 0.01);
+        { const yb = Math.max(yBottom + 0.04, HEM_KNEE); B.box(BI.hem, top2, 0, (yb + yw) / 2, 0.135 * TD + 0.012, 0.04, yw - yb - 0.04, 0.01); }
       }
     };
     if (topStyle === 'robe') coat(top, 0.36, false);
@@ -731,8 +746,8 @@
     B.fabric = fBot;
     // (under a coat, a robe or a jacket, a size in: two layers the same size fight for the same pixels)
     const under = ['robe', 'tunic', 'labcoat', 'jacket', 'blazer', 'hoodie', 'cardigan'].indexOf(topStyle) >= 0 ? 0.92 : 1;
-    if (botStyle === 'skirt') B.prism(BI.hem, bottom, [0, 0.56, 0], [0, yWaist, 0], 0.2 * TW * under, 0.15 * TD * under, 0.155 * TW * under, 0.105 * TD * under, 8, { capTop: false, capBottom: true });
-    if (botStyle === 'longskirt') B.prism(BI.hem, bottom, [0, 0.16, 0], [0, yWaist, 0], 0.25 * TW * under, 0.2 * TD * under, 0.155 * TW * under, 0.105 * TD * under, 8, { capTop: false, capBottom: true });
+    if (botStyle === 'skirt') hemPrism(bottom, 0.56, yWaist, 0.2 * TW * under, 0.15 * TD * under, 0.155 * TW * under, 0.105 * TD * under, { capTop: false, capBottom: true });
+    if (botStyle === 'longskirt') hemPrism(bottom, 0.16, yWaist, 0.25 * TW * under, 0.2 * TD * under, 0.155 * TW * under, 0.105 * TD * under, { capTop: false, capBottom: true });
     // belt
     B.fabric = 'leather';
     if (acc.includes('belt') || topStyle === 'tank' || topStyle === 'tshirt') B.prism(BI.hips, '#1a1612', [0, yWaist - 0.035, 0], [0, yWaist + 0.0, 0], 0.158 * TW, 0.106 * TD, 0.158 * TW, 0.106 * TD, 8);
@@ -1030,7 +1045,7 @@
       DV.Mat.applyWobble(this.bodyMat);
       // bones
       const bones = [];
-      const parents = { root: null, hips: 'root', spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', uArmL: 'chest', lArmL: 'uArmL', handL: 'lArmL', uArmR: 'chest', lArmR: 'uArmR', handR: 'lArmR', uLegL: 'hips', lLegL: 'uLegL', footL: 'lLegL', uLegR: 'hips', lLegR: 'uLegR', footR: 'lLegR', tag: 'chest', hem: 'hips', hairB: 'head' };
+      const parents = { root: null, hips: 'root', spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', uArmL: 'chest', lArmL: 'uArmL', handL: 'lArmL', uArmR: 'chest', lArmR: 'uArmR', handR: 'lArmR', uLegL: 'hips', lLegL: 'uLegL', footL: 'lLegL', uLegR: 'hips', lLegR: 'uLegR', footR: 'lLegR', tag: 'chest', hem: 'hips', hairB: 'head', hem2: 'hem' };
       for (const name of BONES) {
         const b = new THREE.Bone();
         b.name = name;
@@ -1541,6 +1556,10 @@
       }
       const lying = act === 'lie' || act === 'recline';
       hem.rotation.set(lying ? 0 : C.hx, 0, lying ? 0 : C.hz);
+      // below the knee: sitting, it hangs straight down from the knee (undoing the thighs' turn); moving,
+      // it trails a little further than the part above
+      const sit = U.clamp(-thighs / 1.1, 0, 1), h2 = this.bones[BI.hem2];
+      if (h2) h2.rotation.set(lying ? 0 : -C.hx * sit + (1 - sit) * C.hx * 0.35, 0, lying ? 0 : C.hz * 0.3);
       hem.scale.set(1 + spread * 0.12, 1, 1 + Math.min(spread, 1.6) * 0.5);
       hb.rotation.set(lying ? 0 : Math.max(-0.15, C.ax), 0, lying ? 0 : C.az);
     }
