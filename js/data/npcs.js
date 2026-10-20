@@ -42,7 +42,7 @@
     id: 'dean_walsh', name: 'Dean Walsh', age: 27, sex: 'm', faction: 'dauntless', role: 'staff', tier: 2,
     title: 'Dauntless Security',
     personality: 'Blunt, bored, secretly decent. Transferred from Candor, which he never mentions.',
-    appearance: { build: 'athletic', face: 1, skin: '#a8704a', hair: 'buzzed', hairColor: '#141210', height: 1.07, outfit: { top: 'duster', topColor: '#1c1c1e', topColor2: '#2b2b2e', liningColor: '#5a1a14', bottomColor: '#1a1a1c', fabricBottom: 'denim', shoes: 'boots', tattoos: ['armL', 'neck'], piercings: ['ear', 'brow'], acc: ['badge'] } }, // (the long leather coat: its skirts are cloth, js/engine/cloth.js)
+    appearance: { build: 'athletic', face: 1, skin: '#a8704a', hair: 'buzzed', hairColor: '#141210', height: 1.07, outfit: { top: 'duster', coatCut: 'dauntless', topColor: '#3a3632', topColor2: '#1a1a1c', liningColor: '#b0281c', bottomColor: '#1a1a1c', fabricBottom: 'denim', shoes: 'boots', tattoos: ['armL', 'neck'], piercings: ['ear', 'brow'], acc: ['badge'] } }, // (the long leather coat: its skirts are cloth, js/engine/cloth.js)
     access: STAFF_ALL,
     dialogue: 'dean',
     schedule: [
@@ -100,7 +100,7 @@
     id: 'martha_bell', name: 'Martha Bell', age: 52, sex: 'f', faction: 'abnegation', role: 'staff', tier: 2,
     title: 'Reception (Abnegation Volunteer)',
     personality: 'Patient, precise, tired in a way she would never mention. Sees everything that passes her desk.',
-    appearance: { build: 'slim', face: 3, skin: '#e9bf9b', hair: 'bun', hairColor: '#8d8a85', outfit: { top: 'robe', topColor: '#7d7d78', bottomColor: '#5f5f5b' } },
+    appearance: { build: 'slim', face: 3, skin: '#e9bf9b', hair: 'bun', hairColor: '#8d8a85', outfit: { top: 'duster', coatCut: 'abnegation', fabricTop: 'wool', topColor: '#86857f', topColor2: '#6e6d68', bottomColor: '#5f5f5b', shoeColor: '#2a2826' } }, // (the long grey coat, buttoned to the throat: cloth)
     access: ['staff', 'records'],
     dialogue: 'martha',
     schedule: [
@@ -115,7 +115,7 @@
     id: 'alan_pierce', name: 'Dr. Alan Pierce', age: 48, sex: 'm', faction: 'erudite', role: 'staff', tier: 2,
     title: 'Facility Director',
     personality: 'Courteous, exacting, intensely curious about anything that does not fit. Reports upward to Erudite Oversight.',
-    appearance: { build: 'average', face: 5, skin: '#f3d2b8', hair: 'slicked', hairColor: '#8d8a85', height: 1.04, outfit: { top: 'blazer', topColor: '#1f3d68', topColor2: '#e8eef5', bottomColor: '#1d2f4e', acc: ['glasses', 'tie'], tieColor: '#2f5f9e' } },
+    appearance: { build: 'average', face: 5, skin: '#f3d2b8', hair: 'slicked', hairColor: '#8d8a85', height: 1.04, outfit: { top: 'duster', coatCut: 'erudite', fabricTop: 'twill', topColor: '#24497d', topColor2: '#e8eef5', bottomColor: '#1d2f4e', acc: ['glasses', 'tie'], tieColor: '#2f5f9e' } }, // (the blue knee-length coat: cloth)
     access: ['all'],
     dialogue: 'pierce',
     schedule: [
@@ -179,7 +179,7 @@
     id: 'tom_garza', name: 'Tom Garza', age: 38, sex: 'm', faction: 'candor', role: 'staff', tier: 1,
     title: 'Aptitude Technician — Room 2',
     personality: 'Dry, honest to the point of rudeness, fond of candidates who argue back.',
-    appearance: { build: 'heavy', face: 1, skin: '#8a5636', hair: 'short', hairColor: '#141210', beard: 'stubble', outfit: Object.assign(labcoat('#141414', '#f0efe9'), { bottomColor: '#151515', acc: ['tie'], tieColor: '#101010' }) },
+    appearance: { build: 'heavy', face: 1, skin: '#8a5636', hair: 'short', hairColor: '#141210', beard: 'stubble', outfit: { top: 'duster', coatCut: 'candor', fabricTop: 'twill', topColor: '#161616', topColor2: '#f0efe9', bottomColor: '#151515', acc: ['tie'], tieColor: '#101010' } }, // (black, white lapels and lining: cloth)
     access: ['testing', 'staff'],
     schedule: [
       { t: '07:48', do: 'arrive', to: 'reception_q3' },
@@ -227,7 +227,7 @@
     id: 'rose_murphy', name: 'Rose Murphy', age: 40, sex: 'f', faction: 'amity', role: 'staff', tier: 2,
     title: 'Infirmary Nurse (Amity)',
     personality: 'Unhurried, warm, sharper than her softness suggests. Has patched up a lot of candidates.',
-    appearance: { build: 'average', face: 6, skin: '#d8a27c', hair: 'long', hairColor: '#6d3f22', outfit: { top: 'tunic', topColor: '#e0a526', topColor2: '#c0392b', bottomColor: '#7a5531', acc: ['flower'], flowerColor: '#e8c030' } },
+    appearance: { build: 'average', face: 6, skin: '#d8a27c', hair: 'long', hairColor: '#6d3f22', outfit: { top: 'duster', coatCut: 'amity', fabricTop: 'linen', topColor: '#d99a2a', topColor2: '#f0d890', bottomColor: '#7a5531', fabricBottom: 'linen', acc: ['flower'], flowerColor: '#e8c030' } }, // (the linen smock-coat, a rope belt: cloth)
     access: ['staff'],
     dialogue: 'rose',
     schedule: [
@@ -270,7 +270,7 @@
     id: 'gus_novak', name: 'Gus Novak', age: 57, sex: 'm', faction: 'factionless', role: 'staff', tier: 2,
     title: 'Custodian',
     personality: 'Taciturn, observant, wry. Factionless for twenty years. Once Erudite — he never says so.',
-    appearance: { build: 'heavy', face: 1, skin: '#c48a62', hair: 'messy', hairColor: '#8d8a85', beard: 'full', outfit: { top: 'hoodie', topColor: '#4f5548', topColor2: '#3f4447', bottomColor: '#3e3a33', shoes: 'boots', acc: ['patches'] } },
+    appearance: { build: 'heavy', face: 1, skin: '#c48a62', hair: 'messy', hairColor: '#8d8a85', beard: 'full', outfit: { top: 'duster', coatCut: 'factionless', fabricTop: 'wool', topColor: '#5a4a38', topColor2: '#4f5548', bottomColor: '#3e3a33', fabricBottom: 'denim', shoes: 'boots', acc: ['patches'] } }, // (the patched greatcoat, a torn hem: cloth)
     access: ['custodian', 'storage', 'staff', 'testing', 'records'],
     dialogue: 'gus',
     schedule: [

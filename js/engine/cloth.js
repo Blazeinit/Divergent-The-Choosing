@@ -45,9 +45,11 @@
       const gap = o.gap || 0.5, ang = (c) => gap / 2 + ((Math.PI * 2 - gap) * c) / (C - 1);
       for (let r = 0; r < R; r++) {
         const k = r / (R - 1), f = Math.pow(k, 1.3);
-        const y = U.lerp(o.y0, o.y1, k), rx = U.lerp(o.rx0, o.rx1, f), rz = U.lerp(o.rz0, o.rz1, f);
+        const rx = U.lerp(o.rx0, o.rx1, f), rz = U.lerp(o.rz0, o.rz1, f);
         for (let c = 0; c < C; c++) {
           const i = r * C + c, a = ang(c);
+          // (a ragged hem: torn short here and there)
+          const y = U.lerp(o.y0, o.y1, k) + (o.ragged && r === R - 1 ? [0, 0.07, 0.02, 0.1, 0, 0.04, 0.12, 0.03][c % 8] : 0);
           this.rest[i * 3] = Math.sin(a) * rx;
           this.rest[i * 3 + 1] = y;
           this.rest[i * 3 + 2] = Math.cos(a) * rz;
@@ -75,14 +77,18 @@
       this.pos = new Float32Array(n * 3);
       geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
       const uv = new Float32Array(n * 2), col = new Float32Array(n * 3);
-      const base = U.hexToRgb(o.color || '#1d1d1f'), [u0, w0, u1, w1] = o.uv || [0.75, 0.97, 0.75, 0.97];
+      const base = U.hexToRgb(o.color || '#1d1d1f'), trim = o.trim ? U.hexToRgb(o.trim) : null, [u0, w0, u1, w1] = o.uv || [0.75, 0.97, 0.75, 0.97];
+      const patch = (r, c) => o.patches && ((r >= 3 && r <= 4 && c >= 3 && c <= 4) || (r >= 5 && r <= 6 && c >= 11 && c <= 12));
+      const PATCH = [[0.42, 0.36, 0.26], [0.3, 0.33, 0.38]];
       for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
         const i = r * C + c;
         uv[i * 2] = u0 + ((u1 - u0) * c) / (C - 1);
         uv[i * 2 + 1] = w0 + (w1 - w0) * U.clamp(this.rest[i * 3 + 1] / 1.9, 0, 1);
         // (darker toward the hem and along the front edges: the weight of it, the edge's thickness)
-        const k = (r === R - 1 ? 0.78 : 1 - (r / R) * 0.08) * (c === 0 || c === C - 1 ? 0.84 : 1);
-        col[i * 3] = base[0] * k; col[i * 3 + 1] = base[1] * k; col[i * 3 + 2] = base[2] * k;
+        const edge = c === 0 || c === C - 1;
+        const k = (r === R - 1 ? 0.78 : 1 - (r / R) * 0.08) * (edge && !trim ? 0.84 : 1);
+        const cc = edge && trim ? trim : patch(r, c) ? PATCH[c < 8 ? 0 : 1] : base;
+        col[i * 3] = cc[0] * k; col[i * 3 + 1] = cc[1] * k; col[i * 3 + 2] = cc[2] * k;
       }
       geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
       geo.setAttribute('color', new THREE.BufferAttribute(col, 3));

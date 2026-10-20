@@ -119,6 +119,15 @@
     linen: reg(66, 130, 126, 254), // Amity: an open, slubbed weave
   };
   ATLAS.cloth = ATLAS.twill;
+  // the long coats' cuts, by faction (what a 'duster' top is like: see buildGeometry)
+  const COATS = {
+    dauntless: { hem: 0.3, flare: 0.29, gap: 0.75, vent: 4, collar: 'stand', belt: 'leather', lining: '#a3261a' },
+    abnegation: { hem: 0.17, flare: 0.27, gap: 0.3, vent: 5, collar: 'high', buttons: 6, button: '#5a5a55', lining: '#6c6c66' },
+    erudite: { hem: 0.44, flare: 0.25, gap: 0.6, vent: 9, collar: 'lapel', lapel: '#8fb6e3', buttons: 3, button: '#c8d4e2', lining: '#8fb6e3' },
+    candor: { hem: 0.38, flare: 0.26, gap: 0.7, vent: 5, collar: 'lapel', lapel: '#f0efe9', trim: '#f0efe9', lining: '#f0efe9' },
+    amity: { hem: 0.36, flare: 0.3, gap: 0.55, vent: 9, collar: 'flat', lapel: '#c0392b', belt: 'rope', beltColor: '#a8875a', lining: '#c0392b' },
+    factionless: { hem: 0.2, flare: 0.31, gap: 0.65, vent: 4, collar: 'stand', belt: 'leather', beltColor: '#2a241c', buckle: '#5a5248', lining: '#3a332a', ragged: true },
+  };
   // the cloth each kind of top is usually made of (an outfit can say otherwise: outfit.fabricTop/Bottom)
   const FABRIC = { duster: 'leather', robe: 'wool', tunic: 'wool', sweater: 'knit', cardigan: 'knit', hoodie: 'knit', tshirt: 'knit', tank: 'knit', jacket: 'twill', blazer: 'twill', labcoat: 'twill', vest: 'twill', shirt: 'twill' };
   let bodyAtlas = null;
@@ -665,30 +674,46 @@
     // over the tee, a belt, and below the waist its skirts, which are cloth (js/engine/cloth.js)
     let garment = null;
     if (topStyle === 'duster') {
+      // the coat's cut (outfit.coat): its length, how wide the front stays open, the collar (stand,
+      // high: buttoned to the throat, lapel: folded back over what's under it), lapel and trim colours,
+      // the belt (or none), and buttons down the front. A faction's people have their own (COATS)
+      const K = Object.assign({}, COATS[o.coatCut] || COATS.dauntless, o.coat || {});
       B.prism(BI.chest, top, [0, yChest - 0.02, 0], [0, yShoulder + 0.03, 0], 0.178 * TW, 0.123 * TD, SW * 1.01, 0.107 * TD, 8, { capTop: true, topCol: shadeHex(top, 0.92) });
       B.prism(BI.spine, top, [0, yHip, 0], [0, yChest + 0.01, 0], 0.172 * TW, 0.121 * TD, 0.176 * TW, 0.122 * TD, 8, { capTop: false });
       const iz = 0.123 * TD + 0.003;
-      // the tee in the open neck
-      B.tri(0, BI.chest, [-0.055, yShoulder + 0.015, iz], [0, yChest - 0.01, iz + 0.002], [0.055, yShoulder + 0.015, iz], top2);
-      B.tri(0, BI.chest, [-0.055, yShoulder + 0.015, iz], [0.055, yShoulder + 0.015, iz], [0, yChest - 0.01, iz + 0.002], top2);
-      // lapels: folded back, a shade lighter where they catch the light, a dark edge under them
-      const lap = shadeHex(top, 1.35), edge = shadeHex(top, 0.55);
-      for (const s of [1, -1]) {
-        const a = [s * 0.058, yShoulder + 0.02, iz + 0.004], b = [s * 0.112, yChest + 0.04, iz + 0.016], c = [s * 0.01, yChest - 0.03, iz + 0.006];
-        B.tri(0, BI.chest, a, b, c, lap);
-        B.tri(0, BI.chest, a, c, b, lap);
-        B.tri(0, BI.chest, b, [s * 0.112, yChest + 0.035, iz + 0.002], c, edge);
+      if (K.collar !== 'high') {
+        // what's under it, in the open neck
+        B.tri(0, BI.chest, [-0.055, yShoulder + 0.015, iz], [0, yChest - 0.01, iz + 0.002], [0.055, yShoulder + 0.015, iz], top2);
+        B.tri(0, BI.chest, [-0.055, yShoulder + 0.015, iz], [0.055, yShoulder + 0.015, iz], [0, yChest - 0.01, iz + 0.002], top2);
       }
-      // the collar, turned up
-      B.prism(BI.neck, shadeHex(top, 0.88), [0, yNeck - 0.035, -0.006], [0, yNeck + 0.075, -0.016], 0.084, 0.078, 0.093, 0.084, 8, { capTop: false });
-      // the belt and its buckle
-      B.fabric = 'leather';
-      B.prism(BI.spine, '#121214', [0, yWaist - 0.045, 0], [0, yWaist + 0.0, 0], 0.18 * TW, 0.126 * TD, 0.18 * TW, 0.126 * TD, 8);
-      B.box(BI.spine, '#9a9a96', 0, yWaist - 0.022, 0.126 * TD + 0.004, 0.05, 0.04, 0.008);
-      B.box(BI.spine, '#121214', 0, yWaist - 0.022, 0.126 * TD + 0.008, 0.03, 0.022, 0.006);
-      B.fabric = fTop;
-      // (the skirts start at the belt and fall to mid-calf, open at the front, a vent up the back)
-      garment = { y0: yWaist - 0.035, y1: 0.3, rx0: 0.183 * TW, rz0: 0.13 * TD, rx1: 0.29 * TW, rz1: 0.25 * TD, cols: 16, rows: 9, gap: 0.75, vent: 4, color: top, lining: o.liningColor || '#4a1612', uv: ATLAS.leather };
+      if (K.collar === 'lapel' || K.collar === 'stand') {
+        // lapels: folded back, the lapel colour (or a shade lighter), a dark edge under them
+        const lap = K.lapel || shadeHex(top, 1.35), edge = shadeHex(top, 0.55);
+        for (const s of [1, -1]) {
+          const a = [s * 0.058, yShoulder + 0.02, iz + 0.004], b = [s * 0.112, yChest + 0.04, iz + 0.016], c = [s * 0.01, yChest - 0.03, iz + 0.006];
+          B.tri(0, BI.chest, a, b, c, lap);
+          B.tri(0, BI.chest, a, c, b, lap);
+          B.tri(0, BI.chest, b, [s * 0.112, yChest + 0.035, iz + 0.002], c, edge);
+        }
+      }
+      if (K.collar === 'stand') B.prism(BI.neck, shadeHex(top, 0.88), [0, yNeck - 0.035, -0.006], [0, yNeck + 0.075, -0.016], 0.084, 0.078, 0.093, 0.084, 8, { capTop: false });
+      else if (K.collar === 'high') B.prism(BI.neck, shadeHex(top, 0.9), [0, yNeck - 0.04, -0.004], [0, yNeck + 0.045, -0.01], 0.07, 0.066, 0.064, 0.06, 8, { capTop: false });
+      else B.prism(BI.neck, K.lapel || shadeHex(top, 0.85), [0, yNeck - 0.04, -0.008], [0, yNeck + 0.02, -0.02], 0.08, 0.075, 0.084, 0.078, 8, { capTop: false }); // (the collar lying flat)
+      // trim down the front edges (the placket), and buttons
+      if (K.trim) for (const s of [1, -1]) B.box(BI.spine, K.trim, s * 0.012, (yHip + yChest) / 2, iz - 0.001, 0.014, yChest - yHip + 0.02, 0.006);
+      if (K.buttons) for (let k = 0; k < K.buttons; k++) B.box(K.collar === 'high' && k === 0 ? BI.chest : BI.spine, K.button || '#c8c0a8', 0.02, (K.collar === 'high' ? yShoulder - 0.02 : yChest - 0.04) - k * 0.085, iz + 0.006, 0.016, 0.016, 0.008);
+      // the belt and its buckle (or a rope tied, or none)
+      if (K.belt) {
+        B.fabric = K.belt === 'rope' ? 'linen' : 'leather';
+        const bc = K.beltColor || '#121214';
+        B.prism(BI.spine, bc, [0, yWaist - 0.045, 0], [0, yWaist + 0.0, 0], 0.18 * TW, 0.126 * TD, 0.18 * TW, 0.126 * TD, 8);
+        if (K.belt === 'rope') { B.box(BI.spine, bc, 0.05, yWaist - 0.07, 0.128 * TD, 0.02, 0.08, 0.02); B.box(BI.spine, bc, 0.07, yWaist - 0.08, 0.126 * TD, 0.018, 0.1, 0.018); }
+        else { B.box(BI.spine, K.buckle || '#9a9a96', 0, yWaist - 0.022, 0.126 * TD + 0.004, 0.05, 0.04, 0.008); B.box(BI.spine, bc, 0, yWaist - 0.022, 0.126 * TD + 0.008, 0.03, 0.022, 0.006); }
+        B.fabric = fTop;
+      }
+      if (acc.includes('patches')) for (const [x, y, c] of [[0.11, yChest + 0.06, '#6a5a40'], [-0.09, yWaist + 0.05, '#4a5260']]) B.box(BI.spine, c, x, y, iz + 0.004, 0.06, 0.06, 0.006);
+      // (the skirts start at the belt and fall to the coat's length, open at the front, vented behind)
+      garment = { y0: yWaist - 0.035, y1: K.hem, rx0: 0.183 * TW, rz0: 0.13 * TD, rx1: K.flare * TW, rz1: K.flare * 0.86 * TD, cols: 16, rows: 9, gap: K.gap, vent: K.vent, color: top, lining: o.liningColor || K.lining, trim: K.trim, ragged: K.ragged, patches: acc.includes('patches'), uv: ATLAS[fTop] || ATLAS.leather };
     }
     if (topStyle === 'vest') {
       // shirt collar + V showing beneath the vest
