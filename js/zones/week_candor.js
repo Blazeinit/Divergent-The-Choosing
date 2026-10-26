@@ -282,7 +282,8 @@
       this.i = -1; this.answers = [];
       this.phase = 'onset'; this.t = 2.4;
       DV.Game.rig.setTrack(new THREE.Vector3(13.4, 1.75, 25.6), new THREE.Vector3(16, 1.0, 22), 3, true, new THREE.Vector3(16, 1.4, 23));
-      const h = U.el('div', 'serum-hud', '<div class="serum-haze"></div><div class="serum-q"></div><div class="serum-a"></div><div class="serum-will"><span>Will</span><div class="fh-bar"><i></i></div></div>', A.hud);
+      const h = U.el('div', 'serum-hud', '<div class="serum-haze"></div><div class="serum-q"></div><div class="serum-a"></div><div class="serum-will"><span>Will</span><div class="fh-bar"><i></i></div></div><div class="serum-will serum-room"><span>The room</span><div class="fh-bar"><i></i></div></div>', A.hud);
+      this.shotN = 0;
       this.h = h;
       A.keys('hold <b>Space</b> to clench your jaw');
       DV.Audio.play('heartbeat', { volume: 0.5 });
@@ -305,6 +306,10 @@
       this.q('.serum-a').className = 'serum-a';
       if (this.o.rosa) this.o.rosa.say(Q.q, this.t + 1, true);
       this.will = Math.min(100, this.will + 22);
+      // the camera goes round the room with the questions: you, Rosa, the benches watching you
+      const shots = [[[16, 1.45, 23.3], [16, 1.25, 22]], [[16.9, 1.9, 25.4], [16, 1.1, 22]], [[11.4, 2.6, 26.4], [16, 1.0, 22]], [[15.1, 1.3, 23.0], [16.2, 1.2, 21.9]], [[20.6, 2.2, 18.4], [16, 1.0, 22.2]]];
+      const sh = shots[this.shotN++ % shots.length];
+      DV.Game.rig.setTrack(new THREE.Vector3(...sh[0]), new THREE.Vector3(...sh[1]), 2.4, false, new THREE.Vector3(16, 1.4, 23));
     }
     done() {
       this.phase = 'end';
@@ -315,6 +320,7 @@
       this.tick(dt);
       FW().pose(dt, { action: 'sit_slump', seatY: 0.45 });
       this.q('.serum-will .fh-bar i').style.width = this.will.toFixed(0) + '%';
+      this.q('.serum-room .fh-bar i').style.width = Math.min(100, this.visible / 2.8 * 100).toFixed(0) + '%';
       this.q('.serum-haze').style.opacity = (0.55 + Math.sin(A.t * 1.3) * 0.12).toFixed(3);
       if (this.phase === 'end') return;
       this.t -= dt;
@@ -346,6 +352,9 @@
       if (n >= C.text.length) {
         this.answers.push({ id: Q.id, said: C.mode, held: C.held });
         if (Q.after) Q.after(C.mode, this);
+        // the benches react: to a hard truth, and to a jaw that locked
+        if (C.held > 1.2 && !this.div) DV.Audio.play('murmur', { secs: 1.2, volume: 0.5 });
+        else if (Q.hard && C.mode === 'truth') DV.Audio.play('murmur', { secs: 1.0, volume: 0.35 });
         this.phase = 'between';
         this.t = 3.2;
       }
@@ -538,13 +547,17 @@
       Ch.setFlag('sat');
       DV.Player.place(16, 22, 0);
       Ch.cut(true);
-      Ch.shot([14.2, 1.7, 24.6], [16, 1.0, 22]);
+      DV.Audio.setMusic('serum');
+      Ch.shot([16, 5.6, 12.6], [16, 0.8, 22], true);
+      DV.UI.narrate('THE HEARING', 3.2);
       for (const a of Ch.crowdH) a.lookAt([16, 22]);
       Ch.rosa.walk([[16.9, 22.9]], 1.0, (a) => a.face(16, 22));
       Ch.seq([
-        () => 1.2,
+        () => { DV.Audio.play('murmur', { secs: 2.2, volume: 0.6 }); return 2.6; },
+        () => { Ch.shot([22.4, 1.9, 27.2], [16, 1.1, 22], false); Ch.say(Ch.rosa, 'Sixty people, one chair. Candor doesn\'t punish anything said in it. Only what is kept out of it.', 4.4); return 4.6; },
+        () => { Ch.shot([14.2, 1.7, 24.6], [16, 1.0, 22], false); return 0.6; },
         FW().say(Ch, Ch.rosa, 'The serum will make you feel heavy. Don\'t fight it. Nobody can fight it.', 3.8),
-        () => { DV.Audio.play('drink', { volume: 0.4 }); DV.UI.notify('A needle in the side of your neck. Cold, then warm, then heavy.', 'info'); return 2.6; },
+        () => { Ch.shot([16.8, 1.45, 22.7], [16, 1.35, 22], false); DV.Audio.play('drink', { volume: 0.4 }); DV.UI.notify('A needle in the side of your neck. Cold, then warm, then heavy.', 'info'); DV.Fear.look(0, 'blur(0.8px) saturate(1.2)'); setTimeout(() => DV.Fear.look(0), 2600); return 2.6; },
         () => { Ch.rosa.walk([[16, 24.6]], 1.0, (a) => a.face(16, 22)); return 1.4; },
         () => { Ch.cut(false); DV.Activity.start(new Serum({ rosa: Ch.rosa, questions: this.questions(Ch) }), (r) => this.afterSerum(Ch, r)); },
       ], 'serum');
@@ -567,6 +580,10 @@
         const p = Ch.peers.find((x) => x.id !== 'owen_price') || Ch.peers[0];
         q.push({ id: 'trust', q: 'Who in this room do you trust least?', truth: (FW().was('trust_least') || (p ? p.name : 'Owen Price')) + '. I don\'t know why. I just do.', lie: 'Nobody. I trust all of them.' });
       }
+      const transfer = PL().upbringing && PL().upbringing !== 'candor';
+      q.push({ id: 'family', hard: true, q: 'Did you tell your family what you were going to choose?', truth: transfer ? 'No. They found out with everybody else. I watched my mother\'s face.' : 'They knew. They always knew. They were glad, and I hated that they were glad.', lie: transfer ? 'Yes. We talked about it the night before.' : null });
+      const second = (APT().results || []).find((f) => f !== 'candor') || (PL().upbringing !== 'candor' ? PL().upbringing : 'dauntless');
+      q.push({ id: 'other', hard: true, q: 'Is there a faction you wish you had chosen instead?', truth: 'Sometimes. ' + DV.Factions.name(second) + '. At night, mostly.', lie: 'No. Never. Not once.' });
       q.push({ id: 'why', q: 'Last one. Why did you choose Candor?', truth: FW().was('why_candor') || 'Because I\'d rather know. Even when it hurts. Especially then.' });
       return q;
     },

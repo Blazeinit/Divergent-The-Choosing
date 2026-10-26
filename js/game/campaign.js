@@ -118,7 +118,7 @@
     // the first-week end banners call this once they're dismissed
     afterBanner(f) {
       if (!this.begin(f)) return;
-      DV.UI.notify('A new case: The Chalk Year. Your mentor has asked to see you.', 'quest');
+      DV.UI.notify(this.available() ? 'A new case: The Chalk Year. Your mentor has asked to see you.' : 'A new case: The Chalk Year. Dana Cole will send for you once Stage Two is under way.', 'quest');
     },
     // how much each ally trusts you at the start: what you did in the first weeks decides
     seedTrust() {
@@ -202,6 +202,7 @@
     open(e) {
       if (this.done(e.id)) return false;
       if (e.faction && e.faction !== this.faction()) return false;
+      if (e.gate && !e.gate()) return false; // (Dauntless: Stage Two and Three come first, js/game/stagetwo.js)
       return (e.needs || []).every((n) => (n === '@case' ? this.caseDone() : this.done(n)));
     },
     // both chapters of the player's own case are done

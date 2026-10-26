@@ -227,6 +227,9 @@ js/
                            knockdowns, yielding, and an AI that guards, adapts, counters and feints
     training.js            The range (breath, recoil, moving targets), the knife wall, the bag drill
     initiation.js          Dauntless Stage One: the class, the day's training blocks, points, rankings, the cut
+    fear.js                The fear engine: heart rate and panic, the ways out, awareness, scoring
+    stagetwo.js            Dauntless Stage Two and Three: sessions in the chair, the Pit board, the leaders,
+                           the final ranking and the job
     stageone.js            The Dauntless district script: the days, the scenes, the knife lesson, the
                            ambush, the cut, the fear simulation's debrief
     firstweek.js           Build 3's other four factions: the week's score sheet, days, standings, quests
@@ -245,6 +248,10 @@ js/
     zipline.js             Build 3: the Hancock roof at night and the zip line ride
     fearsim.js             Build 3: the first fear simulation (the tank or the beam) and the
                            factionless ending if you're cut
+    fearscape.js           Stage Two and Three's fears (the crows, the box, fire, your family, your own)
+                           and the chapter that plays a run of them
+    ctf.js                 Capture the Flag: the old pier and fairground at night, teams, paint, the wheel
+    trials.js              Day 6's trials: Erudite's Gallery B, Abnegation's bread line, Amity's second supper
     week_candor.js         Build 3: Candor — the evidence, the interview, the truth game, the Hearing
     week_erudite.js        Build 3: Erudite — the flasks, the relay board, the office at night, the exam
     week_abnegation.js     Build 3: Abnegation — the supply run, dinner, the envelope, the bench
@@ -307,13 +314,17 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
    - **The evenings are yours.** You can teach Daniel to keep his hands up at the bags, get a tattoo from Nina, or ride the zip line with Bo.
    - **Day 5:** Mark asks for a volunteer to stand at the knife board.
    - **The night of Day 5:** Josh's ambush at the chasm.
-   - **Day 6:** the cut. The bottom of the board becomes factionless, and that can be you. If you make it, there's your first fear simulation: the tank if you drowned in the aptitude flood sim, the beam if you didn't. A Divergent player, or one with high Resolve, can realise that none of it is real.
+   - **Day 6:** the cut. The bottom of the board becomes factionless, and that can be you. If you make it, there's your first fear simulation: the tank if you drowned in the aptitude flood sim, the beam if you didn't. A Divergent player, or one with high Resolve, can realise that none of it is real (in the tank: a fingertip on the glass, and it cracks, and shatters).
+   - **The night of Day 3: Capture the Flag.** Mark calls it at dinner; be by the Training Passage at nine. The train takes the class out to the dead fairground at the end of Lake Street, where the old Ferris wheel stands on its pier in the marsh. Mark and Shay pick teams (Mark picks you first). Paint markers: hold RMB to aim over the shoulder, LMB to fire. Guards hold each flag, raiders come over the jetty or the old causeway through the reeds, Mark goes where you go. Climb the wheel to see their orange flag from the top, then go and take it, or let a teammate take it. Anyone hit is out and walks back to their own end. The result goes on the board.
+   - **Stage Two, Days 7 and 8.** The chair every morning at ten: the crows in a field at dusk (run for the barn, or get down in the wheat and be still), the box that gets smaller (one board is loose), the room on fire (stay under the smoke, break the window), your mother and father on their knees and a voice telling you to shoot (putting the gun down is an answer), and the fear that's yours alone, read off your aptitude test: the child on the platform you couldn't reach, the dog, the faces that want the truth, or, for the Divergent, the needle in the white corridor. A heart monitor and a panic meter: fear drives your pulse up, holding Space (standing still) brings it down, and calm under the threat is one way out. Divergent players (or very high Resolve) can see through a fear and bend it, fast, and Mark and Dana notice. Times and methods are scored and go up on the new board in the Pit; Mark reads them to you first. Dana's Night Duty and Night Log (the Chalk Year) come after the second and third sessions.
+   - **Day 9: Stage Three.** Every fear in a row, in front of Dana Cole, Hector Alvarez and a guest from Erudite, Dr. Pierce, who only watches your heart. The final ranking, read out in the Pit, decides the order you choose your job in (leadership, instructor, the control room, the Order's night duty, the Pit, the Fence); then every new member gets a "tracker" from a vial in Erudite blue. **INITIATION COMPLETE**, and the Chalk Year's third act opens.
 12. **The first week (the other four factions).**
    - **Candor.** Read the Hollis case evidence, then sit across from a frightened clerk and call his lies with the right piece of paper. Tell Rosa all of it, or not. Play the truth game in the dormitory. On Day 5 the serum goes in your neck in front of sixty people, and whatever you're hiding comes out unless you can hold it in without anyone seeing.
    - **Erudite.** Measure four litres with no measuring jug, and light the relay board in the fewest switches. On the night of Day 4 you fetch a grey folder from Dr. Park's office. There's a red one beside it. On Day 5, the examination.
    - **Abnegation.** A cart of supplies and seven people who need more than it holds, so ask before you give. Dinner at the Hayes house, where you may only speak to ask about someone else. A sealed envelope to carry after curfew, past a Dauntless patrol with a torch. On Day 5, Joan on the bench tells you whether you're ready.
    - **Amity.** Ruth's orchard is dying and she blames Tom's sluice. Hear them both, walk the channel and dig out the culvert. Then help the circle find common ground, and eat the bread at supper (or don't).
    - Each week ends with **FIRST WEEK COMPLETE**, your standing, and what your test caught up with.
+   - **Day 6, the trials** (your mentor offers them once the week is over). **Erudite, Gallery B:** behind the glass, a Dauntless volunteer is given a simulation serum with a transmitter in it and does what a voice tells him, wide awake; the vials are labelled "tracker", for every Dauntless member, and the monitor shows one subject it does nothing to. Then the intercom. **Abnegation, the bread line:** Joan's cart and the factionless queue, with an Order patrol coming to break it up; hand out what you can, or talk the supervisor down. **Amity, the second supper:** a quarrel that stops mid-sentence when the bread goes round, a tin by Mary's elbow, and the basket coming to you (eat it, hide a piece, or pass). **Candor's Hearing** is now a full scene: the room, the cameras, more questions, and how much of your fight the benches can see.
 
 13. **The Chalk Year (the campaign).** When the first week (or Stage One) ends, the city's six chalk-circle murders become your case. Your mentor offers it (Rosa, Dr. Park, Joan, Mary, Dana Cole), and the Tab menu gains a **Case** page: what you know, the proof you hold, who trusts you, your notes.
    - **Act II — Faction Before Blood:** your own faction's case, two chapters (Dauntless *Night Duty* and *The Night Log*; Candor *The Sister* and *Sealed*; Erudite *Lot Thirty-Three* and *The Calibration Room*; Abnegation *The Tally* and *The Sweep*; Amity *The Dispensary* and *The Night Truck*). Each has a scene to read, people who know more than they say, someone coming (get away from the evidence before they arrive) and a choice with a price: keep the proof, or hand it to someone you trust.
@@ -458,7 +469,7 @@ tools/qa/                  Headless end-to-end test suite (dev only; see tools/q
   They stand, sit, talk among themselves or walk their loop, answer when spoken to, and are solid. The place looks lived in too: the flame and DAUNTLESS sprayed huge on the north wall, slogans between the paths, initiates' names and tallies at eye level, banners hanging from the paths, strings of bulbs across the Pit, and stalls selling cake and coffee, clothes, and boots and knives. The dormitory's washroom door is no longer behind a bunk.
 - **A developer menu for testing** (Settings → Developer, then **`** or Pause → Developer):
   - **Go to:** the city's landmarks, sectors and front doors, or the rooms of wherever you are. Shift+click on the City map goes there too.
-  - **Story:** jump to a point in the story (results in with the gate open, the evening at home, the Choosing, Dauntless days 2–6, each first week).
+  - **Story:** jump to a point in the story (results in with the gate open, the evening at home, the Choosing, Dauntless days 2–6, each first week), and to each trial: Stage Two's sessions, Stage Three, Capture the Flag, any one fear, and the four factions' trials.
   - **Time:** set the hour and the day, freeze the clock or run it ×6/×60.
   - **You:** noclip, which flies through anything: **V** in game toggles it, WASD to move, Space up, C/Ctrl down, Shift faster, and turning it off lands you on the nearest ground you can stand on. Also ×2/×4 speed and endless stamina.
   - **World:** an info readout (zone, room, coordinates, time, frame cost, the street's numbers), hiding the HUD for screenshots, and emptying the streets.

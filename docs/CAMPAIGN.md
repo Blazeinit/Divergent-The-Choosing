@@ -65,7 +65,7 @@ Days are story days (`DV.State.data.world.day`): Day 1 Aptitude Day, Day 2 the C
 
 ### ACT II — FACTION BEFORE BLOOD (Days 7–9)
 
-Every run plays exactly one of the five cases below, the one of their own faction (Dauntless players include Stage Two's fear landscape as the *opening* of Act II; it already exists as `fear_sim`). Each case is two chapters: **part 1** the scene and the trail, **part 2** the choice and the piece. The Act opens when the first week ends (see `Campaign.begin`): a notice board in your headquarters reads the sixth circle, and your mentor sends for you.
+Every run plays exactly one of the five cases below, the one of their own faction (Dauntless players play Stage Two's fear landscape through the opening of Act II: the first fear on Day 6 (`fear_sim`), two more sessions on Days 7 and 8 and Stage Three on Day 9 (`js/game/stagetwo.js`, `js/zones/fearscape.js`). Night Duty opens after the second session, the Night Log after the third, and the seventh circle after Stage Three: each episode's `gate`). Each case is two chapters: **part 1** the scene and the trail, **part 2** the choice and the piece. The Act opens when the first week ends (see `Campaign.begin`): a notice board in your headquarters reads the sixth circle, and your mentor sends for you.
 
 | Case | Chapter ids | Zones | Day | Piece |
 |---|---|---|---|---|

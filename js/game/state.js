@@ -8,7 +8,7 @@
   const DV = window.DV;
   const U = DV.U;
 
-  const SAVE_VERSION = 4;
+  const SAVE_VERSION = 5;
 
   // v2 renamed several NPCs (and their ids) to fit the setting, and turned the
   // candidate card into a name badge. Old saves are rewritten through this map.
@@ -226,6 +226,24 @@
         for (const id in w.visited || {}) seen['sector:' + id] = 0;
         d.codex = { open: {}, init: false };
         d.version = 4;
+      }
+      // v5: Stage Two runs over several days, with Stage Three after it (js/game/stagetwo.js). A save from
+      // before that keeps its own story: past the cut with the Chalk Year already under way, it carries on
+      // as it was (legacy); past the cut and no further, the first fear becomes Stage Two's first session
+      if (d.version < 5) {
+        const story = d.story || {}, init = story.init, camp = story.campaign;
+        const s1 = d.quests && d.quests.stage_one && d.quests.stage_one.state === 'complete';
+        if (init && s1 && !story.stage2) {
+          const begun = !!(camp && camp.ep && Object.keys(camp.ep).some((k) => camp.ep[k] !== 'new'));
+          story.stage2 = { sessions: {}, results: [], run: null, final: null, job: null, ctf: null, legacy: begun, board: null, notes: {} };
+          if (init.fear) {
+            const f = init.fear, r = { fear: f.id || (f.fear === 'drowning' ? 'tank' : 'beam'), how: f.how, secs: f.secs, aware: !!f.aware };
+            story.stage2.sessions[1] = { day: 6, results: [r], pts: 0 };
+            story.stage2.results.push(Object.assign({ day: 6, kind: 'session', session: 1 }, r));
+          }
+          d.story = story;
+        }
+        d.version = 5;
       }
       U.fillDefaults(d, blank());
       return d;

@@ -680,7 +680,8 @@
           c.at = 'top'; c.t = 0;
           DV.Audio.play('windgust', { volume: 0.8 });
           DV.UI.narrate('THE TOP OF THE WHEEL', 3);
-          setTimeout(() => DV.UI.subtitle('', 'The whole city, inside the Fence. The Hub\'s towers. The marsh, grey to the wall. And past the wall, nothing you were ever told about.', 7), 1800);
+          if (out.onTop) out.onTop(c); // (the night game wants to know: js/zones/ctf.js)
+          else setTimeout(() => DV.UI.subtitle('', 'The whole city, inside the Fence. The Hub\'s towers. The marsh, grey to the wall. And past the wall, nothing you were ever told about.', 7), 1800);
           const st = DV.State.data;
           if (!DV.State.flag('wheel_climbed')) { DV.State.setFlag('wheel_climbed'); if (DV.Stats) { DV.Stats.addXP(60, 'Climbed the Ferris wheel'); DV.Stats.practice('composure', 2); DV.Stats.practice('athletics', 2); } }
           void st;
@@ -688,13 +689,19 @@
       } else {
         // at the top: the view turns slowly round the city; E (or any move) to climb down
         c.t += dt;
-        const a = PIER.face + Math.sin(c.t * 0.07) * 1.2; // (the view swings slowly across the city)
-        G.rig.setTrack(new THREE.Vector3(P.x - Math.sin(a) * 4, P.y + 2.4, P.z - Math.cos(a) * 4), new THREE.Vector3(P.x + Math.sin(a) * 200, P.y - 46, P.z + Math.cos(a) * 200), 1.5);
-        if (c.t > 2 && (inp.consume('KeyE') || inp.consume('KeyW') || inp.consume('KeyS') || inp.consume('Space'))) {
+        // (the view swings slowly across the city; or, when something down there matters, it looks there)
+        if (out.lookAt) {
+          // (out past the truss toward it, so the wheel's own beams aren't in the way)
+          const L2 = out.lookAt, dx = L2[0] - P.x, dz = L2[2] - P.z, d = Math.hypot(dx, dz) || 1, k = out.lookFrom || 0;
+          G.rig.setTrack(new THREE.Vector3(P.x + dx / d * k, P.y + 1.2, P.z + dz / d * k), new THREE.Vector3(L2[0], L2[1], L2[2]), 1.2);
+        }
+        else { const a = PIER.face + Math.sin(c.t * 0.07) * 1.2; G.rig.setTrack(new THREE.Vector3(P.x - Math.sin(a) * 4, P.y + 2.4, P.z - Math.cos(a) * 4), new THREE.Vector3(P.x + Math.sin(a) * 200, P.y - 46, P.z + Math.cos(a) * 200), 1.5); }
+        if (c.t > (out.topMin || 2) && (inp.consume('KeyE') || inp.consume('KeyW') || inp.consume('KeyS') || inp.consume('Space'))) {
           G.state = 'transition';
           DV.UI.fade(1, 600).then(() => {
             P.cineAction = null; P.place(L.foot[0] - L.out[0] * 1.6, L.foot[2] - L.out[1] * 1.6, Math.atan2(-L.out[0], -L.out[1]) + Math.PI);
             G.rig.follow(true); out.climb = null; G.state = 'playing'; DV.UI.fade(0, 700);
+            if (out.onDown) out.onDown();
           });
         }
       }
@@ -889,5 +896,7 @@
   });
   for (const id of ['fishing_rod', 'carp', 'marsh_eel', 'old_boot', 'message_bottle']) DV.Items.defs[id].id = id;
 
+  // the pieces, for the places that have the same pier in them (the night game: js/zones/ctf.js)
+  Waterfront.parts = { PIER, WALK, PLAT, STEPS, LAND, DECK, pierXZ, onPier, stepY, inR, buildJetty, buildReeds, buildWheel, buildLanding, mixC };
   DV.Waterfront = Waterfront;
 })();

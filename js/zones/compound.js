@@ -189,10 +189,11 @@
         tex.needsUpdate = true;
       },
     };
-    board.draw('STAGE ONE', [], null);
-    ctx.zone.rankBoard = board;
+    board.draw(p.pit ? 'STAGE TWO' : 'STAGE ONE', [], null);
+    // (a second board in the Pit, for Stage Two's times and the final rankings: js/game/stagetwo.js)
+    ctx.zone[p.pit ? 'pitBoard' : 'rankBoard'] = board;
     const [ix, iz] = ctx.toWorld(0, 1.0);
-    ctx.interact({ id: 'rank_board', kind: 'action', action: 'rankings', x: ix, y: 1.8, z: iz, radius: 1.8, label: 'Read', name: 'Rankings Board' });
+    ctx.interact({ id: p.pit ? 'pit_board' : 'rank_board', kind: 'action', action: p.pit ? 'pitboard' : 'rankings', x: ix, y: 1.8, z: iz, radius: 1.8, label: 'Read', name: p.pit ? 'The Board in the Pit' : 'Rankings Board' });
   });
 
   // the tattoo chair: a reclining chair, a stool, a lamp on an arm, the ink trolley
@@ -422,6 +423,7 @@
   add('bench', 32.5, -23.2, { id: 'ring_bench', len: 4.8, rotDeg: 180, seatable: true });
   add('bench', 39.6, -26, { id: 'side_bench', len: 2.4, rotDeg: -90 });
   add('rank_board', 28.4, -22.12, { rotDeg: 180, w: 3.2, h: 2.0, y: 1.95 });
+  add('rank_board', 13.06, -3.6, { rotDeg: 90, w: 3.0, h: 1.9, y: 2.05, pit: true }); // (Stage Two's times, for the whole Pit)
   add('extinguisher', 14.1, -24, { rotDeg: 90 });
   add('lockers', 43.6, -24.6, { len: 2.4, rotDeg: -90 });
   add('poster', 14.05, -32.5, { rotDeg: 90, kind: 'dauntless' });
@@ -725,7 +727,7 @@
       zone.fireBarrel = { x: 57.2, z: 18.2 };
       // the knife line and the ring are stations too
       ctx.interact({ id: 'knife_line', kind: 'action', action: 'knife_line', x: 37.6, y: 1.0, z: -37.3, radius: 1.8, label: 'Step up to the line', name: 'Knife Wall' });
-      ctx.interact({ id: 'fear_chair_use', kind: 'action', action: 'fear_chair', x: 30.5, y: 1.0, z: -18.3, radius: 1.6, label: 'Sit in the chair', name: 'Simulation Chair', cond: () => DV.Quests.obj('stage_one', 'stage2') === 'active' });
+      ctx.interact({ id: 'fear_chair_use', kind: 'action', action: 'fear_chair', x: 30.5, y: 1.0, z: -18.3, radius: 1.6, label: 'Sit in the chair', name: 'Simulation Chair', cond: () => DV.Quests.obj('stage_one', 'stage2') === 'active' || !!(DV.StageTwo && DV.StageTwo.chairReady()) });
       // between cases in the Chalk Year, the stairs up to the street and the rest of the city (js/game/cityquests.js)
       ctx.interact({ id: 'cq_stairs_up', kind: 'action', x: 10, y: 1.2, z: -8, radius: 1.6, label: 'Go up', name: 'Stairs to the Street', cond: () => !!(DV.CityQuests && DV.CityQuests.canGoOut()), onUse: () => DV.Dialogue.startScene('cq_go_out', { speaker: 'The Stairs', faction: 'dauntless' }) });
       ctx.interact({ id: 'ring_step', kind: 'action', action: 'ring', x: 32.5, y: 1.0, z: -25.2, radius: 2.0, label: 'Step into the ring', name: 'The Ring', cond: () => !!(DV.Initiation && (DV.Initiation.canStart('spar') || DV.Initiation.canStart('fight'))) });
