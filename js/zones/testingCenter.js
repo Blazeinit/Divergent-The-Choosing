@@ -347,6 +347,19 @@
   add('stripe', 40, 60.6, { w: 4, d: 0.4, mat: 'tactile' });
   add('rubble', 23.6, 75, { n: 7 });
   add('rubble', 56.5, 75.2, { n: 5 });
+  // the forecourt: a dry fountain across from the monolith (the ledge to sit on), the city's seal let
+  // into the paving where the walk to the door crosses it, trees in iron grates (shedding on the wind:
+  // js/game/leaves.js), benches facing the fountain, and the notice board
+  // candidates read while they wait to be let in
+  add('fountain', 50.5, 69, { id: 'pfount', r: 2.1 });
+  add('floor_emblem', 40, 68.8, { size: 4.2 });
+  for (const [x, z, sz] of [[26, 65.6, 0.85], [54.8, 65.6, 0.85], [25.8, 74, 0.8], [55.2, 73.8, 0.8]]) {
+    add('stripe', x, z, { w: 1.5, d: 1.5, mat: 'metal_dark' }); // (its grate)
+    add('tree', x, z, { size: sz });
+  }
+  add('bench', 50.5, 73.2, { id: 'pb3', len: 2.4, rotDeg: 180 });
+  add('bench', 45.6, 69, { id: 'pb4', len: 2.2, rotDeg: -90 });
+  add('noticeboard', 36.2, 74.4, { rotDeg: 180, w: 1.4, h: 0.9, y: 1.5, id: 'plaza_notice', title: 'Notice — Aptitude Day', text: 'ALL SIXTEEN-YEAR-OLDS OF THE SECTOR REPORT TODAY FOR APTITUDE TESTING.\n\nCheck in at Reception. Badges must be worn at all times inside the Center.\n\nResults are confidential. Do not discuss your result with anyone, including your family.\n\nThe Choosing Ceremony takes place tomorrow at the Hub.\n\n— Issued by the Council, administered by Abnegation.' });
 
   /* ---------------- Lake Street, outside the gate ----------------
      The city lays the street itself (asphalt, the pavement along the fence, the kerbs, the far
@@ -775,6 +788,8 @@
       const lives = DV.Lives.attach(zone, city, life);
       // and now and then, rain (js/game/weather.js)
       const rain = DV.Weather.attach(zone);
+      // and the trees shed on the wind (js/game/leaves.js)
+      const leaves = DV.Leaves.attach(zone, kit);
       const osl = (CM.landmarks || []).find((l) => l.id === 'order_station');
       DV.Ambiance.attach(ctx, zone, { hub: CM.hub, order: osl ? [osl.x, osl.z] : null });
       ctx.update((dt) => {
@@ -791,6 +806,7 @@
         shops.update(dt);
         lives.update(dt);
         rain.update(dt);
+        leaves.update(dt);
       });
       ctx.update((dt) => city.update(dt, DV.Game && DV.Game.camera));
 

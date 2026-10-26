@@ -369,6 +369,8 @@
             '}',
           ].join('\n'));
       };
+      // (the street trees' leaves bend with the wind: js/engine/materials.js)
+      DV.Mat.sway(this.mat, true);
       this.signMat = new THREE.MeshBasicMaterial({ map: signAtlas().tex, fog: true, color: this.mat.color.clone() });
       this.roads = DV.Roads.build(city, (x, z, r) => this.blocked(x, z, r));
       // what isn't bolted down (bins, newspaper boxes, cones, crates, rubbish bags)

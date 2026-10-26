@@ -40,6 +40,8 @@
         case 'dbl':
           m = new THREE.MeshBasicMaterial({ map, vertexColors: true, side: THREE.DoubleSide, fog: true });
           m.userData.baked = true;
+          // (the trees' crowns: they bend with the wind, above head height)
+          if (tex === 'grass') Mat.sway(m);
           break;
         default:
           m = new THREE.MeshBasicMaterial({ map, vertexColors: true, fog: true });
@@ -82,6 +84,35 @@
       m.name = k;
       cache[k] = m;
       return m;
+    },
+    // The wind, for what bends in it: (dir x, dir z, strength 0..1, time) (set by js/game/leaves.js)
+    wind: { value: new THREE.Vector4(0.94, 0.34, 0.4, 0) },
+    // what's above head height leans downwind and sways, more in a gust (the geometry is in world space:
+    // the static batches and the street kit). green: only what's green (the street kit's one material
+    // has the trees' leaves in it with everything else)
+    swayChunk(green) {
+      return [
+        '#include <begin_vertex>',
+        '{',
+        '  vec4 swW = modelMatrix * vec4(transformed, 1.0);',
+        '  float swH = max(0.0, swW.y - 1.9);',
+        green ? '  #ifdef USE_COLOR\n  if (color.g < color.r * 1.06 || color.g < color.b * 1.06) swH = 0.0;\n  #endif' : '',
+        '  float swS = uWind.z;',
+        '  float swP = sin(uWind.w * 1.7 + swW.x * 0.31 + swW.z * 0.23) + 0.5 * sin(uWind.w * 3.9 + swW.x * 0.9);',
+        '  transformed.xz += uWind.xy * swH * (swS * 0.07 + swP * 0.025 * (0.3 + swS));',
+        '}',
+      ].join('\n');
+    },
+    sway(mat, green) {
+      const prev = mat.onBeforeCompile;
+      mat.onBeforeCompile = function (sh, r) {
+        if (prev) prev.call(this, sh, r);
+        sh.uniforms.uWind = Mat.wind;
+        sh.vertexShader = 'uniform vec4 uWind;\n' + sh.vertexShader.replace('#include <begin_vertex>', Mat.swayChunk(green));
+      };
+      const key = mat.customProgramCacheKey ? mat.customProgramCacheKey() : '';
+      mat.customProgramCacheKey = () => key + '|sway' + (green ? 'g' : '');
+      return mat;
     },
     // Adds PS1 style vertex snapping to a material.
     applyWobble(mat) {

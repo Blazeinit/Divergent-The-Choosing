@@ -122,13 +122,16 @@
   ATLAS.cloth = ATLAS.twill;
   // the long coats' cuts, by faction (what a 'duster' top is like: see buildGeometry)
   const COATS = {
+    // (all leather, all cut like the Dauntless coat: a stand collar, lapels, a belt; each faction's own
+    // colours, lining, trim and length)
     dauntless: { hem: 0.3, flare: 0.29, gap: 0.75, vent: 4, collar: 'stand', belt: 'leather', lining: '#a3261a' },
-    abnegation: { hem: 0.17, flare: 0.27, gap: 0.3, vent: 5, collar: 'high', buttons: 6, button: '#5a5a55', lining: '#6c6c66' },
-    erudite: { hem: 0.44, flare: 0.25, gap: 0.6, vent: 9, collar: 'lapel', lapel: '#8fb6e3', buttons: 3, button: '#c8d4e2', lining: '#8fb6e3' },
-    candor: { hem: 0.38, flare: 0.26, gap: 0.7, vent: 5, collar: 'lapel', lapel: '#f0efe9', trim: '#f0efe9', lining: '#f0efe9' },
-    amity: { hem: 0.36, flare: 0.3, gap: 0.55, vent: 9, collar: 'flat', lapel: '#c0392b', belt: 'rope', beltColor: '#a8875a', lining: '#c0392b' },
-    factionless: { hem: 0.2, flare: 0.31, gap: 0.65, vent: 4, collar: 'stand', belt: 'leather', beltColor: '#2a241c', buckle: '#5a5248', lining: '#3a332a', ragged: true },
+    abnegation: { hem: 0.2, flare: 0.28, gap: 0.6, vent: 5, collar: 'stand', lapel: '#9a9993', belt: 'leather', beltColor: '#4a4945', buckle: '#8a8a84', buttons: 3, button: '#5a5a55', lining: '#6c6c66' },
+    erudite: { hem: 0.36, flare: 0.27, gap: 0.65, vent: 5, collar: 'stand', lapel: '#8fb6e3', belt: 'leather', beltColor: '#16243a', buckle: '#c8d4e2', lining: '#8fb6e3' },
+    candor: { hem: 0.32, flare: 0.28, gap: 0.7, vent: 5, collar: 'stand', lapel: '#f0efe9', trim: '#f0efe9', belt: 'leather', beltColor: '#0e0e0e', buckle: '#e8e8e2', lining: '#f0efe9' },
+    amity: { hem: 0.34, flare: 0.29, gap: 0.65, vent: 5, collar: 'stand', lapel: '#c0392b', belt: 'leather', beltColor: '#6a4424', buckle: '#c8a050', lining: '#c0392b' },
+    factionless: { hem: 0.24, flare: 0.31, gap: 0.65, vent: 4, collar: 'stand', belt: 'leather', beltColor: '#2a241c', buckle: '#5a5248', lining: '#3a332a', ragged: true },
   };
+
   // the cloth each kind of top is usually made of (an outfit can say otherwise: outfit.fabricTop/Bottom)
   const FABRIC = { duster: 'leather', robe: 'wool', tunic: 'wool', sweater: 'knit', cardigan: 'knit', hoodie: 'knit', tshirt: 'knit', tank: 'knit', jacket: 'twill', blazer: 'twill', labcoat: 'twill', vest: 'twill', shirt: 'twill' };
   let bodyAtlas = null;
