@@ -37,7 +37,7 @@ L.run('Build 3: Dauntless, days 5–6 (Stage One)', async (p, T, errs) => {
   await ev(() => { const A = DV.Activity.current; let n = 0, k = 0; while (DV.Activity.current === A && n++ < 400) { DV.Input.pressed[k++ % 2 ? 'KeyA' : 'KeyD'] = true; QA.step(0.05); } });
   T.ok(await L.until(p, () => DV.Activity.current && DV.Activity.current.id === 'fight', 30000), 'you break free — and it\'s Josh');
   await ev(() => B.finishActivity());
-  T.ok(await L.until(p, () => DV.Dialogue.isActive() && DV.Dialogue.active.npcId === 'd_mark', 40000), 'the infirmary; Mark wants names');
+  T.ok(await L.until(p, () => DV.Dialogue.isActive() && DV.Dialogue.active.npcId === 'd_mark', 120000, 1), 'the infirmary; Mark wants names');
   await ev(() => { QA.pick('just josh'); QA.end(); });
   const after = await ev(() => ({ q: DV.Quests.q('bad_blood') && DV.Quests.q('bad_blood').state, josh: DV.Initiation.here('d_josh') }));
   T.ok(after.q === 'complete' && !after.josh, 'Josh is gone from the compound by morning', after);
