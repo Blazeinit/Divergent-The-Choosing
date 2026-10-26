@@ -1635,7 +1635,9 @@
       const m = DV.Clock.minutes();
       // (and the weather: a shower brings the cloud down over it, js/game/weather.js)
       const wet = DV.Weather ? DV.Weather.now() : 0;
-      if (this.tod && Math.abs(this.tod.m - m) < 0.5 && Math.abs(this.tod.wet - wet) < 0.01) return;
+      // (and a dust storm off the plains: the sun goes copper, the air thick, the distance gone)
+      const dust = DV.Weather && DV.Weather.dustNow ? DV.Weather.dustNow() : 0;
+      if (this.tod && Math.abs(this.tod.m - m) < 0.5 && Math.abs(this.tod.wet - wet) < 0.01 && Math.abs(this.tod.dust - dust) < 0.01) return;
       const T = todAt(m), B = this.base, u = this.sky.userData.dome.material.uniforms;
       // overcast: the light goes flat and grey, the windows and the lamps come on early
       T.sky *= 1 - 0.32 * wet;
@@ -1643,12 +1645,18 @@
       T.lit += (1 - T.lit) * 0.35 * wet;
       const grey = (T.tint[0] + T.tint[1] + T.tint[2]) / 3;
       T.tint = T.tint.map((c) => c + (grey * 0.96 - c) * 0.7 * wet);
-      this.tod = Object.assign({ m, wet }, T);
+      if (dust > 0) {
+        const am = [1.14, 0.84, 0.52];
+        T.sky *= 1 - 0.38 * dust; T.glow *= 1 - 0.9 * dust;
+        T.tint = T.tint.map((c, i) => c + (c * am[i] - c) * dust);
+      }
+      this.tod = Object.assign({ m, wet, dust }, T);
       const tint = (c, base, k) => c.copy(base).multiplyScalar(k).multiply(new THREE.Color(T.tint[0], T.tint[1], T.tint[2]));
       u.top.value.copy(B.top).multiplyScalar(T.sky * (T.sky < 1 ? 0.85 : 1));
       tint(u.horizon.value, B.horizon, 0.35 + 0.65 * T.sky);
       if (wet > 0) { const g = (u.top.value.r + u.top.value.g + u.top.value.b) / 3; u.top.value.lerp(new THREE.Color(g, g, g * 1.04), 0.6 * wet); }
-      u.clouds.value = Math.min(1, B.clouds + 0.5 * wet);
+      if (dust > 0) u.top.value.lerp(new THREE.Color(0.5, 0.36, 0.22).multiplyScalar(0.4 + 0.6 * T.sky), 0.7 * dust);
+      u.clouds.value = Math.min(1, B.clouds + 0.5 * wet + 0.4 * dust);
       u.ground.value.copy(B.ground).multiplyScalar(T.sky);
       u.glow.value = T.glow;
       u.stars.value = Math.max(B.stars, T.stars);
@@ -1659,7 +1667,8 @@
         tint(fb.b.c, B.fogOut, 0.3 + 0.7 * T.sky); tint(fb.a.c, B.fog, 0.6 + 0.4 * T.sky); fb.k = -1;
         // (the rain closes the distance in)
         if (fb.b.far0 === undefined) { fb.b.near0 = fb.b.near; fb.b.far0 = fb.b.far; }
-        fb.b.near = fb.b.near0 * (1 - 0.5 * wet); fb.b.far = fb.b.far0 * (1 - 0.42 * wet);
+        const thick = Math.max(wet, dust * 1.15);
+        fb.b.near = fb.b.near0 * (1 - 0.5 * thick); fb.b.far = fb.b.far0 * (1 - 0.42 * thick);
       }
       const city = zone.city;
       if (city) {

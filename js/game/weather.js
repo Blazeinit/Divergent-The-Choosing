@@ -25,6 +25,7 @@
 
   const W = {
     forced: null,
+    forcedDust: null,
     // the day's showers: [{ t0, t1, k }]
     showers(day) {
       if (cache.has(day)) return cache.get(day);
@@ -53,6 +54,20 @@
       if (this.forced !== null) return this.forced;
       return DV.State && DV.State.data ? this.at(DV.Clock.day(), DV.Clock.minutes()) : 0;
     },
+    // dust storms: rare, out of the west plains, an hour or two in the afternoon; none in the first days
+    dustAt(day, m) {
+      if (day < 4) return 0;
+      const r = U.rng('dust:' + day);
+      if (r() > 0.14) return 0;
+      const t0 = (12 + r() * 6) * 60, t1 = t0 + 50 + r() * 70, k = 0.6 + r() * 0.4;
+      if (m < t0 - 15 || m > t1 + 15) return 0;
+      return k * U.clamp(Math.min(m - t0 + 15, t1 + 15 - m) / 30, 0, 1);
+    },
+    dustNow() {
+      if (this.forcedDust !== null) return this.forcedDust;
+      return DV.State && DV.State.data ? this.dustAt(DV.Clock.day(), DV.Clock.minutes()) : 0;
+    },
+    forceDust(k) { this.forcedDust = k === null || k === undefined ? null : U.clamp(k, 0, 1); },
     force(k) { this.forced = k === null || k === undefined ? null : U.clamp(k, 0, 1); },
     // the ground's textures: a drop's ring, a puddle's soft edge
     tex(kind) {
@@ -122,12 +137,21 @@
       });
       const pads = new THREE.InstancedMesh(flat(), padMat, PADS);
       pads.name = 'puddles'; pads.frustumCulled = false; pads.visible = false; pads.renderOrder = 1;
+      // the dust: motes blown along the wind through the box round the camera (one draw call)
+      const DN = 520, dpos = new Float32Array(DN * 3), dseed = new Float32Array(DN * 3);
+      for (let i = 0; i < DN; i++) { dseed[i * 3] = r() * BOX * 2; dseed[i * 3 + 1] = 0.2 + r() * 7; dseed[i * 3 + 2] = r() * BOX * 2; }
+      const dg = new THREE.BufferGeometry();
+      dg.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
+      const dmat = new THREE.PointsMaterial({ color: 0xc9a06a, size: 0.34, transparent: true, opacity: 0, depthWrite: false, fog: true, sizeAttenuation: true });
+      const dust = new THREE.Points(dg, dmat);
+      dust.name = 'dust'; dust.frustumCulled = false; dust.visible = false;
+      zone.group.add(dust);
       zone.group.add(rings, pads);
       const ring = [];
       for (let i = 0; i < RINGS; i++) ring.push({ x: 0, z: 0, t: r() * 0.6, life: 0.45 + r() * 0.25, s: 0.18 + r() * 0.2 });
       const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), v3 = new THREE.Vector3(), s3 = new THREE.Vector3();
       const outside = (x, z) => { const rm = zone.roomAt(x, z); return (!rm || rm.exterior) && (!zone.walkable || zone.walkable(x, z)); };
-      const st = { lines, rings, pads, seed, pos, fall: 0, wetness: 0, padCell: null };
+      const st = { lines, rings, pads, dust, seed, pos, fall: 0, wetness: 0, padCell: null, drift: 0 };
       zone.weather = st;
       const placePads = (cx, cz) => {
         const C = 9, i0 = Math.floor(cx / C), j0 = Math.floor(cz / C);
@@ -150,6 +174,22 @@
           const cam = DV.Game && DV.Game.camera;
           const cx = cam ? cam.position.x : P.x, cz = cam ? cam.position.z : P.z;
           const out = (!room || room.exterior) && !(DV.Dev && DV.Dev.on() && DV.Dev.flags.noStreet);
+          const dk = W.dustNow();
+          dust.visible = out && dk > 0.02;
+          if (dust.visible) {
+            const wd = DV.Wildlife && DV.Wildlife.wind ? DV.Wildlife.wind.dir : [0.94, 0.34];
+            st.drift += dt * (5 + 9 * dk);
+            const n = Math.floor(DN * Math.min(1, 0.3 + dk));
+            for (let i = 0; i < n; i++) {
+              const sx = dseed[i * 3], sy = dseed[i * 3 + 1], sz = dseed[i * 3 + 2];
+              const x = cx + ((((sx + wd[0] * st.drift - cx) % (BOX * 2)) + BOX * 3) % (BOX * 2)) - BOX;
+              const z = cz + ((((sz + wd[1] * st.drift - cz) % (BOX * 2)) + BOX * 3) % (BOX * 2)) - BOX;
+              dpos[i * 3] = x; dpos[i * 3 + 1] = sy + Math.sin(st.drift * 0.7 + i) * 0.35; dpos[i * 3 + 2] = z;
+            }
+            dg.attributes.position.needsUpdate = true;
+            dg.setDrawRange(0, n);
+            dmat.opacity = 0.18 + 0.4 * dk;
+          }
           // the streets get wet fast and dry slowly (about half an hour of the clock)
           const mins = (dt * (DV.Clock && DV.Clock.scale ? DV.Clock.scale() : 60)) / 60;
           st.wetness = k > st.wetness ? Math.min(k, st.wetness + mins / 6) : Math.max(k, st.wetness - mins / 30);

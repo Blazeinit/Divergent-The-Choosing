@@ -982,6 +982,7 @@
   // weakly, so a model nobody keeps is let go.
   let shadowMarks = [], shadowBatch = null;
   const SHADOW_MAX = 384;
+  const shQ = new THREE.Quaternion(), shP = new THREE.Vector3(), shS = new THREE.Vector3(), shM = new THREE.Matrix4(), shUp = new THREE.Vector3(0, 1, 0);
   function blobShadow() {
     if (!shadowGeo) {
       shadowGeo = new THREE.PlaneGeometry(0.9, 0.9);
@@ -1009,6 +1010,17 @@
     }
     if (shadowBatch.parent !== scene) scene.add(shadowBatch);
     let n = 0, live = 0;
+    // where the sun is (out of doors on the clock): its way sets the direction and length of every shadow
+    const zone = DV.World && DV.World.current, dome = DV.World && DV.World.sky && DV.World.sky.userData.dome;
+    let sunK = 0, shLen = 1, shDx = 0, shDz = 0, shYaw = 0;
+    if (zone && zone.def.timeOfDay && dome) {
+      const sd = dome.material.uniforms.sunDir.value, h = Math.hypot(sd.x, sd.z) || 1;
+      const wet = DV.Weather ? DV.Weather.now() : 0;
+      sunK = Math.max(0, Math.min(1, (sd.y - 0.07) / 0.3)) * (1 - 0.8 * wet);
+      shLen = Math.max(1, Math.min(4.2, 1.8 * h / Math.max(0.12, sd.y)));
+      shDx = sd.x / h; shDz = sd.z / h; shYaw = Math.atan2(shDz, -shDx);
+    }
+    shadowMat.opacity = 0.55 + 0.45 * Math.max(sunK, 0.35) - (zone && zone.def.timeOfDay ? 0 : 0.1);
     for (let i = 0; i < shadowMarks.length; i++) {
       const m = shadowMarks[i].deref();
       if (!m || m.dead) continue;
@@ -1019,6 +1031,21 @@
       while (o && o !== scene && o.visible) o = o.parent;
       if (o !== scene) continue;
       m.updateWorldMatrix(true, false);
+      const e = m.matrixWorld.elements;
+      if (sunK > 0.02) {
+        // out in the sun: the shadow lies away from it, longer the lower it sits (under a roof it stays a pool)
+        const x = e[12], z = e[14], rm = zone && zone.roomAt ? zone.roomAt(x, z) : null;
+        if (!rm || rm.exterior) {
+          const sc = Math.hypot(e[0], e[1], e[2]);
+          const len = 0.9 + (shLen - 0.9) * sunK;
+          shQ.setFromAxisAngle(shUp, shYaw);
+          shP.set(x - shDx * (len * 0.5 - 0.45) * sc, e[13], z - shDz * (len * 0.5 - 0.45) * sc);
+          shS.set(len / 0.9 * sc, 1, 0.85 * sc);
+          shM.compose(shP, shQ, shS);
+          shadowBatch.setMatrixAt(n++, shM);
+          continue;
+        }
+      }
       shadowBatch.setMatrixAt(n++, m.matrixWorld);
     }
     shadowMarks.length = live;
