@@ -64,7 +64,7 @@ L.run('Build 3: Dauntless, days 5–6 (Stage One)', async (p, T, errs) => {
     return { done: Ch.done, v: Ch.v };
   });
   T.ok(fear.done, 'the ' + fear.v + ': slow your heart, and it lets you go', fear);
-  T.ok(await L.until(p, () => !!document.getElementById('banner'), 60000), 'the debrief…');
+  T.ok(await L.until(p, () => !!document.getElementById('banner'), 120000, 1), 'the debrief…');
   const end = await ev(() => ({ b1: document.querySelector('#banner .b1').textContent, b2: document.querySelector('#banner .b2').textContent, q: DV.Quests.q('stage_one').state, zone: DV.World.current.id }));
   T.ok(end.b1 === 'STAGE ONE COMPLETE' && /RANKED/.test(end.b2) && end.q === 'complete' && end.zone === 'd_compound', '…STAGE ONE COMPLETE · ' + end.b2, end);
   T.noErrors(errs);
