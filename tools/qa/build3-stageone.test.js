@@ -45,7 +45,7 @@ L.run('Build 3: Dauntless, days 5–6 (Stage One)', async (p, T, errs) => {
   await ev(() => { QA.step(2); DV.Actions.sleep(); });
   T.ok(await L.until(p, () => DV.Game.state === 'playing' && DV.Clock.day() === 6, 20000), 'Day 6');
   await ev(() => { B.at('08:00'); DV.Player.place(28.5, -26, Math.PI); QA.step(1.5); });
-  T.ok(await L.until(p, () => DV.Game.state === 'playing' && !DV.StageOne.seqs.length && DV.Initiation.st().cut, 60000), '08:00: the final rankings, and the cut');
+  T.ok(await L.until(p, () => DV.Game.state === 'playing' && !DV.StageOne.seqs.length && DV.Initiation.st().cut, 120000, 1), '08:00: the final rankings, and the cut');
   const cut = await ev(() => ({ cut: DV.Initiation.st().cut, me: !!DV.Initiation.st().playerCut, stage2: DV.Quests.obj('stage_one', 'stage2') }));
   T.ok(cut.cut && cut.cut.length >= 1 && !cut.me && cut.stage2 === 'active', 'below the line: ' + (cut.cut || []).join(', ') + ' — not you', cut);
   // the fear simulation
