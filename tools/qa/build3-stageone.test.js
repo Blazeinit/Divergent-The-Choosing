@@ -33,7 +33,7 @@ L.run('Build 3: Dauntless, days 5–6 (Stage One)', async (p, T, errs) => {
   await L.until(p, () => DV.Game.state === 'playing' && !DV.Activity.active(), 8000);
   // the ambush
   await ev(() => { DV.State.setFlag('ally_nate'); B.at('22:20'); DV.Player.place(30, 6, 0); QA.step(1); });
-  T.ok(await L.until(p, () => DV.Activity.current && DV.Activity.current.id === 'struggle', 30000), '22:20, by the chasm: hands on you in the dark');
+  T.ok(await L.until(p, () => DV.Activity.current && DV.Activity.current.id === 'struggle', 30000, 1), '22:20, by the chasm: hands on you in the dark');
   await ev(() => { const A = DV.Activity.current; let n = 0, k = 0; while (DV.Activity.current === A && n++ < 400) { DV.Input.pressed[k++ % 2 ? 'KeyA' : 'KeyD'] = true; QA.step(0.05); } });
   T.ok(await L.until(p, () => DV.Activity.current && DV.Activity.current.id === 'fight', 30000), 'you break free — and it\'s Josh');
   await ev(() => B.finishActivity());

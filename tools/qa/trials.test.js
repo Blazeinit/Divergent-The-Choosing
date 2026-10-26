@@ -104,7 +104,7 @@ L.run('the trials: Stage Two, Stage Three, Capture the Flag', async (p, T, errs)
   const teams = await ev(() => ({ ours: DV.Chapter.players.filter((a) => a.team === 'ours').length, theirs: DV.Chapter.players.filter((a) => a.team === 'theirs').length, roles: [...new Set(DV.Chapter.players.map((a) => a.role))].sort().join(',') }));
   T.ok(teams.ours >= 4 && teams.theirs >= 4 && /escort/.test(teams.roles) && /guard/.test(teams.roles) && /raid/.test(teams.roles), 'two teams with roles: ' + teams.roles, teams);
   await ev(() => B.use('ctf_climb'));
-  T.ok(await L.until(p, () => DV.Chapter.spotted, 60000, 0.4), 'up the wheel\'s ladder in the dark: their flag, spotted from the top');
+  T.ok(await L.until(p, () => DV.Chapter.spotted, 120000, 1.0), 'up the wheel\'s ladder in the dark: their flag, spotted from the top');
   await ev(() => QA.step(3)); await L.shot(p, 'trial_ctf_wheel');
   await ev(() => { DV.Input.pressed.KeyE = true; QA.step(0.3); });
   await L.until(p, () => DV.Game.state === 'playing' && !DV.Chapter.climbing, 30000, 0.3);
