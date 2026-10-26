@@ -49,7 +49,10 @@
     ensure(renderer) {
       const s = renderer.getDrawingBufferSize(new THREE.Vector2());
       if (!this.rt) {
-        this.rt = new THREE.WebGLRenderTarget(s.x, s.y, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: true });
+        // (stencilBuffer: with only a depth buffer, three.js r149 gives a render target a 16-bit one, and
+        // from any height the ground and everything a metre above it fight for the same pixels; with a
+        // stencil it's 24-bit depth, as drawing straight to the screen gets)
+        this.rt = new THREE.WebGLRenderTarget(s.x, s.y, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: true, stencilBuffer: true });
         this.mat = new THREE.ShaderMaterial({
           uniforms: { tex: { value: this.rt.texture }, px: { value: new THREE.Vector2(1 / s.x, 1 / s.y) }, time: { value: 0 }, grain: { value: 0.035 }, glowAmt: { value: 1 }, vig: { value: 0.32 } },
           vertexShader: VERT, fragmentShader: FRAG, depthTest: false, depthWrite: false,

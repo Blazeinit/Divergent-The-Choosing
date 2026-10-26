@@ -384,21 +384,53 @@
   add('vehicle', 72.5, 85.4, { rotDeg: -90, kind: 'pickup' }); // Amity, with apples
   add('rubble', 15.5, 87.6, { n: 6 });
   add('rubble', 66, 77.2, { n: 5 });
-  // beyond the street: under the L tracks, a vacant lot behind a sagging fence (the city
-  // itself — blocks, towers, the Hub, the L — is built by DV.City in build() below)
-  add('chainlink_fence', 8, 93.4, { len: 26, lean: true });
-  add('chainlink_fence', 40, 93.4, { len: 30 });
-  add('chainlink_fence', 74, 93.4, { len: 24, lean: true });
-  add('chainlink_fence', -7.4, 118, { len: 48, rotDeg: 90 });
-  add('rubble', 20, 98, { n: 14 });
-  add('rubble', 47, 104, { n: 18 });
-  add('rubble', 63, 97.5, { n: 9 });
-  add('rubble', 30, 112, { n: 16 });
-  add('car', 12, 101, { rotDeg: 30, wreck: true, kind: 'sedan', seed: 2 });
-  add('car', 70, 108, { rotDeg: -70, wreck: true, kind: 'hatch', seed: 6 });
-  add('jersey_barrier', 56, 95.5, { len: 3, rotDeg: 12 });
-  add('jersey_barrier', 4, 96, { len: 3, rotDeg: -20 });
-  add('billboard', 42, 99, { rotDeg: 180, w: 9, h: 3.4, y: 4.6, text: 'FACTION BEFORE BLOOD', bg: '#3b3430', color: '#d9cbb0' });
+  /* ---------------- the Commons, across Lake Street ----------------
+     The block opposite the Testing Center (x -8..88, z 86..144) was a vacant lot; it's the Commons
+     now, a park the factions share and nobody quite keeps up. On the axis of the Center's gate and
+     the crossing: an avenue of trees to the memorial (Unity of the Five) in a round paved court,
+     and a path across. Round it: Amity's allotments and fruit trees (NW), a lawn with picnic tables
+     and old trees (NE), Abnegation's ration market under canvas (SW), and the factionless camp at
+     the back (SE). An iron railing along the street, open at the paths. (The trees shed on the wind:
+     js/game/leaves.js) */
+  // the railing along Lake Street, open where the paths come in (x 14-17, 37.5-42.5, 63-66)
+  for (const [x0, x1] of [[-5, 14], [17, 37.5], [42.5, 63], [66, 85]]) add('railing', (x0 + x1) / 2, 89.2, { len: x1 - x0, h: 1.05 });
+  add('railing', -5.2, 114.5, { len: 50, rotDeg: 90, h: 1.05 });
+  // the avenue: trees either side every six metres, lamps between, to the court in the middle
+  for (const z of [94, 100, 106, 124, 130, 136]) for (const x of [35.4, 44.6]) { add('stripe', x, z, { w: 1.3, d: 1.3, mat: 'metal_dark', top: true }); add('tree', x, z, { size: 1.05 }); }
+  for (const z of [97, 109, 121, 133]) { add('lamp_post', 36.6, z, { rotDeg: 90 }); add('lamp_post', 43.4, z, { rotDeg: -90 }); }
+  // the court: the city's seal, the memorial, benches round it facing in
+  add('floor_emblem', 40, 115, { size: 7, top: true });
+  add('sculpture', 40, 115, { text: 'UNITY OF THE FIVE\n\nRaised by the five factions together, in the first year of peace.\n\nAbnegation · Amity · Candor · Dauntless · Erudite\n\n(Someone has scratched a sixth line into the base, and someone else has tried to scrub it out.)' });
+  [[34.6, 115, 90], [45.4, 115, -90], [40, 109.6, 0], [40, 120.4, 180]].forEach(([x, z, rd], i) => add('bench', x, z, { id: 'cmb' + i, len: 2.4, rotDeg: rd }));
+  // NW: Amity's allotments, and their fruit trees
+  add('lawn', 16, 101.5, { w: 37, d: 21, worn: 3 });
+  for (const x of [2.5, 8.5, 14.5, 20.5]) for (const z of [95.5, 100, 104.5]) add('garden_bed', x, z, { w: 4.2, d: 1.5 });
+  for (const [x, z] of [[27.5, 95.5], [31.5, 99.5], [27.5, 103.5], [31.5, 107.5], [2.5, 109], [9, 109]]) add('tree', x, z, { size: 0.72 });
+  add('barrel', 23.6, 108.6, {}); add('crate', 25, 109, { size: 0.7 }); add('crate', 24.6, 110, { size: 0.6, stack: true });
+  add('noticeboard', 16, 111.4, { rotDeg: 180, w: 1.6, h: 1.0, y: 1.4, id: 'commons_amity', title: 'The Allotments', text: 'THESE BEDS ARE TENDED BY AMITY FOR THE CITY.\n\nTake what you need from the end bed. Leave the rest to grow.\n\nVolunteers welcome on Tuesdays and Fridays. Bring your own gloves; we will bring the tea.' });
+  // NE: the lawn, its old trees, picnic tables
+  add('lawn', 64, 101.5, { w: 37, d: 21, worn: 4 });
+  for (const [x, z, sz] of [[50, 95.5, 1.25], [61, 98.5, 1.4], [74.5, 95, 1.2], [80, 104.5, 1.3], [55.5, 107.5, 1.15], [68.5, 108.5, 1.35], [79, 110.5, 1.0]]) add('tree', x, z, { size: sz });
+  add('picnic_table', 58.5, 102.5, { id: 'cpic1', rotDeg: 0 });
+  add('picnic_table', 70.5, 100.5, { id: 'cpic2', rotDeg: 0 });
+  add('picnic_table', 66, 105.5, { id: 'cpic3', rotDeg: 90 }); // (square to the grid: a table's collider is its box round the axes, and turned it would cover its own seats)
+  add('bench', 50, 101, { id: 'cmb_lawn', len: 2.4, rotDeg: -90 });
+  add('trash_bin', 47.4, 97.5); add('trash_bin', 76.8, 99.2);
+  // SW: Abnegation's ration market, two rows of stalls across an aisle, a line kept by stanchions
+  for (const x of [3.5, 10, 16.5, 23, 29.5]) { add('market_stall', x, 122.4, { rotDeg: 0, canvas: x === 16.5 ? 'fabric_blue' : 'fabric_grey' }); add('market_stall', x, 134.6, { rotDeg: 180, canvas: x === 10 ? 'plastic_orange' : 'fabric_grey' }); }
+  for (const [x, z] of [[6.8, 128.5], [19.5, 128.6], [26.2, 128.3]]) add('pallet', x, z, {});
+  add('crate', 6.6, 128.4, { size: 0.7, stack: true }); add('crate', 19.8, 128.4, { size: 0.8 }); add('barrel', 26, 128.5, {});
+  add('stanchions', 32.6, 126, { len: 5, rotDeg: 90 });
+  add('noticeboard', 1.2, 128.5, { rotDeg: -90, w: 1.6, h: 1.0, y: 1.4, id: 'commons_rations', title: 'Ration Distribution', text: 'RATIONS ARE GIVEN OUT HERE BY ABNEGATION, MORNINGS FROM EIGHT.\n\nOne parcel each. Bring your card if you have one. If you have none, come anyway.\n\nDo not push. There is enough.' });
+  // SE: the factionless camp: tents and tarps, fires in drums, what's been dragged in
+  for (const [x, z, r, m] of [[52, 125, 20, 'fabric_grey'], [57.5, 131.5, -15, 'fabric_blue'], [63, 124.5, 75, 'fabric_grey'], [69, 133, 5, 'fabric_grey'], [75.5, 126, -40, 'fabric_blue'], [80.5, 135.5, 60, 'fabric_grey'], [51.5, 137.5, 95, 'fabric_grey']]) add('tent', x, z, { rotDeg: r, mat: m });
+  add('barrel_fire', 60.5, 128.5, {}); add('barrel_fire', 73, 130, {});
+  add('car', 81, 121.5, { rotDeg: -70, wreck: true, kind: 'hatch', seed: 6 });
+  add('rubble', 66, 139.5, { n: 14 }); add('rubble', 48, 129, { n: 8 });
+  add('pallet', 64.5, 131.5, {}); add('crate', 77, 131, { size: 0.7 }); add('barrel', 55, 128, {});
+  add('chainlink_fence', 66, 141.2, { len: 38, lean: true });
+  // and the billboard, at the back on the axis, where the Center's gate looks across at it
+  add('billboard', 40, 141, { rotDeg: 180, w: 9, h: 3.4, y: 4.6, text: 'FACTION BEFORE BLOOD', bg: '#3b3430', color: '#d9cbb0' });
   add('lamp_post', 70, 86.95, { rotDeg: 90 });
   add('lamp_post', 8, 86.95, { rotDeg: 90 });
 

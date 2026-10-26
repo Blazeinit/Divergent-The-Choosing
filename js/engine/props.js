@@ -399,6 +399,52 @@
     }
     ctx.collide(-0.22 * s, -0.22 * s, 0.22 * s, 0.22 * s, { y1: 3, camera: false });
   });
+  // a lawn: grass a hand above the paving inside a low concrete kerb (stepped over, not into)
+  def('lawn', (ctx, p, B) => {
+    const w = p.w || 10, d = p.d || 8, k = 0.16, h = 0.13; // (raised: the city's paving is drawn pulled toward you, and wins against anything a hair above it)
+    const c = ctx.M('concrete');
+    B.box(c, 0, 0, -d / 2 + k / 2, w, h, k); B.box(c, 0, 0, d / 2 - k / 2, w, h, k);
+    B.box(c, -w / 2 + k / 2, 0, 0, k, h, d - 2 * k); B.box(c, w / 2 - k / 2, 0, 0, k, h, d - 2 * k);
+    B.flat(ctx.M('grass:top'), -w / 2 + k, -d / 2 + k, w / 2 - k, d / 2 - k, 0.11);
+    // (worn bare where people cut across, and tufts along the kerb)
+    const r = U.rng(p.x * 17 + p.z * 3);
+    for (let i = 0; i < (p.worn || 2); i++) { const x = (r() - 0.5) * (w - 3), z = (r() - 0.5) * (d - 3); B.flat(ctx.M('dirt:top'), x - 0.9, z - 0.6, x + 0.9, z + 0.6, 0.115); }
+    for (let i = 0; i < w * 0.8; i++) foliage(B, ctx.M('grass:dbl'), -w / 2 + 0.4 + r() * (w - 0.8), 0.11, (r() < 0.5 ? -1 : 1) * (d / 2 - 0.35), 0.18 + r() * 0.1, r);
+  });
+  // a market stall: four poles, a pitched canvas roof, a counter of boards with produce on it
+  def('market_stall', (ctx, p, B) => {
+    const w = p.w || 2.6, d = p.d || 2.0, H = 2.2, post = ctx.M('metal_dark'), canvas = ctx.M(p.canvas || 'fabric_grey'), wood = ctx.M('wood');
+    for (const [x, z] of [[-w / 2, -d / 2], [w / 2, -d / 2], [-w / 2, d / 2], [w / 2, d / 2]]) B.cyl(post, x, 0, z, 0.035, 0.035, H + (z < 0 ? 0.35 : 0), 5);
+    // the roof: higher at the back, sloping down over the counter at the front (+z)
+    B.pushEuler(0, H + 0.18, 0, 0.17, 0, 0);
+    B.box(canvas, 0, 0, 0, w + 0.3, 0.03, d + 0.4);
+    B.box(canvas, 0, -0.22, d / 2 + 0.2, w + 0.3, 0.22, 0.02); // (the valance hanging off the front)
+    B.pop();
+    B.box(wood, 0, 0, d / 2 - 0.35, w - 0.1, 0.85, 0.6);
+    B.box(ctx.M('wood_light'), 0, 0.85, d / 2 - 0.35, w, 0.04, 0.7);
+    const r = U.rng(p.x * 5 + p.z * 7), goods = p.goods || ['plastic_orange', 'grass', 'wood_light', 'mat_red'];
+    for (let i = 0; i < 4; i++) { const x = -w / 2 + 0.4 + i * (w - 0.8) / 3; B.box(wood, x, 0.89, d / 2 - 0.35, 0.5, 0.18, 0.45); B.box(ctx.M(goods[Math.floor(r() * goods.length)]), x, 1.07, d / 2 - 0.35, 0.42, 0.06 + r() * 0.05, 0.38); }
+    B.box(wood, -w / 2 + 0.45, 0, -d / 2 + 0.4, 0.6, 0.6, 0.6); B.box(wood, w / 2 - 0.5, 0, -d / 2 + 0.45, 0.7, 0.45, 0.6); // (stock behind)
+    ctx.collide(-w / 2, d / 2 - 0.7, w / 2, d / 2, { y1: 1.0, camera: false });
+    ctx.collide(-w / 2, -d / 2, w / 2, -d / 2 + 0.8, { y1: 0.7, camera: false });
+  });
+  // a tent: an A-frame of canvas or tarp on a ground sheet, the flap at the front tied back
+  def('tent', (ctx, p, B) => {
+    const L = p.len || 2.4, W = p.w || 2.0, H = p.h || 1.35, m = ctx.M(p.mat || 'fabric_grey'), half = W / 2, sl = Math.hypot(half, H), a = Math.atan2(H, half);
+    B.flat(ctx.M('fabric_blue'), -half - 0.2, -L / 2 - 0.2, half + 0.2, L / 2 + 0.2, 0.02);
+    for (const sg of [-1, 1]) { B.pushEuler(sg * half / 2, H / 2, 0, 0, 0, sg * (Math.PI / 2 - a)); B.box(m, 0, -0.015, 0, 0.03, 0.03, L); B.pop(); }
+    for (const sg of [-1, 1]) { B.pushEuler(sg * half / 2, 0, 0, 0, 0, -sg * a); B.box(m, 0, 0, 0, 0.03, sl, L); B.pop(); }
+    B.cyl(ctx.M('wood'), 0, 0, L / 2, 0.03, 0.03, H + 0.05, 4); B.cyl(ctx.M('wood'), 0, 0, -L / 2, 0.03, 0.03, H + 0.05, 4);
+    B.box(ctx.M('black'), 0, 0.02, L / 2 - 0.02, W * 0.45, H * 0.7, 0.02); // (inside, through the flap)
+    ctx.collide(-half, -L / 2, half, L / 2, { y1: H, camera: false });
+  });
+  // a fire in an oil drum, for the cold (a glow over the top of it)
+  def('barrel_fire', (ctx, p, B) => {
+    B.cyl(ctx.M('rust'), 0, 0, 0, 0.3, 0.3, 0.85, 8);
+    B.cyl(ctx.M('plastic_orange:emit'), 0, 0.84, 0, 0.26, 0.26, 0.04, 8);
+    for (let i = 0; i < 3; i++) { B.pushEuler(0, 0.9, 0, 0.3, i * 2.1, 0); B.box(ctx.M('wood'), 0, 0, 0, 0.06, 0.06, 0.5); B.pop(); }
+    ctx.collide(-0.3, -0.3, 0.3, 0.3, { y1: 0.9, camera: false });
+  });
   def('garden_bed', (ctx, p, B) => {
     const w = p.w || 3, d = p.d || 1.2;
     const wood = ctx.M('wood');
@@ -487,6 +533,8 @@
   def('floor_emblem', (ctx, p, B) => {
     const tex = DV.Tex.emblem('seal', p.color || '#b08a3a', p.bg || '#2c2a26', 256);
     const m = DV.Mat.fromTexture('flooremblem', tex, {});
+    // (out of doors, laid on the city's paving: pulled toward you harder than it is)
+    if (p.top) { m.polygonOffset = true; m.polygonOffsetFactor = -1.6; m.polygonOffsetUnits = -4; }
     const s = (p.size || 4) / 2;
     B.flat(m, -s, -s, s, s, 0.012, { uv: 'unit' });
   });
@@ -496,7 +544,7 @@
   });
   def('stripe', (ctx, p, B) => {
     const w = (p.w || 3) / 2, d = (p.d || 0.3) / 2;
-    B.flat(ctx.M(p.mat || 'hazard'), -w, -d, w, d, 0.008);
+    B.flat(ctx.M((p.mat || 'hazard') + (p.top ? ':top' : '')), -w, -d, w, d, 0.008);
   });
   def('noticeboard', (ctx, p, B) => {
     B.panel(ctx.M('corkboard'), 0, p.y || 1.6, 0.02, p.w || 1.6, p.h || 1.0);

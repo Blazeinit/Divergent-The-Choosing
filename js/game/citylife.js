@@ -371,10 +371,11 @@
         for (const p of sc.people) {
           let speed = 0, act = p.action;
           if (p.child) {
-            // chase: round and round a little circle
-            const a = sc.t * 1.6 + p.phase, R = 1.5;
+            // chase: round and round an oval, long up the pavement and narrow across it (a round one
+            // took them out into the road where the pavement's narrow)
+            const a = sc.t * 1.6 + p.phase, f = sc.f, cu = Math.cos(a) * 1.8, cv = Math.sin(a) * 0.4;
             const cx = p.x0, cz = p.z0;
-            const nx = cx + Math.cos(a) * R, nz = cz + Math.sin(a) * R;
+            const nx = cx + f.ux * cu + f.nx * cv, nz = cz + f.uz * cu + f.nz * cv;
             p.rot = Math.atan2(nx - p.x, nz - p.z);
             if (dt > 0) { p.vx = (nx - p.x) / dt; p.vz = (nz - p.z) / dt; }
             p.x = nx; p.z = nz; speed = 2.4; act = 'idle';

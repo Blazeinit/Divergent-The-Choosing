@@ -16,7 +16,8 @@
     /**
      * key format: "texture" or "texture:mode"
      * modes: lit (default, baked vertex light), emit (full bright), alpha (cutout),
-     *        alphalit (cutout + baked), glass (transparent tint), dbl (double sided lit)
+     *        alphalit (cutout + baked), glass (transparent tint), dbl (double sided lit),
+     *        top (laid flat on the paving: wins the depth test against it from any height)
      */
     get(key) {
       if (cache[key]) return cache[key];
@@ -42,6 +43,12 @@
           m.userData.baked = true;
           // (the trees' crowns: they bend with the wind, above head height)
           if (tex === 'grass') Mat.sway(m);
+          break;
+        case 'top':
+          // laid flat on the city's paving (a lawn, a seal, a grate): pulled toward you harder than the
+          // paving is (its polygon offset grows with the slope, a good ten centimetres from any height)
+          m = new THREE.MeshBasicMaterial({ map, vertexColors: true, fog: true, polygonOffset: true, polygonOffsetFactor: -1.6, polygonOffsetUnits: -4 });
+          m.userData.baked = true;
           break;
         default:
           m = new THREE.MeshBasicMaterial({ map, vertexColors: true, fog: true });

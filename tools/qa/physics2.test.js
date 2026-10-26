@@ -249,18 +249,27 @@ L.run('physics 2: weight, stacking, rolling, movement feel, knock-downs', async 
 
   // you can stand on a crate (jump onto it), and walk off it
   const onCrate = await ev(() => {
-    // (nobody walking by to shove it while you're on it)
+    // (nobody walking by to shove it while you're on it: the passers-by gone, and the residents
+    // (js/game/lives.js), whose routes go where they go, left out of the physics for the moment)
     const life = DV.World.current.streetLife;
     for (const q of life.peds.splice(0)) life.releasePed(q);
     life.pedT = 99;
+    const walkers0 = life.walkers;
+    life.walkers = () => [];
+    // (nor a car through it: the spot it finds may be out in the road)
+    for (const c of life.cars.splice(0)) life.releaseCar(c);
+    life.carT = 99;
     const P = DV.Player, at = openNear(-200, 150, 4), b = W.add('crate', at[0], at[1], 0);
-    P.place(at[0], at[1], 0); P.y = 0.9; P.onGround = false; P.vy = 0;
+    // (and still: placing you doesn't take away the speed the run before left you with)
+    for (const k in DV.Input.keys) DV.Input.keys[k] = false;
+    P.place(at[0], at[1], 0); P.y = 0.9; P.onGround = false; P.vy = 0; P.vx = 0; P.vz = 0;
     let top = 0;
     for (let t = 0; t < 0.8; t += 0.05) { QA.step(0.05); top = P.y; }
     const stood = { y: +top.toFixed(3), onGround: P.onGround, crate: +Math.hypot(b.x - at[0], b.z - at[1]).toFixed(3) };
     DV.Game.rig.yaw = 0; DV.Input.keys.KeyW = true;
     for (let t = 0; t < 1.2; t += 0.05) QA.step(0.05);
     DV.Input.keys.KeyW = false; QA.step(0.6);
+    life.walkers = walkers0;
     return { stood, after: +P.y.toFixed(3) };
   });
   T.ok(Math.abs(onCrate.stood.y - 0.6) < 0.01 && onCrate.stood.onGround && onCrate.stood.crate < 0.05 && onCrate.after === 0, 'come down on a crate and you stand on it (' + onCrate.stood.y + ' m up); walk off and you drop back to the street', onCrate);
