@@ -111,7 +111,7 @@ L.run('the trials: Stage Two, Stage Three, Capture the Flag', async (p, T, errs)
   // a minute of the game: the paint flies, people are out
   const fight = await ev(() => { QA.step(40); const C = DV.Chapter; return { out: C.score.ours + C.score.theirs, over: C.over }; });
   T.ok(fight.out > 0 || fight.over, 'the paint flies: ' + fight.out + ' tagged in a minute', fight);
-  const won = await ev(() => { const C = DV.Chapter; if (C.over) return 'over'; const fs = C.flagSpot; DV.Player.place(fs[0] + 1, fs[1] + 1, 0); QA.step(0.2); B.use('ctf_take'); if (DV.Dialogue.isActive()) QA.pick('Take it'); return 'taken'; });
+  const won = await ev(() => { const C = DV.Chapter; for (let n = 0; n < 400 && C.youOut && !C.over; n++) QA.step(0.1); if (C.over) return 'over'; if (DV.Game.state !== 'playing') QA.step(1); const fs = C.flagSpot; DV.Player.place(fs[0] + 1, fs[1] + 1, 0); QA.step(0.2); B.use('ctf_take'); if (DV.Dialogue.isActive()) QA.pick('Take it'); return 'taken'; });
   T.ok(await L.until(p, () => !!document.getElementById('banner'), 60000, 0.5), 'the flag: ' + won);
   const cb = await ev(() => document.querySelector('#banner .b1').textContent);
   await L.shot(p, 'trial_ctf_flag');
